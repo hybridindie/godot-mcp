@@ -44,16 +44,42 @@ Every tool is tagged with exactly one:
 
 - `dry_run=True` returns what *would* happen and performs nothing.
 - All safety logic lives in `mcp_server/safety.py` — **never** in the addon (issue #14).
-- `list_tools_by_safety_class()` exposes the tagging for agent introspection.
+- Tag tools with the `READ_ONLY` / `MUTATING` / `DESTRUCTIVE` / `RUNTIME` meta constants
+  from `safety.py`, e.g. `@mcp.tool(meta=MUTATING)`.
+- `list_tools_by_safety_class()` is a `read_only` tool returning `{ class: [tool names] }`
+  for agent introspection.
+
+#### `dry_run` / `confirm` convention (issue #14)
+
+- `mutating` and `destructive` tools take `dry_run: bool = False`. With `dry_run=True`, the
+  tool runs its preconditions and returns its typed result describing what *would* happen
+  (e.g. a `created=False` / `dry_run=True` flag), **sending no mutation** over the bridge.
+- `destructive` tools additionally take `confirm: bool = False` and call
+  `require_confirmation(confirm, action)` — without `confirm=True` they fail with a
+  `PRECONDITION_FAILED` (`required="confirm"`), never deleting anything.
 
 ### Preconditions
 
-Checked before any mutation; a failure returns a structured `PRECONDITION_FAILED`
-envelope (see [`architecture.md`](architecture.md)), never a Python exception:
+Checked before any side effect. Each is a function in `safety.py` that raises a typed
+`PreconditionError`; the `enforce_preconditions` decorator converts it to a `ToolError`
+carrying `"<ERROR_CODE>: <hint> [required=<field>]"` — a structured, actionable message,
+never a Python traceback. The structured precondition shape (matching the bridge envelope):
 
-- `require_bridge_connected` — the Godot addon is reachable.
-- `require_active_scene` — a scene is open in the editor.
-- `require_node_exists(path)` — the target node path resolves.
+```json
+{
+  "ok": false,
+  "error": "PRECONDITION_FAILED",
+  "hint": "No scene is currently open. Open a scene before creating nodes.",
+  "required": "active_scene"
+}
+```
+
+- `require_bridge_connected(bridge)` — Godot reachable (else `BRIDGE_DISCONNECTED`,
+  `required="bridge_connected"`).
+- `require_active_scene(bridge)` — a scene is open (`required="active_scene"`).
+- `require_node_exists(bridge, path)` — the target node path resolves (else
+  `RESOURCE_NOT_FOUND`, `required="node_exists"`).
+- `require_confirmation(confirm, action)` — destructive guard (`required="confirm"`).
 
 ### Per-tool contract template
 
@@ -85,6 +111,12 @@ states return an empty model (`is_open=False` / `tree=None` / `selected=None`), 
 
 `SceneNode = { name, type, script?, children: [SceneNode] }`. `get_node_properties` errors
 with `RESOURCE_NOT_FOUND` (bad path) or `PRECONDITION_FAILED` (no scene open).
+
+#### Safety introspection (issue #14) — `read_only`
+
+| Tool | Params | Returns |
+|------|--------|---------|
+| `list_tools_by_safety_class` | — | `{ "read_only": [...], "mutating": [...], ... }` |
 
 ## Resources
 

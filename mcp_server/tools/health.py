@@ -13,6 +13,7 @@ from mcp_server import __version__
 from mcp_server.bridge import Bridge
 from mcp_server.config import ServerConfig
 from mcp_server.models.health import HealthStatus
+from mcp_server.safety import READ_ONLY
 
 
 def build_health(bridge: Bridge, config: ServerConfig) -> HealthStatus:
@@ -29,7 +30,7 @@ def build_health(bridge: Bridge, config: ServerConfig) -> HealthStatus:
 def register_health(mcp: FastMCP, bridge: Bridge, config: ServerConfig) -> None:
     """Register health_check on the given server."""
 
-    @mcp.tool(meta={"safety_class": "read_only"})
+    @mcp.tool(meta=READ_ONLY)
     async def health_check() -> HealthStatus:
         """Report server version and whether the Godot editor bridge is connected.
 

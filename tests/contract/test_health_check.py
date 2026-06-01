@@ -12,7 +12,8 @@ from fastmcp import Client, FastMCP
 from mcp_server import __version__
 from mcp_server.bridge import Bridge
 from mcp_server.config import ServerConfig
-from mcp_server.server import create_server, list_tools_by_safety_class
+from mcp_server.safety import grouped_by_safety_class
+from mcp_server.server import create_server
 from tests.fakes import FakeAddonConnection, connector_for, flaky_connector
 
 pytestmark = pytest.mark.asyncio
@@ -65,5 +66,5 @@ async def test_health_check_reports_disconnected_when_godot_absent(
 async def test_list_tools_by_safety_class_groups_health_check() -> None:
     bridge = Bridge(ServerConfig().bridge, connector=connector_for(FakeAddonConnection()))
     server = _server_with_bridge(bridge)
-    grouped = await list_tools_by_safety_class(server)
+    grouped = await grouped_by_safety_class(server)
     assert "health_check" in grouped["read_only"]

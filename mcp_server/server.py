@@ -19,6 +19,7 @@ from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.config import ServerConfig
+from mcp_server.safety import register_safety_tools
 from mcp_server.tools.health import register_health
 from mcp_server.tools.inspection import register_inspection
 
@@ -54,16 +55,5 @@ def create_server(config: ServerConfig | None = None, bridge: Bridge | None = No
     mcp = FastMCP(SERVER_NAME, lifespan=lifespan)
     register_health(mcp, bridge, config)
     register_inspection(mcp, bridge)
+    register_safety_tools(mcp)
     return mcp
-
-
-async def list_tools_by_safety_class(mcp: FastMCP) -> dict[str, list[str]]:
-    """Group registered tool names by their ``safety_class`` for agent introspection.
-
-    Tools without a declared safety class are grouped under ``"unclassified"``.
-    """
-    grouped: dict[str, list[str]] = {}
-    for tool in await mcp.list_tools():
-        safety_class = (tool.meta or {}).get("safety_class", "unclassified")
-        grouped.setdefault(safety_class, []).append(tool.name)
-    return grouped

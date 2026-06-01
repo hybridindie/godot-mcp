@@ -17,9 +17,8 @@ from mcp_server.models.inspection import (
     SceneTree,
     SelectedNode,
 )
+from mcp_server.safety import READ_ONLY
 from mcp_server.tools._route import route
-
-READ_ONLY = {"safety_class": "read_only"}
 
 
 def register_inspection(mcp: FastMCP, bridge: Bridge) -> None:
