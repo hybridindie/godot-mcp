@@ -4,8 +4,13 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
 
-from mcp_server.logging_setup import JsonFormatter, configure_logging
+from mcp_server.logging_setup import (
+    JsonFormatter,
+    _is_json_stderr_handler,
+    configure_logging,
+)
 
 
 def test_json_formatter_emits_parseable_record() -> None:
@@ -31,6 +36,29 @@ def test_configure_logging_does_not_touch_stdout() -> None:
     handlers = logging.getLogger().handlers
     assert handlers, "configure_logging must install a handler"
     streams = [getattr(h, "stream", None) for h in handlers]
-    import sys
 
     assert sys.stdout not in streams, "logging must never write to stdout"
+
+
+def test_configure_logging_is_idempotent() -> None:
+
+    configure_logging("INFO")
+    count = sum(1 for h in logging.getLogger().handlers if _is_json_stderr_handler(h))
+    configure_logging("INFO")
+    recount = sum(1 for h in logging.getLogger().handlers if _is_json_stderr_handler(h))
+    assert recount == count == 1, "repeated calls must not stack duplicate handlers"
+
+
+def test_configure_logging_removes_only_stdout_handlers() -> None:
+
+    root = logging.getLogger()
+    stdout_handler = logging.StreamHandler(stream=sys.stdout)
+    unrelated = logging.StreamHandler(stream=sys.stderr)  # not our JSON handler
+    root.addHandler(stdout_handler)
+    root.addHandler(unrelated)
+    try:
+        configure_logging("INFO")
+        assert stdout_handler not in root.handlers, "stdout handler must be removed"
+        assert unrelated in root.handlers, "unrelated handlers must be left in place"
+    finally:
+        root.removeHandler(unrelated)

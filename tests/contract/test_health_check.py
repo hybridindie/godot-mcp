@@ -45,16 +45,21 @@ async def test_health_check_reports_connected_bridge() -> None:
     assert payload["bridge_url"] == ServerConfig().bridge.url
 
 
-async def test_health_check_reports_disconnected_when_godot_absent() -> None:
-    # A connector that always fails ⇒ lifespan connect is suppressed ⇒ disconnected.
+async def test_health_check_reports_disconnected_when_godot_absent(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # A connector that always fails ⇒ startup connect fails ⇒ disconnected, and the
+    # failure is logged at WARNING (not silently swallowed) so it is diagnosable.
     bridge = Bridge(
         ServerConfig().bridge,
         connector=flaky_connector(fail_times=99, connection=FakeAddonConnection()),
     )
     server = _server_with_bridge(bridge)
-    async with Client(server) as client:
-        result = await client.call_tool("health_check", {})
+    with caplog.at_level("WARNING", logger="mcp_server.server"):
+        async with Client(server) as client:
+            result = await client.call_tool("health_check", {})
     assert result.structured_content["bridge_connected"] is False
+    assert any("bridge not connected" in r.message for r in caplog.records)
 
 
 async def test_list_tools_by_safety_class_groups_health_check() -> None:

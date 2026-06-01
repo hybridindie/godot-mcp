@@ -11,7 +11,6 @@ missing editor never blocks the server) and closes on shutdown
 
 from __future__ import annotations
 
-import contextlib
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -35,10 +34,17 @@ def create_server(config: ServerConfig | None = None, bridge: Bridge | None = No
     @asynccontextmanager
     async def lifespan(_server: FastMCP) -> AsyncIterator[None]:
         # Best-effort connect: if Godot isn't running, start anyway and report
-        # disconnected via health_check rather than failing to boot.
-        with contextlib.suppress(Exception):
+        # disconnected via health_check rather than failing to boot — but log the
+        # failure so a wrong URL / missing addon is diagnosable.
+        try:
             await bridge.connect()
             logger.info("bridge connected", extra={"url": config.bridge.url})
+        except Exception:
+            logger.warning(
+                "bridge not connected at startup; continuing (check the editor/addon)",
+                extra={"url": config.bridge.url},
+                exc_info=True,
+            )
         try:
             yield
         finally:

@@ -38,12 +38,29 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(payload, default=str)
 
 
-def configure_logging(level: str = "INFO") -> None:
-    """Install a JSON stderr handler on the root logger (idempotent)."""
-    handler = logging.StreamHandler(stream=sys.stderr)
-    handler.setFormatter(JsonFormatter())
+def _is_json_stderr_handler(handler: logging.Handler) -> bool:
+    return isinstance(handler.formatter, JsonFormatter) and (
+        getattr(handler, "stream", None) is sys.stderr
+    )
 
+
+def configure_logging(level: str = "INFO") -> None:
+    """Route root logging to a JSON stderr handler.
+
+    Idempotent and non-destructive: removes only stdout-bound handlers (which would
+    corrupt the stdio MCP channel) and installs our stderr JSON handler at most
+    once, leaving any unrelated handlers in place.
+    """
     root = logging.getLogger()
-    root.handlers.clear()
-    root.addHandler(handler)
+
+    # Drop any handler writing to stdout — stdout is the stdio protocol channel.
+    for handler in list(root.handlers):
+        if getattr(handler, "stream", None) is sys.stdout:
+            root.removeHandler(handler)
+
+    if not any(_is_json_stderr_handler(h) for h in root.handlers):
+        handler = logging.StreamHandler(stream=sys.stderr)
+        handler.setFormatter(JsonFormatter())
+        root.addHandler(handler)
+
     root.setLevel(level.upper())
