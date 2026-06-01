@@ -25,6 +25,7 @@ from mcp_server.safety import register_safety_tools
 from mcp_server.tools.health import register_health
 from mcp_server.tools.inspection import register_inspection
 from mcp_server.tools.mutation import register_mutation
+from mcp_server.tools.node_ops import register_node_ops
 from mcp_server.tools.runtime import register_runtime
 from mcp_server.tools.scripts import register_scripts
 from mcp_server.toolsets import ToolsetManager, register_toolset_tools
@@ -67,6 +68,7 @@ def create_server(
     register_health(mcp, bridge, config)
     register_inspection(mcp, bridge)
     register_mutation(mcp, bridge)
+    register_node_ops(mcp, bridge)
     register_resources(mcp, bridge)
     register_runtime(mcp, bridge, config, runner)
     register_scripts(mcp, bridge, config, runner)

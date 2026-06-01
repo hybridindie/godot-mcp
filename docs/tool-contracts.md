@@ -136,6 +136,20 @@ UndoRedo-wrapped `cmd_*` handler and runs preconditions first.
 - `create_scene` writes a new `.tscn`/`.scn` and opens it; it is a file creation, not a
   UndoRedo-tracked tree edit.
 
+Node parity (issue #31), also in `scene_edit`:
+
+| Tool | Params | Returns | Class |
+|------|--------|---------|-------|
+| `duplicate_node` | `node_path` | `DuplicateNodeResult { node_path, source_path }` | `mutating` |
+| `move_node` | `node_path, new_parent_path, index=-1` | `MoveNodeResult { node_path, moved }` | `mutating` |
+| `add_to_group` / `remove_from_group` | `node_path, group` | `GroupResult { node_path, group, in_group, changed }` | `mutating` |
+| `list_signal_connections` | `node_path` | `SignalConnectionList { node_path, connections: [{signal, target_path, method, persistent}] }` | `read_only` |
+| `disconnect_signal` | `source_path, signal_name, target_path, method_name` | `DisconnectSignalResult { …, disconnected }` | `mutating` |
+
+`duplicate_node` adds with a readable name (`Box2`). `move_node` rejects moving the root or
+into a descendant. Group membership is persistent (saved into the scene). All reversible via
+the editor's undo.
+
 #### Scripts (issue #10) — category: `scripts` (gated off by default)
 
 Read/write/patch route through the addon (single path; the editor re-scans after

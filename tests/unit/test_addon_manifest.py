@@ -154,6 +154,19 @@ def test_router_registers_script_commands() -> None:
         assert f'"{command}"' in source, f"router must register {command}"
 
 
+def test_router_registers_node_parity_commands() -> None:
+    source = (ADDON_DIR / "command_router.gd").read_text()
+    for command in (
+        "cmd_duplicate_node",
+        "cmd_move_node",
+        "cmd_add_to_group",
+        "cmd_remove_from_group",
+        "cmd_list_signal_connections",
+        "cmd_disconnect_signal",
+    ):
+        assert f'"{command}"' in source, f"router must register {command}"
+
+
 def test_mutations_use_undo_redo() -> None:
     source = (ADDON_DIR / "command_router.gd").read_text()
     # Every create/rename/delete/set must register with EditorUndoRedoManager.
