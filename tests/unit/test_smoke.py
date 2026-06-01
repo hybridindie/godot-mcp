@@ -53,10 +53,9 @@ def test_main_entrypoint_is_callable_without_import_side_effects() -> None:
     assert callable(main_mod.main)
 
 
-def test_main_reports_not_yet_bootstrapped() -> None:
-    from mcp_server.main import main
+def test_create_server_builds_without_io() -> None:
+    # Building the server must not perform I/O or block (it runs in-process here).
+    from mcp_server.server import create_server
 
-    # The scaffold entrypoint exits cleanly with a message, not a traceback.
-    with pytest.raises(SystemExit) as excinfo:
-        main()
-    assert "issue #4" in str(excinfo.value)
+    server = create_server()
+    assert server is not None

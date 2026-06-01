@@ -8,14 +8,21 @@ with no auth, per the v1 design.
 from __future__ import annotations
 
 import os
+from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 DEFAULT_BRIDGE_URL = "ws://localhost:9080"
 DEFAULT_REQUEST_TIMEOUT = 10.0
 
-# Environment override for the bridge URL.
+# MCP HTTP transport defaults (distinct from Godot's bridge port 9080).
+DEFAULT_HTTP_HOST = "127.0.0.1"
+DEFAULT_HTTP_PORT = 9090
+
+# Environment overrides.
 BRIDGE_URL_ENV = "GODOT_MCP_BRIDGE_URL"
+
+Transport = Literal["stdio", "http"]
 
 
 class BridgeConfig(BaseModel):
@@ -28,3 +35,32 @@ class BridgeConfig(BaseModel):
     def from_env(cls) -> BridgeConfig:
         """Build config from the environment, falling back to localhost defaults."""
         return cls(url=os.environ.get(BRIDGE_URL_ENV, DEFAULT_BRIDGE_URL))
+
+
+class ServerConfig(BaseModel):
+    """Top-level MCP server configuration.
+
+    Transport defaults to ``stdio`` (the spec'd, auth-free local transport);
+    ``http`` exposes the server over Streamable HTTP for clients that want a
+    long-lived shared server. ``permission_mode`` is plumbed here but enforced in
+    issue #14.
+    """
+
+    bridge: BridgeConfig = Field(default_factory=BridgeConfig)
+    transport: Transport = "stdio"
+    host: str = DEFAULT_HTTP_HOST
+    port: int = DEFAULT_HTTP_PORT
+    log_level: str = "INFO"
+    permission_mode: str = "ask"
+
+    @classmethod
+    def from_env(cls) -> ServerConfig:
+        """Build full server config from the environment."""
+        return cls(
+            bridge=BridgeConfig.from_env(),
+            transport=os.environ.get("GODOT_MCP_TRANSPORT", "stdio"),  # type: ignore[arg-type]
+            host=os.environ.get("GODOT_MCP_HTTP_HOST", DEFAULT_HTTP_HOST),
+            port=int(os.environ.get("GODOT_MCP_HTTP_PORT", DEFAULT_HTTP_PORT)),
+            log_level=os.environ.get("GODOT_MCP_LOG_LEVEL", "INFO"),
+            permission_mode=os.environ.get("GODOT_MCP_PERMISSION_MODE", "ask"),
+        )

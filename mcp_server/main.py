@@ -1,26 +1,34 @@
-"""stdio entrypoint for the godot-mcp FastMCP server.
+"""stdio (and optional Streamable HTTP) entrypoint for the godot-mcp server.
 
-This is a scaffold placeholder (issue #1). The FastMCP server instance, the
-``health_check`` tool, and the bridge wiring are bootstrapped in issue #4. Keeping
-this thin avoids import-time side effects (no socket connect, no ``mcp.run()`` at
-import — see .claude/rules/async-patterns.md).
+Run with ``uv run godot-mcp`` (or ``python -m mcp_server.main``). Transport
+defaults to stdio; set ``GODOT_MCP_TRANSPORT=http`` (with ``GODOT_MCP_HTTP_HOST`` /
+``GODOT_MCP_HTTP_PORT``) for a long-lived HTTP server. The FastMCP runtime owns
+the event loop — we never call ``asyncio.run`` here
+(see .claude/rules/async-patterns.md).
 """
 
 from __future__ import annotations
 
-from mcp_server import __version__
+import logging
+
+from mcp_server.config import ServerConfig
+from mcp_server.logging_setup import configure_logging
+from mcp_server.server import create_server
+
+logger = logging.getLogger(__name__)
 
 
 def main() -> None:
-    """Console-script entry point (``godot-mcp``).
+    """Build the server from the environment and run it on the configured transport."""
+    config = ServerConfig.from_env()
+    configure_logging(config.log_level)
+    logger.info("starting godot-mcp", extra={"transport": config.transport})
 
-    Replaced in issue #4 with the FastMCP stdio server. For now it only reports
-    that the server is not yet bootstrapped so the entry point is wired and
-    importable without performing any I/O at import time.
-    """
-    raise SystemExit(
-        f"godot-mcp {__version__}: server entrypoint not yet bootstrapped (issue #4)."
-    )
+    server = create_server(config)
+    if config.transport == "http":
+        server.run(transport="http", host=config.host, port=config.port)
+    else:
+        server.run(transport="stdio")
 
 
 if __name__ == "__main__":

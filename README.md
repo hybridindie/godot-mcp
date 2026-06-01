@@ -99,11 +99,60 @@ pytest
 3. The status dock appears once issue #2 lands; the bridge listens on
    `ws://localhost:9080` by default (configurable, localhost-only, no auth in v1).
 
+### Running the server
+
+```bash
+uv run godot-mcp                      # stdio (default)
+GODOT_MCP_TRANSPORT=http uv run godot-mcp   # Streamable HTTP on 127.0.0.1:9090
+```
+
+`python -m mcp_server.main` is the equivalent module invocation. (Running
+`python mcp_server/main.py` directly does **not** work — the package uses absolute
+imports, so use the console script or `-m`.)
+
+Configuration (all optional, env vars):
+
+| Var | Default | Meaning |
+|-----|---------|---------|
+| `GODOT_MCP_TRANSPORT` | `stdio` | `stdio` or `http` |
+| `GODOT_MCP_HTTP_HOST` / `GODOT_MCP_HTTP_PORT` | `127.0.0.1` / `9090` | HTTP bind (when `transport=http`) |
+| `GODOT_MCP_BRIDGE_URL` | `ws://localhost:9080` | Godot addon WebSocket URL |
+| `GODOT_MCP_LOG_LEVEL` | `INFO` | log level (JSON logs → stderr) |
+| `GODOT_MCP_PERMISSION_MODE` | `ask` | tool permission mode (enforced in issue #14) |
+
 ### Connecting an MCP client
 
-The server registers as a local **stdio** MCP command. Concrete `claude mcp add` /
-`.mcp.json` (Claude Code) and `opencode.json` (OpenCode) examples are documented once the
-stdio entrypoint exists (issue #4). Planned entrypoint: `uv run godot-mcp`.
+The server registers as a local **stdio** MCP command. The `health_check` tool reports
+server version and Godot bridge connection state.
+
+**OpenCode** (`opencode.json`):
+
+```json
+{
+  "mcp": {
+    "godot": {
+      "type": "local",
+      "command": ["uv", "run", "godot-mcp"]
+    }
+  }
+}
+```
+
+**Claude Code** (`.mcp.json`, or `claude mcp add godot -- uv run godot-mcp`):
+
+```json
+{
+  "mcpServers": {
+    "godot": {
+      "command": "uv",
+      "args": ["run", "godot-mcp"]
+    }
+  }
+}
+```
+
+Both assume the command runs from the repo root (so `uv` resolves this project's
+environment). Use an absolute path or a `--directory` if launching elsewhere.
 
 ## Contributing
 
