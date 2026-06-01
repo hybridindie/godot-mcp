@@ -70,6 +70,15 @@ func _test_from_json(failures: Array[String]) -> void:
 	# Malformed Rect2 input must not crash; it degrades to a default.
 	_eq(failures, "fj.rect2.bad", Coerce.from_json("oops", TYPE_RECT2), Rect2())
 
+	# String forms (issue #51): "Vector2(...)" / "Rect2(...)" via str_to_var, hex via Color.html.
+	_eq(failures, "fj.str.vec2", Coerce.from_json("Vector2(100, 200)", TYPE_VECTOR2), Vector2(100, 200))
+	_eq(failures, "fj.str.vec3", Coerce.from_json("Vector3(1, 2, 3)", TYPE_VECTOR3), Vector3(1, 2, 3))
+	_eq(failures, "fj.str.rect2", Coerce.from_json("Rect2(0, 0, 4, 5)", TYPE_RECT2), Rect2(0, 0, 4, 5))
+	_eq(failures, "fj.str.color", Coerce.from_json("#00ff00", TYPE_COLOR), Color(0, 1, 0, 1))
+	_eq(failures, "fj.str.color.alpha", Coerce.from_json("#0000ffff", TYPE_COLOR), Color(0, 0, 1, 1))
+	# A plain string still passes through for TYPE_STRING.
+	_eq(failures, "fj.str.passthrough", Coerce.from_json("hello", TYPE_STRING), "hello")
+
 
 func _test_serialize_tree(failures: Array[String]) -> void:
 	var world := Node2D.new()

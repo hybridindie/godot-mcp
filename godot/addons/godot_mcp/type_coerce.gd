@@ -53,7 +53,15 @@ static func to_json(value: Variant) -> Variant:
 ## JSON → Godot value of the given Variant.Type (issue #6, write direction).
 ## Vectors/Color accept either the dict form to_json emits ({x, y}) or an array
 ## ([x, y]); NodePath/StringName from string; primitives coerced to the type.
+##
+## Composite types also accept agent-friendly string forms (issue #51):
+##   "Vector2(100, 200)", "Vector3(1, 2, 3)", "Rect2(0, 0, 4, 5)" (via str_to_var)
+##   and HTML/hex colors "#ff0000" / "#ff0000ff" (via Color.html).
 static func from_json(value: Variant, type: int) -> Variant:
+	if value is String:
+		var parsed: Variant = _from_string(value, type)
+		if parsed != null:
+			return parsed
 	match type:
 		TYPE_VECTOR2:
 			return Vector2(_component(value, "x", 0), _component(value, "y", 1))
@@ -96,6 +104,18 @@ static func from_json(value: Variant, type: int) -> Variant:
 			return str(value)
 		_:
 			return value
+
+
+## Parse a string form into a composite type, or null to fall back to dict/array.
+static func _from_string(value: String, type: int) -> Variant:
+	match type:
+		TYPE_VECTOR2, TYPE_VECTOR2I, TYPE_VECTOR3, TYPE_VECTOR3I, TYPE_RECT2, TYPE_RECT2I:
+			# str_to_var parses "Vector2(100, 200)", "Rect2(0, 0, 4, 5)", etc.
+			var parsed: Variant = str_to_var(value)
+			return parsed if typeof(parsed) == type else null
+		TYPE_COLOR:
+			return Color.html(value) if value.is_valid_html_color() else null
+	return null
 
 
 static func _has_rect_keys(value: Variant) -> bool:

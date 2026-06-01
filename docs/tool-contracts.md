@@ -129,7 +129,8 @@ UndoRedo-wrapped `cmd_*` handler and runs preconditions first.
 | `create_scene` | `root_type, scene_path` | `CreateSceneResult { scene_path, root_type, created }` | `mutating` |
 
 - `set_node_property` coerces JSON to the property's declared Godot type via
-  `type_coerce.from_json` (Vector2/3 & Color as `{…}` objects or arrays, NodePath as string).
+  `type_coerce.from_json` (Vector2/3 & Color as `{…}` objects or arrays, NodePath as string,
+  plus string forms like `"Vector2(100, 200)"` and `"#ff0000"` — issue #51).
 - `delete_node` (destructive) requires `confirm=True` to delete; `dry_run=True` previews
   without confirming. The addon also honors the `confirm` flag defensively.
 - `create_scene` writes a new `.tscn`/`.scn` and opens it; it is a file creation, not a

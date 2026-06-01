@@ -120,7 +120,10 @@ contract tests) before adding a new code.
 Godot types cross the bridge as JSON-safe forms, coerced on the addon side in the
 dedicated `type_coerce.gd` helper (`MCPTypeCoerce`), never inline. The read direction
 (Godot → JSON) landed in issue #5; the write direction (`from_json`, using each property's
-declared type to reconstruct the Godot value) lands with the mutation tools in issue #6.
+declared type to reconstruct the Godot value) landed with the mutation tools in issue #6.
+`from_json` also accepts agent-friendly **string forms** (issue #51): `"Vector2(100, 200)"`,
+`"Rect2(0, 0, 4, 5)"` (via `str_to_var`), and HTML/hex colors `"#ff0000"` / `"#ff0000ff"`
+(via `Color.html`), in addition to the dict/array forms below.
 
 | Godot type | JSON shape |
 |------------|------------|

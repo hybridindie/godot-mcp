@@ -69,6 +69,14 @@ async def _run_roundtrip() -> None:
         )
         assert was_set["value"] == {"x": 10.0, "y": 20.0}  # coerced JSON → Vector2 → JSON
 
+        # Agent-friendly string form is also coerced (issue #51).
+        as_string = await _ok(
+            bridge,
+            "cmd_set_node_property",
+            {"node_path": "Hero", "property": "position", "value": "Vector2(30, 40)"},
+        )
+        assert as_string["value"] == {"x": 30.0, "y": 40.0}
+
         renamed = await _ok(bridge, "cmd_rename_node", {"node_path": "Hero", "new_name": "Player"})
         assert renamed["new_name"] == "Player"
 
