@@ -17,6 +17,7 @@ from typing import Any
 from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
+from mcp_server.categories import SCENE_EDIT_TAG
 from mcp_server.models.mutation import (
     AttachScriptResult,
     ConnectSignalResult,
@@ -38,11 +39,13 @@ from mcp_server.safety import (
 )
 from mcp_server.tools._route import route
 
+SCENE_EDIT = {SCENE_EDIT_TAG}
+
 
 def register_mutation(mcp: FastMCP, bridge: Bridge) -> None:
     """Register all eight mutation tools on the server."""
 
-    @mcp.tool(meta=MUTATING)
+    @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
     @enforce_preconditions
     async def create_node(
         parent_path: str, node_type: str, node_name: str, dry_run: bool = False
@@ -59,7 +62,7 @@ def register_mutation(mcp: FastMCP, bridge: Bridge) -> None:
         params = {"parent_path": parent_path, "node_type": node_type, "name": node_name}
         return CreateNodeResult(**await route(bridge, "cmd_create_node", params))
 
-    @mcp.tool(meta=MUTATING)
+    @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
     @enforce_preconditions
     async def rename_node(node_path: str, new_name: str, dry_run: bool = False) -> RenameNodeResult:
         """Rename the node at ``node_path`` to ``new_name``."""
@@ -71,7 +74,7 @@ def register_mutation(mcp: FastMCP, bridge: Bridge) -> None:
         params = {"node_path": node_path, "new_name": new_name}
         return RenameNodeResult(**await route(bridge, "cmd_rename_node", params))
 
-    @mcp.tool(meta=MUTATING)
+    @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
     @enforce_preconditions
     async def set_node_property(
         node_path: str, property: str, value: Any, dry_run: bool = False
@@ -88,7 +91,7 @@ def register_mutation(mcp: FastMCP, bridge: Bridge) -> None:
         params = {"node_path": node_path, "property": property, "value": value}
         return SetPropertyResult(**await route(bridge, "cmd_set_node_property", params))
 
-    @mcp.tool(meta=DESTRUCTIVE)
+    @mcp.tool(meta=DESTRUCTIVE, tags=SCENE_EDIT)
     @enforce_preconditions
     async def delete_node(
         node_path: str, confirm: bool = False, dry_run: bool = False
@@ -103,7 +106,7 @@ def register_mutation(mcp: FastMCP, bridge: Bridge) -> None:
         params = {"node_path": node_path, "confirm": True}
         return DeleteNodeResult(**await route(bridge, "cmd_delete_node", params))
 
-    @mcp.tool(meta=MUTATING)
+    @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
     @enforce_preconditions
     async def attach_script(
         node_path: str, script_path: str, dry_run: bool = False
@@ -119,7 +122,7 @@ def register_mutation(mcp: FastMCP, bridge: Bridge) -> None:
         params = {"node_path": node_path, "script_path": script_path}
         return AttachScriptResult(**await route(bridge, "cmd_attach_script", params))
 
-    @mcp.tool(meta=MUTATING)
+    @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
     @enforce_preconditions
     async def connect_signal(
         source_path: str,
@@ -150,7 +153,7 @@ def register_mutation(mcp: FastMCP, bridge: Bridge) -> None:
         }
         return ConnectSignalResult(**await route(bridge, "cmd_connect_signal", params))
 
-    @mcp.tool(meta=MUTATING)
+    @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
     @enforce_preconditions
     async def save_scene(dry_run: bool = False) -> SaveSceneResult:
         """Save the currently open scene to disk, reporting the file path."""
@@ -159,7 +162,7 @@ def register_mutation(mcp: FastMCP, bridge: Bridge) -> None:
             return SaveSceneResult(saved=False, dry_run=True)
         return SaveSceneResult(**await route(bridge, "cmd_save_scene"))
 
-    @mcp.tool(meta=MUTATING)
+    @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
     @enforce_preconditions
     async def create_scene(
         root_type: str, scene_path: str, dry_run: bool = False

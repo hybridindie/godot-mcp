@@ -10,6 +10,7 @@ from __future__ import annotations
 from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
+from mcp_server.categories import INSPECTION_TAG
 from mcp_server.models.inspection import (
     ActiveScene,
     NodeInfo,
@@ -20,25 +21,27 @@ from mcp_server.models.inspection import (
 from mcp_server.safety import READ_ONLY
 from mcp_server.tools._route import route
 
+INSPECTION = {INSPECTION_TAG}
+
 
 def register_inspection(mcp: FastMCP, bridge: Bridge) -> None:
     """Register all five inspection tools on the server."""
 
-    @mcp.tool(meta=READ_ONLY)
+    @mcp.tool(meta=READ_ONLY, tags=INSPECTION)
     async def get_project_info() -> ProjectInfo:
         """Get project-level context: name, Godot version, main scene, autoloads,
         and project-defined input actions. Call this to orient before editing.
         """
         return ProjectInfo(**await route(bridge, "cmd_get_project_info"))
 
-    @mcp.tool(meta=READ_ONLY)
+    @mcp.tool(meta=READ_ONLY, tags=INSPECTION)
     async def get_active_scene() -> ActiveScene:
         """Get the currently open scene's path and name. Returns ``is_open=False``
         when no scene is open (not an error).
         """
         return ActiveScene(**await route(bridge, "cmd_get_active_scene"))
 
-    @mcp.tool(meta=READ_ONLY)
+    @mcp.tool(meta=READ_ONLY, tags=INSPECTION)
     async def get_scene_tree(max_depth: int = -1) -> SceneTree:
         """Get the open scene as a recursive tree of {name, type, script, children}.
 
@@ -48,7 +51,7 @@ def register_inspection(mcp: FastMCP, bridge: Bridge) -> None:
         """
         return SceneTree(**await route(bridge, "cmd_get_scene_tree", {"max_depth": max_depth}))
 
-    @mcp.tool(meta=READ_ONLY)
+    @mcp.tool(meta=READ_ONLY, tags=INSPECTION)
     async def get_selected_node() -> SelectedNode:
         """Get the node currently selected in the editor — its path, type, script,
         properties, and child names. Returns ``selected=None`` when nothing is
@@ -56,7 +59,7 @@ def register_inspection(mcp: FastMCP, bridge: Bridge) -> None:
         """
         return SelectedNode(**await route(bridge, "cmd_get_selected_node"))
 
-    @mcp.tool(meta=READ_ONLY)
+    @mcp.tool(meta=READ_ONLY, tags=INSPECTION)
     async def get_node_properties(node_path: str) -> NodeInfo:
         """Get a node's detail by scene-relative path (e.g. "Player/Sprite2D"):
         type, attached script, exported/set properties, and child names. Errors

@@ -21,6 +21,7 @@ from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 
 from mcp_server.bridge import Bridge
+from mcp_server.categories import CORE_TAG
 from mcp_server.models.envelope import ErrorCode, ResponseEnvelope
 
 
@@ -159,7 +160,7 @@ async def grouped_by_safety_class(mcp: FastMCP) -> dict[str, list[str]]:
 def register_safety_tools(mcp: FastMCP) -> None:
     """Register the agent-facing safety introspection tool."""
 
-    @mcp.tool(meta=READ_ONLY)
+    @mcp.tool(meta=READ_ONLY, tags={CORE_TAG})
     async def list_tools_by_safety_class() -> dict[str, list[str]]:
         """List every available tool grouped by its safety class
         (read_only / mutating / destructive / runtime). Call this to learn which

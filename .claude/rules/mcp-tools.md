@@ -39,6 +39,15 @@ Check before mutating, and fail with a structured precondition error (see [[erro
 - `require_active_scene` — a scene is open.
 - `require_node_exists(path)` — target path resolves.
 
+## Toolset gating & tool count (issue #26)
+
+A large flat tool surface degrades agent tool-selection and burns context. Keep the *exposed* surface small even as the catalog grows toward full Godot coverage:
+
+- Tag every tool with **exactly one category** (`tags={...}` from `mcp_server/categories.py`) in addition to its `safety_class` meta. `core` is always exposed; other categories are gated.
+- **New categories register gated off** — added to `TOOLSETS` but not `DEFAULT_ENABLED`. The agent turns them on with `enable_toolset` (which uses FastMCP `enable(tags=…)` and fires `tools/list_changed`). Default exposure stays `core` + `inspection`.
+- **Prefer fewer, richer tools over many micro-tools.** Design create-with-config (`create_node(..., properties?, script?)`) and batch setters over one-tool-per-field. One tool per noun with a few clear verbs — never a single `do(action, params)` dispatcher (it discards the per-tool schemas/descriptions that guide the agent).
+- **Never merge across safety classes** (e.g. don't fold `delete` into a fat `node` tool — it buries the `confirm` gate).
+
 ## Resources & prompts
 
 - **Resources** (`@mcp.resource("godot://...")`) are read-only and return JSON strings. No side effects. Mutations always go through tools.

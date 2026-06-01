@@ -141,6 +141,24 @@ UndoRedo-wrapped `cmd_*` handler and runs preconditions first.
 |------|--------|---------|
 | `list_tools_by_safety_class` | — | `{ "read_only": [...], "mutating": [...], ... }` |
 
+#### Toolset gating (issue #26) — `core`, `read_only`
+
+To keep the exposed surface small, tools are grouped into **categories** (`core`,
+`inspection`, `scene_edit`, …). `core` is always on; the default exposure is
+`core` + `inspection`. Other categories (starting with `scene_edit`) are gated off
+until enabled. These meta-tools are always available:
+
+| Tool | Params | Returns | Notes |
+|------|--------|---------|-------|
+| `list_toolsets` | — | `[ToolsetInfo { name, enabled, description }]` | discover categories |
+| `enable_toolset` | `category` | `ToolsetInfo` | expose a category's tools (fires `list_changed`) |
+| `disable_toolset` | `category` | `ToolsetInfo` | hide a category again |
+
+`enable_toolset`/`disable_toolset` reject unknown categories and `core` with a
+structured `ToolError`. They change tool *exposure* only — never the Godot project
+— so they are `read_only`. The default-off-for-new-categories rule means the live
+surface stays small as the catalog grows (see `.claude/rules/mcp-tools.md`).
+
 ## Resources
 
 - `@mcp.resource("godot://…")` handlers are **read-only** and return JSON strings; no side

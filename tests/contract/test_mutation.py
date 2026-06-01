@@ -85,6 +85,7 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 async def test_mutation_safety_classes() -> None:
     server, _ = _build()
     async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "scene_edit"})
         tools = {t.name: t for t in await client.list_tools()}
     assert tools["create_node"].meta["safety_class"] == "mutating"
     assert tools["set_node_property"].meta["safety_class"] == "mutating"
@@ -95,6 +96,7 @@ async def test_mutation_safety_classes() -> None:
 async def test_create_node_real_routes_to_addon() -> None:
     server, conn = _build()
     async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "scene_edit"})
         result = await client.call_tool(
             "create_node", {"parent_path": ".", "node_type": "Node2D", "node_name": "Player"}
         )
@@ -106,6 +108,7 @@ async def test_create_node_real_routes_to_addon() -> None:
 async def test_create_node_dry_run_sends_no_mutation() -> None:
     server, conn = _build()
     async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "scene_edit"})
         result = await client.call_tool(
             "create_node",
             {"parent_path": ".", "node_type": "Node2D", "node_name": "Player", "dry_run": True},
@@ -120,6 +123,7 @@ async def test_create_node_dry_run_sends_no_mutation() -> None:
 async def test_set_property_maps_value_and_flag() -> None:
     server, _ = _build()
     async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "scene_edit"})
         result = await client.call_tool(
             "set_node_property",
             {"node_path": "Player", "property": "position", "value": {"x": 1, "y": 2}},
@@ -131,6 +135,7 @@ async def test_set_property_maps_value_and_flag() -> None:
 async def test_delete_without_confirm_is_blocked() -> None:
     server, conn = _build()
     async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "scene_edit"})
         result = await client.call_tool(
             "delete_node", {"node_path": "Player"}, raise_on_error=False
         )
@@ -142,6 +147,7 @@ async def test_delete_without_confirm_is_blocked() -> None:
 async def test_delete_with_confirm_proceeds() -> None:
     server, conn = _build()
     async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "scene_edit"})
         result = await client.call_tool("delete_node", {"node_path": "Player", "confirm": True})
     assert result.structured_content["deleted"] is True
     assert "cmd_delete_node" in _commands(conn)
@@ -150,6 +156,7 @@ async def test_delete_with_confirm_proceeds() -> None:
 async def test_delete_dry_run_needs_no_confirm() -> None:
     server, conn = _build()
     async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "scene_edit"})
         result = await client.call_tool("delete_node", {"node_path": "Player", "dry_run": True})
     assert result.structured_content["dry_run"] is True
     assert result.structured_content["deleted"] is False
@@ -159,6 +166,7 @@ async def test_delete_dry_run_needs_no_confirm() -> None:
 async def test_missing_node_precondition_is_structured_error() -> None:
     server, conn = _build()
     async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "scene_edit"})
         result = await client.call_tool(
             "create_node",
             {"parent_path": "Ghost", "node_type": "Node2D", "node_name": "X"},

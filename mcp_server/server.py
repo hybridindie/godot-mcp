@@ -23,6 +23,7 @@ from mcp_server.safety import register_safety_tools
 from mcp_server.tools.health import register_health
 from mcp_server.tools.inspection import register_inspection
 from mcp_server.tools.mutation import register_mutation
+from mcp_server.toolsets import ToolsetManager, register_toolset_tools
 
 logger = logging.getLogger(__name__)
 
@@ -58,4 +59,10 @@ def create_server(config: ServerConfig | None = None, bridge: Bridge | None = No
     register_inspection(mcp, bridge)
     register_mutation(mcp, bridge)
     register_safety_tools(mcp)
+
+    # Gate the tool surface by category, then apply the default exposure (core +
+    # inspection on; scene_edit and future categories off until enabled).
+    manager = ToolsetManager(mcp)
+    register_toolset_tools(mcp, manager)
+    manager.apply_defaults()
     return mcp
