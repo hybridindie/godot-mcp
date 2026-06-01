@@ -112,6 +112,29 @@ states return an empty model (`is_open=False` / `tree=None` / `selected=None`), 
 `SceneNode = { name, type, script?, children: [SceneNode] }`. `get_node_properties` errors
 with `RESOURCE_NOT_FOUND` (bad path) or `PRECONDITION_FAILED` (no scene open).
 
+#### Mutation (issue #6) — `mutating` (except `delete_node`)
+
+All take `dry_run: bool = False` (preview, sends no change). Each routes to a
+UndoRedo-wrapped `cmd_*` handler and runs preconditions first.
+
+| Tool | Params | Returns | Class |
+|------|--------|---------|-------|
+| `create_node` | `parent_path, node_type, node_name` | `CreateNodeResult { node_path, created }` | `mutating` |
+| `rename_node` | `node_path, new_name` | `RenameNodeResult { node_path, old_name?, new_name, renamed }` | `mutating` |
+| `set_node_property` | `node_path, property, value` | `SetPropertyResult { node_path, property, value, set }` | `mutating` |
+| `delete_node` | `node_path, confirm=False` | `DeleteNodeResult { node_path, deleted }` | **`destructive`** |
+| `attach_script` | `node_path, script_path` | `AttachScriptResult { node_path, script_path, attached }` | `mutating` |
+| `connect_signal` | `source_path, signal_name, target_path, method_name` | `ConnectSignalResult { …, connected }` | `mutating` |
+| `save_scene` | — | `SaveSceneResult { path?, saved }` | `mutating` |
+| `create_scene` | `root_type, scene_path` | `CreateSceneResult { scene_path, root_type, created }` | `mutating` |
+
+- `set_node_property` coerces JSON to the property's declared Godot type via
+  `type_coerce.from_json` (Vector2/3 & Color as `{…}` objects or arrays, NodePath as string).
+- `delete_node` (destructive) requires `confirm=True` to delete; `dry_run=True` previews
+  without confirming. The addon also honors the `confirm` flag defensively.
+- `create_scene` writes a new `.tscn`/`.scn` and opens it; it is a file creation, not a
+  UndoRedo-tracked tree edit.
+
 #### Safety introspection (issue #14) — `read_only`
 
 | Tool | Params | Returns |

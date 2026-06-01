@@ -16,6 +16,7 @@ const Probe := preload("res://tests/fixtures/probe.gd")
 func _initialize() -> void:
 	var failures: Array[String] = []
 	_test_type_coerce(failures)
+	_test_from_json(failures)
 	_test_serialize_tree(failures)
 	_test_node_properties(failures)
 	_test_node_info(failures)
@@ -49,6 +50,21 @@ func _test_type_coerce(failures: Array[String]) -> void:
 	_eq(failures, "null", Coerce.to_json(null), null)
 	# A path-less Resource coerces to its class name, never str() instance details.
 	_eq(failures, "resource_classname", Coerce.to_json(Resource.new()), "Resource")
+
+
+func _test_from_json(failures: Array[String]) -> void:
+	# Dict form (symmetric with to_json) and array form both coerce.
+	_eq(failures, "fj.vector2.dict", Coerce.from_json({"x": 1, "y": 2}, TYPE_VECTOR2), Vector2(1, 2))
+	_eq(failures, "fj.vector2.arr", Coerce.from_json([1, 2], TYPE_VECTOR2), Vector2(1, 2))
+	_eq(failures, "fj.vector3", Coerce.from_json({"x": 1, "y": 2, "z": 3}, TYPE_VECTOR3), Vector3(1, 2, 3))
+	_eq(failures, "fj.color", Coerce.from_json({"r": 1, "g": 0, "b": 0, "a": 1}, TYPE_COLOR), Color(1, 0, 0, 1))
+	_eq(failures, "fj.nodepath", Coerce.from_json("a/b", TYPE_NODE_PATH), NodePath("a/b"))
+	_eq(failures, "fj.int", Coerce.from_json(5, TYPE_INT), 5)
+	_eq(failures, "fj.float", Coerce.from_json(2.5, TYPE_FLOAT), 2.5)
+	_eq(failures, "fj.bool", Coerce.from_json(true, TYPE_BOOL), true)
+	_eq(failures, "fj.string", Coerce.from_json("hi", TYPE_STRING), "hi")
+	# Round-trips through to_json.
+	_eq(failures, "fj.roundtrip", Coerce.from_json(Coerce.to_json(Vector2(3, 4)), TYPE_VECTOR2), Vector2(3, 4))
 
 
 func _test_serialize_tree(failures: Array[String]) -> void:

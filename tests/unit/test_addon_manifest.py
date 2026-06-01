@@ -125,3 +125,25 @@ def test_router_registers_inspection_commands() -> None:
         "cmd_get_node_properties",
     ):
         assert f'"{command}"' in source, f"router must register {command}"
+
+
+def test_router_registers_mutation_commands() -> None:
+    source = (ADDON_DIR / "command_router.gd").read_text()
+    for command in (
+        "cmd_create_node",
+        "cmd_rename_node",
+        "cmd_set_node_property",
+        "cmd_delete_node",
+        "cmd_attach_script",
+        "cmd_connect_signal",
+        "cmd_save_scene",
+        "cmd_create_scene",
+    ):
+        assert f'"{command}"' in source, f"router must register {command}"
+
+
+def test_mutations_use_undo_redo() -> None:
+    source = (ADDON_DIR / "command_router.gd").read_text()
+    # Every create/rename/delete/set must register with EditorUndoRedoManager.
+    assert "get_editor_undo_redo" in source
+    assert source.count("create_action") >= 6  # the UndoRedo-wrapped mutations

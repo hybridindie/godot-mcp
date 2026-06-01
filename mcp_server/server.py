@@ -22,6 +22,7 @@ from mcp_server.config import ServerConfig
 from mcp_server.safety import register_safety_tools
 from mcp_server.tools.health import register_health
 from mcp_server.tools.inspection import register_inspection
+from mcp_server.tools.mutation import register_mutation
 
 logger = logging.getLogger(__name__)
 
@@ -55,5 +56,6 @@ def create_server(config: ServerConfig | None = None, bridge: Bridge | None = No
     mcp = FastMCP(SERVER_NAME, lifespan=lifespan)
     register_health(mcp, bridge, config)
     register_inspection(mcp, bridge)
+    register_mutation(mcp, bridge)
     register_safety_tools(mcp)
     return mcp

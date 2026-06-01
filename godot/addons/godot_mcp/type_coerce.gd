@@ -48,3 +48,56 @@ static func to_json(value: Variant) -> Variant:
 		_:
 			# Primitives (null, bool, int, float, String) are already JSON-safe.
 			return value
+
+
+## JSON → Godot value of the given Variant.Type (issue #6, write direction).
+## Vectors/Color accept either the dict form to_json emits ({x, y}) or an array
+## ([x, y]); NodePath/StringName from string; primitives coerced to the type.
+static func from_json(value: Variant, type: int) -> Variant:
+	match type:
+		TYPE_VECTOR2:
+			return Vector2(_component(value, "x", 0), _component(value, "y", 1))
+		TYPE_VECTOR2I:
+			return Vector2i(_component(value, "x", 0), _component(value, "y", 1))
+		TYPE_VECTOR3:
+			return Vector3(
+				_component(value, "x", 0), _component(value, "y", 1), _component(value, "z", 2)
+			)
+		TYPE_VECTOR3I:
+			return Vector3i(
+				_component(value, "x", 0), _component(value, "y", 1), _component(value, "z", 2)
+			)
+		TYPE_COLOR:
+			return Color(
+				_component(value, "r", 0),
+				_component(value, "g", 1),
+				_component(value, "b", 2),
+				_component(value, "a", 3, 1.0),
+			)
+		TYPE_RECT2:
+			return Rect2(from_json(value["position"], TYPE_VECTOR2), from_json(value["size"], TYPE_VECTOR2))
+		TYPE_RECT2I:
+			return Rect2i(from_json(value["position"], TYPE_VECTOR2I), from_json(value["size"], TYPE_VECTOR2I))
+		TYPE_NODE_PATH:
+			return NodePath(str(value))
+		TYPE_STRING_NAME:
+			return StringName(str(value))
+		TYPE_INT:
+			return int(value)
+		TYPE_FLOAT:
+			return float(value)
+		TYPE_BOOL:
+			return bool(value)
+		TYPE_STRING:
+			return str(value)
+		_:
+			return value
+
+
+## Read a vector/color component from a dict ({"x": ...}) or array ([...]).
+static func _component(value: Variant, key: String, index: int, default: float = 0.0) -> float:
+	if value is Dictionary:
+		return float(value.get(key, default))
+	if value is Array and index < value.size():
+		return float(value[index])
+	return default
