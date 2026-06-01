@@ -15,18 +15,17 @@ extends EditorPlugin
 ## correct choice here.
 
 const PLUGIN_NAME := "godot_mcp"
-const MCPDockScript := preload("res://addons/godot_mcp/mcp_dock.gd")
 
-var _dock: VBoxContainer
+var _dock: MCPStatusDock
 var _selection: EditorSelection
 
 
 func _enter_tree() -> void:
-	_dock = MCPDockScript.new()
+	_dock = MCPStatusDock.new()
 	add_control_to_dock(DOCK_SLOT_LEFT_UR, _dock)
 
 	# No bridge yet (issue #3); presence is "disconnected" for now.
-	_dock.set_connection_status(MCPDockScript.ConnectionStatus.DISCONNECTED)
+	_dock.set_connection_status(MCPStatusDock.ConnectionStatus.DISCONNECTED)
 
 	# Live editor state: refresh on selection and scene changes.
 	_selection = EditorInterface.get_selection()

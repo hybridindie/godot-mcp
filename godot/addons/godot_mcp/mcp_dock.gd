@@ -1,4 +1,5 @@
 @tool
+class_name MCPStatusDock
 extends VBoxContainer
 ## godot-mcp status dock — read-only editor presence (issue #2).
 ##
@@ -93,7 +94,8 @@ func log_command(entry: String) -> void:
 
 
 func get_recent_commands() -> PackedStringArray:
-	return _recent
+	# Return a copy so callers cannot mutate the dock's state behind its back.
+	return _recent.duplicate()
 
 
 # --- Accessors used by the headless dock test to assert the labels updated. ---

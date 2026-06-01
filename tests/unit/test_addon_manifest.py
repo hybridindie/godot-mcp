@@ -70,12 +70,13 @@ def test_dock_script_exists_and_is_tool() -> None:
     assert dock.is_file(), "status dock script mcp_dock.gd must exist"
     source = dock.read_text()
     assert "@tool" in source, "dock script must carry @tool"
+    assert "class_name MCPStatusDock" in source, "dock must expose a class_name for typed use"
     # The dock is read-only this phase: no editor mutation API leaks into it.
     assert "EditorInterface" not in source, "dock must stay editor-independent (plugin feeds it)"
 
 
 def test_plugin_wires_the_dock() -> None:
     source = (ADDON_DIR / "godot_mcp.gd").read_text()
-    assert "mcp_dock.gd" in source, "plugin must instantiate the dock script"
+    assert "MCPStatusDock" in source, "plugin must instantiate the typed dock"
     assert "add_control_to_dock" in source, "plugin must add the dock to an editor dock slot"
     assert "remove_control_from_docks" in source, "plugin must remove the dock on _exit_tree"
