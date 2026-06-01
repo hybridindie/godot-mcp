@@ -1,0 +1,20 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# uv
+# uv.lock IS committed (reproducible dev bootstrap)
+
+# Godot
+godot/.godot/
+*.import
+
+# OS / editor
+.DS_Store

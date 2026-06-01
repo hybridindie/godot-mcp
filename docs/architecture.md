@@ -1,0 +1,127 @@
+# Architecture: the WebSocket bridge contract
+
+This document is the contract for the seam between the two halves of godot-mcp. It is
+authoritative for the **transport** and the **JSON envelope**; the tool/resource/prompt
+surface is specified in [`tool-contracts.md`](tool-contracts.md). The grounding rules in
+[`../.claude/rules/`](../.claude/rules/) govern *how* code on each side is written.
+
+> Scope note: the bridge is implemented in issue #3. This document fixes the contract up
+> front so both sides can be built and contract-tested against it independently.
+
+## The four-layer transport chain
+
+Every agent action crosses all four layers:
+
+```
+AI client (Claude Code / OpenCode / any stdio MCP client)
+    │  stdio (MCP protocol)
+FastMCP server  (Python, mcp_server/)
+    │  WebSocket — localhost, default ws://localhost:9080
+Godot EditorPlugin  (GDScript, godot/addons/godot_mcp/)
+    │  Godot Editor API
+Live Godot project
+```
+
+- **MCP server** (`mcp_server/`) is the WebSocket **client** and the AI-facing stdio
+  server. It owns all safety, permission, and precondition logic and the Pydantic domain
+  models. It holds no Godot logic.
+- **Godot addon** (`godot/addons/godot_mcp/`) is the WebSocket **server** (a `TCPServer`
+  upgraded to `WebSocketPeer`). It is the only code that touches the Godot Editor API.
+
+Direction of control: the **server initiates** every request; the addon responds. The
+addon never pushes unsolicited commands. (Editor-event streaming, if added later, will be
+a separate, explicitly-versioned channel.)
+
+## Transport
+
+- **URL:** `ws://localhost:9080` by default. Configurable on both sides; never hard-coded
+  in library code. localhost-only, **no auth in v1**.
+- **Framing:** one JSON object per WebSocket text message. UTF-8.
+- **Connection lifecycle:** the addon listens; the server connects. On bridge failure the
+  server reconnects with **exponential backoff** (start ~200 ms, jittered, capped). A
+  `ping` → `pong` exchange is the liveness health check.
+- **Concurrency:** many requests may be in flight; each response is matched to its request
+  by `id`. Correlation is concurrency-safe — no shared mutable per-request state. The
+  editor is a single writer, so mutating commands are effectively serialized by the addon.
+
+## The JSON envelope (versioned from day one)
+
+### Command — server → addon
+
+```json
+{ "id": "uuid-or-monotonic-string", "command": "cmd_create_node", "params": { "...": "..." } }
+```
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | string | Unique per request; the response echoes it. |
+| `command` | string | An addon handler name, always `cmd_<verb>_<noun>`. |
+| `params` | object | Command arguments. Godot types are JSON-coerced (see below). |
+
+### Response — addon → server
+
+Success:
+
+```json
+{ "id": "…", "ok": true, "result": { "...": "..." } }
+```
+
+Failure:
+
+```json
+{ "id": "…", "ok": false, "error": "RESOURCE_NOT_FOUND", "hint": "No node at 'Player/Gun'." }
+```
+
+Precondition failure (richer form, so the agent knows what to satisfy):
+
+```json
+{ "id": "…", "ok": false, "error": "PRECONDITION_FAILED",
+  "hint": "Open a scene before creating nodes.", "required": "active_scene" }
+```
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | string | Echoes the command `id`. |
+| `ok` | bool | `true` ⇒ `result` present; `false` ⇒ `error` + `hint` present. |
+| `result` | object | Present only when `ok: true`. JSON-safe types only. |
+| `error` | string | Present only when `ok: false`. A **stable, enumerated** code. |
+| `hint` | string | Present only when `ok: false`. Actionable for an agent with no human in the loop. |
+| `required` | string | Only on `PRECONDITION_FAILED`: the precondition to satisfy. |
+
+### Rules
+
+- **Correlate by `id`.** A response with an unknown or missing `id` is dropped and logged.
+- **Never leak a trace.** A GDScript runtime error or a Python exception is caught at the
+  bridge boundary on its own side and converted to an `ok: false` envelope.
+- **Stable error codes only**, drawn from the enumerated set below — never ad-hoc strings.
+- **A timed-out request resolves to a `TIMEOUT` envelope**; it never hangs the agent.
+- **No partial success.** Half-completed work returns `ok: false`, not `ok: true` with a
+  truncated `result`.
+
+### Enumerated error codes (v1)
+
+| Code | Meaning |
+|------|---------|
+| `PRECONDITION_FAILED` | A required condition (e.g. `active_scene`) is not met; see `required`. |
+| `RESOURCE_NOT_FOUND` | A referenced node/scene/resource does not exist. |
+| `VALIDATION_ERROR` | Params failed schema/type validation. |
+| `BRIDGE_DISCONNECTED` | The addon is not reachable. |
+| `TIMEOUT` | No response within the request's timeout. |
+| `INTERNAL_ERROR` | An unexpected failure on either side (still structured, never a trace). |
+
+This table is the source of truth for the error enum; extend it here (and in the
+contract tests) before adding a new code.
+
+## Type coercion
+
+Godot types (`Vector2/3`, `Color`, `Rect2`, `NodePath`) cross the bridge as JSON-safe
+forms and are coerced on the addon side in a dedicated `type_coerce.gd` helper (issue #6),
+never inline. Scene trees serialize to `{ name, type, script, children }` and honor a
+`max_depth` parameter. The exact JSON shape for each type is fixed alongside the mutation
+tools in issue #6 and documented in [`tool-contracts.md`](tool-contracts.md).
+
+## Health check
+
+`ping` → `pong` is the canonical liveness probe and the first contract test (issue #3).
+The server's `health_check` tool (issue #4) reports server version plus bridge connection
+state, built on this probe.

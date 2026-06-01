@@ -1,0 +1,13 @@
+; Minimal Godot project so the godot_mcp addon is loadable from the editor.
+; Engine config (Godot 4.4+). config_version=5 is the Godot 4.x project format.
+
+config_version=5
+
+[application]
+
+config/name="godot-mcp"
+config/features=PackedStringArray("4.4")
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godot_mcp/plugin.cfg")

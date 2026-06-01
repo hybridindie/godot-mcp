@@ -1,0 +1,52 @@
+[project]
+name = "godot-mcp"
+version = "2026.06.01"
+description = "MCP server that drives a live Godot editor for AI-driven game development"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+dependencies = [
+    # The MCP framework (PrefectHQ/fastmcp). Server bootstrap lands in issue #4.
+    "fastmcp>=2.0",
+    # WebSocket transport for the addon/server bridge (issue #3).
+    "websockets>=13.0",
+    # Domain models and typed tool I/O (issue #7).
+    "pydantic>=2.0",
+]
+
+[project.scripts]
+godot-mcp = "mcp_server.main:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "mypy>=1.11",
+    "ruff>=0.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["mcp_server"]
+
+[tool.pytest.ini_options]
+# Contract -> Integration -> Unit (see .claude/rules/testing.md).
+testpaths = ["tests"]
+asyncio_mode = "auto"
+# Forbidden skips are a blocking gate; surface them loudly.
+filterwarnings = ["error::pytest.PytestUnraisableExceptionWarning"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["mcp_server", "tests"]
