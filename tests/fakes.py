@@ -31,13 +31,18 @@ def ping_responder(command: CommandEnvelope) -> ResponseEnvelope | None:
 class FakeAddonConnection:
     """An in-memory Connection that plays the addon side of the bridge."""
 
-    def __init__(self, responder: Responder = ping_responder) -> None:
+    def __init__(
+        self, responder: Responder = ping_responder, *, send_error: Exception | None = None
+    ) -> None:
         self._responder = responder
+        self._send_error = send_error
         self._incoming: asyncio.Queue[str] = asyncio.Queue()
         self.sent: list[str] = []
         self.closed = False
 
     async def send(self, message: str) -> None:
+        if self._send_error is not None:
+            raise self._send_error
         self.sent.append(message)
         command = CommandEnvelope.model_validate_json(message)
         response = self._responder(command)

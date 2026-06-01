@@ -124,7 +124,18 @@ class Bridge:
         future: asyncio.Future[ResponseEnvelope] = asyncio.get_running_loop().create_future()
         self._pending[msg_id] = future
 
-        await self._conn.send(envelope.model_dump_json())
+        try:
+            await self._conn.send(envelope.model_dump_json())
+        except Exception:
+            # The transport dropped mid-send: don't leak the waiter or raise.
+            self._pending.pop(msg_id, None)
+            if not future.done():
+                future.cancel()
+            self._conn = None
+            self._fail_pending("BRIDGE_DISCONNECTED", "Bridge connection lost.")
+            return ResponseEnvelope.failure(
+                msg_id, ErrorCode.BRIDGE_DISCONNECTED, "Lost connection to Godot while sending."
+            )
         return await self._await_response(msg_id, future, timeout)
 
     async def ping(self) -> bool:
@@ -151,7 +162,10 @@ class Bridge:
         if future in done:
             return future.result()
 
+        # Timed out: drop and cancel the waiter so it doesn't leak or warn on GC.
         self._pending.pop(msg_id, None)
+        if not future.done():
+            future.cancel()
         return ResponseEnvelope.failure(
             msg_id,
             ErrorCode.TIMEOUT,

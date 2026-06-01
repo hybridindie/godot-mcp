@@ -68,6 +68,9 @@ func _accept_pending() -> void:
 	# Accept the newest connection; a fresh server connection replaces any old peer.
 	while _tcp.is_connection_available():
 		var conn := _tcp.take_connection()
+		if _peer != null:
+			# Close the previous peer so a reconnect doesn't leak a half-open socket.
+			_peer.close()
 		_peer = WebSocketPeer.new()
 		_peer.accept_stream(conn)
 		_set_status(Status.CONNECTING)

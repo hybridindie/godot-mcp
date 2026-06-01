@@ -112,3 +112,15 @@ async def test_send_without_connection_is_structured_error() -> None:
     resp = await bridge.send("ping")
     assert resp.ok is False
     assert resp.error == "BRIDGE_DISCONNECTED"
+
+
+async def test_send_failure_mid_flight_is_structured_not_raised() -> None:
+    # A transport that drops on send must yield a structured envelope, never raise.
+    conn = FakeAddonConnection(send_error=ConnectionError("dropped"))
+    bridge = await _connected_bridge(conn)
+
+    resp = await bridge.send("ping")
+    assert resp.ok is False
+    assert resp.error == "BRIDGE_DISCONNECTED"
+    assert bridge.connected is False  # marked disconnected for the next caller
+    await bridge.close()

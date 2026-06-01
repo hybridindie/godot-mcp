@@ -41,6 +41,13 @@ func _initialize() -> void:
 	if malformed.get("error") != "VALIDATION_ERROR":
 		failures.append("malformed error code: %s" % str(malformed.get("error")))
 
+	# Non-object params (untrusted JSON) → structured error, never a runtime crash.
+	var bad_params: Dictionary = router.handle({"id": "4", "command": "ping", "params": "oops"})
+	if bad_params.get("ok") != false:
+		failures.append("non-object params should fail")
+	if bad_params.get("error") != "VALIDATION_ERROR":
+		failures.append("bad params error code: %s" % str(bad_params.get("error")))
+
 	router = null
 
 	if failures.is_empty():

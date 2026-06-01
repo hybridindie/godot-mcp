@@ -23,8 +23,9 @@ class BackoffPolicy:
 
 
 def compute_delay(policy: BackoffPolicy, attempt: int, rand: float) -> float:
-    """Apply full jitter: scale the base delay by ``rand`` in ``[0, 1)``.
+    """Apply full jitter: scale the base delay by ``rand`` in ``[0, 1]``.
 
-    Full jitter (``random in [0, base]``) avoids reconnect thundering herds.
+    ``random.random()`` supplies ``[0, 1)`` in production; tests pass ``1.0`` to
+    assert the un-jittered base. Full jitter avoids reconnect thundering herds.
     """
     return policy.base_delay(attempt) * rand

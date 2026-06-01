@@ -28,9 +28,13 @@ func handle(envelope: Dictionary) -> Dictionary:
 	if not _handlers.has(command):
 		return _error(id, "VALIDATION_ERROR", "Unknown command '%s'." % command)
 
-	var params: Dictionary = envelope.get("params", {})
+	# params is untrusted JSON: reject anything that is not an object.
+	var raw_params: Variant = envelope.get("params", {})
+	if typeof(raw_params) != TYPE_DICTIONARY:
+		return _error(id, "VALIDATION_ERROR", "'params' must be an object.")
+
 	var handler: Callable = _handlers[command]
-	return _ok(id, handler.call(params))
+	return _ok(id, handler.call(raw_params as Dictionary))
 
 
 func has_command(command: String) -> bool:
