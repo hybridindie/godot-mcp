@@ -37,6 +37,12 @@ func _init() -> void:
 	_handlers["cmd_connect_signal"] = _cmd_connect_signal
 	_handlers["cmd_save_scene"] = _cmd_save_scene
 	_handlers["cmd_create_scene"] = _cmd_create_scene
+	# Script read/patch (issue #10).
+	_handlers["cmd_read_script"] = _cmd_read_script
+	_handlers["cmd_list_scripts"] = _cmd_list_scripts
+	_handlers["cmd_get_script_for_node"] = _cmd_get_script_for_node
+	_handlers["cmd_write_script"] = _cmd_write_script
+	_handlers["cmd_patch_script"] = _cmd_patch_script
 
 
 ## Dispatch one envelope ({ id, command, params }) and return a response envelope.
@@ -297,6 +303,129 @@ func _cmd_create_scene(params: Dictionary) -> Dictionary:
 	# Creating a file isn't an UndoRedo-tracked tree edit; open it for editing.
 	EditorInterface.open_scene_from_path(scene_path)
 	return _ok({"scene_path": scene_path, "root_type": root_type, "created": true})
+
+
+# --- script handlers (issue #10) -------------------------------------------
+
+func _cmd_read_script(params: Dictionary) -> Dictionary:
+	var path := str(params.get("script_path", ""))
+	if not path.ends_with(".gd"):
+		return _fail("VALIDATION_ERROR", "script_path must be a .gd file: '%s'." % path)
+	if not FileAccess.file_exists(path):
+		return _fail("RESOURCE_NOT_FOUND", "No script at '%s'." % path)
+	return _ok({"script_path": path, "content": FileAccess.get_file_as_string(path)})
+
+
+func _cmd_list_scripts(params: Dictionary) -> Dictionary:
+	var directory := str(params.get("directory", "res://"))
+	if not DirAccess.dir_exists_absolute(directory):
+		return _fail("RESOURCE_NOT_FOUND", "No directory '%s'." % directory)
+	var scripts: Array = []
+	_collect_gd(directory, scripts)
+	scripts.sort()
+	return _ok({"directory": directory, "scripts": scripts})
+
+
+func _cmd_get_script_for_node(params: Dictionary) -> Dictionary:
+	var raw := str(params.get("node_path", ""))
+	var node: Node
+	if raw.is_empty():
+		var selected: Array[Node] = EditorInterface.get_selection().get_selected_nodes()
+		if selected.is_empty():
+			return _fail("PRECONDITION_FAILED", "No node_path given and nothing selected.", "node_or_selection")
+		node = selected[0]
+	else:
+		var root := EditorInterface.get_edited_scene_root()
+		if root == null:
+			return _fail("PRECONDITION_FAILED", "No scene is open.", "active_scene")
+		node = root.get_node_or_null(NodePath(raw))
+		if node == null:
+			return _fail("RESOURCE_NOT_FOUND", "No node at '%s'." % raw)
+	var script: Variant = node.get_script()
+	if not (script is Script) or script.resource_path.is_empty():
+		return _ok({"node_path": raw, "script_path": null, "content": null})
+	return _ok({
+		"node_path": raw,
+		"script_path": script.resource_path,
+		"content": FileAccess.get_file_as_string(script.resource_path),
+	})
+
+
+func _cmd_write_script(params: Dictionary) -> Dictionary:
+	var path := str(params.get("script_path", ""))
+	if not path.ends_with(".gd"):
+		return _fail("VALIDATION_ERROR", "script_path must end with .gd.")
+	var content := str(params.get("content", ""))
+	var existed := FileAccess.file_exists(path)
+	var old := FileAccess.get_file_as_string(path) if existed else ""
+	var ur := EditorInterface.get_editor_undo_redo()
+	ur.create_action("Write script %s" % path)
+	ur.add_do_method(self, "_write_file_text", path, content)
+	if existed:
+		ur.add_undo_method(self, "_write_file_text", path, old)
+	else:
+		ur.add_undo_method(self, "_remove_file", path)
+	ur.commit_action()
+	return _ok({"script_path": path, "created": not existed})
+
+
+func _cmd_patch_script(params: Dictionary) -> Dictionary:
+	var path := str(params.get("script_path", ""))
+	if not path.ends_with(".gd"):
+		return _fail("VALIDATION_ERROR", "script_path must end with .gd.")
+	if not FileAccess.file_exists(path):
+		return _fail("RESOURCE_NOT_FOUND", "No script at '%s'." % path)
+	var find := str(params.get("find", ""))
+	if find.is_empty():
+		return _fail("VALIDATION_ERROR", "'find' must be a non-empty string.")
+	var content := FileAccess.get_file_as_string(path)
+	var occurrences := content.count(find)
+	if occurrences == 0:
+		return _fail("VALIDATION_ERROR", "'find' text was not found in the script.")
+	var patched := content.replace(find, str(params.get("replace", "")))
+	var ur := EditorInterface.get_editor_undo_redo()
+	ur.create_action("Patch script %s" % path)
+	ur.add_do_method(self, "_write_file_text", path, patched)
+	ur.add_undo_method(self, "_write_file_text", path, content)
+	ur.commit_action()
+	return _ok({"script_path": path, "replacements": occurrences})
+
+
+## Collect .gd files recursively under a res:// directory (skips hidden dirs).
+func _collect_gd(directory: String, out: Array) -> void:
+	var dir := DirAccess.open(directory)
+	if dir == null:
+		return
+	dir.list_dir_begin()
+	var name := dir.get_next()
+	while name != "":
+		var full := directory.path_join(name)
+		if dir.current_is_dir():
+			if not name.begins_with("."):
+				_collect_gd(full, out)
+		elif name.ends_with(".gd"):
+			out.append(full)
+		name = dir.get_next()
+	dir.list_dir_end()
+
+
+## Write text to a file (creating parent dirs) and tell the editor to re-import it.
+## Used as the UndoRedo do/undo callback for script writes.
+func _write_file_text(path: String, text: String) -> void:
+	var base_dir := path.get_base_dir()
+	if not DirAccess.dir_exists_absolute(base_dir):
+		DirAccess.make_dir_recursive_absolute(base_dir)
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file != null:
+		file.store_string(text)
+		file.close()
+	EditorInterface.get_resource_filesystem().update_file(path)
+
+
+func _remove_file(path: String) -> void:
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(path)
+		EditorInterface.get_resource_filesystem().update_file(path)
 
 
 # --- editor-state helpers --------------------------------------------------

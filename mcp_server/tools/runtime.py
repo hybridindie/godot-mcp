@@ -13,23 +13,8 @@ from mcp_server.bridge import Bridge
 from mcp_server.categories import RUNTIME_TAG
 from mcp_server.config import ServerConfig
 from mcp_server.models.runtime import RunCaptureResult
-from mcp_server.runtime import Runner, summarize_run
+from mcp_server.runtime import Runner, resolve_project_dir, summarize_run
 from mcp_server.safety import RUNTIME, PreconditionError, enforce_preconditions
-
-
-async def _resolve_project_dir(bridge: Bridge, config: ServerConfig) -> str:
-    """Project dir to run: explicit config, else the connected editor's project."""
-    if config.godot_project_dir:
-        return config.godot_project_dir
-    response = await bridge.send("cmd_get_project_info")
-    project_path = (response.result or {}).get("project_path") if response.ok else None
-    if not project_path:
-        raise PreconditionError(
-            "No project directory. Set GODOT_MCP_PROJECT_DIR, or connect the editor so "
-            "the open project can be located.",
-            required="project_dir",
-        )
-    return str(project_path)
 
 
 def register_runtime(
@@ -52,6 +37,6 @@ def register_runtime(
                 "Godot binary not found. Set GODOT_MCP_GODOT_BIN to your Godot executable.",
                 required="godot_bin",
             )
-        project_dir = await _resolve_project_dir(bridge, config)
+        project_dir = await resolve_project_dir(bridge, config)
         output = await runner.run(project_dir, scene, float(timeout_seconds))
         return summarize_run(output)

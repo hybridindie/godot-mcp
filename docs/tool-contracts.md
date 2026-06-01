@@ -135,6 +135,24 @@ UndoRedo-wrapped `cmd_*` handler and runs preconditions first.
 - `create_scene` writes a new `.tscn`/`.scn` and opens it; it is a file creation, not a
   UndoRedo-tracked tree edit.
 
+#### Scripts (issue #10) — category: `scripts` (gated off by default)
+
+Read/write/patch route through the addon (single path; the editor re-scans after
+writes, and writes register `UndoRedo`). `get_parse_errors` shells out to
+`godot --check-only` (Godot has no in-editor API for structured parse errors).
+
+| Tool | Params | Returns | Class |
+|------|--------|---------|-------|
+| `read_script` | `script_path` | `ScriptContent { script_path, content }` | `read_only` |
+| `list_scripts` | `directory = "res://"` | `ScriptList { directory, scripts[] }` (recursive) | `read_only` |
+| `get_script_for_node` | `node_path = ""` (else selected) | `NodeScript { node_path, script_path?, content? }` | `read_only` |
+| `write_script` | `script_path, content, dry_run=False` | `WriteScriptResult { script_path, created, dry_run }` | `mutating` |
+| `patch_script` | `script_path, find, replace, dry_run=False` | `PatchScriptResult { script_path, replacements, dry_run }` | `mutating` |
+| `get_parse_errors` | `script_path` | `ParseCheckResult { script_path, ok, errors: [ParseError{message, source?, line?}] }` | `read_only` |
+
+Non-`.gd` paths, missing files, and a `find` string that isn't present return structured
+errors. `write_script`/`patch_script` are reversible via the editor's undo.
+
 #### Runtime (issue #13) — `runtime` (category: `runtime`, gated off by default)
 
 | Tool | Params | Returns |

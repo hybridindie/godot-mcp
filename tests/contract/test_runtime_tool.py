@@ -30,6 +30,9 @@ class FakeRunner:
         self.calls.append((project_dir, scene, timeout))
         return self._output
 
+    async def check_script(self, project_dir: str, script_path: str, timeout: float) -> RunOutput:
+        return self._output
+
 
 def _build(
     runner: FakeRunner, *, project_dir: str | None = "/tmp/proj"

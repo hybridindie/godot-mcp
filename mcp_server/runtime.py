@@ -22,8 +22,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
+from mcp_server.bridge import Bridge
 from mcp_server.config import ServerConfig
 from mcp_server.models.runtime import LogEntry, RunCaptureResult
+from mcp_server.safety import PreconditionError
 
 # Known macOS install location; extend per platform as needed.
 _MAC_APP = Path("/Applications/Godot.app/Contents/MacOS/Godot")
@@ -32,6 +34,21 @@ _ERROR_RE = re.compile(r"\b(SCRIPT ERROR|ERROR|USER ERROR|Parse Error)\b", re.IG
 _WARNING_RE = re.compile(r"\b(WARNING|USER WARNING)\b", re.IGNORECASE)
 # A res:// source with a line number, e.g. "res://player.gd:42".
 _SOURCE_RE = re.compile(r"(res://\S+?):(\d+)")
+
+
+async def resolve_project_dir(bridge: Bridge, config: ServerConfig) -> str:
+    """Project dir to operate on: explicit config, else the connected editor's project."""
+    if config.godot_project_dir:
+        return config.godot_project_dir
+    response = await bridge.send("cmd_get_project_info")
+    project_path = (response.result or {}).get("project_path") if response.ok else None
+    if not project_path:
+        raise PreconditionError(
+            "No project directory. Set GODOT_MCP_PROJECT_DIR, or connect the editor so "
+            "the open project can be located.",
+            required="project_dir",
+        )
+    return str(project_path)
 
 
 def find_godot_binary(config: ServerConfig) -> str | None:
@@ -65,6 +82,10 @@ class Runner(Protocol):
 
     async def run(self, project_dir: str, scene: str | None, timeout: float) -> RunOutput: ...
 
+    async def check_script(
+        self, project_dir: str, script_path: str, timeout: float
+    ) -> RunOutput: ...
+
 
 @dataclass
 class GodotRunner:
@@ -78,21 +99,37 @@ class GodotRunner:
             self.binary = find_godot_binary(self.config)
 
     async def run(self, project_dir: str, scene: str | None, timeout: float) -> RunOutput:
-        assert self.binary is not None  # callers check availability first
         command = [self.binary, "--headless", "--path", project_dir]
         if scene:
             command.append(scene)
+        return await self._exec(command, timeout)
 
+    async def check_script(self, project_dir: str, script_path: str, timeout: float) -> RunOutput:
+        """Parse-check a single script via ``--check-only --script`` (no execution)."""
+        command = [
+            self.binary,
+            "--headless",
+            "--path",
+            project_dir,
+            "--check-only",
+            "--script",
+            script_path,
+        ]
+        return await self._exec(command, timeout)
+
+    async def _exec(self, command: list[str | None], timeout: float) -> RunOutput:
+        assert self.binary is not None  # callers check availability first
+        cmd = [c for c in command if c is not None]
         started = time.monotonic()
         try:
             proc = await asyncio.create_subprocess_exec(
-                *command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+                *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
             )
         except OSError as exc:
             # e.g. a non-executable binary, or it vanished — surface as a structured
             # error via summarize_run instead of an unstructured exception.
             return RunOutput(
-                command=command,
+                command=cmd,
                 stderr=f"ERROR: failed to launch Godot ({exc}).",
                 exit_code=None,
                 duration=round(time.monotonic() - started, 3),
@@ -105,7 +142,7 @@ class GodotRunner:
             proc.kill()
             out, err = await proc.communicate()
         return RunOutput(
-            command=command,
+            command=cmd,
             stdout=out.decode("utf-8", "replace"),
             stderr=err.decode("utf-8", "replace"),
             exit_code=None if timed_out else proc.returncode,
