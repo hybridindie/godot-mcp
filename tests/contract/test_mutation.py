@@ -112,6 +112,8 @@ async def test_create_node_dry_run_sends_no_mutation() -> None:
         )
     assert result.structured_content["dry_run"] is True
     assert result.structured_content["created"] is False
+    # Preview path mirrors the addon: a root child is "Player", not "./Player".
+    assert result.structured_content["node_path"] == "Player"
     assert "cmd_create_node" not in _commands(conn)  # nothing was actually created
 
 

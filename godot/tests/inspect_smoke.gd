@@ -65,6 +65,10 @@ func _test_from_json(failures: Array[String]) -> void:
 	_eq(failures, "fj.string", Coerce.from_json("hi", TYPE_STRING), "hi")
 	# Round-trips through to_json.
 	_eq(failures, "fj.roundtrip", Coerce.from_json(Coerce.to_json(Vector2(3, 4)), TYPE_VECTOR2), Vector2(3, 4))
+	var rect: Variant = Coerce.from_json({"position": [0, 0], "size": [4, 5]}, TYPE_RECT2)
+	_eq(failures, "fj.rect2", rect, Rect2(0, 0, 4, 5))
+	# Malformed Rect2 input must not crash; it degrades to a default.
+	_eq(failures, "fj.rect2.bad", Coerce.from_json("oops", TYPE_RECT2), Rect2())
 
 
 func _test_serialize_tree(failures: Array[String]) -> void:

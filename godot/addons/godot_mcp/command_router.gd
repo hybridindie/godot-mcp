@@ -196,10 +196,12 @@ func _cmd_delete_node(params: Dictionary) -> Dictionary:
 		return _fail("PRECONDITION_FAILED", "Deleting a node requires confirm=true.", "confirm")
 
 	var parent := node.get_parent()
+	var index := node.get_index()  # restore at the same sibling position on undo
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Delete %s" % node.name)
 	ur.add_do_method(parent, "remove_child", node)
 	ur.add_undo_method(parent, "add_child", node)
+	ur.add_undo_method(parent, "move_child", node, index)
 	ur.add_undo_method(node, "set_owner", root)
 	ur.add_undo_reference(node)
 	ur.commit_action()

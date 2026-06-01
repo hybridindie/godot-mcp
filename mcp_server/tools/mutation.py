@@ -53,9 +53,9 @@ def register_mutation(mcp: FastMCP, bridge: Bridge) -> None:
         await require_active_scene(bridge)
         await require_node_exists(bridge, parent_path)
         if dry_run:
-            return CreateNodeResult(
-                node_path=f"{parent_path}/{node_name}", created=False, dry_run=True
-            )
+            # Mirror the addon's scene-relative path (root children have no "./").
+            preview = node_name if parent_path in (".", "") else f"{parent_path}/{node_name}"
+            return CreateNodeResult(node_path=preview, created=False, dry_run=True)
         params = {"parent_path": parent_path, "node_type": node_type, "name": node_name}
         return CreateNodeResult(**await route(bridge, "cmd_create_node", params))
 

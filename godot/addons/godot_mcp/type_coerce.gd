@@ -75,8 +75,12 @@ static func from_json(value: Variant, type: int) -> Variant:
 				_component(value, "a", 3, 1.0),
 			)
 		TYPE_RECT2:
+			if not _has_rect_keys(value):
+				return Rect2()
 			return Rect2(from_json(value["position"], TYPE_VECTOR2), from_json(value["size"], TYPE_VECTOR2))
 		TYPE_RECT2I:
+			if not _has_rect_keys(value):
+				return Rect2i()
 			return Rect2i(from_json(value["position"], TYPE_VECTOR2I), from_json(value["size"], TYPE_VECTOR2I))
 		TYPE_NODE_PATH:
 			return NodePath(str(value))
@@ -92,6 +96,10 @@ static func from_json(value: Variant, type: int) -> Variant:
 			return str(value)
 		_:
 			return value
+
+
+static func _has_rect_keys(value: Variant) -> bool:
+	return value is Dictionary and value.has("position") and value.has("size")
 
 
 ## Read a vector/color component from a dict ({"x": ...}) or array ([...]).
