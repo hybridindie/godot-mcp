@@ -524,6 +524,8 @@ func _cmd_remove_from_group(params: Dictionary) -> Dictionary:
 		return found
 	var node: Node = found["node"]
 	var group := str(params.get("group", ""))
+	if group.is_empty():
+		return _fail("VALIDATION_ERROR", "'group' must be a non-empty string.")
 	if not node.is_in_group(group):
 		return _ok({"node_path": str(params.get("node_path")), "group": group, "removed": false})
 
@@ -572,6 +574,10 @@ func _cmd_disconnect_signal(params: Dictionary) -> Dictionary:
 	var target: Node = tgt["node"]
 	var signal_name := str(params.get("signal_name", ""))
 	var method_name := str(params.get("method_name", ""))
+	if not source.has_signal(signal_name):
+		return _fail("VALIDATION_ERROR", "Source has no signal '%s'." % signal_name)
+	if not target.has_method(method_name):
+		return _fail("VALIDATION_ERROR", "Target has no method '%s'." % method_name)
 	var callable := Callable(target, method_name)
 	if not source.is_connected(signal_name, callable):
 		return _fail("VALIDATION_ERROR", "Signal '%s' is not connected to that method." % signal_name)

@@ -94,6 +94,13 @@ async def _run() -> None:
         assert not any(
             c["signal"] == "timeout" and c["method"] == "queue_free" for c in after["connections"]
         )
+
+        # Input validation: a typoed signal gives a specific error, not "not connected".
+        bad_signal = {**sig, "signal_name": "no_such_signal"}
+        bad = await bridge.send("cmd_disconnect_signal", bad_signal)
+        assert bad.ok is False and "no_such_signal" in (bad.hint or "")
+        empty_group = await bridge.send("cmd_remove_from_group", {"node_path": "Box", "group": ""})
+        assert empty_group.ok is False and empty_group.error == "VALIDATION_ERROR"
     finally:
         await bridge.close()
 

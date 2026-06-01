@@ -148,7 +148,8 @@ Node parity (issue #31), also in `scene_edit`:
 
 `duplicate_node` adds with a readable name (`Box2`). `move_node` rejects moving the root or
 into a descendant. Group membership is persistent (saved into the scene). All reversible via
-the editor's undo.
+the editor's undo. The `mutating` tools also accept `dry_run: bool = False` and echo it in
+the result (omitted from the table for brevity, per the `dry_run`/`confirm` convention above).
 
 #### Scripts (issue #10) — category: `scripts` (gated off by default)
 
