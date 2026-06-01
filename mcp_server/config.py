@@ -52,6 +52,11 @@ class ServerConfig(BaseModel):
     port: int = DEFAULT_HTTP_PORT
     log_level: str = "INFO"
     permission_mode: str = "ask"
+    # Runtime loop (issue #13): path to the Godot binary and the project directory.
+    # Both optional — the binary is auto-discovered and the project dir falls back to
+    # the connected editor's project.
+    godot_bin: str | None = None
+    godot_project_dir: str | None = None
 
     @classmethod
     def from_env(cls) -> ServerConfig:
@@ -63,4 +68,6 @@ class ServerConfig(BaseModel):
             port=int(os.environ.get("GODOT_MCP_HTTP_PORT", DEFAULT_HTTP_PORT)),
             log_level=os.environ.get("GODOT_MCP_LOG_LEVEL", "INFO"),
             permission_mode=os.environ.get("GODOT_MCP_PERMISSION_MODE", "ask"),
+            godot_bin=os.environ.get("GODOT_MCP_GODOT_BIN"),
+            godot_project_dir=os.environ.get("GODOT_MCP_PROJECT_DIR"),
         )

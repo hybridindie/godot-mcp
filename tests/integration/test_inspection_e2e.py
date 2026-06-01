@@ -38,6 +38,7 @@ async def _run_checks() -> None:
         assert info.ok and info.result is not None, info
         assert info.result["name"] == "godot-mcp"  # from godot/project.godot
         assert info.result["godot_version"].startswith("4.")
+        assert info.result["project_path"]  # globalized res:// path to the project dir
 
         scene = await bridge.send("cmd_get_active_scene")
         assert scene.ok and scene.result is not None

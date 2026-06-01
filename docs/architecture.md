@@ -137,6 +137,18 @@ Scene trees serialize to `{ name, type, script, children }` and honor a `max_dep
 parameter (`-1` = unlimited, `0` = the node with no children). Node detail serializes to
 `{ node_path, type, script, properties, children }` (see [`tool-contracts.md`](tool-contracts.md)).
 
+## Runtime execution (issue #13)
+
+The `run_and_capture` tool is the one place the server launches a **Godot process
+directly** (`godot --headless --path <project> [scene]`) rather than going through
+the bridge. This is a deliberate, reasoned exception to "the bridge is the only path
+to Godot" (Article II): running the game for verification is *process execution*,
+not *editor control*, and Godot exposes no public GDScript API to read the editor's
+Output/error log, so the addon cannot capture a separate game process's stdio. The
+bridge stays the only path for editor control; the runner is isolated in
+`mcp_server/runtime.py` with an injected subprocess so it stays testable. Interactive
+in-editor play/stop (via `EditorInterface.play_*`) is a possible later addition.
+
 ## Health check
 
 `ping` → `pong` is the canonical liveness probe and the first contract test (issue #3).

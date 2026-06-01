@@ -14,7 +14,7 @@ from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 from pydantic import BaseModel
 
-from mcp_server.categories import CORE_TAG, INSPECTION_TAG, SCENE_EDIT_TAG
+from mcp_server.categories import CORE_TAG, INSPECTION_TAG, RUNTIME_TAG, SCENE_EDIT_TAG
 from mcp_server.safety import READ_ONLY
 
 # Toggleable toolsets (category → agent-facing description). `core` is not here.
@@ -22,6 +22,7 @@ TOOLSETS: dict[str, str] = {
     INSPECTION_TAG: "Read-only project, scene, and node inspection.",
     SCENE_EDIT_TAG: "Create, modify, and delete nodes, scripts, signals, and scenes "
     "(mutating + destructive).",
+    RUNTIME_TAG: "Run the project headless and capture its output/errors.",
 }
 
 # Enabled at startup (plus `core`, which is always on). Everything else is gated

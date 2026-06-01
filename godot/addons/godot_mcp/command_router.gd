@@ -74,6 +74,7 @@ func _cmd_get_project_info(_params: Dictionary) -> Dictionary:
 		"name": ProjectSettings.get_setting("application/config/name", ""),
 		"godot_version": Engine.get_version_info().get("string", ""),
 		"main_scene": ProjectSettings.get_setting("application/run/main_scene", ""),
+		"project_path": ProjectSettings.globalize_path("res://"),
 		"autoloads": _autoloads(),
 		"input_actions": _input_actions(),
 	})

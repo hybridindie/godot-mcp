@@ -20,10 +20,12 @@ from fastmcp import FastMCP
 from mcp_server.bridge import Bridge
 from mcp_server.config import ServerConfig
 from mcp_server.resources.context import register_resources
+from mcp_server.runtime import GodotRunner, Runner
 from mcp_server.safety import register_safety_tools
 from mcp_server.tools.health import register_health
 from mcp_server.tools.inspection import register_inspection
 from mcp_server.tools.mutation import register_mutation
+from mcp_server.tools.runtime import register_runtime
 from mcp_server.toolsets import ToolsetManager, register_toolset_tools
 
 logger = logging.getLogger(__name__)
@@ -31,10 +33,15 @@ logger = logging.getLogger(__name__)
 SERVER_NAME = "godot-mcp"
 
 
-def create_server(config: ServerConfig | None = None, bridge: Bridge | None = None) -> FastMCP:
+def create_server(
+    config: ServerConfig | None = None,
+    bridge: Bridge | None = None,
+    runner: Runner | None = None,
+) -> FastMCP:
     """Create the FastMCP server, wiring the bridge and registering tools."""
     config = config or ServerConfig()
     bridge = bridge or Bridge(config.bridge)
+    runner = runner or GodotRunner(config)
 
     @asynccontextmanager
     async def lifespan(_server: FastMCP) -> AsyncIterator[None]:
@@ -60,6 +67,7 @@ def create_server(config: ServerConfig | None = None, bridge: Bridge | None = No
     register_inspection(mcp, bridge)
     register_mutation(mcp, bridge)
     register_resources(mcp, bridge)
+    register_runtime(mcp, bridge, config, runner)
     register_safety_tools(mcp)
 
     # Gate the tool surface by category, then apply the default exposure (core +

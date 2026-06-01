@@ -135,6 +135,20 @@ UndoRedo-wrapped `cmd_*` handler and runs preconditions first.
 - `create_scene` writes a new `.tscn`/`.scn` and opens it; it is a file creation, not a
   UndoRedo-tracked tree edit.
 
+#### Runtime (issue #13) — `runtime` (category: `runtime`, gated off by default)
+
+| Tool | Params | Returns |
+|------|--------|---------|
+| `run_and_capture` | `scene?: str`, `timeout_seconds: int = 10` | `RunCaptureResult { ran, exit_code?, timed_out, duration_seconds, errors[], warnings[], output[], command }` |
+
+Runs the project headless (optionally a specific `scene`), waits up to the timeout,
+and returns a structured summary. `errors`/`warnings` are `LogEntry { type, message,
+source?, line? }` parsed from stdout/stderr. Project directory is resolved from
+`GODOT_MCP_PROJECT_DIR` else the connected editor's project; the Godot binary from
+`GODOT_MCP_GODOT_BIN` else `PATH`/known locations (missing binary → structured error).
+Enable with `enable_toolset("runtime")`. Launches a Godot process directly (see the
+runtime-execution note in [`architecture.md`](architecture.md)).
+
 #### Safety introspection (issue #14) — `read_only`
 
 | Tool | Params | Returns |

@@ -11,3 +11,4 @@ from __future__ import annotations
 CORE_TAG = "core"
 INSPECTION_TAG = "inspection"
 SCENE_EDIT_TAG = "scene_edit"
+RUNTIME_TAG = "runtime"

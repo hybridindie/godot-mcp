@@ -16,6 +16,7 @@ class ProjectInfo(BaseModel):
     name: str
     godot_version: str
     main_scene: str | None = None
+    project_path: str | None = None
     autoloads: dict[str, str] = Field(default_factory=dict)
     input_actions: list[str] = Field(default_factory=list)
 
