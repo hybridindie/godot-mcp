@@ -2,12 +2,11 @@
 extends EditorPlugin
 ## godot-mcp EditorPlugin entry point.
 ##
-## This is the ONLY layer that touches the Godot Editor API. It currently
-## establishes live editor presence: a read-only status dock that reflects
-## connection state, project path, active scene, selected node, and a recent
-## command log (issue #2). The WebSocket bridge and cmd_* command router land in
-## issue #3 — that introduces TCPServer/WebSocketPeer (verify against the Godot
-## 4.4 docs before use, per .claude/rules/addon.md).
+## This is the ONLY layer that touches the Godot Editor API. It owns the
+## read-only status dock (issue #2) and the WebSocket bridge (issue #3): a
+## localhost WebSocket server that routes command envelopes to cmd_* handlers and
+## reflects connection state + recent commands in the dock. All safety/preconditions
+## live in the MCP server, not here.
 ##
 ## API note: add_control_to_dock()/remove_control_from_docks() are deprecated as
 ## of Godot 4.6 in favour of EditorDock/add_dock(), but EditorDock does not exist
@@ -17,6 +16,7 @@ extends EditorPlugin
 const PLUGIN_NAME := "godot_mcp"
 
 var _dock: MCPStatusDock
+var _bridge: MCPBridge
 var _selection: EditorSelection
 
 
@@ -24,8 +24,12 @@ func _enter_tree() -> void:
 	_dock = MCPStatusDock.new()
 	add_control_to_dock(DOCK_SLOT_LEFT_UR, _dock)
 
-	# No bridge yet (issue #3); presence is "disconnected" for now.
-	_dock.set_connection_status(MCPStatusDock.ConnectionStatus.DISCONNECTED)
+	# Start the WebSocket bridge and reflect its state in the dock.
+	_bridge = MCPBridge.new()
+	_bridge.connection_changed.connect(_on_connection_changed)
+	_bridge.command_received.connect(_dock.log_command)
+	add_child(_bridge)
+	_bridge.start()
 
 	# Live editor state: refresh on selection and scene changes.
 	_selection = EditorInterface.get_selection()
@@ -42,6 +46,11 @@ func _exit_tree() -> void:
 		scene_changed.disconnect(_on_scene_changed)
 	_selection = null
 
+	if _bridge != null:
+		_bridge.stop()
+		_bridge.queue_free()
+		_bridge = null
+
 	if _dock != null:
 		remove_control_from_docks(_dock)
 		_dock.queue_free()
@@ -57,6 +66,11 @@ func _refresh_all() -> void:
 	_dock.set_project_path(ProjectSettings.globalize_path("res://"))
 	_on_scene_changed(EditorInterface.get_edited_scene_root())
 	_on_selection_changed()
+
+
+func _on_connection_changed(status: MCPBridge.Status) -> void:
+	# MCPBridge.Status and MCPStatusDock.ConnectionStatus share ordering by design.
+	_dock.set_connection_status(status as MCPStatusDock.ConnectionStatus)
 
 
 func _on_scene_changed(scene_root: Node) -> void:

@@ -80,3 +80,28 @@ def test_plugin_wires_the_dock() -> None:
     assert "MCPStatusDock" in source, "plugin must instantiate the typed dock"
     assert "add_control_to_dock" in source, "plugin must add the dock to an editor dock slot"
     assert "remove_control_from_docks" in source, "plugin must remove the dock on _exit_tree"
+
+
+def test_command_router_exists() -> None:
+    router = ADDON_DIR / "command_router.gd"
+    assert router.is_file(), "command_router.gd must exist"
+    source = router.read_text()
+    assert "@tool" in source
+    assert "class_name MCPCommandRouter" in source
+
+
+def test_bridge_uses_websocket_transport() -> None:
+    bridge = ADDON_DIR / "mcp_bridge.gd"
+    assert bridge.is_file(), "mcp_bridge.gd must exist"
+    source = bridge.read_text()
+    assert "@tool" in source
+    assert "class_name MCPBridge" in source
+    # The verified Godot 4 server-side transport primitives.
+    assert "TCPServer" in source, "bridge must use TCPServer"
+    assert "WebSocketPeer" in source, "bridge must use WebSocketPeer"
+
+
+def test_plugin_wires_the_bridge() -> None:
+    source = (ADDON_DIR / "godot_mcp.gd").read_text()
+    assert "MCPBridge" in source, "plugin must start the bridge"
+    assert "_bridge.stop()" in source, "plugin must stop the bridge on _exit_tree"

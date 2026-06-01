@@ -5,8 +5,11 @@ authoritative for the **transport** and the **JSON envelope**; the tool/resource
 surface is specified in [`tool-contracts.md`](tool-contracts.md). The grounding rules in
 [`../.claude/rules/`](../.claude/rules/) govern *how* code on each side is written.
 
-> Scope note: the bridge is implemented in issue #3. This document fixes the contract up
-> front so both sides can be built and contract-tested against it independently.
+> Status: the bridge is implemented (issue #3). Server side: `mcp_server/bridge.py`
+> (async client, `id` correlation, timeout, backoff reconnect) over the envelope models
+> in `mcp_server/models/envelope.py`. Addon side: `mcp_bridge.gd` (`TCPServer` +
+> `WebSocketPeer`) routing through `command_router.gd`. `ping` → `{pong: true}` is the
+> health check. Higher-level `cmd_*` handlers and MCP tools build on this contract.
 
 ## The four-layer transport chain
 
