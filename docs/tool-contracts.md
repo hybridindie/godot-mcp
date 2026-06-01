@@ -166,6 +166,27 @@ surface stays small as the catalog grows (see `.claude/rules/mcp-tools.md`).
 - Read-only project context is exposed both as tools (issue #5) and as `godot://`
   resources (issue #11); the two are kept consistent.
 
+### Implemented resources (issue #11)
+
+Addressable, refreshed-on-access snapshots. Each returns a JSON string; on a bridge
+failure it returns valid JSON carrying the structured error (`{ "error", "hint" }`).
+
+| URI | Content | Bridge command |
+|-----|---------|----------------|
+| `godot://project/info` | project name, Godot version, main scene, autoloads, input actions | `cmd_get_project_info` |
+| `godot://scene/current` | open scene `{ is_open, path, name }` | `cmd_get_active_scene` |
+| `godot://scene/tree` | full scene tree (may be large) | `cmd_get_scene_tree` (`max_depth=-1`) |
+| `godot://scene/tree/{max_depth}` | scene tree limited to N child levels (template) | `cmd_get_scene_tree` |
+| `godot://node/selected` | selected node snapshot, or `{ "selected": null }` | `cmd_get_selected_node` |
+
+**Fallback:** `read_resource(uri)` is a `core` `read_only` tool that returns any of the
+above by URI — for clients without resource-protocol support. Unknown URIs return a
+structured `ToolError`.
+
+Game-specific resources from the original issue (`godot://game/towers|enemies|waves|domain`)
+are **out of scope** here — they depend on a game's domain model and belong to the
+separate game project.
+
 ## Prompts
 
 - `@mcp.prompt()` handlers are **step-numbered instruction templates** that tell the agent

@@ -19,6 +19,7 @@ from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.config import ServerConfig
+from mcp_server.resources.context import register_resources
 from mcp_server.safety import register_safety_tools
 from mcp_server.tools.health import register_health
 from mcp_server.tools.inspection import register_inspection
@@ -58,6 +59,7 @@ def create_server(config: ServerConfig | None = None, bridge: Bridge | None = No
     register_health(mcp, bridge, config)
     register_inspection(mcp, bridge)
     register_mutation(mcp, bridge)
+    register_resources(mcp, bridge)
     register_safety_tools(mcp)
 
     # Gate the tool surface by category, then apply the default exposure (core +
