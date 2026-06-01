@@ -21,7 +21,7 @@ from mcp_server.safety import (
     require_confirmation,
     require_node_exists,
 )
-from tests.fakes import FakeAddonConnection, connector_for
+from tests.fakes import FakeAddonConnection, Responder, connector_for
 
 # asyncio_mode=auto handles the async tests; no module-wide mark (it would warn on
 # the synchronous tests below).
@@ -35,8 +35,8 @@ def test_safety_meta_constants() -> None:
     assert SafetyClass.DESTRUCTIVE.value == "destructive"
 
 
-async def _connected(responder: object) -> Bridge:
-    conn = FakeAddonConnection(responder=responder)  # type: ignore[arg-type]
+async def _connected(responder: Responder) -> Bridge:
+    conn = FakeAddonConnection(responder=responder)
     bridge = Bridge(BridgeConfig(), connector=connector_for(conn))
     await bridge.connect()
     return bridge
@@ -88,6 +88,19 @@ async def test_require_node_exists_passes_when_present() -> None:
 
     bridge = await _connected(responder)
     await require_node_exists(bridge, "Player")  # must not raise
+    await bridge.close()
+
+
+async def test_require_node_exists_does_not_mislabel_other_failures() -> None:
+    # A TIMEOUT must not be reported as a "node_exists" problem.
+    def responder(cmd: CommandEnvelope) -> ResponseEnvelope:
+        return ResponseEnvelope.failure(cmd.id, "TIMEOUT", "No response from Godot.")
+
+    bridge = await _connected(responder)
+    with pytest.raises(PreconditionError) as exc:
+        await require_node_exists(bridge, "Player")
+    assert exc.value.error == "TIMEOUT"
+    assert exc.value.required != "node_exists"
     await bridge.close()
 
 

@@ -93,12 +93,17 @@ async def require_node_exists(bridge: Bridge, node_path: str) -> None:
     """Fail fast if ``node_path`` does not resolve in the active scene."""
     require_bridge_connected(bridge)
     response = await bridge.send("cmd_get_node_properties", {"node_path": node_path})
-    if not response.ok:
+    if response.ok:
+        return
+    # Only a genuine not-found means "fix the path"; other failures (TIMEOUT,
+    # BRIDGE_DISCONNECTED, no scene, …) propagate with their own error/required.
+    if response.error == ErrorCode.RESOURCE_NOT_FOUND:
         raise PreconditionError(
             response.hint or f"No node at '{node_path}'.",
-            required=response.required or "node_exists",
-            error=response.error or ErrorCode.RESOURCE_NOT_FOUND,
+            required="node_exists",
+            error=ErrorCode.RESOURCE_NOT_FOUND,
         )
+    _raise_if_failed(response)
 
 
 def require_confirmation(confirm: bool, action: str) -> None:
