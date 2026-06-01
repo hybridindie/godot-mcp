@@ -81,6 +81,12 @@ def test_parse_check_errors_extracts_line() -> None:
     assert "Expected expression" in errors[0].message
 
 
+def test_parse_check_errors_ignores_non_parse_script_errors() -> None:
+    # A non-parse SCRIPT ERROR (no "Parse Error:") must not be reported as a parse error.
+    text = 'SCRIPT ERROR: Invalid call. Nonexistent function "foo".\n   at: (res://a.gd:9)'
+    assert parse_check_errors(text) == []
+
+
 async def test_script_tools_gated_in_scripts_toolset() -> None:
     server, _ = _build()
     async with Client(server) as client:

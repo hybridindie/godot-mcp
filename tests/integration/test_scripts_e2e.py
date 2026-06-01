@@ -24,11 +24,13 @@ pytestmark = pytest.mark.skipif(GODOT_BIN is None, reason="Godot binary not inst
 BRIDGE_URL = "ws://localhost:9080"
 VALID = "res://tmp_e2e_script.gd"
 BROKEN = "res://tmp_e2e_broken.gd"
+SCENE = "res://tmp_e2e_scene.tscn"
 _ARTIFACTS = [
     "tmp_e2e_script.gd",
     "tmp_e2e_script.gd.uid",
     "tmp_e2e_broken.gd",
     "tmp_e2e_broken.gd.uid",
+    "tmp_e2e_scene.tscn",
 ]
 
 
@@ -74,6 +76,21 @@ async def _run() -> None:
         # the valid (patched) script parses cleanly
         good = await runner.check_script(str(GODOT_PROJECT), VALID, timeout=60.0)
         assert parse_check_errors(good.stdout + "\n" + good.stderr) == []
+
+        # get_script_for_node reports the resolved scene-relative path + attached script
+        await _ok(bridge, "cmd_create_scene", {"root_type": "Node2D", "scene_path": SCENE})
+        for _ in range(40):
+            opened = await bridge.send("cmd_get_active_scene")
+            if opened.ok and (opened.result or {}).get("is_open"):
+                break
+            await asyncio.sleep(0.25)
+        await _ok(
+            bridge, "cmd_create_node", {"parent_path": ".", "node_type": "Node", "name": "Probe"}
+        )
+        await _ok(bridge, "cmd_attach_script", {"node_path": "Probe", "script_path": VALID})
+        for_node = await _ok(bridge, "cmd_get_script_for_node", {"node_path": "Probe"})
+        assert for_node["node_path"] == "Probe"  # resolved path, not the empty input
+        assert for_node["script_path"] == VALID
 
         # a broken script yields a structured parse error with a line number
         broken_src = "extends Node\nvar x =\n"

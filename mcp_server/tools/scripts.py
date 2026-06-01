@@ -45,10 +45,11 @@ def parse_check_errors(text: str) -> list[ParseError]:
     lines = text.splitlines()
     errors: list[ParseError] = []
     for i, line in enumerate(lines):
-        if "Parse Error:" not in line and "SCRIPT ERROR:" not in line:
+        # Only genuine parse errors — not other SCRIPT ERROR shapes (e.g. load
+        # failures) that --check-only may also print.
+        if "Parse Error:" not in line:
             continue
-        marker = "Parse Error:" if "Parse Error:" in line else "SCRIPT ERROR:"
-        message = line.split(marker, 1)[-1].strip()
+        message = line.split("Parse Error:", 1)[-1].strip()
         source: str | None = None
         line_no: int | None = None
         for look in lines[i : i + 3]:

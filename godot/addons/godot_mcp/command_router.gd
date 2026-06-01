@@ -328,6 +328,7 @@ func _cmd_list_scripts(params: Dictionary) -> Dictionary:
 
 func _cmd_get_script_for_node(params: Dictionary) -> Dictionary:
 	var raw := str(params.get("node_path", ""))
+	var root := EditorInterface.get_edited_scene_root()
 	var node: Node
 	if raw.is_empty():
 		var selected: Array[Node] = EditorInterface.get_selection().get_selected_nodes()
@@ -335,17 +336,18 @@ func _cmd_get_script_for_node(params: Dictionary) -> Dictionary:
 			return _fail("PRECONDITION_FAILED", "No node_path given and nothing selected.", "node_or_selection")
 		node = selected[0]
 	else:
-		var root := EditorInterface.get_edited_scene_root()
 		if root == null:
 			return _fail("PRECONDITION_FAILED", "No scene is open.", "active_scene")
 		node = root.get_node_or_null(NodePath(raw))
 		if node == null:
 			return _fail("RESOURCE_NOT_FOUND", "No node at '%s'." % raw)
+	# Always report the resolved scene-relative path so the response is self-describing.
+	var resolved := Inspect.relative_path(node, root) if root != null else String(node.name)
 	var script: Variant = node.get_script()
 	if not (script is Script) or script.resource_path.is_empty():
-		return _ok({"node_path": raw, "script_path": null, "content": null})
+		return _ok({"node_path": resolved, "script_path": null, "content": null})
 	return _ok({
-		"node_path": raw,
+		"node_path": resolved,
 		"script_path": script.resource_path,
 		"content": FileAccess.get_file_as_string(script.resource_path),
 	})
