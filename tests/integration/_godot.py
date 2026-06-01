@@ -1,0 +1,52 @@
+"""Helpers for driving the Godot editor headlessly from integration tests.
+
+The addon is GDScript that only runs inside Godot, so these tests shell out to
+the Godot binary. They are gated with ``@pytest.mark.skipif`` on the binary being
+absent — a genuine environmental precondition, the one conditional skip the
+testing rules permit (CI has no editor; a dev machine with Godot 4.4+ does).
+"""
+
+from __future__ import annotations
+
+import os
+import shutil
+import subprocess
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+GODOT_PROJECT = REPO_ROOT / "godot"
+
+# Common macOS install location; extend as needed for other platforms.
+_MAC_APP = Path("/Applications/Godot.app/Contents/MacOS/Godot")
+
+
+def find_godot() -> str | None:
+    """Locate a Godot binary: ``$GODOT_BIN`` → ``PATH`` → known app bundle."""
+    env_bin = os.environ.get("GODOT_BIN")
+    if env_bin and Path(env_bin).is_file():
+        return env_bin
+    on_path = shutil.which("godot") or shutil.which("Godot")
+    if on_path:
+        return on_path
+    if _MAC_APP.is_file():
+        return str(_MAC_APP)
+    return None
+
+
+GODOT_BIN = find_godot()
+
+
+def run_godot(args: list[str], timeout: int = 120) -> subprocess.CompletedProcess[str]:
+    """Run the Godot binary against the addon project and capture output.
+
+    ``args`` are appended after ``--headless --path <godot project>``.
+    """
+    assert GODOT_BIN is not None, "run_godot called without a Godot binary"
+    cmd = [GODOT_BIN, "--headless", "--path", str(GODOT_PROJECT), *args]
+    return subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        check=False,
+    )

@@ -63,3 +63,19 @@ def test_project_godot_enables_plugin() -> None:
     assert PROJECT_GODOT.is_file(), "godot/project.godot must exist so the addon is loadable"
     text = PROJECT_GODOT.read_text()
     assert "res://addons/godot_mcp/plugin.cfg" in text, "project must enable the godot_mcp plugin"
+
+
+def test_dock_script_exists_and_is_tool() -> None:
+    dock = ADDON_DIR / "mcp_dock.gd"
+    assert dock.is_file(), "status dock script mcp_dock.gd must exist"
+    source = dock.read_text()
+    assert "@tool" in source, "dock script must carry @tool"
+    # The dock is read-only this phase: no editor mutation API leaks into it.
+    assert "EditorInterface" not in source, "dock must stay editor-independent (plugin feeds it)"
+
+
+def test_plugin_wires_the_dock() -> None:
+    source = (ADDON_DIR / "godot_mcp.gd").read_text()
+    assert "mcp_dock.gd" in source, "plugin must instantiate the dock script"
+    assert "add_control_to_dock" in source, "plugin must add the dock to an editor dock slot"
+    assert "remove_control_from_docks" in source, "plugin must remove the dock on _exit_tree"
