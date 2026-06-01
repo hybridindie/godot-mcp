@@ -20,8 +20,8 @@ Responder = Callable[[CommandEnvelope], ResponseEnvelope | None]
 
 
 def ping_responder(command: CommandEnvelope) -> ResponseEnvelope | None:
-    """Default addon behaviour: answer ``ping`` with ``{pong: true}``."""
-    if command.command == "ping":
+    """Default addon behaviour: answer ``cmd_ping`` with ``{pong: true}``."""
+    if command.command == "cmd_ping":
         return ResponseEnvelope.success(command.id, {"pong": True})
     return ResponseEnvelope.failure(
         command.id, "VALIDATION_ERROR", f"Unknown command '{command.command}'."

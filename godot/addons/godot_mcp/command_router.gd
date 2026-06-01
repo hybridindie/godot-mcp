@@ -19,12 +19,14 @@ var _handlers: Dictionary = {}
 
 
 func _init() -> void:
-	_handlers["ping"] = _cmd_ping
-	_handlers["get_project_info"] = _cmd_get_project_info
-	_handlers["get_active_scene"] = _cmd_get_active_scene
-	_handlers["get_scene_tree"] = _cmd_get_scene_tree
-	_handlers["get_selected_node"] = _cmd_get_selected_node
-	_handlers["get_node_properties"] = _cmd_get_node_properties
+	# Wire command strings are the cmd_<verb>_<noun> handler names (the matching MCP
+	# tool drops the cmd_ prefix); see docs/architecture.md.
+	_handlers["cmd_ping"] = _cmd_ping
+	_handlers["cmd_get_project_info"] = _cmd_get_project_info
+	_handlers["cmd_get_active_scene"] = _cmd_get_active_scene
+	_handlers["cmd_get_scene_tree"] = _cmd_get_scene_tree
+	_handlers["cmd_get_selected_node"] = _cmd_get_selected_node
+	_handlers["cmd_get_node_properties"] = _cmd_get_node_properties
 
 
 ## Dispatch one envelope ({ id, command, params }) and return a response envelope.

@@ -30,14 +30,14 @@ def register_inspection(mcp: FastMCP, bridge: Bridge) -> None:
         """Get project-level context: name, Godot version, main scene, autoloads,
         and project-defined input actions. Call this to orient before editing.
         """
-        return ProjectInfo(**await route(bridge, "get_project_info"))
+        return ProjectInfo(**await route(bridge, "cmd_get_project_info"))
 
     @mcp.tool(meta=READ_ONLY)
     async def get_active_scene() -> ActiveScene:
         """Get the currently open scene's path and name. Returns ``is_open=False``
         when no scene is open (not an error).
         """
-        return ActiveScene(**await route(bridge, "get_active_scene"))
+        return ActiveScene(**await route(bridge, "cmd_get_active_scene"))
 
     @mcp.tool(meta=READ_ONLY)
     async def get_scene_tree(max_depth: int = -1) -> SceneTree:
@@ -47,7 +47,7 @@ def register_inspection(mcp: FastMCP, bridge: Bridge) -> None:
         0 = root only); use it to avoid huge payloads on deep scenes. ``tree`` is
         null when no scene is open.
         """
-        return SceneTree(**await route(bridge, "get_scene_tree", {"max_depth": max_depth}))
+        return SceneTree(**await route(bridge, "cmd_get_scene_tree", {"max_depth": max_depth}))
 
     @mcp.tool(meta=READ_ONLY)
     async def get_selected_node() -> SelectedNode:
@@ -55,7 +55,7 @@ def register_inspection(mcp: FastMCP, bridge: Bridge) -> None:
         properties, and child names. Returns ``selected=None`` when nothing is
         selected.
         """
-        return SelectedNode(**await route(bridge, "get_selected_node"))
+        return SelectedNode(**await route(bridge, "cmd_get_selected_node"))
 
     @mcp.tool(meta=READ_ONLY)
     async def get_node_properties(node_path: str) -> NodeInfo:
@@ -64,4 +64,4 @@ def register_inspection(mcp: FastMCP, bridge: Bridge) -> None:
         with RESOURCE_NOT_FOUND if the path doesn't resolve, or PRECONDITION_FAILED
         if no scene is open.
         """
-        return NodeInfo(**await route(bridge, "get_node_properties", {"node_path": node_path}))
+        return NodeInfo(**await route(bridge, "cmd_get_node_properties", {"node_path": node_path}))

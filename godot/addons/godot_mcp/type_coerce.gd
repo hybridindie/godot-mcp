@@ -43,7 +43,8 @@ static func to_json(value: Variant) -> Variant:
 				return null
 			if value is Resource and not value.resource_path.is_empty():
 				return value.resource_path
-			return str(value)
+			# Stable fallback: the class name, never str() (which leaks instance ids).
+			return value.get_class()
 		_:
 			# Primitives (null, bool, int, float, String) are already JSON-safe.
 			return value

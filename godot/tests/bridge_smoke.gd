@@ -16,7 +16,7 @@ func _initialize() -> void:
 	var router := Router.new()
 
 	# ping → ok with {pong: true}, echoing the request id.
-	var pong: Dictionary = router.handle({"id": "1", "command": "ping", "params": {}})
+	var pong: Dictionary = router.handle({"id": "1", "command": "cmd_ping", "params": {}})
 	if pong.get("id") != "1":
 		failures.append("ping id not echoed: %s" % str(pong.get("id")))
 	if pong.get("ok") != true:
@@ -42,7 +42,7 @@ func _initialize() -> void:
 		failures.append("malformed error code: %s" % str(malformed.get("error")))
 
 	# Non-object params (untrusted JSON) → structured error, never a runtime crash.
-	var bad_params: Dictionary = router.handle({"id": "4", "command": "ping", "params": "oops"})
+	var bad_params: Dictionary = router.handle({"id": "4", "command": "cmd_ping", "params": "oops"})
 	if bad_params.get("ok") != false:
 		failures.append("non-object params should fail")
 	if bad_params.get("error") != "VALIDATION_ERROR":

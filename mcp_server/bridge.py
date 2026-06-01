@@ -139,8 +139,8 @@ class Bridge:
         return await self._await_response(msg_id, future, timeout)
 
     async def ping(self) -> bool:
-        """Liveness probe: a ``ping`` command should answer ``{pong: true}``."""
-        response = await self.send("ping")
+        """Liveness probe: ``cmd_ping`` should answer ``{pong: true}``."""
+        response = await self.send("cmd_ping")
         return response.ok and bool(response.result and response.result.get("pong"))
 
     # --- internals -------------------------------------------------------

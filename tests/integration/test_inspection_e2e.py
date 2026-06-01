@@ -34,21 +34,21 @@ async def _run_checks() -> None:
         raise AssertionError("could not connect to the addon bridge")
 
     try:
-        info = await bridge.send("get_project_info")
+        info = await bridge.send("cmd_get_project_info")
         assert info.ok and info.result is not None, info
         assert info.result["name"] == "godot-mcp"  # from godot/project.godot
         assert info.result["godot_version"].startswith("4.")
 
-        scene = await bridge.send("get_active_scene")
+        scene = await bridge.send("cmd_get_active_scene")
         assert scene.ok and scene.result is not None
         assert scene.result["is_open"] is False
 
-        tree = await bridge.send("get_scene_tree")
+        tree = await bridge.send("cmd_get_scene_tree")
         assert tree.ok and tree.result is not None
         assert tree.result["tree"] is None
 
         # No scene open ⇒ get_node_properties fails with a structured precondition.
-        props = await bridge.send("get_node_properties", {"node_path": "Anything"})
+        props = await bridge.send("cmd_get_node_properties", {"node_path": "Anything"})
         assert props.ok is False
         assert props.error == "PRECONDITION_FAILED"
         assert props.required == "active_scene"

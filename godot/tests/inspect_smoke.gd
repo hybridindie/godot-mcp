@@ -47,6 +47,8 @@ func _test_type_coerce(failures: Array[String]) -> void:
 	_eq(failures, "string", Coerce.to_json("hi"), "hi")
 	_eq(failures, "bool", Coerce.to_json(true), true)
 	_eq(failures, "null", Coerce.to_json(null), null)
+	# A path-less Resource coerces to its class name, never str() instance details.
+	_eq(failures, "resource_classname", Coerce.to_json(Resource.new()), "Resource")
 
 
 func _test_serialize_tree(failures: Array[String]) -> void:

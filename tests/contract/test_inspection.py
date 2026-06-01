@@ -22,7 +22,7 @@ pytestmark = pytest.mark.asyncio
 
 def _populated(cmd: CommandEnvelope) -> ResponseEnvelope | None:
     match cmd.command:
-        case "get_project_info":
+        case "cmd_get_project_info":
             return ResponseEnvelope.success(
                 cmd.id,
                 {
@@ -33,16 +33,16 @@ def _populated(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                     "input_actions": ["jump"],
                 },
             )
-        case "get_active_scene":
+        case "cmd_get_active_scene":
             return ResponseEnvelope.success(
                 cmd.id, {"is_open": True, "path": "res://main.tscn", "name": "main.tscn"}
             )
-        case "get_scene_tree":
+        case "cmd_get_scene_tree":
             return ResponseEnvelope.success(
                 cmd.id,
                 {"tree": {"name": "Main", "type": "Node2D", "script": None, "children": []}},
             )
-        case "get_selected_node":
+        case "cmd_get_selected_node":
             return ResponseEnvelope.success(
                 cmd.id,
                 {
@@ -55,7 +55,7 @@ def _populated(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                     }
                 },
             )
-        case "get_node_properties":
+        case "cmd_get_node_properties":
             if cmd.params.get("node_path") == "Missing":
                 return ResponseEnvelope.failure(
                     cmd.id, "RESOURCE_NOT_FOUND", "No node at 'Missing'."
@@ -75,11 +75,11 @@ def _populated(cmd: CommandEnvelope) -> ResponseEnvelope | None:
 
 def _empty(cmd: CommandEnvelope) -> ResponseEnvelope | None:
     match cmd.command:
-        case "get_active_scene":
+        case "cmd_get_active_scene":
             return ResponseEnvelope.success(cmd.id, {"is_open": False, "path": None, "name": None})
-        case "get_scene_tree":
+        case "cmd_get_scene_tree":
             return ResponseEnvelope.success(cmd.id, {"tree": None})
-        case "get_selected_node":
+        case "cmd_get_selected_node":
             return ResponseEnvelope.success(cmd.id, {"selected": None})
     return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected command")
 
