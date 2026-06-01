@@ -8,7 +8,6 @@ Tagged ``runtime`` safety class and gated in the ``runtime`` toolset.
 from __future__ import annotations
 
 from fastmcp import FastMCP
-from fastmcp.exceptions import ToolError
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import RUNTIME_TAG
@@ -49,8 +48,9 @@ def register_runtime(
         a change actually runs and to read back failures.
         """
         if runner.binary is None:
-            raise ToolError(
-                "Godot binary not found. Set GODOT_MCP_GODOT_BIN to your Godot executable."
+            raise PreconditionError(
+                "Godot binary not found. Set GODOT_MCP_GODOT_BIN to your Godot executable.",
+                required="godot_bin",
             )
         project_dir = await _resolve_project_dir(bridge, config)
         output = await runner.run(project_dir, scene, float(timeout_seconds))

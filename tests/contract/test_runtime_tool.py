@@ -90,7 +90,9 @@ async def test_missing_binary_is_structured_error() -> None:
         await _enable_runtime(client)
         result = await client.call_tool("run_and_capture", {}, raise_on_error=False)
     assert result.is_error
-    assert "Godot binary not found" in str(result.content)
+    content = str(result.content)
+    assert "Godot binary not found" in content
+    assert "required=godot_bin" in content  # structured precondition hint
 
 
 async def test_project_dir_resolved_from_bridge_when_unset() -> None:

@@ -10,7 +10,7 @@ class LogEntry(BaseModel):
 
     type: str  # "error" | "warning"
     message: str
-    source: str | None = None  # e.g. "res://script.gd:42" or "at: …" when present
+    source: str | None = None  # the res:// path only (no line suffix); line is separate
     line: int | None = None
 
 

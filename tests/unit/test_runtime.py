@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import sys
 from pathlib import Path
 
 import pytest
 
 from mcp_server.config import ServerConfig
-from mcp_server.runtime import RunOutput, find_godot_binary, summarize_run
+from mcp_server.runtime import GodotRunner, RunOutput, find_godot_binary, summarize_run
 
 
 def test_summarize_classifies_errors_warnings_output() -> None:
@@ -61,3 +62,14 @@ def test_find_godot_binary_none_when_absent(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr("mcp_server.runtime.shutil.which", lambda name: None)
     monkeypatch.setattr("mcp_server.runtime._MAC_APP", Path("/does/not/exist"))
     assert find_godot_binary(ServerConfig()) is None
+
+
+def test_run_handles_unlaunchable_binary(tmp_path: Path) -> None:
+    # A real-but-non-executable file: launching it raises OSError, which run()
+    # must convert into a structured error (no exception escapes).
+    fake = tmp_path / "not_godot"
+    fake.write_text("not an executable")
+    runner = GodotRunner(ServerConfig(godot_bin=str(fake)))
+    output = asyncio.run(runner.run(str(tmp_path), None, timeout=5.0))
+    assert "ERROR" in output.stderr
+    assert summarize_run(output).errors  # structured, not an exception

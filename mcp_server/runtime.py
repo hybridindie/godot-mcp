@@ -84,9 +84,19 @@ class GodotRunner:
             command.append(scene)
 
         started = time.monotonic()
-        proc = await asyncio.create_subprocess_exec(
-            *command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-        )
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+            )
+        except OSError as exc:
+            # e.g. a non-executable binary, or it vanished — surface as a structured
+            # error via summarize_run instead of an unstructured exception.
+            return RunOutput(
+                command=command,
+                stderr=f"ERROR: failed to launch Godot ({exc}).",
+                exit_code=None,
+                duration=round(time.monotonic() - started, 3),
+            )
         timed_out = False
         try:
             out, err = await asyncio.wait_for(proc.communicate(), timeout)
