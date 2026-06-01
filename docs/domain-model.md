@@ -15,8 +15,9 @@ issues #8 (placement) and #9 (waves/paths) and the vertical slice (#15).
 - **Enum values are lowercase snake** (`path_adjacent`, `double_speed`, `in_progress`).
 - **Identifiers** (`id`) are `snake_case` slugs unique within their type
   (`archer_basic`, `fast_grunt`).
-- **Scene/resource references** are Godot `res://` paths in `scene_path` /
-  `curve_node_path` fields, or scene-relative node paths (e.g. `Path2D`) where noted.
+- **`scene_path`** is a Godot `res://` **resource** path (e.g. `res://towers/cannon.tscn`).
+- **`curve_node_path`, `start_marker`, `end_marker`** are scene-relative **node** paths
+  (e.g. `Path2D`, `Markers/Start`) — not resource paths.
 
 ## Godot mapping
 

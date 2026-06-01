@@ -14,8 +14,9 @@ pytestmark = pytest.mark.asyncio
 
 
 def _server() -> FastMCP:
-    bridge = Bridge(ServerConfig().bridge, connector=connector_for(FakeAddonConnection()))
-    return create_server(ServerConfig(), bridge=bridge)
+    config = ServerConfig()
+    bridge = Bridge(config.bridge, connector=connector_for(FakeAddonConnection()))
+    return create_server(config, bridge=bridge)
 
 
 async def test_get_domain_vocabulary_is_read_only_and_complete() -> None:
