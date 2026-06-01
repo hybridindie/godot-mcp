@@ -67,6 +67,25 @@ Document each tool here as it lands, using this shape:
 > **Returns:** `CreateNodeResult { node_path: str, created: bool }`.
 > **Bridge command:** `cmd_create_node`.
 
+### Implemented tools
+
+#### Inspection (issue #5) — all `read_only`
+
+Every tool routes to the matching `cmd_*` addon handler and returns a typed model.
+Failures surface as a `ToolError` carrying `"<ERROR_CODE>: <hint>"`. No-scene / no-selection
+states return an empty model (`is_open=False` / `tree=None` / `selected=None`), not an error.
+
+| Tool | Params | Returns | Bridge command |
+|------|--------|---------|----------------|
+| `get_project_info` | — | `ProjectInfo { name, godot_version, main_scene?, autoloads, input_actions }` | `cmd_get_project_info` |
+| `get_active_scene` | — | `ActiveScene { is_open, path?, name? }` | `cmd_get_active_scene` |
+| `get_scene_tree` | `max_depth: int = -1` | `SceneTree { tree: SceneNode? }` | `cmd_get_scene_tree` |
+| `get_selected_node` | — | `SelectedNode { selected: NodeInfo? }` | `cmd_get_selected_node` |
+| `get_node_properties` | `node_path: str` | `NodeInfo { node_path, type, script?, properties, children }` | `cmd_get_node_properties` |
+
+`SceneNode = { name, type, script?, children: [SceneNode] }`. `get_node_properties` errors
+with `RESOURCE_NOT_FOUND` (bad path) or `PRECONDITION_FAILED` (no scene open).
+
 ## Resources
 
 - `@mcp.resource("godot://…")` handlers are **read-only** and return JSON strings; no side

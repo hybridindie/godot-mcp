@@ -20,6 +20,7 @@ from fastmcp import FastMCP
 from mcp_server.bridge import Bridge
 from mcp_server.config import ServerConfig
 from mcp_server.tools.health import register_health
+from mcp_server.tools.inspection import register_inspection
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,7 @@ def create_server(config: ServerConfig | None = None, bridge: Bridge | None = No
 
     mcp = FastMCP(SERVER_NAME, lifespan=lifespan)
     register_health(mcp, bridge, config)
+    register_inspection(mcp, bridge)
     return mcp
 
 

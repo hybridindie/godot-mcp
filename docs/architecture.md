@@ -117,11 +117,25 @@ contract tests) before adding a new code.
 
 ## Type coercion
 
-Godot types (`Vector2/3`, `Color`, `Rect2`, `NodePath`) cross the bridge as JSON-safe
-forms and are coerced on the addon side in a dedicated `type_coerce.gd` helper (issue #6),
-never inline. Scene trees serialize to `{ name, type, script, children }` and honor a
-`max_depth` parameter. The exact JSON shape for each type is fixed alongside the mutation
-tools in issue #6 and documented in [`tool-contracts.md`](tool-contracts.md).
+Godot types cross the bridge as JSON-safe forms, coerced on the addon side in the
+dedicated `type_coerce.gd` helper (`MCPTypeCoerce`), never inline. The read direction
+(Godot → JSON) landed in issue #5; the write direction (`from_json`, using each property's
+declared type to reconstruct the Godot value) lands with the mutation tools in issue #6.
+
+| Godot type | JSON shape |
+|------------|------------|
+| `Vector2` / `Vector2i` | `{ "x": float, "y": float }` |
+| `Vector3` / `Vector3i` | `{ "x": float, "y": float, "z": float }` |
+| `Color` | `{ "r": float, "g": float, "b": float, "a": float }` |
+| `Rect2` / `Rect2i` | `{ "position": {x,y}, "size": {x,y} }` |
+| `NodePath` / `StringName` | string |
+| `Resource` | its `resource_path` (else the class name) |
+| `Array` / packed arrays / `Dictionary` | coerced element-wise |
+| `null`, `bool`, `int`, `float`, `String` | passed through unchanged |
+
+Scene trees serialize to `{ name, type, script, children }` and honor a `max_depth`
+parameter (`-1` = unlimited, `0` = the node with no children). Node detail serializes to
+`{ node_path, type, script, properties, children }` (see [`tool-contracts.md`](tool-contracts.md)).
 
 ## Health check
 
