@@ -1,11 +1,12 @@
 # godot-mcp
 
-A two-part system for **AI-driven Godot game development**. An AI client (Claude Code,
-OpenCode, or any stdio MCP client) drives a live Godot editor through an MCP server.
-The first concrete target is a tower-defense roguelite.
+A **generic, game-agnostic** system for **AI-driven Godot development**. An AI client
+(Claude Code, OpenCode, or any stdio MCP client) drives a live Godot editor through an MCP
+server — generic editor control (inspection, scene mutation, scripts, runtime), with no
+built-in game vocabulary. A specific game is a separate project that consumes this server.
 
-> **Status:** scaffolding (issue #1). The directory tree, dev bootstrap, and the bridge
-> contract are in place; the WebSocket bridge and tools land in later issues. The 15 open
+> **Status:** engine built — bridge, server, inspection, safety, and scene mutation tools
+> are merged; script/resource/runtime tools are next. The open
 > GitHub issues are the authoritative spec — see `gh issue list`.
 
 ## Architecture

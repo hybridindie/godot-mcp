@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-This repo is **greenfield** — only `LICENSE` is committed. There is no source code, build config, or tests yet. The architecture below is the *target* design defined by the 15 open GitHub issues (`gh issue list`), which are the authoritative spec. Issue numbers are referenced throughout; read the relevant issue before implementing a piece.
+The engine is built: scaffold (#1), addon + status dock (#2), WebSocket bridge (#3), FastMCP server (#4), read-only inspection tools (#5), the safety framework (#14), and safe scene mutation tools (#6) are merged. Remaining godot-mcp work: script read/patch (#10), `godot://` resources (#11), and the runtime loop (#13). The GitHub issues are the authoritative spec; read the relevant issue before implementing a piece.
 
-The recommended build order is bottom-up by issue number: #1 (scaffold) → #2/#4 (addon + server bootstrap) → #3 (the WebSocket bridge, the core seam) → #5 (read-only tools) → #14 (safety) → #6 (mutation tools) → #13 (runtime loop), with the game-domain work (#7–#12) layered on top, culminating in #15 (vertical slice).
+**godot-mcp is a generic, game-agnostic Godot MCP server.** It exposes Godot editor capabilities (inspection, scene mutation, scripts, runtime) over MCP — it has no built-in game vocabulary. Any specific game (e.g. a tower-defense roguelite) is a **separate project** that consumes this server; its domain models, semantic tools, and prompts live in that project, not here.
 
 ## Grounding rules
 
@@ -27,7 +27,7 @@ Adapted from the [hybridindie/instructions-and-rules](https://github.com/hybridi
 
 ## What this is
 
-A two-part system for **AI-driven Godot game development**, targeting a tower-defense roguelite as the first concrete game. An AI client (Claude Code and OpenCode are the primary targets; any stdio MCP client works) drives a live Godot editor through an MCP server. The repo deliberately keeps a clean boundary between the two halves.
+A two-part system for **AI-driven Godot development**: an AI client (Claude Code and OpenCode are the primary targets; any stdio MCP client works) drives a live Godot editor through an MCP server. It is **game-agnostic** — generic Godot editor control, not tied to any one game. The repo deliberately keeps a clean boundary between the two halves.
 
 ## Architecture
 
@@ -67,11 +67,11 @@ These span many files and are the things easiest to get wrong:
 - **JSON-safe serialization** — the scene tree and node properties must serialize to JSON-safe types only (no Godot objects). Large trees support a `max_depth` parameter.
 - **Type coercion** (issue #6) — Godot types (`Vector2/3`, `Color`, `Rect2`, `NodePath`) are coerced to/from JSON in a dedicated `type_coerce.gd` helper, not inline.
 - **Read-only vs. mutating split** — read-only context is exposed both as tools (issue #5) and as `godot://` resources (issue #11); mutations only ever go through tools.
-- **Naming** — `snake_case` for all domain/data fields and Pydantic models (issue #7); addon command handlers are `cmd_<verb>_<noun>`; matching MCP tools drop the `cmd_` prefix.
+- **Naming** — `snake_case` for all domain/data fields and Pydantic models; addon command handlers are `cmd_<verb>_<noun>`; matching MCP tools drop the `cmd_` prefix.
 
-## Game domain (issues #7–#12)
+## Game-agnostic scope
 
-The MCP server is intentionally *not* a generic Godot controller — it speaks tower-defense roguelite vocabulary. Pydantic models in `mcp_server/models/` cover **Tower, Enemy, Wave, Path, Economy, MetaProgression** (issue #7, spec in `docs/domain-model.md`). Prompts (issue #12) encode step-numbered workflows (`create_tower`, `add_wave`, `wire_tower_attack`, etc.) that tell the agent which tools/resources to use in what order.
+godot-mcp deliberately ships **no** game vocabulary — no Tower/Enemy/Wave models, no `create_tower`-style tools or prompts. Its surface is generic Godot: inspection, scene mutation, scripts, resources, and runtime control. A specific game (a tower-defense roguelite is the first consumer) is a **separate project** that imports godot-mcp as an MCP server and layers its own domain models, semantic tools, and prompts on top. Keep that boundary: if a capability only makes sense for one game, it belongs in the game project, not here.
 
 ## Toolchain & running
 

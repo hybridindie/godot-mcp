@@ -1,5 +1,6 @@
-"""Pydantic domain models for the tower-defense roguelite vocabulary.
+"""Pydantic models for the godot-mcp server.
 
-Tower, Enemy, Wave, Path, Economy, MetaProgression and friends. ``snake_case``
-fields throughout. Defined in issue #7 (spec in ``docs/domain-model.md``).
+Typed I/O for the tool surface — bridge envelopes, health, and editor-inspection
+results. ``snake_case`` fields throughout. These models are game-agnostic; they
+describe Godot editor state, not any particular game's domain.
 """

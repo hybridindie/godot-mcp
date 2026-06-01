@@ -153,7 +153,8 @@ UndoRedo-wrapped `cmd_*` handler and runs preconditions first.
 - `@mcp.prompt()` handlers are **step-numbered instruction templates** that tell the agent
   which tools/resources to use in what order. They instruct; they do not act.
 - Arguments are typed and documented.
-- Examples (issue #12): `create_tower`, `add_wave`, `wire_tower_attack`.
+- Prompts here stay **game-agnostic** — generic Godot workflows (e.g. "create a scene with
+  a typed root", "wire a signal"). Game-specific prompts belong to the separate game project.
 
 ## Client fallback
 
