@@ -106,15 +106,28 @@ static func from_json(value: Variant, type: int) -> Variant:
 			return value
 
 
+# Constructor prefix per composite type, so str_to_var only runs on plausible input.
+const _CTOR_PREFIX := {
+	TYPE_VECTOR2: "Vector2(",
+	TYPE_VECTOR2I: "Vector2i(",
+	TYPE_VECTOR3: "Vector3(",
+	TYPE_VECTOR3I: "Vector3i(",
+	TYPE_RECT2: "Rect2(",
+	TYPE_RECT2I: "Rect2i(",
+}
+
+
 ## Parse a string form into a composite type, or null to fall back to dict/array.
 static func _from_string(value: String, type: int) -> Variant:
-	match type:
-		TYPE_VECTOR2, TYPE_VECTOR2I, TYPE_VECTOR3, TYPE_VECTOR3I, TYPE_RECT2, TYPE_RECT2I:
-			# str_to_var parses "Vector2(100, 200)", "Rect2(0, 0, 4, 5)", etc.
-			var parsed: Variant = str_to_var(value)
-			return parsed if typeof(parsed) == type else null
-		TYPE_COLOR:
-			return Color.html(value) if value.is_valid_html_color() else null
+	if _CTOR_PREFIX.has(type):
+		# Cheap prefix check first: avoid calling str_to_var (and its parse-error
+		# noise) on strings that clearly aren't the expected constructor form.
+		if not value.strip_edges().begins_with(_CTOR_PREFIX[type]):
+			return null
+		var parsed: Variant = str_to_var(value)
+		return parsed if typeof(parsed) == type else null
+	if type == TYPE_COLOR:
+		return Color.html(value) if value.is_valid_html_color() else null
 	return null
 
 

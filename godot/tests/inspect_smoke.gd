@@ -78,6 +78,8 @@ func _test_from_json(failures: Array[String]) -> void:
 	_eq(failures, "fj.str.color.alpha", Coerce.from_json("#0000ffff", TYPE_COLOR), Color(0, 0, 1, 1))
 	# A plain string still passes through for TYPE_STRING.
 	_eq(failures, "fj.str.passthrough", Coerce.from_json("hello", TYPE_STRING), "hello")
+	# A non-constructor string for a composite type falls back to default (no str_to_var).
+	_eq(failures, "fj.str.vec2.bad", Coerce.from_json("nope", TYPE_VECTOR2), Vector2())
 
 
 func _test_serialize_tree(failures: Array[String]) -> void:
