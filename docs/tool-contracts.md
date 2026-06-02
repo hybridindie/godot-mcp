@@ -460,6 +460,27 @@ returns the buffered `events` in the same `play_input_sequence` format, so a rec
 replays directly (regression). Since `parse_input_event` also fires `_input`, synthesized
 input is recorded too.
 
+#### Testing / QA (issue #37) — category: `testing` (gated off by default)
+
+Automated play-testing, built entirely on the existing runtime/input/screenshot tools
+(no new addon commands). Scenario/stress control the run (`runtime`); assertions and the
+screenshot diff are `read_only`.
+
+| Tool | Params | Returns |
+|------|--------|---------|
+| `assert_node_state` | `node_path, property, expected, op="==", timeout_ms=1500` | `AssertionResult { …, actual, passed, error }` |
+| `run_test_scenario` | `scene="", events[], assertions[], setup_ms=800, settle_ms=300, stop_after=True` | `ScenarioResult { passed, played, connected, assertions[] }` |
+| `run_stress_test` | `iterations=100, actions[], seed=0, delay_ms=8` | `StressTestResult { survived, iterations, playing_after, seed }` |
+| `compare_screenshots` | `image_a, image_b (base64 PNG), tolerance=0.0` | `ScreenshotDiffResult { same_size, diff_pixels, diff_ratio, mean_abs_diff, match }` |
+
+`assert_node_state` reads a live property (one sample via the runtime probe) and compares
+with `op` (==, !=, <, <=, >, >=, contains, approx). `run_test_scenario` plays a scene,
+runs an input sequence, then evaluates `{node_path, property, expected, op}` assertions
+and stops the run. `run_stress_test` fuzzes the running game with seeded random input
+(keys / input-map actions / "click") and reports whether it survived (still playing).
+`compare_screenshots` does a per-pixel diff (via `pypng`) of two base64 PNGs — e.g. from
+`capture_editor_screenshot` or saved baselines — with a per-channel `tolerance`.
+
 #### Runtime inspection (issue #35) — `runtime` toolset, `read_only`
 
 Inspect a *running* game on the #66 rails (the third piece, `get_game_scene_tree`, shipped

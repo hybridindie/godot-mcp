@@ -31,6 +31,7 @@ from mcp_server.categories import (
     SCENE_EDIT_TAG,
     SCRIPTS_TAG,
     SHADER_TAG,
+    TESTING_TAG,
     THEME_UI_TAG,
     TILEMAP_TAG,
 )
@@ -64,6 +65,8 @@ TOOLSETS: dict[str, str] = {
     "set shader parameters.",
     INPUT_TAG: "Drive a running game: synthesize key/mouse/action input and play "
     "input sequences (needs a play session + runtime probe).",
+    TESTING_TAG: "Automated play-testing: run scenarios, assert live node state, "
+    "diff screenshots, and fuzz with random input.",
 }
 
 # Enabled at startup (plus `core`, which is always on). Everything else is gated

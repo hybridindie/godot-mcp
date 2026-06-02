@@ -41,6 +41,7 @@ from mcp_server.tools.runtime_session import register_runtime_session
 from mcp_server.tools.scene_3d import register_scene_3d
 from mcp_server.tools.scripts import register_scripts
 from mcp_server.tools.shader import register_shader
+from mcp_server.tools.testing import register_testing
 from mcp_server.tools.theme_ui import register_theme_ui
 from mcp_server.tools.tilemap import register_tilemap
 from mcp_server.toolsets import ToolsetManager, register_toolset_tools
@@ -101,6 +102,7 @@ def create_server(
     register_runtime_session(mcp, bridge)
     register_runtime_inspect(mcp, bridge)
     register_input_sim(mcp, bridge)
+    register_testing(mcp, bridge)
     register_scripts(mcp, bridge, config, runner)
     register_safety_tools(mcp)
 

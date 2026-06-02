@@ -12,6 +12,7 @@ dependencies = [
     "websockets>=13.0",
     # Domain models and typed tool I/O (issue #7).
     "pydantic>=2.0",
+    "pypng>=0.20",
 ]
 
 [project.scripts]
@@ -50,3 +51,8 @@ select = ["E", "F", "I", "UP", "B"]
 python_version = "3.11"
 strict = true
 files = ["mcp_server", "tests"]
+
+# pypng (PNG decode for screenshot diffing, issue #37) ships no type stubs.
+[[tool.mypy.overrides]]
+module = ["png"]
+ignore_missing_imports = true
