@@ -44,10 +44,22 @@ def test_tolerance_absorbs_small_diff() -> None:
     assert compare_images(a, b, tolerance=0.05)["match"] is True
 
 
+def test_tolerance_is_clamped_to_one() -> None:
+    # tolerance > 1 must not keep growing the threshold; it's capped at the 1.0 behavior.
+    a = _solid(2, 2, (0, 0, 0, 255))
+    b = _solid(2, 2, (255, 255, 255, 255))
+    assert compare_images(a, b, tolerance=5.0) == compare_images(a, b, tolerance=1.0)
+    # a large-but-sub-max tolerance still flags a full black/white difference
+    assert compare_images(a, b, tolerance=0.9)["match"] is False
+
+
 def test_size_mismatch_is_reported_not_resized() -> None:
     result = compare_images(_solid(2, 2, (0, 0, 0, 255)), _solid(4, 4, (0, 0, 0, 255)))
     assert result["same_size"] is False
     assert result["match"] is False
+    # metrics stay internally consistent (every pixel counts as differing)
+    assert result["diff_pixels"] == result["total_pixels"]
+    assert result["diff_ratio"] == 1.0
 
 
 def test_invalid_image_raises() -> None:

@@ -30,7 +30,9 @@ TESTING = {TESTING_TAG}
 _MAX_STRESS_ITERATIONS = 2000
 
 
-async def _read_live_value(bridge: Bridge, node_path: str, prop: str, timeout_ms: int) -> Any:
+async def _read_live_value(
+    bridge: Bridge, node_path: str, prop: str, timeout_ms: int
+) -> tuple[Any, str]:
     """One-shot read of a live property by reusing monitor_property with a single sample.
 
     Returns (value, error): error is set when the node/property was invalid or no sample

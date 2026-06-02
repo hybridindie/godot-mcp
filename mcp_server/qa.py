@@ -43,15 +43,17 @@ def compare_images(a_b64: str, b_b64: str, tolerance: float = 0.0) -> dict[str, 
     mean_abs_diff (0..1) / match (true when no pixel differs beyond tolerance and sizes
     match). Different-sized images are reported, not resized.
     """
+    tolerance = max(0.0, min(1.0, tolerance))  # documented 0..1; guard against >1 matching all
     aw, ah, a = _decode_rgba(a_b64)
     bw, bh, b = _decode_rgba(b_b64)
     if (aw, ah) != (bw, bh):
+        total = aw * ah
         return {
             "same_size": False,
             "width": aw,
             "height": ah,
-            "diff_pixels": 0,
-            "total_pixels": aw * ah,
+            "diff_pixels": total,  # incomparable → treat every pixel as differing
+            "total_pixels": total,
             "diff_ratio": 1.0,
             "mean_abs_diff": 1.0,
             "match": False,
@@ -131,8 +133,8 @@ def random_input_events(
             events.append(
                 {
                     "type": "mouse",
-                    "x": rng.randint(0, width),
-                    "y": rng.randint(0, height),
+                    "x": rng.randint(0, max(0, width - 1)),  # randint upper bound is inclusive
+                    "y": rng.randint(0, max(0, height - 1)),
                     "button": "left",
                     "pressed": True,
                 }
