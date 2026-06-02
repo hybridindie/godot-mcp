@@ -2282,6 +2282,9 @@ func _cmd_stop_recording(_params: Dictionary) -> Dictionary:
 	var guard := _require_live_probe()
 	if not guard["ok"]:
 		return guard
+	# Drop any prior recording first so get_recording reflects THIS stop's push, even if
+	# stop_recording is called without a preceding record_input.
+	_debugger.clear_recorded_input()
 	_debugger.send_to_probe("godot_mcp:record_stop", [])
 	return _ok({"recording": false})
 

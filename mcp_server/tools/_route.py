@@ -10,6 +10,7 @@ the calling tool is decorated with ``@enforce_preconditions`` (read-only tools a
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from fastmcp.exceptions import ToolError
@@ -34,3 +35,22 @@ async def route(
             detail = f"{detail} [required={response.required}]"
         raise ToolError(detail)
     return response.result or {}
+
+
+async def poll_ready(
+    bridge: Bridge, command: str, params: dict[str, Any], timeout_ms: int
+) -> dict[str, Any]:
+    """Poll a poll-and-cache command until its result is ``ready`` or ``timeout_ms``
+    elapses (whichever first), returning the last result. Uses an event-loop deadline so
+    the wall-clock bound holds even for small timeouts and accounts for round-trip time.
+    Always makes at least one attempt.
+    """
+    deadline = asyncio.get_event_loop().time() + timeout_ms / 1000
+    result = await route(bridge, command, params)
+    while not result.get("ready"):
+        remaining = deadline - asyncio.get_event_loop().time()
+        if remaining <= 0:
+            break
+        await asyncio.sleep(min(0.1, remaining))
+        result = await route(bridge, command, params)
+    return result

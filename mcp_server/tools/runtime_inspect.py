@@ -8,9 +8,7 @@ runtime probe. All `read_only` against the live session, in the `runtime` toolse
 
 from __future__ import annotations
 
-import asyncio
 import uuid
-from typing import Any
 
 from fastmcp import FastMCP
 
@@ -22,7 +20,7 @@ from mcp_server.models.runtime_inspect import (
     UiElementsResult,
 )
 from mcp_server.safety import READ_ONLY
-from mcp_server.tools._route import route
+from mcp_server.tools._route import poll_ready, route
 
 RUNTIME_SET = {RUNTIME_TAG}
 
@@ -68,13 +66,7 @@ def register_runtime_inspect(mcp: FastMCP, bridge: Bridge) -> None:
             # once and we never match a prior identical-filter request's stale result.
             "request_id": uuid.uuid4().hex,
         }
-        # The probe answers asynchronously; poll the addon's cache until it reflects this
-        # request (or the timeout elapses). Bounded, ~100ms cadence.
-        attempts = max(1, timeout_ms // 100)
-        result: dict[str, Any] = {"ready": False, "elements": []}
-        for _ in range(attempts):
-            result = await route(bridge, "cmd_find_ui_elements", params)
-            if result.get("ready"):
-                break
-            await asyncio.sleep(0.1)
+        # The probe answers asynchronously; poll the addon's cache (which dispatches one
+        # scan for this request_id) until it reflects this request or timeout_ms elapses.
+        result = await poll_ready(bridge, "cmd_find_ui_elements", params, timeout_ms)
         return UiElementsResult(**result)

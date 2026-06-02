@@ -11,7 +11,6 @@ is `runtime`, reads are `read_only`.
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 
 from fastmcp import FastMCP
@@ -25,7 +24,7 @@ from mcp_server.models.input_sim import (
     SimInputResult,
 )
 from mcp_server.safety import READ_ONLY, RUNTIME
-from mcp_server.tools._route import route
+from mcp_server.tools._route import poll_ready, route
 
 INPUT = {INPUT_TAG}
 
@@ -124,11 +123,5 @@ def register_input_sim(mcp: FastMCP, bridge: Bridge) -> None:
         buffered sequence.
         """
         await route(bridge, "cmd_stop_recording", {})
-        attempts = max(1, timeout_ms // 100)
-        result: dict[str, Any] = {"ready": False, "connected": False, "events": []}
-        for _ in range(attempts):
-            result = await route(bridge, "cmd_get_recording", {})
-            if result.get("ready"):
-                break
-            await asyncio.sleep(0.1)
+        result = await poll_ready(bridge, "cmd_get_recording", {}, timeout_ms)
         return RecordingResult(**result)
