@@ -29,6 +29,7 @@ from mcp_server.categories import (
     SCENE_3D_TAG,
     SCENE_EDIT_TAG,
     SCRIPTS_TAG,
+    THEME_UI_TAG,
     TILEMAP_TAG,
 )
 from mcp_server.safety import READ_ONLY
@@ -55,6 +56,8 @@ TOOLSETS: dict[str, str] = {
     AUDIO_TAG: "Set up audio: stream players, audio bus layout, and bus effects.",
     TILEMAP_TAG: "Edit TileMap/TileMapLayer cells: set, fill rect, get, clear, "
     "list layers.",
+    THEME_UI_TAG: "Create themes and override colors, font sizes, and styleboxes "
+    "on Control nodes.",
 }
 
 # Enabled at startup (plus `core`, which is always on). Everything else is gated

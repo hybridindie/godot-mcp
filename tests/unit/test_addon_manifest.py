@@ -280,6 +280,17 @@ def test_router_registers_tilemap_commands() -> None:
         assert f'"{command}"' in source, f"router must register {command}"
 
 
+def test_router_registers_theme_ui_commands() -> None:
+    source = (ADDON_DIR / "command_router.gd").read_text()
+    for command in (
+        "cmd_create_theme",
+        "cmd_set_theme_color",
+        "cmd_set_theme_font_size",
+        "cmd_set_theme_stylebox",
+    ):
+        assert f'"{command}"' in source, f"router must register {command}"
+
+
 def test_mutations_use_undo_redo() -> None:
     source = (ADDON_DIR / "command_router.gd").read_text()
     # Every create/rename/delete/set must register with EditorUndoRedoManager.

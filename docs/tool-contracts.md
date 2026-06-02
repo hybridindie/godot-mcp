@@ -350,6 +350,27 @@ above that). `tilemap_clear` clears a layer (TileMap: the given layer, default 0
 TileMapLayer: the node) and reports the cell count, undo restoring the prior cells.
 `tilemap_layers` lists each layer's index/name/enabled.
 
+#### Theme & UI (issue #46) — category: `theme_ui` (gated off by default)
+
+Create a Theme for a Control and override theme colors, font sizes, and styleboxes on
+Control nodes. All `mutating` (UndoRedo-wrapped), `dry_run`. Overrides are local to the
+node and take precedence over its assigned theme.
+
+| Tool | Params | Returns |
+|------|--------|---------|
+| `create_theme` | `node_path, save_path?` | `ThemeResult { node_path, theme_path, created }` |
+| `set_theme_color` | `node_path, name, color` | `ThemeColorResult { node_path, name }` |
+| `set_theme_font_size` | `node_path, name, size` | `ThemeFontSizeResult { node_path, name, size }` |
+| `set_theme_stylebox` | `node_path, name, stylebox_type="StyleBoxFlat", properties?` | `ThemeStyleboxResult { node_path, name, stylebox_type }` |
+
+`create_theme` makes a Theme and assigns it to the Control (saved to a `res://*.tres`
+when `save_path` is given, else embedded with the scene). `set_theme_color` /
+`set_theme_font_size` apply local overrides (`name` is the theme item, e.g.
+"font_color", "font_size"); `color` accepts HTML strings or `[r,g,b,a]`.
+`set_theme_stylebox` builds a `stylebox_type` (StyleBoxFlat/Texture/Empty/Line)
+configured with `properties` (e.g. `bg_color`, `corner_radius_top_left`) and overrides
+the named stylebox. Undo restores the prior override (or removes it).
+
 #### Runtime (issue #13) — `runtime` (category: `runtime`, gated off by default)
 
 | Tool | Params | Returns |
