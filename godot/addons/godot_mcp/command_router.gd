@@ -1772,11 +1772,14 @@ func _cmd_create_theme(params: Dictionary) -> Dictionary:
 			return _fail("INTERNAL_ERROR", "Failed to save theme to '%s' (error %d)." % [save_path, err])
 		theme.take_over_path(save_path)
 		EditorInterface.get_resource_filesystem().update_file(save_path)
+	var prev_theme: Theme = node.theme
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Create theme on %s" % node.name)
 	ur.add_do_property(node, "theme", theme)
 	ur.add_do_reference(theme)
-	ur.add_undo_property(node, "theme", node.theme)
+	ur.add_undo_property(node, "theme", prev_theme)
+	if prev_theme != null:  # keep the prior theme alive for undo
+		ur.add_undo_reference(prev_theme)
 	ur.commit_action()
 	return _ok({"node_path": str(params.get("node_path")), "theme_path": save_path, "created": true})
 
@@ -1846,6 +1849,8 @@ func _cmd_set_theme_stylebox(params: Dictionary) -> Dictionary:
 	ur.add_do_method(node, "add_theme_stylebox_override", name, stylebox)
 	ur.add_do_reference(stylebox)
 	ur.add_undo_method(self, "_restore_theme_stylebox", node, name, had, prev)
+	if prev != null:  # keep the prior override StyleBox alive for undo
+		ur.add_undo_reference(prev)
 	ur.commit_action()
 	return _ok({
 		"node_path": str(params.get("node_path")),
