@@ -16,6 +16,7 @@ from pydantic import BaseModel
 
 from mcp_server.categories import (
     ANIMATION_TAG,
+    AUDIO_TAG,
     CORE_TAG,
     EDITOR_TAG,
     INSPECTION_TAG,
@@ -50,6 +51,7 @@ TOOLSETS: dict[str, str] = {
     "color gradients, and VFX presets.",
     NAVIGATION_TAG: "Author navigation: regions, agents, navmesh baking, and "
     "navigation layers.",
+    AUDIO_TAG: "Set up audio: stream players, audio bus layout, and bus effects.",
 }
 
 # Enabled at startup (plus `core`, which is always on). Everything else is gated

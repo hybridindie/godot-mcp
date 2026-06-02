@@ -257,6 +257,17 @@ def test_router_registers_navigation_commands() -> None:
         assert f'"{command}"' in source, f"router must register {command}"
 
 
+def test_router_registers_audio_commands() -> None:
+    source = (ADDON_DIR / "command_router.gd").read_text()
+    for command in (
+        "cmd_add_audio_player",
+        "cmd_get_audio_bus_layout",
+        "cmd_add_audio_bus",
+        "cmd_add_audio_bus_effect",
+    ):
+        assert f'"{command}"' in source, f"router must register {command}"
+
+
 def test_mutations_use_undo_redo() -> None:
     source = (ADDON_DIR / "command_router.gd").read_text()
     # Every create/rename/delete/set must register with EditorUndoRedoManager.

@@ -311,6 +311,25 @@ bakes the region's navmesh/navpoly synchronously (undo restores the pre-bake res
 a region with no navmesh returns a structured precondition). `set_navigation_layers`
 turns `[1,3]` into the bitmask `5` on any node with a `navigation_layers` property.
 
+#### Audio (issue #44) — category: `audio` (gated off by default)
+
+Set up audio — stream players, the AudioServer bus layout, and bus effects.
+`get_audio_bus_layout` is `read_only`; the others are `mutating` (UndoRedo-wrapped),
+`dry_run`. The bus layout is **global** AudioServer/editor state (not per-scene).
+
+| Tool | Params | Returns |
+|------|--------|---------|
+| `add_audio_player` | `parent_path, player_type="AudioStreamPlayer", name?, stream_path?, properties?` | `AudioPlayerResult { node_path, player_type, created }` |
+| `get_audio_bus_layout` | — | `AudioBusLayoutResult { buses[] }` (read_only) |
+| `add_audio_bus` | `name, volume_db=0.0` | `AudioBusResult { index, name }` |
+| `add_audio_bus_effect` | `bus, effect_type, properties?` | `AudioBusEffectResult { bus, bus_index, effect_type, effect_index }` |
+
+`add_audio_player` creates an AudioStreamPlayer/2D/3D, optionally loading a `res://`
+AudioStream (`stream_path`) and applying `properties` (volume_db, bus, autoplay, …).
+`get_audio_bus_layout` returns each bus's index/name/volume_db, mute/solo/bypass, and
+its effect stack. `add_audio_bus` appends a uniquely-named bus; `add_audio_bus_effect`
+appends an AudioEffect (e.g. AudioEffectReverb) to the named bus.
+
 #### Runtime (issue #13) — `runtime` (category: `runtime`, gated off by default)
 
 | Tool | Params | Returns |

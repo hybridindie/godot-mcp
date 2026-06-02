@@ -23,6 +23,7 @@ from mcp_server.resources.context import register_resources
 from mcp_server.runtime import GodotRunner, Runner
 from mcp_server.safety import register_safety_tools
 from mcp_server.tools.animation import register_animation
+from mcp_server.tools.audio import register_audio
 from mcp_server.tools.editor import register_editor
 from mcp_server.tools.health import register_health
 from mcp_server.tools.inspection import register_inspection
@@ -84,6 +85,7 @@ def create_server(
     register_scene_3d(mcp, bridge)
     register_particles(mcp, bridge)
     register_navigation(mcp, bridge)
+    register_audio(mcp, bridge)
     register_editor(mcp, bridge)
     register_resources(mcp, bridge)
     register_runtime(mcp, bridge, config, runner)
