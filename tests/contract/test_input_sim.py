@@ -31,6 +31,19 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
             return ResponseEnvelope.success(
                 cmd.id, {"playing": True, "connected": True, "injected": 3}
             )
+        case "cmd_record_input":
+            return ResponseEnvelope.success(cmd.id, {"recording": True})
+        case "cmd_stop_recording":
+            return ResponseEnvelope.success(cmd.id, {"recording": False})
+        case "cmd_get_recording":
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "ready": True,
+                    "connected": True,
+                    "events": [{"type": "key", "key": "Space", "pressed": True}],
+                },
+            )
     return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
 
 
@@ -90,3 +103,23 @@ async def test_get_input_stats() -> None:
         stats = await client.call_tool("get_input_stats", {})
     assert stats.structured_content["connected"] is True
     assert stats.structured_content["injected"] == 3
+
+
+async def test_record_and_stop_returns_replayable_events() -> None:
+    server, _ = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "input"})
+        rec = await client.call_tool("record_input", {})
+        stopped = await client.call_tool("stop_recording", {})
+    assert rec.structured_content["recording"] is True
+    events = stopped.structured_content["events"]
+    assert events and events[0]["type"] == "key" and events[0]["key"] == "Space"
+
+
+async def test_record_input_safety_classes() -> None:
+    server, _ = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "input"})
+        tools = {t.name: t for t in await client.list_tools()}
+    assert tools["record_input"].meta["safety_class"] == "runtime"
+    assert tools["stop_recording"].meta["safety_class"] == "read_only"

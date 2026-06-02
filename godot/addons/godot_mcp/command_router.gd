@@ -137,6 +137,10 @@ func _init() -> void:
 	_handlers["cmd_monitor_property"] = _cmd_monitor_property
 	_handlers["cmd_get_property_samples"] = _cmd_get_property_samples
 	_handlers["cmd_find_ui_elements"] = _cmd_find_ui_elements
+	# Input recording (issue #68) — capture live input for replay.
+	_handlers["cmd_record_input"] = _cmd_record_input
+	_handlers["cmd_stop_recording"] = _cmd_stop_recording
+	_handlers["cmd_get_recording"] = _cmd_get_recording
 
 
 ## Dispatch one envelope ({ id, command, params }) and return a response envelope.
@@ -2259,6 +2263,36 @@ func _cmd_find_ui_elements(params: Dictionary) -> Dictionary:
 			"request_id": request_id,
 		}])
 	return _ok({"ready": false, "elements": []})
+
+
+# --- input recording (issue #68) -------------------------------------------
+
+func _cmd_record_input(params: Dictionary) -> Dictionary:
+	var guard := _require_live_probe()
+	if not guard["ok"]:
+		return guard
+	_debugger.clear_recorded_input()  # drop any prior recording so stop reads this one
+	_debugger.send_to_probe("godot_mcp:record_start", [{
+		"include_motion": bool(params.get("include_motion", false)),
+	}])
+	return _ok({"recording": true})
+
+
+func _cmd_stop_recording(_params: Dictionary) -> Dictionary:
+	var guard := _require_live_probe()
+	if not guard["ok"]:
+		return guard
+	_debugger.send_to_probe("godot_mcp:record_stop", [])
+	return _ok({"recording": false})
+
+
+func _cmd_get_recording(_params: Dictionary) -> Dictionary:
+	if _debugger == null or not _debugger.is_connected_to_probe():
+		return _ok({"ready": false, "connected": false, "events": []})
+	var payload: Variant = _debugger.get_recorded_input()
+	if payload == null:
+		return _ok({"ready": false, "connected": true, "events": []})
+	return _ok({"ready": true, "connected": true, "events": (payload as Dictionary).get("events", [])})
 
 
 # --- editor screenshots (issue #33) ----------------------------------------

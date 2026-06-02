@@ -1,23 +1,29 @@
 """Input simulation tools (issue #36).
 
-Drive a *running* game over the bridge: synthesize key/mouse/action input and play
-input sequences. Built on the #66 runtime-session rails — the game must be running from
-the editor with the godot-mcp runtime probe autoload, which receives ``godot_mcp:`` input
-messages and calls ``Input.parse_input_event`` / ``Input.action_press`` on itself. Gated
-`input` toolset; injection is `runtime`, stats are `read_only`.
-
-(Recording live input for replay is the follow-up issue #68.)
+Drive a *running* game over the bridge: synthesize key/mouse/action input, play input
+sequences, and record the input the game receives for replay (#68). Built on the #66
+runtime-session rails — the game must be running from the editor with the godot-mcp
+runtime probe autoload, which receives ``godot_mcp:`` input messages and calls
+``Input.parse_input_event`` / ``Input.action_press`` on itself (and buffers events via
+its ``_input`` hook while recording). Gated `input` toolset; injection/recording-control
+is `runtime`, reads are `read_only`.
 """
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import INPUT_TAG
-from mcp_server.models.input_sim import InputStatsResult, SimInputResult
+from mcp_server.models.input_sim import (
+    InputStatsResult,
+    RecordingResult,
+    RecordResult,
+    SimInputResult,
+)
 from mcp_server.safety import READ_ONLY, RUNTIME
 from mcp_server.tools._route import route
 
@@ -101,3 +107,28 @@ def register_input_sim(mcp: FastMCP, bridge: Bridge) -> None:
         use it to confirm injected input is reaching the game.
         """
         return InputStatsResult(**await route(bridge, "cmd_get_input_stats", {}))
+
+    @mcp.tool(meta=RUNTIME, tags=INPUT)
+    async def record_input(include_motion: bool = False) -> RecordResult:
+        """Start recording the input the running game receives (key + mouse button;
+        mouse motion only when ``include_motion``). Stop and collect it with
+        ``stop_recording``; the result feeds straight back into ``play_input_sequence``.
+        """
+        params = {"include_motion": include_motion}
+        return RecordResult(**await route(bridge, "cmd_record_input", params))
+
+    @mcp.tool(meta=READ_ONLY, tags=INPUT)
+    async def stop_recording(timeout_ms: int = 2000) -> RecordingResult:
+        """Stop recording and return the captured ``events`` (in the
+        ``play_input_sequence`` format). Polls the addon up to ``timeout_ms`` for the
+        buffered sequence.
+        """
+        await route(bridge, "cmd_stop_recording", {})
+        attempts = max(1, timeout_ms // 100)
+        result: dict[str, Any] = {"ready": False, "connected": False, "events": []}
+        for _ in range(attempts):
+            result = await route(bridge, "cmd_get_recording", {})
+            if result.get("ready"):
+                break
+            await asyncio.sleep(0.1)
+        return RecordingResult(**result)

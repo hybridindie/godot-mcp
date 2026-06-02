@@ -350,6 +350,15 @@ def test_router_registers_runtime_inspect_commands() -> None:
     assert "_start_monitor" in probe and "get_global_rect" in probe
 
 
+def test_router_registers_input_recording_commands() -> None:
+    source = (ADDON_DIR / "command_router.gd").read_text()
+    for command in ("cmd_record_input", "cmd_stop_recording", "cmd_get_recording"):
+        assert f'"{command}"' in source, f"router must register {command}"
+    # The probe must capture input via _input and serialize events for replay.
+    probe = (ADDON_DIR / "mcp_runtime_probe.gd").read_text()
+    assert "func _input(" in probe and "_serialize_event" in probe
+
+
 def test_mutations_use_undo_redo() -> None:
     source = (ADDON_DIR / "command_router.gd").read_text()
     # Every create/rename/delete/set must register with EditorUndoRedoManager.

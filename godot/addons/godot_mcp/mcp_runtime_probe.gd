@@ -43,6 +43,12 @@ func _capture(message: String, data: Array) -> bool:
 		"find_ui":
 			EngineDebugger.send_message("godot_mcp:ui_elements", [_find_ui(_payload(data))])
 			return true
+		"record_start":
+			_record_start(_payload(data))
+			return true
+		"record_stop":
+			_record_stop()
+			return true
 	return false
 
 
@@ -246,6 +252,74 @@ func _ui_element(control: Control) -> Dictionary:
 	if "text" in control:  # Button / Label / LineEdit / …
 		element["text"] = str(control.text)
 	return element
+
+
+# --- input recording (issue #68) -------------------------------------------
+
+const _RECORD_CAP := 2000  # bound the buffer so a long recording can't grow unbounded
+
+var _recording := false
+var _record_motion := false
+var _recorded: Array = []
+
+
+## Capture input the running game receives (in the play_input_sequence event format) so it
+## can be replayed for regression. Runs only while recording is active.
+func _input(event: InputEvent) -> void:
+	if not _recording:
+		return
+	var rec := _serialize_event(event)
+	if not rec.is_empty() and _recorded.size() < _RECORD_CAP:
+		_recorded.append(rec)
+
+
+func _record_start(d: Dictionary) -> void:
+	_record_motion = bool(d.get("include_motion", false))
+	_recorded = []
+	_recording = true
+
+
+func _record_stop() -> void:
+	_recording = false
+	EngineDebugger.send_message("godot_mcp:recorded_input", [{"events": _recorded}])
+
+
+## Serialize an InputEvent into the {type, …} shape play_input_sequence replays, or {} to
+## skip (unhandled event kinds, motion when not requested, unmapped buttons/keys).
+func _serialize_event(event: InputEvent) -> Dictionary:
+	if event is InputEventKey:
+		var key := OS.get_keycode_string(event.keycode)
+		if key.is_empty():
+			return {}
+		return {
+			"type": "key", "key": key, "pressed": event.pressed,
+			"shift": event.shift_pressed, "ctrl": event.ctrl_pressed,
+			"alt": event.alt_pressed, "meta": event.meta_pressed,
+		}
+	if event is InputEventMouseButton:
+		var button := _button_name(event.button_index)
+		if button.is_empty():
+			return {}
+		return {
+			"type": "mouse", "x": event.position.x, "y": event.position.y,
+			"button": button, "pressed": event.pressed,
+		}
+	if event is InputEventMouseMotion:
+		if not _record_motion:
+			return {}
+		return {
+			"type": "mouse", "x": event.position.x, "y": event.position.y,
+			"relative_x": event.relative.x, "relative_y": event.relative.y,
+		}
+	return {}
+
+
+## Reverse of _MOUSE_BUTTONS: button index → name, or "" if not a recognized button.
+func _button_name(index: int) -> String:
+	for name in _MOUSE_BUTTONS:
+		if _MOUSE_BUTTONS[name] == index:
+			return name
+	return ""
 
 
 ## Minimal JSON-safe conversion for monitored property values (common Godot types).

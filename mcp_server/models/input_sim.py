@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 
 class SimInputResult(BaseModel):
@@ -15,3 +17,14 @@ class InputStatsResult(BaseModel):
     playing: bool
     connected: bool = False
     injected: int = 0  # synthesized input events the running game has acknowledged
+
+
+class RecordResult(BaseModel):
+    recording: bool
+
+
+class RecordingResult(BaseModel):
+    ready: bool = False
+    connected: bool = False
+    # Captured events in the play_input_sequence format — pass straight to that tool.
+    events: list[dict[str, Any]] = Field(default_factory=list)

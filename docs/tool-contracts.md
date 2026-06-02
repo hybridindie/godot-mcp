@@ -442,6 +442,8 @@ follow-up #68.)
 | `simulate_action` | `action, pressed=True, strength=1.0` | `SimInputResult` |
 | `play_input_sequence` | `events[], delay_ms=0` | `SimInputResult { count = len(events) }` |
 | `get_input_stats` | — | `InputStatsResult { playing, connected, injected }` (read_only) |
+| `record_input` | `include_motion=False` | `RecordResult { recording }` |
+| `stop_recording` | `timeout_ms=2000` | `RecordingResult { ready, connected, events[] }` (read_only) |
 
 `key` is a Godot key name ("A", "Space", "Enter"). `simulate_mouse` sends motion when
 `button` is empty, else a button event (left/right/middle/wheel_up/wheel_down).
@@ -452,6 +454,11 @@ front (bad `type`/missing field/unknown button → `VALIDATION_ERROR`), so `coun
 events sent. All injection requires a live probe (else `PRECONDITION_FAILED`,
 `required=play_session` / `runtime_probe`). `get_input_stats.injected` is the count of
 synthesized events the game has acknowledged — use it to confirm delivery.
+`record_input` (issue #68) captures the input the game receives — key + mouse button, plus
+mouse motion when `include_motion` — via the probe's `_input` hook; `stop_recording`
+returns the buffered `events` in the same `play_input_sequence` format, so a recording
+replays directly (regression). Since `parse_input_event` also fires `_input`, synthesized
+input is recorded too.
 
 #### Runtime inspection (issue #35) — `runtime` toolset, `read_only`
 

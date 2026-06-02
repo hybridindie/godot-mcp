@@ -19,6 +19,7 @@ var _input_acks: int = 0  # count of synthesized inputs the game has acknowledge
 var _property_samples: Variant = null  # last godot_mcp:property_samples payload (#35)
 var _ui_elements: Variant = null  # last godot_mcp:ui_elements payload (#35)
 var _ui_pending := "__none__"  # request_id of the in-flight find_ui request (#35)
+var _recorded_input: Variant = null  # last godot_mcp:recorded_input payload (#68)
 
 
 func _has_capture(capture: String) -> bool:
@@ -46,6 +47,9 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 		"godot_mcp:ui_elements":
 			_ui_elements = data[0] if not data.is_empty() else null
 			return true
+		"godot_mcp:recorded_input":
+			_recorded_input = data[0] if not data.is_empty() else null
+			return true
 	return false
 
 
@@ -69,6 +73,7 @@ func _on_stopped() -> void:
 	_property_samples = null
 	_ui_elements = null
 	_ui_pending = "__none__"
+	_recorded_input = null
 
 
 ## Ask the running game's probe to (re)send the scene tree. The reply lands in the cache
@@ -127,3 +132,12 @@ func get_pending_ui_request() -> String:
 func begin_ui_request(request_id: String) -> void:
 	_ui_pending = request_id
 	_ui_elements = null
+
+
+func get_recorded_input() -> Variant:
+	return _recorded_input
+
+
+## Drop the cached recording so stop_recording reads the new capture, not a prior one.
+func clear_recorded_input() -> void:
+	_recorded_input = null
