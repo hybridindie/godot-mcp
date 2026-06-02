@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CreateParticlesResult(BaseModel):
@@ -16,7 +16,7 @@ class CreateParticlesResult(BaseModel):
 
 class ParticleMaterialResult(BaseModel):
     node_path: str
-    properties: dict[str, Any] = {}
+    properties: dict[str, Any] = Field(default_factory=dict)
     dry_run: bool = False
 
 
