@@ -213,6 +213,21 @@ into a FastMCP `Image` so a vision-capable client receives an image block (no te
 files). Returns a structured `INTERNAL_ERROR` if no frame is available (e.g. headless,
 no display).
 
+#### Physics (issue #41) — category: `physics` (gated off by default)
+
+Generic over 2D/3D — pass the Godot type names. All `mutating` (UndoRedo-wrapped), `dry_run`.
+
+| Tool | Params | Returns |
+|------|--------|---------|
+| `setup_physics_body` | `node_path, properties` | `SetupBodyResult { node_path, properties }` |
+| `setup_collision` | `node_path, shape_type, collision_node_type="CollisionShape2D", properties?` | `CollisionShapeResult { node_path, shape_type, created }` |
+| `set_physics_layers` | `node_path, layers?, mask?` (1-based bit indices) | `PhysicsLayersResult { node_path, collision_layer, collision_mask }` |
+| `add_raycast` | `parent_path, name="RayCast", raycast_type="RayCast2D", properties?` | `RaycastResult { node_path, created }` |
+
+`setup_physics_body`/`set_physics_layers` require a `CollisionObject2D`/`3D` target.
+`setup_collision` creates a `CollisionShape` holding a `shape_type` shape with `properties`
+(size/radius). `set_physics_layers` turns `[1,3]` into the bitmask `5`.
+
 #### Runtime (issue #13) — `runtime` (category: `runtime`, gated off by default)
 
 | Tool | Params | Returns |

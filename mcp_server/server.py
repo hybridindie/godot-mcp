@@ -27,6 +27,7 @@ from mcp_server.tools.health import register_health
 from mcp_server.tools.inspection import register_inspection
 from mcp_server.tools.mutation import register_mutation
 from mcp_server.tools.node_ops import register_node_ops
+from mcp_server.tools.physics import register_physics
 from mcp_server.tools.project_fs import register_project_fs
 from mcp_server.tools.resource_files import register_resource_files
 from mcp_server.tools.runtime import register_runtime
@@ -74,6 +75,7 @@ def create_server(
     register_node_ops(mcp, bridge)
     register_resource_files(mcp, bridge)
     register_project_fs(mcp, bridge)
+    register_physics(mcp, bridge)
     register_editor(mcp, bridge)
     register_resources(mcp, bridge)
     register_runtime(mcp, bridge, config, runner)

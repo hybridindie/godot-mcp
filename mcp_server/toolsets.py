@@ -18,6 +18,7 @@ from mcp_server.categories import (
     CORE_TAG,
     EDITOR_TAG,
     INSPECTION_TAG,
+    PHYSICS_TAG,
     PROJECT_TAG,
     RESOURCES_EDIT_TAG,
     RUNTIME_TAG,
@@ -36,6 +37,7 @@ TOOLSETS: dict[str, str] = {
     RESOURCES_EDIT_TAG: "Read/create/edit resource (.tres) files and register autoloads.",
     PROJECT_TAG: "Explore the filesystem, search files, read/write project settings, resolve UIDs.",
     EDITOR_TAG: "Capture editor screenshots (image content for vision-capable clients).",
+    PHYSICS_TAG: "Configure physics bodies, collision shapes, layers/masks, and raycasts.",
 }
 
 # Enabled at startup (plus `core`, which is always on). Everything else is gated

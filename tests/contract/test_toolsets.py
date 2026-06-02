@@ -66,7 +66,7 @@ async def test_list_toolsets_reports_state() -> None:
 async def test_unknown_toolset_is_structured_error() -> None:
     async with Client(_server()) as client:
         result = await client.call_tool(
-            "enable_toolset", {"category": "physics"}, raise_on_error=False
+            "enable_toolset", {"category": "no_such_toolset"}, raise_on_error=False
         )
     assert result.is_error
     assert "Unknown toolset" in str(result.content)

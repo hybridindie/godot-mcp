@@ -199,6 +199,17 @@ def test_router_registers_editor_commands() -> None:
     assert "save_png_to_buffer" in source and "raw_to_base64" in source
 
 
+def test_router_registers_physics_commands() -> None:
+    source = (ADDON_DIR / "command_router.gd").read_text()
+    for command in (
+        "cmd_setup_physics_body",
+        "cmd_setup_collision",
+        "cmd_set_physics_layers",
+        "cmd_add_raycast",
+    ):
+        assert f'"{command}"' in source, f"router must register {command}"
+
+
 def test_mutations_use_undo_redo() -> None:
     source = (ADDON_DIR / "command_router.gd").read_text()
     # Every create/rename/delete/set must register with EditorUndoRedoManager.
