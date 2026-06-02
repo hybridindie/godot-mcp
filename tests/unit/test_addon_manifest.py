@@ -223,6 +223,18 @@ def test_router_registers_animation_commands() -> None:
         assert f'"{command}"' in source, f"router must register {command}"
 
 
+def test_router_registers_scene_3d_commands() -> None:
+    source = (ADDON_DIR / "command_router.gd").read_text()
+    for command in (
+        "cmd_add_mesh_instance",
+        "cmd_setup_camera",
+        "cmd_setup_lighting",
+        "cmd_setup_environment",
+        "cmd_gridmap_set_cell",
+    ):
+        assert f'"{command}"' in source, f"router must register {command}"
+
+
 def test_mutations_use_undo_redo() -> None:
     source = (ADDON_DIR / "command_router.gd").read_text()
     # Every create/rename/delete/set must register with EditorUndoRedoManager.

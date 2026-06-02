@@ -249,6 +249,27 @@ accepts Godot string forms for `value` (e.g. `"Vector2(10, 20)"`, coerced via `s
 `add_state_machine_state` requires an `AnimationNodeStateMachine` root; `set_blend_tree_node`
 requires an `AnimationNodeBlendTree` root and an `AnimationNode` `node_type`.
 
+#### 3D scene (issue #40) — category: `scene_3d` (gated off by default)
+
+Build 3D scenes — generic Godot, pass the node/resource type names. All `mutating`
+(UndoRedo-wrapped), `dry_run`.
+
+| Tool | Params | Returns |
+|------|--------|---------|
+| `add_mesh_instance` | `parent_path, mesh_type="BoxMesh", name="MeshInstance3D", properties?` | `MeshInstanceResult { node_path, mesh_type, created }` |
+| `setup_camera` | `parent_path, name="Camera3D", make_current=True, properties?` | `CameraResult { node_path, current, created }` |
+| `setup_lighting` | `parent_path, light_type="DirectionalLight3D", name?, properties?` | `LightResult { node_path, light_type, created }` |
+| `setup_environment` | `parent_path, name="WorldEnvironment", properties?` | `EnvironmentResult { node_path, created }` |
+| `gridmap_set_cell` | `node_path, position=[x,y,z], item, orientation=0` | `GridMapCellResult { node_path, position, item }` |
+
+`add_mesh_instance` creates a `MeshInstance3D` holding a `mesh_type` primitive mesh
+(BoxMesh/SphereMesh/…) configured with `properties` (size/radius/…). `setup_lighting`
+requires a `Light3D` subclass (DirectionalLight3D/OmniLight3D/SpotLight3D);
+`setup_environment` attaches a `WorldEnvironment` with a new `Environment` resource
+configured from `properties` (background_mode, ambient_light_color, …). `gridmap_set_cell`
+requires a `GridMap` with a `mesh_library` (else a structured `mesh_library` precondition);
+a negative `item` clears the cell.
+
 #### Runtime (issue #13) — `runtime` (category: `runtime`, gated off by default)
 
 | Tool | Params | Returns |

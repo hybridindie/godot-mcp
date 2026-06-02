@@ -23,6 +23,7 @@ from mcp_server.categories import (
     PROJECT_TAG,
     RESOURCES_EDIT_TAG,
     RUNTIME_TAG,
+    SCENE_3D_TAG,
     SCENE_EDIT_TAG,
     SCRIPTS_TAG,
 )
@@ -41,6 +42,8 @@ TOOLSETS: dict[str, str] = {
     PHYSICS_TAG: "Configure physics bodies, collision shapes, layers/masks, and raycasts.",
     ANIMATION_TAG: "Author animations (tracks/keyframes) and AnimationTree "
     "state machines/blend trees.",
+    SCENE_3D_TAG: "Build 3D scenes: mesh instances, cameras, lights, "
+    "WorldEnvironment, and GridMap cells.",
 }
 
 # Enabled at startup (plus `core`, which is always on). Everything else is gated

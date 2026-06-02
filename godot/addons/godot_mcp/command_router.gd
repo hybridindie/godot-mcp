@@ -77,6 +77,12 @@ func _init() -> void:
 	_handlers["cmd_create_animation_tree"] = _cmd_create_animation_tree
 	_handlers["cmd_add_state_machine_state"] = _cmd_add_state_machine_state
 	_handlers["cmd_set_blend_tree_node"] = _cmd_set_blend_tree_node
+	# 3D scene (issue #40) — all UndoRedo-wrapped.
+	_handlers["cmd_add_mesh_instance"] = _cmd_add_mesh_instance
+	_handlers["cmd_setup_camera"] = _cmd_setup_camera
+	_handlers["cmd_setup_lighting"] = _cmd_setup_lighting
+	_handlers["cmd_setup_environment"] = _cmd_setup_environment
+	_handlers["cmd_gridmap_set_cell"] = _cmd_gridmap_set_cell
 
 
 ## Dispatch one envelope ({ id, command, params }) and return a response envelope.
@@ -975,6 +981,129 @@ func _bitmask(bits: Variant) -> int:
 			if index >= 1 and index <= 32:
 				mask |= 1 << (index - 1)
 	return mask
+
+
+# --- 3D scene (issue #40) --------------------------------------------------
+
+func _cmd_add_mesh_instance(params: Dictionary) -> Dictionary:
+	var found := _resolve(params.get("parent_path", ""))
+	if not found["ok"]:
+		return found
+	var parent: Node = found["node"]
+	var mesh_type := str(params.get("mesh_type", "BoxMesh"))
+	if not ClassDB.can_instantiate(mesh_type):
+		return _fail("VALIDATION_ERROR", "Cannot instantiate mesh '%s'." % mesh_type)
+	var mesh_obj: Object = ClassDB.instantiate(mesh_type)
+	if not (mesh_obj is Mesh):
+		if not (mesh_obj is RefCounted):
+			mesh_obj.free()
+		return _fail("VALIDATION_ERROR", "'%s' is not a Mesh." % mesh_type)
+	var mesh: Mesh = mesh_obj
+	_apply_props(mesh, params.get("properties", {}))
+	var instance := MeshInstance3D.new()
+	instance.name = str(params.get("name", "MeshInstance3D"))
+	instance.mesh = mesh
+	var path := _commit_add_child(parent, instance, "Add %s" % instance.name)
+	return _ok({"node_path": path, "mesh_type": mesh_type, "created": true})
+
+
+func _cmd_setup_camera(params: Dictionary) -> Dictionary:
+	var found := _resolve(params.get("parent_path", ""))
+	if not found["ok"]:
+		return found
+	var parent: Node = found["node"]
+	var camera := Camera3D.new()
+	camera.name = str(params.get("name", "Camera3D"))
+	_apply_props(camera, params.get("properties", {}))
+	var make_current := bool(params.get("make_current", true))
+	camera.current = make_current
+	var path := _commit_add_child(parent, camera, "Add %s" % camera.name)
+	return _ok({"node_path": path, "current": make_current, "created": true})
+
+
+func _cmd_setup_lighting(params: Dictionary) -> Dictionary:
+	var found := _resolve(params.get("parent_path", ""))
+	if not found["ok"]:
+		return found
+	var parent: Node = found["node"]
+	var light_type := str(params.get("light_type", "DirectionalLight3D"))
+	if not ClassDB.can_instantiate(light_type):
+		return _fail("VALIDATION_ERROR", "Cannot instantiate '%s'." % light_type)
+	var light: Node = ClassDB.instantiate(light_type)
+	if not (light is Light3D):
+		light.free()
+		return _fail("VALIDATION_ERROR", "'%s' is not a Light3D." % light_type)
+	light.name = str(params.get("name", light_type))
+	_apply_props(light, params.get("properties", {}))
+	var path := _commit_add_child(parent, light, "Add %s" % light.name)
+	return _ok({"node_path": path, "light_type": light_type, "created": true})
+
+
+func _cmd_setup_environment(params: Dictionary) -> Dictionary:
+	var found := _resolve(params.get("parent_path", ""))
+	if not found["ok"]:
+		return found
+	var parent: Node = found["node"]
+	var world_env := WorldEnvironment.new()
+	world_env.name = str(params.get("name", "WorldEnvironment"))
+	var environment := Environment.new()
+	_apply_props(environment, params.get("properties", {}))
+	world_env.environment = environment
+	var path := _commit_add_child(parent, world_env, "Add %s" % world_env.name)
+	return _ok({"node_path": path, "created": true})
+
+
+func _cmd_gridmap_set_cell(params: Dictionary) -> Dictionary:
+	var found := _resolve(params.get("node_path", ""))
+	if not found["ok"]:
+		return found
+	var node: Node = found["node"]
+	if not (node is GridMap):
+		return _fail("VALIDATION_ERROR", "Node is not a GridMap.")
+	var grid_map: GridMap = node
+	if grid_map.mesh_library == null:
+		return _fail("VALIDATION_ERROR", "GridMap has no mesh_library; assign one first.", "mesh_library")
+	var raw_pos: Variant = params.get("position")
+	if not (raw_pos is Array) or (raw_pos as Array).size() != 3:
+		return _fail("VALIDATION_ERROR", "'position' must be a [x, y, z] integer array.")
+	var position := Vector3i(int(raw_pos[0]), int(raw_pos[1]), int(raw_pos[2]))
+	var item := int(params.get("item", -1))
+	var orientation := int(params.get("orientation", 0))
+	var prev_item := grid_map.get_cell_item(position)
+	var prev_orientation := grid_map.get_cell_item_orientation(position)
+	var ur := EditorInterface.get_editor_undo_redo()
+	ur.create_action("Set GridMap cell %v" % position)
+	ur.add_do_method(grid_map, "set_cell_item", position, item, orientation)
+	ur.add_undo_method(grid_map, "set_cell_item", position, prev_item, prev_orientation)
+	ur.commit_action()
+	return _ok({
+		"node_path": str(params.get("node_path")),
+		"position": [position.x, position.y, position.z],
+		"item": item,
+	})
+
+
+## Apply JSON properties to an object, coercing each value to the property's type.
+## Unknown properties are skipped. Used for freshly-created (not-yet-in-tree) nodes,
+## where the whole add is one undoable action.
+func _apply_props(obj: Object, props: Dictionary) -> void:
+	for key in props:
+		var pt := _property_type(obj, str(key))
+		if pt != -1:
+			obj.set(str(key), Coerce.from_json(props[key], pt))
+
+
+## Add `child` under `parent` as one undoable action; return its scene-relative path.
+func _commit_add_child(parent: Node, child: Node, action_name: String) -> String:
+	var root := EditorInterface.get_edited_scene_root()
+	var ur := EditorInterface.get_editor_undo_redo()
+	ur.create_action(action_name)
+	ur.add_do_method(parent, "add_child", child)
+	ur.add_do_method(child, "set_owner", root)
+	ur.add_do_reference(child)
+	ur.add_undo_method(parent, "remove_child", child)
+	ur.commit_action()
+	return Inspect.relative_path(child, root)
 
 
 # --- editor screenshots (issue #33) ----------------------------------------
