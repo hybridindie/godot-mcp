@@ -619,6 +619,8 @@ func _cmd_disconnect_signal(params: Dictionary) -> Dictionary:
 
 func _cmd_get_filesystem_tree(params: Dictionary) -> Dictionary:
 	var directory := str(params.get("directory", "res://"))
+	if not directory.begins_with("res://"):
+		return _fail("VALIDATION_ERROR", "directory must be inside the project (res://…).")
 	if not DirAccess.dir_exists_absolute(directory):
 		return _fail("RESOURCE_NOT_FOUND", "No directory '%s'." % directory)
 	var max_depth := int(params.get("max_depth", -1))
@@ -627,6 +629,8 @@ func _cmd_get_filesystem_tree(params: Dictionary) -> Dictionary:
 
 func _cmd_search_files(params: Dictionary) -> Dictionary:
 	var directory := str(params.get("directory", "res://"))
+	if not directory.begins_with("res://"):
+		return _fail("VALIDATION_ERROR", "directory must be inside the project (res://…).")
 	if not DirAccess.dir_exists_absolute(directory):
 		return _fail("RESOURCE_NOT_FOUND", "No directory '%s'." % directory)
 	var name_glob := str(params.get("name_glob", ""))

@@ -194,7 +194,7 @@ property's declared Godot type.
 | `get_filesystem_tree` | `directory="res://", max_depth=-1` | `FilesystemTree { tree: FsEntry{name,path,type,children} }` | `read_only` |
 | `search_files` | `directory="res://", name_glob="", content="", max_results=200` | `SearchResult { matches[], truncated }` | `read_only` |
 | `get_setting` | `name` | `SettingValue { name, value, exists }` | `read_only` |
-| `set_setting` | `name, value` | `SetSettingResult { name, value, set }` | `mutating` |
+| `set_setting` | `name, value, dry_run=False` | `SetSettingResult { name, value, set, dry_run }` | `mutating` |
 | `resolve_uid` | `value` (a `res://` path or `uid://…`) | `UidResolution { uid?, path? }` | `read_only` |
 
 Hidden entries (`.godot`, `.git`, …) are skipped. `search_files` matches `name_glob`

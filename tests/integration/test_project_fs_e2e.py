@@ -81,6 +81,10 @@ async def _run() -> None:
         assert to_uid["uid"].startswith("uid://")
         back = await _ok(bridge, "cmd_uid_to_path", {"uid": to_uid["uid"]})
         assert back["path"] == "res://addons/godot_mcp/godot_mcp.gd"
+
+        # Sandbox: paths outside the project (res://) are rejected.
+        outside = await bridge.send("cmd_get_filesystem_tree", {"directory": "/etc"})
+        assert outside.ok is False and outside.error == "VALIDATION_ERROR"
     finally:
         await bridge.close()
 
