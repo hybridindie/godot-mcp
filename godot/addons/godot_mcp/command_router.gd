@@ -1354,25 +1354,32 @@ func _cmd_bake_navigation_mesh(params: Dictionary) -> Dictionary:
 		return found
 	var region: Node = found["node"]
 	var ur := EditorInterface.get_editor_undo_redo()
-	# Bake mutates the region's navmesh resource in place. To stay undoable we snapshot
-	# the pre-bake resource and restore it on undo (redo re-bakes synchronously).
+	# Baking mutates the assigned navmesh resource in place. To stay undoable we bake a
+	# fresh duplicate (the do/redo target) and keep the original pristine as the undo
+	# value, so the snapshot is never the bake target and repeated undo/redo is stable.
 	if region is NavigationRegion2D:
 		if region.navigation_polygon == null:
 			return _fail("VALIDATION_ERROR", "Region has no navigation_polygon; assign one first.", "navigation_polygon")
-		var before: NavigationPolygon = region.navigation_polygon.duplicate(true)
+		var original: NavigationPolygon = region.navigation_polygon
+		var working: NavigationPolygon = original.duplicate(true)
 		ur.create_action("Bake navigation polygon")
+		ur.add_do_property(region, "navigation_polygon", working)
 		ur.add_do_method(region, "bake_navigation_polygon", false)
-		ur.add_undo_property(region, "navigation_polygon", before)
-		ur.add_undo_reference(before)
+		ur.add_do_reference(working)
+		ur.add_undo_property(region, "navigation_polygon", original)
+		ur.add_undo_reference(original)
 		ur.commit_action()
 	elif region is NavigationRegion3D:
 		if region.navigation_mesh == null:
 			return _fail("VALIDATION_ERROR", "Region has no navigation_mesh; assign one first.", "navigation_mesh")
-		var before: NavigationMesh = region.navigation_mesh.duplicate(true)
+		var original: NavigationMesh = region.navigation_mesh
+		var working: NavigationMesh = original.duplicate(true)
 		ur.create_action("Bake navigation mesh")
+		ur.add_do_property(region, "navigation_mesh", working)
 		ur.add_do_method(region, "bake_navigation_mesh", false)
-		ur.add_undo_property(region, "navigation_mesh", before)
-		ur.add_undo_reference(before)
+		ur.add_do_reference(working)
+		ur.add_undo_property(region, "navigation_mesh", original)
+		ur.add_undo_reference(original)
 		ur.commit_action()
 	else:
 		return _fail("VALIDATION_ERROR", "Node is not a NavigationRegion2D/NavigationRegion3D.")
