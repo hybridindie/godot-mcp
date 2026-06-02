@@ -2069,8 +2069,9 @@ func _cmd_play_scene(params: Dictionary) -> Dictionary:
 	if scene_path.is_empty():
 		EditorInterface.play_main_scene()
 	else:
-		if not scene_path.begins_with("res://") or not scene_path.ends_with(".tscn"):
-			return _fail("VALIDATION_ERROR", "scene_path must be a res:// .tscn file.")
+		var is_scene := scene_path.ends_with(".tscn") or scene_path.ends_with(".scn")
+		if not scene_path.begins_with("res://") or not is_scene:
+			return _fail("VALIDATION_ERROR", "scene_path must be a res:// .tscn or .scn file.")
 		if not FileAccess.file_exists(scene_path):
 			return _fail("RESOURCE_NOT_FOUND", "No scene at '%s'." % scene_path)
 		EditorInterface.play_custom_scene(scene_path)
