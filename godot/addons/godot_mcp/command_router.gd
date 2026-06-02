@@ -1532,9 +1532,15 @@ func _cmd_tilemap_set_cell(params: Dictionary) -> Dictionary:
 		return found
 	var node: Node = found["node"]
 	var layer := int(params.get("layer", 0))
-	var coords := _to_vec2i(params.get("coords"))
+	var coords_res := _parse_vec2i(params.get("coords"), "coords")
+	if not coords_res["ok"]:
+		return coords_res
+	var atlas_res := _parse_vec2i(params.get("atlas_coords", [0, 0]), "atlas_coords")
+	if not atlas_res["ok"]:
+		return atlas_res
+	var coords: Vector2i = coords_res["value"]
 	var source_id := int(params.get("source_id", -1))
-	var atlas := _to_vec2i(params.get("atlas_coords", [0, 0]))
+	var atlas: Vector2i = atlas_res["value"]
 	var alt := int(params.get("alternative_tile", 0))
 	var prev := _read_tile_cell(node, layer, coords)
 	var ur := EditorInterface.get_editor_undo_redo()
@@ -1568,9 +1574,12 @@ func _cmd_tilemap_fill_rect(params: Dictionary) -> Dictionary:
 		return _fail("VALIDATION_ERROR", "rect width and height must be positive.")
 	if width * height > _TILEMAP_FILL_LIMIT:
 		return _fail("VALIDATION_ERROR", "Fill region %dx%d exceeds the %d-cell limit; fill smaller rects." % [width, height, _TILEMAP_FILL_LIMIT])
+	var atlas_res := _parse_vec2i(params.get("atlas_coords", [0, 0]), "atlas_coords")
+	if not atlas_res["ok"]:
+		return atlas_res
 	var origin := Vector2i(int(raw_rect[0]), int(raw_rect[1]))
 	var source_id := int(params.get("source_id", -1))
-	var atlas := _to_vec2i(params.get("atlas_coords", [0, 0]))
+	var atlas: Vector2i = atlas_res["value"]
 	var alt := int(params.get("alternative_tile", 0))
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Fill tiles %dx%d" % [width, height])
@@ -1600,7 +1609,10 @@ func _cmd_tilemap_get_cell(params: Dictionary) -> Dictionary:
 		return found
 	var node: Node = found["node"]
 	var layer := int(params.get("layer", 0))
-	var coords := _to_vec2i(params.get("coords"))
+	var coords_res := _parse_vec2i(params.get("coords"), "coords")
+	if not coords_res["ok"]:
+		return coords_res
+	var coords: Vector2i = coords_res["value"]
 	var cell := _read_tile_cell(node, layer, coords)
 	var atlas: Vector2i = cell["atlas_coords"]
 	return _ok({
@@ -1620,8 +1632,11 @@ func _cmd_tilemap_clear(params: Dictionary) -> Dictionary:
 	if not found["ok"]:
 		return found
 	var node: Node = found["node"]
-	# Snapshot the cells so undo can restore them, then clear.
+	# Snapshot the cells so undo can restore them, then clear. Bound the snapshot so a
+	# huge layer can't build an enormous UndoRedo action and stall the editor.
 	var used: Array = _used_cells(node, layer)
+	if used.size() > _TILEMAP_FILL_LIMIT:
+		return _fail("VALIDATION_ERROR", "Layer has %d cells, over the %d-cell undoable-clear limit; clear smaller regions with fill_rect (source_id=-1)." % [used.size(), _TILEMAP_FILL_LIMIT])
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Clear tiles")
 	ur.add_do_method(self, "_clear_tile_layer", node, layer)
@@ -1722,10 +1737,15 @@ func _used_cells(node: Node, layer: int) -> Array:
 	return node.get_used_cells(layer)
 
 
-## Coerce a JSON [x, y] array (or dict) into a Vector2i.
-func _to_vec2i(value: Variant) -> Vector2i:
-	var v: Vector2 = Coerce.from_json(value, TYPE_VECTOR2)
-	return Vector2i(int(v.x), int(v.y))
+## Parse {ok, value: Vector2i} from a JSON [x, y] array or {x, y} dict, or a structured
+## VALIDATION_ERROR keyed by `field`. Rejects missing/short/invalid input rather than
+## silently defaulting components to 0 (which would target the wrong cell).
+func _parse_vec2i(value: Variant, field: String) -> Dictionary:
+	if value is Array and (value as Array).size() == 2:
+		return {"ok": true, "value": Vector2i(int(value[0]), int(value[1]))}
+	if value is Dictionary and value.has("x") and value.has("y"):
+		return {"ok": true, "value": Vector2i(int(value["x"]), int(value["y"]))}
+	return _fail("VALIDATION_ERROR", "'%s' must be [x, y] integer coordinates." % field)
 
 
 # --- editor screenshots (issue #33) ----------------------------------------

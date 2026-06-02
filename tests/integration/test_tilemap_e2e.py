@@ -112,6 +112,13 @@ async def _run() -> None:
             {"node_path": "Ground", "rect": [0, 0, 200, 200], "source_id": -1},
         )
         assert too_big.ok is False and too_big.error == "VALIDATION_ERROR"
+        # malformed coords are rejected, not silently treated as (0, 0)
+        bad_coords = await bridge.send(
+            "cmd_tilemap_set_cell", {"node_path": "Ground", "coords": [5], "source_id": -1}
+        )
+        assert bad_coords.ok is False and bad_coords.error == "VALIDATION_ERROR"
+        bad_get = await bridge.send("cmd_tilemap_get_cell", {"node_path": "Ground", "coords": []})
+        assert bad_get.ok is False and bad_get.error == "VALIDATION_ERROR"
     finally:
         await bridge.close()
 

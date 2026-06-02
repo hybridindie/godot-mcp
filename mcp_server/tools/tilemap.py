@@ -94,9 +94,9 @@ def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
     async def tilemap_get_cell(node_path: str, coords: list[int], layer: int = 0) -> TileGetResult:
         """Read the tile at grid ``coords`` ``[x, y]``: returns ``source_id``,
         ``atlas_coords``, ``alternative_tile``, and ``empty`` (true when no tile).
-        ``layer`` applies to multi-layer TileMap only.
+        ``layer`` applies to multi-layer TileMap only. Errors (RESOURCE_NOT_FOUND /
+        PRECONDITION_FAILED) flow up from the addon as a structured ToolError.
         """
-        await require_node_exists(bridge, node_path)
         params = {"node_path": node_path, "coords": coords, "layer": layer}
         return TileGetResult(**await route(bridge, "cmd_tilemap_get_cell", params))
 
@@ -119,7 +119,7 @@ def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
     async def tilemap_layers(node_path: str) -> TileLayersResult:
         """List the layers of the TileMap/TileMapLayer at ``node_path``: each layer's
         index, name, and enabled flag (a TileMapLayer reports its single layer).
+        Errors flow up from the addon as a structured ToolError.
         """
-        await require_node_exists(bridge, node_path)
         params = {"node_path": node_path}
         return TileLayersResult(**await route(bridge, "cmd_tilemap_layers", params))

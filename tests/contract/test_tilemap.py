@@ -122,6 +122,30 @@ async def test_get_cell_and_layers() -> None:
     assert layers.structured_content["layers"][0]["name"] == "Ground"
 
 
+async def test_readonly_tool_surfaces_structured_precondition() -> None:
+    # get_cell is read_only (no @enforce_preconditions); a precondition envelope from
+    # the addon must still reach the agent as a structured ToolError via route().
+    def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_tilemap_get_cell":
+            return ResponseEnvelope.failure(
+                cmd.id, "PRECONDITION_FAILED", "No scene is open.", required="active_scene"
+            )
+        return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
+
+    conn = FakeAddonConnection(responder=responder)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    server = create_server(ServerConfig(), bridge=bridge)
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "tilemap"})
+        result = await client.call_tool(
+            "tilemap_get_cell",
+            {"node_path": "Ground", "coords": [0, 0]},
+            raise_on_error=False,
+        )
+    assert result.is_error
+    assert "active_scene" in str(result.content)
+
+
 async def test_clear_and_dry_run() -> None:
     server, conn = _build()
     async with Client(server) as client:
