@@ -100,10 +100,24 @@ async def _run() -> None:
         )
         assert ray["created"] is True
 
-        # a non-physics node is rejected by set_physics_layers
+        # validation: non-physics target, wrong shape type, and bad bit arrays.
         await _create(bridge, "Plain", "Node")
-        bad = await bridge.send("cmd_set_physics_layers", {"node_path": "Plain", "layers": [1]})
-        assert bad.ok is False and bad.error == "VALIDATION_ERROR"
+        bad_layers = await bridge.send(
+            "cmd_set_physics_layers", {"node_path": "Plain", "layers": [1]}
+        )
+        assert bad_layers.ok is False and bad_layers.error == "VALIDATION_ERROR"
+        bad_collision = await bridge.send(
+            "cmd_setup_collision", {"node_path": "Plain", "shape_type": "RectangleShape2D"}
+        )
+        assert bad_collision.ok is False and bad_collision.error == "VALIDATION_ERROR"
+        bad_bits = await bridge.send(
+            "cmd_set_physics_layers", {"node_path": "Body", "layers": "nope"}
+        )
+        assert bad_bits.ok is False and bad_bits.error == "VALIDATION_ERROR"
+        bad_ray = await bridge.send(
+            "cmd_add_raycast", {"parent_path": ".", "name": "X", "raycast_type": "Node2D"}
+        )
+        assert bad_ray.ok is False and bad_ray.error == "VALIDATION_ERROR"
     finally:
         await bridge.close()
 

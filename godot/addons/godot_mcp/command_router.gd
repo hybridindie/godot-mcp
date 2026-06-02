@@ -653,6 +653,8 @@ func _cmd_setup_collision(params: Dictionary) -> Dictionary:
 	if not found["ok"]:
 		return found
 	var parent: Node = found["node"]
+	if not (parent is CollisionObject2D or parent is CollisionObject3D):
+		return _fail("VALIDATION_ERROR", "Target is not a physics body/area (CollisionObject2D/3D).")
 	var root := EditorInterface.get_edited_scene_root()
 	var collision_node_type := str(params.get("collision_node_type", "CollisionShape2D"))
 	var shape_type := str(params.get("shape_type", ""))
@@ -662,10 +664,10 @@ func _cmd_setup_collision(params: Dictionary) -> Dictionary:
 		return _fail("VALIDATION_ERROR", "Cannot instantiate shape '%s'." % shape_type)
 
 	var shape_obj: Object = ClassDB.instantiate(shape_type)
-	if not (shape_obj is Resource):
+	if not (shape_obj is Shape2D or shape_obj is Shape3D):
 		if not (shape_obj is RefCounted):
 			shape_obj.free()
-		return _fail("VALIDATION_ERROR", "'%s' is not a Shape resource." % shape_type)
+		return _fail("VALIDATION_ERROR", "'%s' is not a Shape2D/Shape3D." % shape_type)
 	var shape: Resource = shape_obj
 	var shape_props: Dictionary = params.get("properties", {})
 	for key in shape_props:
@@ -674,6 +676,9 @@ func _cmd_setup_collision(params: Dictionary) -> Dictionary:
 			shape.set(str(key), Coerce.from_json(shape_props[key], pt))
 
 	var collision: Node = ClassDB.instantiate(collision_node_type)
+	if not (collision is CollisionShape2D or collision is CollisionShape3D):
+		collision.free()
+		return _fail("VALIDATION_ERROR", "'%s' is not a CollisionShape2D/3D." % collision_node_type)
 	collision.name = str(params.get("name", collision_node_type))
 	collision.set("shape", shape)
 	var ur := EditorInterface.get_editor_undo_redo()
@@ -697,6 +702,10 @@ func _cmd_set_physics_layers(params: Dictionary) -> Dictionary:
 	var node: Node = found["node"]
 	if not (node is CollisionObject2D or node is CollisionObject3D):
 		return _fail("VALIDATION_ERROR", "Node is not a physics body/area (CollisionObject2D/3D).")
+	if params.get("layers") != null and not _valid_bits(params["layers"]):
+		return _fail("VALIDATION_ERROR", "'layers' must be an array of bit indices in [1, 32].")
+	if params.get("mask") != null and not _valid_bits(params["mask"]):
+		return _fail("VALIDATION_ERROR", "'mask' must be an array of bit indices in [1, 32].")
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Set physics layers on %s" % node.name)
 	if params.get("layers") != null:
@@ -724,6 +733,9 @@ func _cmd_add_raycast(params: Dictionary) -> Dictionary:
 		return _fail("VALIDATION_ERROR", "Cannot instantiate '%s'." % raycast_type)
 
 	var ray: Node = ClassDB.instantiate(raycast_type)
+	if not (ray is RayCast2D or ray is RayCast3D):
+		ray.free()
+		return _fail("VALIDATION_ERROR", "'%s' is not a RayCast2D/RayCast3D." % raycast_type)
 	ray.name = str(params.get("name", raycast_type))
 	var ray_props: Dictionary = params.get("properties", {})
 	for key in ray_props:
@@ -739,6 +751,19 @@ func _cmd_add_raycast(params: Dictionary) -> Dictionary:
 	ur.add_undo_method(parent, "remove_child", ray)
 	ur.commit_action()
 	return _ok({"node_path": Inspect.relative_path(ray, root), "created": true})
+
+
+## True if value is an array of 1-based bit indices, each in [1, 32].
+func _valid_bits(value: Variant) -> bool:
+	if not (value is Array):
+		return false
+	for bit in value:
+		if typeof(bit) not in [TYPE_INT, TYPE_FLOAT]:
+			return false
+		var index := int(bit)
+		if index < 1 or index > 32:
+			return false
+	return true
 
 
 ## Convert an array of 1-based bit indices into a collision-layer/mask integer.
