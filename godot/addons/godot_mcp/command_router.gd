@@ -636,7 +636,9 @@ func _cmd_create_resource(params: Dictionary) -> Dictionary:
 		return _fail("VALIDATION_ERROR", "resource_path must end with .tres or .res.")
 	var instance: Object = ClassDB.instantiate(res_type)
 	if not (instance is Resource):
-		if instance is Node:
+		# Free any discarded non-RefCounted instance (Node or bare Object) to avoid
+		# leaking; RefCounted instances free themselves when the ref drops.
+		if not (instance is RefCounted):
 			instance.free()
 		return _fail("VALIDATION_ERROR", "'%s' is not a Resource type." % res_type)
 
@@ -659,9 +661,13 @@ func _cmd_create_resource(params: Dictionary) -> Dictionary:
 
 func _cmd_set_resource_property(params: Dictionary) -> Dictionary:
 	var path := str(params.get("resource_path", ""))
+	if not (path.ends_with(".tres") or path.ends_with(".res")):
+		return _fail("VALIDATION_ERROR", "resource_path must be a .tres/.res file.")
 	if not ResourceLoader.exists(path):
 		return _fail("RESOURCE_NOT_FOUND", "No resource at '%s'." % path)
 	var res: Resource = ResourceLoader.load(path)
+	if res == null:
+		return _fail("INTERNAL_ERROR", "Failed to load resource '%s'." % path)
 	var property := str(params.get("property", ""))
 	var prop_type := _property_type(res, property)
 	if prop_type == -1:

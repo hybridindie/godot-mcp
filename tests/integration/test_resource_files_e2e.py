@@ -76,6 +76,13 @@ async def _run() -> None:
         assert "E2EAuto" in info["autoloads"]
         unreg = await _ok(bridge, "cmd_unregister_autoload", {"name": "E2EAuto"})
         assert unreg["unregistered"] is True
+
+        # Validation: setting a property on a non-.tres path is a structured error.
+        bad = await bridge.send(
+            "cmd_set_resource_property",
+            {"resource_path": AUTO_GD, "property": "x", "value": 1},
+        )
+        assert bad.ok is False and bad.error == "VALIDATION_ERROR"
     finally:
         await bridge.close()
 

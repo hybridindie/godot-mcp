@@ -185,7 +185,7 @@ property's declared Godot type.
 
 `set_resource_property` is undo-reversible; `create_resource` is a file write (not undo-tracked);
 `register_autoload`/`unregister_autoload` persist to project settings. Mutating tools accept
-`dry_run`.
+`dry_run: bool = False` and echo it in the result (sending no change when true).
 
 #### Runtime (issue #13) — `runtime` (category: `runtime`, gated off by default)
 
