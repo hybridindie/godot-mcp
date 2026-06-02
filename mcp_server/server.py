@@ -37,6 +37,7 @@ from mcp_server.tools.resource_files import register_resource_files
 from mcp_server.tools.runtime import register_runtime
 from mcp_server.tools.scene_3d import register_scene_3d
 from mcp_server.tools.scripts import register_scripts
+from mcp_server.tools.tilemap import register_tilemap
 from mcp_server.toolsets import ToolsetManager, register_toolset_tools
 
 logger = logging.getLogger(__name__)
@@ -86,6 +87,7 @@ def create_server(
     register_particles(mcp, bridge)
     register_navigation(mcp, bridge)
     register_audio(mcp, bridge)
+    register_tilemap(mcp, bridge)
     register_editor(mcp, bridge)
     register_resources(mcp, bridge)
     register_runtime(mcp, bridge, config, runner)

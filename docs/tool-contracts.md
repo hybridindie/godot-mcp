@@ -330,6 +330,26 @@ AudioStream (`stream_path`) and applying `properties` (volume_db, bus, autoplay,
 its effect stack. `add_audio_bus` appends a uniquely-named bus; `add_audio_bus_effect`
 appends an AudioEffect (e.g. AudioEffectReverb) to the named bus.
 
+#### TileMap (issue #45) — category: `tilemap` (gated off by default)
+
+Edit tile cells — works with both `TileMapLayer` (current; single layer, `layer` is
+ignored) and the deprecated multi-layer `TileMap` (`layer` selects the layer). Reads
+are `read_only`; edits are `mutating` (UndoRedo-wrapped), `dry_run`.
+
+| Tool | Params | Returns |
+|------|--------|---------|
+| `tilemap_set_cell` | `node_path, coords[x,y], source_id=-1, atlas_coords[x,y]=[0,0], alternative_tile=0, layer=0` | `TileCellResult { node_path, coords, source_id, layer }` |
+| `tilemap_fill_rect` | `node_path, rect[x,y,w,h], source_id=-1, atlas_coords=[0,0], alternative_tile=0, layer=0` | `TileFillResult { node_path, rect, cells, layer }` |
+| `tilemap_get_cell` | `node_path, coords[x,y], layer=0` | `TileGetResult { node_path, coords, source_id, atlas_coords, alternative_tile, empty }` (read_only) |
+| `tilemap_clear` | `node_path, layer?` | `TileClearResult { node_path, layer, cleared }` |
+| `tilemap_layers` | `node_path` | `TileLayersResult { node_path, node_type, layers[] }` (read_only) |
+
+`tilemap_set_cell` sets/erases (`source_id=-1`) the cell; `tilemap_fill_rect` fills a
+rectangle in one undoable action (capped at 16384 cells, returns a structured error
+above that). `tilemap_clear` clears a layer (TileMap: the given layer, default 0;
+TileMapLayer: the node) and reports the cell count, undo restoring the prior cells.
+`tilemap_layers` lists each layer's index/name/enabled.
+
 #### Runtime (issue #13) — `runtime` (category: `runtime`, gated off by default)
 
 | Tool | Params | Returns |

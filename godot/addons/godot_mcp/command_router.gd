@@ -98,6 +98,12 @@ func _init() -> void:
 	_handlers["cmd_get_audio_bus_layout"] = _cmd_get_audio_bus_layout
 	_handlers["cmd_add_audio_bus"] = _cmd_add_audio_bus
 	_handlers["cmd_add_audio_bus_effect"] = _cmd_add_audio_bus_effect
+	# TileMap (issue #45) — cell edits UndoRedo-wrapped; cell/layer reads are read-only.
+	_handlers["cmd_tilemap_set_cell"] = _cmd_tilemap_set_cell
+	_handlers["cmd_tilemap_fill_rect"] = _cmd_tilemap_fill_rect
+	_handlers["cmd_tilemap_get_cell"] = _cmd_tilemap_get_cell
+	_handlers["cmd_tilemap_clear"] = _cmd_tilemap_clear
+	_handlers["cmd_tilemap_layers"] = _cmd_tilemap_layers
 
 
 ## Dispatch one envelope ({ id, command, params }) and return a response envelope.
@@ -1513,6 +1519,213 @@ func _resolve_bus_index(bus_ref: Variant) -> int:
 		var i := int(bus_ref)
 		return i if (i >= 0 and i < AudioServer.get_bus_count()) else -1
 	return AudioServer.get_bus_index(str(bus_ref))
+
+
+# --- tilemap (issue #45) ---------------------------------------------------
+
+const _TILEMAP_FILL_LIMIT := 16384  # max cells per fill_rect (128x128) to bound undo size
+
+
+func _cmd_tilemap_set_cell(params: Dictionary) -> Dictionary:
+	var found := _resolve_tilemap(params.get("node_path", ""), int(params.get("layer", 0)))
+	if not found["ok"]:
+		return found
+	var node: Node = found["node"]
+	var layer := int(params.get("layer", 0))
+	var coords := _to_vec2i(params.get("coords"))
+	var source_id := int(params.get("source_id", -1))
+	var atlas := _to_vec2i(params.get("atlas_coords", [0, 0]))
+	var alt := int(params.get("alternative_tile", 0))
+	var prev := _read_tile_cell(node, layer, coords)
+	var ur := EditorInterface.get_editor_undo_redo()
+	ur.create_action("Set tile %v" % coords)
+	ur.add_do_method(self, "_apply_tile_cell", node, layer, coords, source_id, atlas, alt)
+	ur.add_undo_method(
+		self, "_apply_tile_cell", node, layer, coords,
+		prev["source_id"], prev["atlas_coords"], prev["alternative_tile"]
+	)
+	ur.commit_action()
+	return _ok({
+		"node_path": str(params.get("node_path")),
+		"coords": [coords.x, coords.y],
+		"source_id": source_id,
+		"layer": layer,
+	})
+
+
+func _cmd_tilemap_fill_rect(params: Dictionary) -> Dictionary:
+	var found := _resolve_tilemap(params.get("node_path", ""), int(params.get("layer", 0)))
+	if not found["ok"]:
+		return found
+	var node: Node = found["node"]
+	var layer := int(params.get("layer", 0))
+	var raw_rect: Variant = params.get("rect")
+	if not (raw_rect is Array) or (raw_rect as Array).size() != 4:
+		return _fail("VALIDATION_ERROR", "'rect' must be [x, y, w, h].")
+	var width := int(raw_rect[2])
+	var height := int(raw_rect[3])
+	if width <= 0 or height <= 0:
+		return _fail("VALIDATION_ERROR", "rect width and height must be positive.")
+	if width * height > _TILEMAP_FILL_LIMIT:
+		return _fail("VALIDATION_ERROR", "Fill region %dx%d exceeds the %d-cell limit; fill smaller rects." % [width, height, _TILEMAP_FILL_LIMIT])
+	var origin := Vector2i(int(raw_rect[0]), int(raw_rect[1]))
+	var source_id := int(params.get("source_id", -1))
+	var atlas := _to_vec2i(params.get("atlas_coords", [0, 0]))
+	var alt := int(params.get("alternative_tile", 0))
+	var ur := EditorInterface.get_editor_undo_redo()
+	ur.create_action("Fill tiles %dx%d" % [width, height])
+	var count := 0
+	for dy in height:
+		for dx in width:
+			var coords := origin + Vector2i(dx, dy)
+			var prev := _read_tile_cell(node, layer, coords)
+			ur.add_do_method(self, "_apply_tile_cell", node, layer, coords, source_id, atlas, alt)
+			ur.add_undo_method(
+				self, "_apply_tile_cell", node, layer, coords,
+				prev["source_id"], prev["atlas_coords"], prev["alternative_tile"]
+			)
+			count += 1
+	ur.commit_action()
+	return _ok({
+		"node_path": str(params.get("node_path")),
+		"rect": [origin.x, origin.y, width, height],
+		"cells": count,
+		"layer": layer,
+	})
+
+
+func _cmd_tilemap_get_cell(params: Dictionary) -> Dictionary:
+	var found := _resolve_tilemap(params.get("node_path", ""), int(params.get("layer", 0)))
+	if not found["ok"]:
+		return found
+	var node: Node = found["node"]
+	var layer := int(params.get("layer", 0))
+	var coords := _to_vec2i(params.get("coords"))
+	var cell := _read_tile_cell(node, layer, coords)
+	var atlas: Vector2i = cell["atlas_coords"]
+	return _ok({
+		"node_path": str(params.get("node_path")),
+		"coords": [coords.x, coords.y],
+		"source_id": cell["source_id"],
+		"atlas_coords": [atlas.x, atlas.y],
+		"alternative_tile": cell["alternative_tile"],
+		"empty": cell["source_id"] == -1,
+	})
+
+
+func _cmd_tilemap_clear(params: Dictionary) -> Dictionary:
+	var requested_layer: Variant = params.get("layer")
+	var layer := int(requested_layer) if requested_layer != null else 0
+	var found := _resolve_tilemap(params.get("node_path", ""), layer)
+	if not found["ok"]:
+		return found
+	var node: Node = found["node"]
+	# Snapshot the cells so undo can restore them, then clear.
+	var used: Array = _used_cells(node, layer)
+	var ur := EditorInterface.get_editor_undo_redo()
+	ur.create_action("Clear tiles")
+	ur.add_do_method(self, "_clear_tile_layer", node, layer)
+	for coords in used:
+		var prev := _read_tile_cell(node, layer, coords)
+		ur.add_undo_method(
+			self, "_apply_tile_cell", node, layer, coords,
+			prev["source_id"], prev["atlas_coords"], prev["alternative_tile"]
+		)
+	ur.commit_action()
+	# TileMapLayer has no layer concept; report null. TileMap reports the cleared layer.
+	var result_layer: Variant = null if node is TileMapLayer else layer
+	return _ok({
+		"node_path": str(params.get("node_path")),
+		"layer": result_layer,
+		"cleared": used.size(),
+	})
+
+
+func _cmd_tilemap_layers(params: Dictionary) -> Dictionary:
+	var found := _resolve(params.get("node_path", ""))
+	if not found["ok"]:
+		return found
+	var node: Node = found["node"]
+	var layers: Array = []
+	if node is TileMapLayer:
+		layers.append({"index": 0, "name": String(node.name), "enabled": node.enabled})
+	elif node is TileMap:
+		for i in node.get_layers_count():
+			layers.append({
+				"index": i,
+				"name": node.get_layer_name(i),
+				"enabled": node.is_layer_enabled(i),
+			})
+	else:
+		return _fail("VALIDATION_ERROR", "Node is not a TileMap/TileMapLayer.")
+	return _ok({
+		"node_path": str(params.get("node_path")),
+		"node_type": node.get_class(),
+		"layers": layers,
+	})
+
+
+## Resolve {ok, node} for a TileMap/TileMapLayer, validating the layer index for the
+## multi-layer TileMap case (ignored for TileMapLayer).
+func _resolve_tilemap(raw_path: Variant, layer: int) -> Dictionary:
+	var found := _resolve(raw_path)
+	if not found["ok"]:
+		return found
+	var node: Node = found["node"]
+	if node is TileMapLayer:
+		return {"ok": true, "node": node}
+	if node is TileMap:
+		if layer < 0 or layer >= node.get_layers_count():
+			return _fail("VALIDATION_ERROR", "Layer %d is out of range (0..%d)." % [layer, node.get_layers_count() - 1])
+		return {"ok": true, "node": node}
+	return _fail("VALIDATION_ERROR", "Node is not a TileMap/TileMapLayer.")
+
+
+## Set one cell, dispatching on node type (TileMapLayer has no layer arg). Registered
+## as the UndoRedo do/undo target so both edit and revert reuse one code path.
+func _apply_tile_cell(
+	node: Node, layer: int, coords: Vector2i, source_id: int, atlas_coords: Vector2i, alternative_tile: int
+) -> void:
+	if node is TileMapLayer:
+		node.set_cell(coords, source_id, atlas_coords, alternative_tile)
+	else:
+		node.set_cell(layer, coords, source_id, atlas_coords, alternative_tile)
+
+
+## Clear all cells, dispatching on node type.
+func _clear_tile_layer(node: Node, layer: int) -> void:
+	if node is TileMapLayer:
+		node.clear()
+	else:
+		node.clear_layer(layer)
+
+
+## Read a cell's identifiers, dispatching on node type.
+func _read_tile_cell(node: Node, layer: int, coords: Vector2i) -> Dictionary:
+	if node is TileMapLayer:
+		return {
+			"source_id": node.get_cell_source_id(coords),
+			"atlas_coords": node.get_cell_atlas_coords(coords),
+			"alternative_tile": node.get_cell_alternative_tile(coords),
+		}
+	return {
+		"source_id": node.get_cell_source_id(layer, coords),
+		"atlas_coords": node.get_cell_atlas_coords(layer, coords),
+		"alternative_tile": node.get_cell_alternative_tile(layer, coords),
+	}
+
+
+## The used (non-empty) cell coordinates, dispatching on node type.
+func _used_cells(node: Node, layer: int) -> Array:
+	if node is TileMapLayer:
+		return node.get_used_cells()
+	return node.get_used_cells(layer)
+
+
+## Coerce a JSON [x, y] array (or dict) into a Vector2i.
+func _to_vec2i(value: Variant) -> Vector2i:
+	var v: Vector2 = Coerce.from_json(value, TYPE_VECTOR2)
+	return Vector2i(int(v.x), int(v.y))
 
 
 # --- editor screenshots (issue #33) ----------------------------------------

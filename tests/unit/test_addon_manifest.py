@@ -268,6 +268,18 @@ def test_router_registers_audio_commands() -> None:
         assert f'"{command}"' in source, f"router must register {command}"
 
 
+def test_router_registers_tilemap_commands() -> None:
+    source = (ADDON_DIR / "command_router.gd").read_text()
+    for command in (
+        "cmd_tilemap_set_cell",
+        "cmd_tilemap_fill_rect",
+        "cmd_tilemap_get_cell",
+        "cmd_tilemap_clear",
+        "cmd_tilemap_layers",
+    ):
+        assert f'"{command}"' in source, f"router must register {command}"
+
+
 def test_mutations_use_undo_redo() -> None:
     source = (ADDON_DIR / "command_router.gd").read_text()
     # Every create/rename/delete/set must register with EditorUndoRedoManager.

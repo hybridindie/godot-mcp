@@ -29,6 +29,7 @@ from mcp_server.categories import (
     SCENE_3D_TAG,
     SCENE_EDIT_TAG,
     SCRIPTS_TAG,
+    TILEMAP_TAG,
 )
 from mcp_server.safety import READ_ONLY
 
@@ -52,6 +53,8 @@ TOOLSETS: dict[str, str] = {
     NAVIGATION_TAG: "Author navigation: regions, agents, navmesh baking, and "
     "navigation layers.",
     AUDIO_TAG: "Set up audio: stream players, audio bus layout, and bus effects.",
+    TILEMAP_TAG: "Edit TileMap/TileMapLayer cells: set, fill rect, get, clear, "
+    "list layers.",
 }
 
 # Enabled at startup (plus `core`, which is always on). Everything else is gated
