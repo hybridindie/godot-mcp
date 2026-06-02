@@ -23,10 +23,11 @@ def test_screenshot_encode_produces_valid_png() -> None:
     output = result.stdout + result.stderr
     assert "SCREENSHOT_TEST_OK" in output, f"smoke failed (exit {result.returncode}):\n{output}"
 
-    b64 = next(
+    b64_lines = [
         line[len("SCREENSHOT_B64:") :]
         for line in output.splitlines()
         if line.startswith("SCREENSHOT_B64:")
-    )
-    data = base64.b64decode(b64)
+    ]
+    assert b64_lines, f"no SCREENSHOT_B64 line in output:\n{output}"
+    data = base64.b64decode(b64_lines[0], validate=True)
     assert data.startswith(PNG_SIGNATURE), "addon did not produce a valid PNG"

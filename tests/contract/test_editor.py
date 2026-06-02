@@ -44,6 +44,20 @@ async def test_gated_in_editor_toolset() -> None:
     assert tools["capture_editor_screenshot"].meta["safety_class"] == "read_only"
 
 
+async def test_malformed_base64_is_structured_error() -> None:
+    def bad(cmd: CommandEnvelope) -> ResponseEnvelope:
+        return ResponseEnvelope.success(cmd.id, {"format": "png", "base64": "not!!valid!!"})
+
+    conn = FakeAddonConnection(responder=bad)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    server = create_server(ServerConfig(), bridge=bridge)
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "editor"})
+        result = await client.call_tool("capture_editor_screenshot", {}, raise_on_error=False)
+    assert result.is_error
+    assert "base64" in str(result.content)
+
+
 async def test_capture_returns_image_content() -> None:
     async with Client(_server()) as client:
         await client.call_tool("enable_toolset", {"category": "editor"})

@@ -620,13 +620,23 @@ func _cmd_disconnect_signal(params: Dictionary) -> Dictionary:
 # --- editor screenshots (issue #33) ----------------------------------------
 
 func _cmd_capture_editor_screenshot(_params: Dictionary) -> Dictionary:
-	var image: Image = EditorInterface.get_base_control().get_viewport().get_texture().get_image()
+	# Split the chain so any null intermediate returns a structured error, never crashes.
+	var base_control := EditorInterface.get_base_control()
+	if base_control == null:
+		return _fail("INTERNAL_ERROR", "Editor base control is unavailable.")
+	var viewport := base_control.get_viewport()
+	if viewport == null:
+		return _fail("INTERNAL_ERROR", "Editor viewport is unavailable.")
+	var texture := viewport.get_texture()
+	if texture == null:
+		return _fail("INTERNAL_ERROR", "No viewport texture (no rendered frame; is a display available?).")
+	var image := texture.get_image()
 	if image == null:
-		return _fail(
-			"INTERNAL_ERROR",
-			"Could not capture the editor viewport (no rendered frame; is a display available?).",
-		)
-	return _ok(_encode_png(image))
+		return _fail("INTERNAL_ERROR", "Could not capture the editor viewport image.")
+	var result := _encode_png(image)
+	if str(result.get("base64", "")).is_empty():
+		return _fail("INTERNAL_ERROR", "PNG encoding produced no data.")
+	return _ok(result)
 
 
 ## Encode an Image as a base64 PNG result (no temp files). Pure given an Image, so
