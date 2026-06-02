@@ -18,6 +18,7 @@ var _scene_tree: Variant = null  # last godot_mcp:scene_tree payload (Dictionary
 var _input_acks: int = 0  # count of synthesized inputs the game has acknowledged (#36)
 var _property_samples: Variant = null  # last godot_mcp:property_samples payload (#35)
 var _ui_elements: Variant = null  # last godot_mcp:ui_elements payload (#35)
+var _ui_pending := "__none__"  # request_id of the in-flight find_ui request (#35)
 
 
 func _has_capture(capture: String) -> bool:
@@ -67,6 +68,7 @@ func _on_stopped() -> void:
 	_input_acks = 0
 	_property_samples = null
 	_ui_elements = null
+	_ui_pending = "__none__"
 
 
 ## Ask the running game's probe to (re)send the scene tree. The reply lands in the cache
@@ -113,3 +115,15 @@ func clear_property_samples() -> void:
 
 func get_ui_elements() -> Variant:
 	return _ui_elements
+
+
+## request_id of the in-flight find_ui request (so the router dispatches a scan only once
+## per invocation rather than re-scanning on every poll).
+func get_pending_ui_request() -> String:
+	return _ui_pending
+
+
+## Mark a new find_ui request as in-flight and drop any prior (stale) result.
+func begin_ui_request(request_id: String) -> void:
+	_ui_pending = request_id
+	_ui_elements = null

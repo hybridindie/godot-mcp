@@ -95,8 +95,10 @@ async def _run() -> None:
         await _ok(bridge, "cmd_play_scene", {"scene_path": SCRATCH})
         await _wait_connected(bridge)
 
-        # find the live Button (with text + rect)
-        found = await _poll(bridge, "cmd_find_ui_elements", {"class_filter": "Button"})
+        # find the live Button (with text + rect); request_id is stable across the poll
+        found = await _poll(
+            bridge, "cmd_find_ui_elements", {"class_filter": "Button", "request_id": "e2e-find-1"}
+        )
         buttons = [e for e in found["elements"] if e["name"] == "Start"]
         assert buttons, f"Start button not found in {found['elements']}"
         button = buttons[0]

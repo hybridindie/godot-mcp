@@ -469,8 +469,10 @@ with #66). Requires a play session + the runtime probe.
 series with `get_property_samples` (which reports a validation `error` for a bad
 node/property). `find_ui_elements` returns matching Control nodes — each
 `UiElement { path, name, node_class, visible, rect{x,y,w,h}, text }` —
-and polls the probe up to `timeout_ms` for a fresh result; the `rect` pairs with
-`simulate_mouse` to click located UI. Replies use the same poll-and-cache as the live tree.
+and polls the probe up to `timeout_ms` for a fresh result. Each invocation carries an
+internal `request_id` (constant across its poll), so the addon dispatches exactly one
+full-Control scan per call and never returns a prior identical-filter request's stale
+result. The `rect` pairs with `simulate_mouse` to click located UI.
 
 #### Safety introspection (issue #14) — `read_only`
 

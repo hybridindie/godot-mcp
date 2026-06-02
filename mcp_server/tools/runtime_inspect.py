@@ -9,6 +9,7 @@ runtime probe. All `read_only` against the live session, in the `runtime` toolse
 from __future__ import annotations
 
 import asyncio
+import uuid
 from typing import Any
 
 from fastmcp import FastMCP
@@ -63,6 +64,9 @@ def register_runtime_inspect(mcp: FastMCP, bridge: Bridge) -> None:
             "name_contains": name_contains,
             "class_filter": class_filter,
             "visible_only": visible_only,
+            # Stable per-invocation id (constant across the poll loop) so the addon scans
+            # once and we never match a prior identical-filter request's stale result.
+            "request_id": uuid.uuid4().hex,
         }
         # The probe answers asynchronously; poll the addon's cache until it reflects this
         # request (or the timeout elapses). Bounded, ~100ms cadence.

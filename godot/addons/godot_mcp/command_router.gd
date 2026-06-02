@@ -2242,19 +2242,23 @@ func _cmd_find_ui_elements(params: Dictionary) -> Dictionary:
 	var guard := _require_live_probe()
 	if not guard["ok"]:
 		return guard
-	var request := {
-		"name_contains": str(params.get("name_contains", "")),
-		"class_filter": str(params.get("class_filter", "")),
-		"visible_only": bool(params.get("visible_only", false)),
-	}
-	# Re-request each call; return the cached result once it matches these filters (the
-	# tool polls until ready, mirroring the poll-and-cache used for the live scene tree).
-	_debugger.send_to_probe("godot_mcp:find_ui", [request])
+	# Each tool invocation carries a stable request_id (constant across its poll loop). We
+	# dispatch the (expensive) full-Control scan to the probe exactly once per request_id
+	# and match the cached result by that id — so repeated polls don't re-scan, and reusing
+	# identical filters can't return a prior request's stale result.
+	var request_id := str(params.get("request_id", ""))
 	var payload: Variant = _debugger.get_ui_elements()
-	var ready: bool = payload is Dictionary and (payload as Dictionary).get("request") == request
-	if not ready:
-		return _ok({"ready": false, "elements": []})
-	return _ok({"ready": true, "elements": (payload as Dictionary).get("elements", [])})
+	if payload is Dictionary and (payload as Dictionary).get("request_id") == request_id:
+		return _ok({"ready": true, "elements": (payload as Dictionary).get("elements", [])})
+	if _debugger.get_pending_ui_request() != request_id:
+		_debugger.begin_ui_request(request_id)
+		_debugger.send_to_probe("godot_mcp:find_ui", [{
+			"name_contains": str(params.get("name_contains", "")),
+			"class_filter": str(params.get("class_filter", "")),
+			"visible_only": bool(params.get("visible_only", false)),
+			"request_id": request_id,
+		}])
+	return _ok({"ready": false, "elements": []})
 
 
 # --- editor screenshots (issue #33) ----------------------------------------

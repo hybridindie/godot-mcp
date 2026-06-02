@@ -214,7 +214,7 @@ func _find_ui(d: Dictionary) -> Dictionary:
 		bool(d.get("visible_only", false)),
 		out,
 	)
-	return {"request": d, "elements": out}
+	return {"request_id": str(d.get("request_id", "")), "elements": out}
 
 
 func _collect_controls(
