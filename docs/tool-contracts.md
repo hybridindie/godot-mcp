@@ -371,6 +371,25 @@ when `save_path` is given, else embedded with the scene). `set_theme_color` /
 configured with `properties` (e.g. `bg_color`, `corner_radius_top_left`) and overrides
 the named stylebox. Undo restores the prior override (or removes it).
 
+#### Shaders (issue #47) — category: `shader` (gated off by default)
+
+Author shaders — create/read `.gdshader` files, assign a ShaderMaterial, set uniforms.
+`read_shader` is `read_only`; the others are `mutating` (UndoRedo-wrapped), `dry_run`.
+
+| Tool | Params | Returns |
+|------|--------|---------|
+| `create_shader` | `shader_path, code=<canvas_item default>` | `ShaderResult { shader_path, created }` |
+| `read_shader` | `shader_path` | `ShaderReadResult { shader_path, code }` (read_only) |
+| `assign_shader_material` | `node_path, shader_path` | `ShaderMaterialResult { node_path, shader_path, material_property }` |
+| `set_shader_param` | `node_path, name, value, param_type?` | `ShaderParamResult { node_path, name }` |
+
+`create_shader` writes a `res://*.gdshader` file (undo restores the prior content or
+removes it). `assign_shader_material` wraps the shader in a ShaderMaterial and assigns it
+to `material` (CanvasItem) or `material_override` (GeometryInstance3D), reporting which.
+`set_shader_param` sets a uniform on the node's ShaderMaterial; `param_type`
+(float/int/bool/vector2/vector3/vector4/color) coerces `value`, or it is inferred
+(number/bool as-is, `[x,y,z]` → vector, HTML string → color).
+
 #### Runtime (issue #13) — `runtime` (category: `runtime`, gated off by default)
 
 | Tool | Params | Returns |

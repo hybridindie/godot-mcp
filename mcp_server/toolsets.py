@@ -29,6 +29,7 @@ from mcp_server.categories import (
     SCENE_3D_TAG,
     SCENE_EDIT_TAG,
     SCRIPTS_TAG,
+    SHADER_TAG,
     THEME_UI_TAG,
     TILEMAP_TAG,
 )
@@ -58,6 +59,8 @@ TOOLSETS: dict[str, str] = {
     "list layers.",
     THEME_UI_TAG: "Create themes and override colors, font sizes, and styleboxes "
     "on Control nodes.",
+    SHADER_TAG: "Author shaders: create/read shader files, assign ShaderMaterial, "
+    "set shader parameters.",
 }
 
 # Enabled at startup (plus `core`, which is always on). Everything else is gated

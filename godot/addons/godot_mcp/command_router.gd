@@ -109,6 +109,11 @@ func _init() -> void:
 	_handlers["cmd_set_theme_color"] = _cmd_set_theme_color
 	_handlers["cmd_set_theme_font_size"] = _cmd_set_theme_font_size
 	_handlers["cmd_set_theme_stylebox"] = _cmd_set_theme_stylebox
+	# Shaders (issue #47) — file/material edits UndoRedo-wrapped; shader read is read-only.
+	_handlers["cmd_create_shader"] = _cmd_create_shader
+	_handlers["cmd_read_shader"] = _cmd_read_shader
+	_handlers["cmd_assign_shader_material"] = _cmd_assign_shader_material
+	_handlers["cmd_set_shader_param"] = _cmd_set_shader_param
 
 
 ## Dispatch one envelope ({ id, command, params }) and return a response envelope.
@@ -1890,6 +1895,146 @@ func _restore_theme_stylebox(node: Control, name: String, had: bool, value: Styl
 		node.add_theme_stylebox_override(name, value)
 	else:
 		node.remove_theme_stylebox_override(name)
+
+
+# --- shaders (issue #47) ---------------------------------------------------
+
+func _cmd_create_shader(params: Dictionary) -> Dictionary:
+	var path := str(params.get("shader_path", ""))
+	if not path.begins_with("res://") or not path.ends_with(".gdshader"):
+		return _fail("VALIDATION_ERROR", "shader_path must be a res:// .gdshader file.")
+	var code := str(params.get("code", ""))
+	if code.is_empty():
+		return _fail("VALIDATION_ERROR", "'code' must be a non-empty shader source.")
+	var existed := FileAccess.file_exists(path)
+	var old := FileAccess.get_file_as_string(path) if existed else ""
+	var ur := EditorInterface.get_editor_undo_redo()
+	ur.create_action("Create shader %s" % path)
+	ur.add_do_method(self, "_write_file_text", path, code)
+	if existed:
+		ur.add_undo_method(self, "_write_file_text", path, old)
+	else:
+		ur.add_undo_method(self, "_remove_file", path)
+	ur.commit_action()
+	return _ok({"shader_path": path, "created": not existed})
+
+
+func _cmd_read_shader(params: Dictionary) -> Dictionary:
+	var path := str(params.get("shader_path", ""))
+	if not path.ends_with(".gdshader"):
+		return _fail("VALIDATION_ERROR", "shader_path must be a .gdshader file.")
+	if not FileAccess.file_exists(path):
+		return _fail("RESOURCE_NOT_FOUND", "No shader at '%s'." % path)
+	return _ok({"shader_path": path, "code": FileAccess.get_file_as_string(path)})
+
+
+func _cmd_assign_shader_material(params: Dictionary) -> Dictionary:
+	var found := _resolve(params.get("node_path", ""))
+	if not found["ok"]:
+		return found
+	var node: Node = found["node"]
+	var prop := _material_property_for(node)
+	if prop.is_empty():
+		return _fail("VALIDATION_ERROR", "Node has no material slot (not a CanvasItem/GeometryInstance3D).")
+	var shader_path := str(params.get("shader_path", ""))
+	if not ResourceLoader.exists(shader_path):
+		return _fail("RESOURCE_NOT_FOUND", "No shader at '%s'." % shader_path)
+	var shader: Resource = ResourceLoader.load(shader_path)
+	if not (shader is Shader):
+		return _fail("VALIDATION_ERROR", "'%s' is not a Shader." % shader_path)
+	var material := ShaderMaterial.new()
+	material.shader = shader
+	var prev: Variant = node.get(prop)
+	var ur := EditorInterface.get_editor_undo_redo()
+	ur.create_action("Assign shader material to %s" % node.name)
+	ur.add_do_property(node, prop, material)
+	ur.add_do_reference(material)
+	ur.add_undo_property(node, prop, prev)
+	if prev is Resource:  # keep the prior material alive for undo
+		ur.add_undo_reference(prev)
+	ur.commit_action()
+	return _ok({
+		"node_path": str(params.get("node_path")),
+		"shader_path": shader_path,
+		"material_property": prop,
+	})
+
+
+func _cmd_set_shader_param(params: Dictionary) -> Dictionary:
+	var found := _resolve(params.get("node_path", ""))
+	if not found["ok"]:
+		return found
+	var node: Node = found["node"]
+	var prop := _material_property_for(node)
+	if prop.is_empty():
+		return _fail("VALIDATION_ERROR", "Node has no material slot (not a CanvasItem/GeometryInstance3D).")
+	var material: Variant = node.get(prop)
+	if not (material is ShaderMaterial):
+		return _fail("VALIDATION_ERROR", "Node has no ShaderMaterial assigned; assign one first.", "shader_material")
+	var name := str(params.get("name", ""))
+	if name.is_empty():
+		return _fail("VALIDATION_ERROR", "'name' must be a non-empty string.")
+	var value: Variant = _coerce_shader_value(params.get("value"), str(params.get("param_type", "")))
+	var prev: Variant = material.get_shader_parameter(name)
+	var ur := EditorInterface.get_editor_undo_redo()
+	ur.create_action("Set shader param %s" % name)
+	ur.add_do_method(material, "set_shader_parameter", name, value)
+	ur.add_undo_method(material, "set_shader_parameter", name, prev)
+	ur.commit_action()
+	return _ok({"node_path": str(params.get("node_path")), "name": name})
+
+
+## The node property that holds a material, or "" if the node has no material slot.
+func _material_property_for(node: Node) -> String:
+	if node is CanvasItem:
+		return "material"
+	if node is GeometryInstance3D:
+		return "material_override"
+	return ""
+
+
+## Coerce a JSON shader-uniform value. With an explicit param_type, convert to that
+## Godot type; otherwise infer (number/bool as-is, [x,y,z(,w)] → VectorN, HTML → Color).
+func _coerce_shader_value(value: Variant, param_type: String) -> Variant:
+	match param_type:
+		"float":
+			return float(value)
+		"int":
+			return int(value)
+		"bool":
+			return bool(value)
+		"color":
+			return Coerce.from_json(value, TYPE_COLOR)
+		"vector2":
+			return Coerce.from_json(value, TYPE_VECTOR2)
+		"vector3":
+			return Coerce.from_json(value, TYPE_VECTOR3)
+		"vector4":
+			return _to_vec4(value)
+		_:
+			if value is Array:
+				match (value as Array).size():
+					2:
+						return Coerce.from_json(value, TYPE_VECTOR2)
+					3:
+						return Coerce.from_json(value, TYPE_VECTOR3)
+					4:
+						return _to_vec4(value)
+			if value is String and value.is_valid_html_color():
+				return Color.html(value)
+			return value
+
+
+## Build a Vector4 from a JSON [x, y, z, w] array or {x, y, z, w} dict.
+func _to_vec4(value: Variant) -> Vector4:
+	if value is Array and (value as Array).size() == 4:
+		return Vector4(float(value[0]), float(value[1]), float(value[2]), float(value[3]))
+	if value is Dictionary:
+		return Vector4(
+			float(value.get("x", 0.0)), float(value.get("y", 0.0)),
+			float(value.get("z", 0.0)), float(value.get("w", 0.0))
+		)
+	return Vector4.ZERO
 
 
 # --- editor screenshots (issue #33) ----------------------------------------
