@@ -326,6 +326,21 @@ def test_runtime_session_addon_files_present() -> None:
     assert "set_debugger" in entry
 
 
+def test_router_registers_input_sim_commands() -> None:
+    source = (ADDON_DIR / "command_router.gd").read_text()
+    for command in (
+        "cmd_simulate_key",
+        "cmd_simulate_mouse",
+        "cmd_simulate_action",
+        "cmd_play_input_sequence",
+        "cmd_get_input_stats",
+    ):
+        assert f'"{command}"' in source, f"router must register {command}"
+    # The runtime probe must inject via Input.parse_input_event / action_press.
+    probe = (ADDON_DIR / "mcp_runtime_probe.gd").read_text()
+    assert "parse_input_event" in probe and "action_press" in probe
+
+
 def test_mutations_use_undo_redo() -> None:
     source = (ADDON_DIR / "command_router.gd").read_text()
     # Every create/rename/delete/set must register with EditorUndoRedoManager.

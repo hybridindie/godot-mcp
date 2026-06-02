@@ -15,6 +15,7 @@ var _session_id: int = -1
 var _session_active: bool = false
 var _probe_ready: bool = false
 var _scene_tree: Variant = null  # last godot_mcp:scene_tree payload (Dictionary) or null
+var _input_acks: int = 0  # count of synthesized inputs the game has acknowledged (#36)
 
 
 func _has_capture(capture: String) -> bool:
@@ -32,6 +33,9 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 			return true
 		"godot_mcp:scene_tree":
 			_scene_tree = data[0] if not data.is_empty() else null
+			return true
+		"godot_mcp:input_ack":
+			_input_acks += 1
 			return true
 	return false
 
@@ -52,6 +56,7 @@ func _on_stopped() -> void:
 	_session_active = false
 	_probe_ready = false
 	_scene_tree = null
+	_input_acks = 0
 
 
 ## Ask the running game's probe to (re)send the scene tree. The reply lands in the cache
@@ -71,3 +76,16 @@ func is_connected_to_probe() -> bool:
 
 func get_cached_scene_tree() -> Variant:
 	return _scene_tree
+
+
+## Send a godot_mcp:* message to the running game's probe (fire-and-forget).
+func send_to_probe(message: String, data: Array = []) -> void:
+	if not _session_active or _session_id < 0:
+		return
+	var session := get_session(_session_id)
+	if session != null and session.is_active():
+		session.send_message(message, data)
+
+
+func get_input_acks() -> int:
+	return _input_acks

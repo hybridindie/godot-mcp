@@ -428,6 +428,29 @@ path, children }`) from the probe; with no play session it is a `PRECONDITION_FA
 (poll-and-cache) so the synchronous bridge stays simple. This is the foundation for
 input simulation (#36) and the rest of runtime inspection (#35).
 
+#### Input simulation (issue #36) — category: `input` (gated off by default)
+
+Drive a *running* game — synthesize input on the #66 rails. Requires a play session +
+the runtime probe; the probe calls `Input.parse_input_event` / `Input.action_press`.
+Injection is `runtime`; stats are `read_only`. (Recording live input for replay is the
+follow-up #68.)
+
+| Tool | Params | Returns |
+|------|--------|---------|
+| `simulate_key` | `key, pressed=True, shift/ctrl/alt/meta=False` | `SimInputResult { sent, kind, count }` |
+| `simulate_mouse` | `x, y, button="", pressed=True, relative_x/relative_y=0` | `SimInputResult` |
+| `simulate_action` | `action, pressed=True, strength=1.0` | `SimInputResult` |
+| `play_input_sequence` | `events[], delay_ms=0` | `SimInputResult { count = len(events) }` |
+| `get_input_stats` | — | `InputStatsResult { playing, connected, injected }` (read_only) |
+
+`key` is a Godot key name ("A", "Space", "Enter"). `simulate_mouse` sends motion when
+`button` is empty, else a button event (left/right/middle/wheel_up/wheel_down).
+`simulate_action` presses/releases an Input Map action (unknown actions are dropped by
+the probe). `play_input_sequence` replays `events` (each `{type: key|mouse|action, …}`)
+`delay_ms` apart. All injection requires a live probe (else `PRECONDITION_FAILED`,
+`required=play_session` / `runtime_probe`). `get_input_stats.injected` is the count of
+synthesized events the game has acknowledged — use it to confirm delivery.
+
 #### Safety introspection (issue #14) — `read_only`
 
 | Tool | Params | Returns |

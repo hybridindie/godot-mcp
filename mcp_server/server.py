@@ -26,6 +26,7 @@ from mcp_server.tools.animation import register_animation
 from mcp_server.tools.audio import register_audio
 from mcp_server.tools.editor import register_editor
 from mcp_server.tools.health import register_health
+from mcp_server.tools.input_sim import register_input_sim
 from mcp_server.tools.inspection import register_inspection
 from mcp_server.tools.mutation import register_mutation
 from mcp_server.tools.navigation import register_navigation
@@ -97,6 +98,7 @@ def create_server(
     register_resources(mcp, bridge)
     register_runtime(mcp, bridge, config, runner)
     register_runtime_session(mcp, bridge)
+    register_input_sim(mcp, bridge)
     register_scripts(mcp, bridge, config, runner)
     register_safety_tools(mcp)
 

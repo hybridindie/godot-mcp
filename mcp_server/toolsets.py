@@ -19,6 +19,7 @@ from mcp_server.categories import (
     AUDIO_TAG,
     CORE_TAG,
     EDITOR_TAG,
+    INPUT_TAG,
     INSPECTION_TAG,
     NAVIGATION_TAG,
     PARTICLES_TAG,
@@ -61,6 +62,8 @@ TOOLSETS: dict[str, str] = {
     "on Control nodes.",
     SHADER_TAG: "Author shaders: create/read shader files, assign ShaderMaterial, "
     "set shader parameters.",
+    INPUT_TAG: "Drive a running game: synthesize key/mouse/action input and play "
+    "input sequences (needs a play session + runtime probe).",
 }
 
 # Enabled at startup (plus `core`, which is always on). Everything else is gated
