@@ -1029,10 +1029,12 @@ func _cmd_setup_lighting(params: Dictionary) -> Dictionary:
 	var light_type := str(params.get("light_type", "DirectionalLight3D"))
 	if not ClassDB.can_instantiate(light_type):
 		return _fail("VALIDATION_ERROR", "Cannot instantiate '%s'." % light_type)
-	var light: Node = ClassDB.instantiate(light_type)
-	if not (light is Light3D):
-		light.free()
+	var light_obj: Object = ClassDB.instantiate(light_type)
+	if not (light_obj is Light3D):
+		if not (light_obj is RefCounted):
+			light_obj.free()
 		return _fail("VALIDATION_ERROR", "'%s' is not a Light3D." % light_type)
+	var light: Light3D = light_obj
 	light.name = str(params.get("name", light_type))
 	_apply_props(light, params.get("properties", {}))
 	var path := _commit_add_child(parent, light, "Add %s" % light.name)

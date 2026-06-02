@@ -120,6 +120,32 @@ async def test_gridmap_set_cell_roundtrips_position() -> None:
     assert cell.structured_content["item"] == 3
 
 
+async def test_gridmap_missing_library_preserves_required() -> None:
+    # When the addon returns a structured precondition (required=mesh_library),
+    # route() preserves it so the agent learns what to satisfy.
+    def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_get_node_properties":
+            return ResponseEnvelope.success(cmd.id, {"node_path": "GridMap", "type": "GridMap"})
+        if cmd.command == "cmd_gridmap_set_cell":
+            return ResponseEnvelope.failure(
+                cmd.id, "VALIDATION_ERROR", "GridMap has no mesh_library.", required="mesh_library"
+            )
+        return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
+
+    conn = FakeAddonConnection(responder=responder)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    server = create_server(ServerConfig(), bridge=bridge)
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "scene_3d"})
+        result = await client.call_tool(
+            "gridmap_set_cell",
+            {"node_path": "GridMap", "position": [0, 0, 0], "item": 0},
+            raise_on_error=False,
+        )
+    assert result.is_error
+    assert "mesh_library" in str(result.content)
+
+
 async def test_dry_run_sends_no_mutation() -> None:
     server, conn = _build()
     async with Client(server) as client:
