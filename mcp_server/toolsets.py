@@ -19,6 +19,7 @@ from mcp_server.categories import (
     CORE_TAG,
     EDITOR_TAG,
     INSPECTION_TAG,
+    NAVIGATION_TAG,
     PARTICLES_TAG,
     PHYSICS_TAG,
     PROJECT_TAG,
@@ -47,6 +48,8 @@ TOOLSETS: dict[str, str] = {
     "WorldEnvironment, and GridMap cells.",
     PARTICLES_TAG: "Create/configure GPU particle systems: process material, "
     "color gradients, and VFX presets.",
+    NAVIGATION_TAG: "Author navigation: regions, agents, navmesh baking, and "
+    "navigation layers.",
 }
 
 # Enabled at startup (plus `core`, which is always on). Everything else is gated

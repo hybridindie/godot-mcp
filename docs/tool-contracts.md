@@ -291,6 +291,26 @@ spaced if omitted) and assigns it to `color_ramp`. `apply_particle_preset` appli
 generic VFX preset — one of `fire` / `smoke` / `explosion` / `sparks` — to the node +
 material + ramp in one call.
 
+#### Navigation (issue #43) — category: `navigation` (gated off by default)
+
+Author navigation — generic over 2D/3D, pass the node type names. All `mutating`
+(UndoRedo-wrapped), `dry_run`.
+
+| Tool | Params | Returns |
+|------|--------|---------|
+| `setup_navigation_region` | `parent_path, region_type="NavigationRegion2D", name?, properties?` | `NavigationRegionResult { node_path, region_type, created }` |
+| `setup_navigation_agent` | `parent_path, agent_type="NavigationAgent2D", name?, properties?` | `NavigationAgentResult { node_path, agent_type, created }` |
+| `bake_navigation_mesh` | `node_path` | `BakeNavigationResult { node_path, baked }` |
+| `set_navigation_layers` | `node_path, layers[]` (1-based bit indices) | `NavigationLayersResult { node_path, navigation_layers }` |
+
+`setup_navigation_region` adds a NavigationRegion2D/3D with an empty navmesh resource
+assigned (NavigationPolygon for 2D, NavigationMesh for 3D) so it is ready to bake.
+`setup_navigation_agent` adds a NavigationAgent2D/3D configured with `properties`
+(radius, path_desired_distance, target_desired_distance, max_speed, …). `bake_navigation_mesh`
+bakes the region's navmesh/navpoly synchronously (undo restores the pre-bake resource;
+a region with no navmesh returns a structured precondition). `set_navigation_layers`
+turns `[1,3]` into the bitmask `5` on any node with a `navigation_layers` property.
+
 #### Runtime (issue #13) — `runtime` (category: `runtime`, gated off by default)
 
 | Tool | Params | Returns |

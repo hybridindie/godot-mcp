@@ -27,6 +27,7 @@ from mcp_server.tools.editor import register_editor
 from mcp_server.tools.health import register_health
 from mcp_server.tools.inspection import register_inspection
 from mcp_server.tools.mutation import register_mutation
+from mcp_server.tools.navigation import register_navigation
 from mcp_server.tools.node_ops import register_node_ops
 from mcp_server.tools.particles import register_particles
 from mcp_server.tools.physics import register_physics
@@ -82,6 +83,7 @@ def create_server(
     register_animation(mcp, bridge)
     register_scene_3d(mcp, bridge)
     register_particles(mcp, bridge)
+    register_navigation(mcp, bridge)
     register_editor(mcp, bridge)
     register_resources(mcp, bridge)
     register_runtime(mcp, bridge, config, runner)
