@@ -52,9 +52,26 @@ static func node_properties(node: Node) -> Dictionary:
 	return props
 
 
+## A resource's editable+stored properties, JSON-coerced (issue #34). Unlike nodes
+## (script vars), built-in resource fields are EDITOR|STORAGE, so filter on those and
+## drop the base Resource bookkeeping fields.
+static func resource_properties(res: Resource) -> Dictionary:
+	const _SKIP := ["resource_local_to_scene", "resource_name", "resource_path", "script"]
+	var props: Dictionary = {}
+	for entry in res.get_property_list():
+		var usage := int(entry.get("usage", 0))
+		if (usage & PROPERTY_USAGE_EDITOR) == 0 or (usage & PROPERTY_USAGE_STORAGE) == 0:
+			continue
+		var name: String = entry["name"]
+		if name in _SKIP:
+			continue
+		props[name] = Coerce.to_json(res.get(name))
+	return props
+
+
 ## The attached script's resource path, or null when there is none.
-static func script_path(node: Node) -> Variant:
-	var script: Variant = node.get_script()
+static func script_path(obj: Object) -> Variant:
+	var script: Variant = obj.get_script()
 	if script is Script and not script.resource_path.is_empty():
 		return script.resource_path
 	return null

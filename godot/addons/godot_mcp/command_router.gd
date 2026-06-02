@@ -50,6 +50,12 @@ func _init() -> void:
 	_handlers["cmd_remove_from_group"] = _cmd_remove_from_group
 	_handlers["cmd_list_signal_connections"] = _cmd_list_signal_connections
 	_handlers["cmd_disconnect_signal"] = _cmd_disconnect_signal
+	# Resource files + autoloads (issue #34).
+	_handlers["cmd_read_resource"] = _cmd_read_resource
+	_handlers["cmd_create_resource"] = _cmd_create_resource
+	_handlers["cmd_set_resource_property"] = _cmd_set_resource_property
+	_handlers["cmd_register_autoload"] = _cmd_register_autoload
+	_handlers["cmd_unregister_autoload"] = _cmd_unregister_autoload
 
 
 ## Dispatch one envelope ({ id, command, params }) and return a response envelope.
@@ -602,6 +608,112 @@ func _cmd_disconnect_signal(params: Dictionary) -> Dictionary:
 	})
 
 
+# --- resource files + autoloads (issue #34) --------------------------------
+
+func _cmd_read_resource(params: Dictionary) -> Dictionary:
+	var path := str(params.get("resource_path", ""))
+	if not (path.ends_with(".tres") or path.ends_with(".res")):
+		return _fail("VALIDATION_ERROR", "resource_path must be a .tres/.res file.")
+	if not ResourceLoader.exists(path):
+		return _fail("RESOURCE_NOT_FOUND", "No resource at '%s'." % path)
+	var res: Resource = ResourceLoader.load(path)
+	if res == null:
+		return _fail("INTERNAL_ERROR", "Failed to load resource '%s'." % path)
+	return _ok({
+		"resource_path": path,
+		"type": res.get_class(),
+		"script": Inspect.script_path(res),
+		"properties": Inspect.resource_properties(res),
+	})
+
+
+func _cmd_create_resource(params: Dictionary) -> Dictionary:
+	var res_type := str(params.get("type", ""))
+	var path := str(params.get("resource_path", ""))
+	if not ClassDB.class_exists(res_type) or not ClassDB.can_instantiate(res_type):
+		return _fail("VALIDATION_ERROR", "Unknown or non-instantiable type '%s'." % res_type)
+	if not (path.ends_with(".tres") or path.ends_with(".res")):
+		return _fail("VALIDATION_ERROR", "resource_path must end with .tres or .res.")
+	var instance: Object = ClassDB.instantiate(res_type)
+	if not (instance is Resource):
+		if instance is Node:
+			instance.free()
+		return _fail("VALIDATION_ERROR", "'%s' is not a Resource type." % res_type)
+
+	var res: Resource = instance
+	var properties: Dictionary = params.get("properties", {})
+	for key in properties:
+		var prop_type := _property_type(res, str(key))
+		if prop_type != -1:
+			res.set(str(key), Coerce.from_json(properties[key], prop_type))
+
+	var base_dir := path.get_base_dir()
+	if not DirAccess.dir_exists_absolute(base_dir):
+		DirAccess.make_dir_recursive_absolute(base_dir)
+	var err := ResourceSaver.save(res, path)
+	if err != OK:
+		return _fail("INTERNAL_ERROR", "Failed to save resource to '%s' (error %d)." % [path, err])
+	EditorInterface.get_resource_filesystem().update_file(path)
+	return _ok({"resource_path": path, "type": res_type, "created": true})
+
+
+func _cmd_set_resource_property(params: Dictionary) -> Dictionary:
+	var path := str(params.get("resource_path", ""))
+	if not ResourceLoader.exists(path):
+		return _fail("RESOURCE_NOT_FOUND", "No resource at '%s'." % path)
+	var res: Resource = ResourceLoader.load(path)
+	var property := str(params.get("property", ""))
+	var prop_type := _property_type(res, property)
+	if prop_type == -1:
+		return _fail("VALIDATION_ERROR", "Resource has no property '%s'." % property)
+
+	var old_value: Variant = res.get(property)
+	var new_value: Variant = Coerce.from_json(params.get("value"), prop_type)
+	var ur := EditorInterface.get_editor_undo_redo()
+	ur.create_action("Set %s.%s" % [path.get_file(), property])
+	ur.add_do_method(self, "_set_and_save_resource", path, property, new_value)
+	ur.add_undo_method(self, "_set_and_save_resource", path, property, old_value)
+	ur.commit_action()
+	return _ok({
+		"resource_path": path,
+		"property": property,
+		"value": Coerce.to_json(ResourceLoader.load(path).get(property)),
+	})
+
+
+func _cmd_register_autoload(params: Dictionary) -> Dictionary:
+	var autoload_name := str(params.get("name", ""))
+	var path := str(params.get("path", ""))
+	if autoload_name.is_empty():
+		return _fail("VALIDATION_ERROR", "'name' must be a non-empty string.")
+	if not ResourceLoader.exists(path):
+		return _fail("RESOURCE_NOT_FOUND", "No script/scene at '%s'." % path)
+	# "*" prefix enables the autoload as a global singleton.
+	ProjectSettings.set_setting("autoload/" + autoload_name, "*" + path)
+	ProjectSettings.save()
+	return _ok({"name": autoload_name, "path": path, "registered": true})
+
+
+func _cmd_unregister_autoload(params: Dictionary) -> Dictionary:
+	var autoload_name := str(params.get("name", ""))
+	var key := "autoload/" + autoload_name
+	if not ProjectSettings.has_setting(key):
+		return _ok({"name": autoload_name, "unregistered": false})
+	ProjectSettings.set_setting(key, null)
+	ProjectSettings.save()
+	return _ok({"name": autoload_name, "unregistered": true})
+
+
+## Load a resource, set a property, and re-save — the UndoRedo callback for edits.
+func _set_and_save_resource(path: String, property: String, value: Variant) -> void:
+	var res: Resource = ResourceLoader.load(path)
+	if res == null:
+		return
+	res.set(property, value)
+	ResourceSaver.save(res, path)
+	EditorInterface.get_resource_filesystem().update_file(path)
+
+
 ## Set owner of a node and its whole subtree to the scene root so it is saved.
 func _own_recursive(node: Node, root: Node) -> void:
 	if node != root:
@@ -623,9 +735,9 @@ func _resolve(raw_path: Variant) -> Dictionary:
 	return {"ok": true, "node": node}
 
 
-## The Variant.Type of a node property, or -1 if the node has no such property.
-func _property_type(node: Node, property: String) -> int:
-	for entry in node.get_property_list():
+## The Variant.Type of an object's property, or -1 if it has no such property.
+func _property_type(obj: Object, property: String) -> int:
+	for entry in obj.get_property_list():
 		if entry["name"] == property:
 			return int(entry["type"])
 	return -1

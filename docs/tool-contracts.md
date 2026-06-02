@@ -169,6 +169,24 @@ writes, and writes register `UndoRedo`). `get_parse_errors` shells out to
 Non-`.gd` paths, missing files, and a `find` string that isn't present return structured
 errors. `write_script`/`patch_script` are reversible via the editor's undo.
 
+#### Resource files & autoloads (issue #34) — category: `resources_edit` (gated off by default)
+
+Author resource (`.tres`/`.res`) files and register autoloads. Distinct from the read-only
+`godot://` resources — this is the *authoring* surface. Property values are coerced to each
+property's declared Godot type.
+
+| Tool | Params | Returns | Class |
+|------|--------|---------|-------|
+| `read_resource_file` | `resource_path` | `ResourceContent { resource_path, type, script?, properties }` | `read_only` |
+| `create_resource` | `type, resource_path, properties?` | `CreateResourceResult { resource_path, type, created }` | `mutating` |
+| `set_resource_property` | `resource_path, property, value` | `SetResourcePropertyResult { resource_path, property, value }` | `mutating` |
+| `register_autoload` | `name, path` | `RegisterAutoloadResult { name, path, registered }` | `mutating` |
+| `unregister_autoload` | `name` | `UnregisterAutoloadResult { name, unregistered }` | `mutating` |
+
+`set_resource_property` is undo-reversible; `create_resource` is a file write (not undo-tracked);
+`register_autoload`/`unregister_autoload` persist to project settings. Mutating tools accept
+`dry_run`.
+
 #### Runtime (issue #13) — `runtime` (category: `runtime`, gated off by default)
 
 | Tool | Params | Returns |
