@@ -19,6 +19,7 @@ SCRATCH = "res://tmp_e2e_shader.tscn"
 SCRATCH_FILE = GODOT_PROJECT / "tmp_e2e_shader.tscn"
 SHADER_PATH = "res://tmp_e2e_shader.gdshader"
 SHADER_FILE = GODOT_PROJECT / "tmp_e2e_shader.gdshader"
+SHADER_UID_FILE = GODOT_PROJECT / "tmp_e2e_shader.gdshader.uid"  # Godot 4.4+ sidecar
 
 SHADER_CODE = (
     "shader_type canvas_item;\n"
@@ -147,3 +148,4 @@ def test_live_shader() -> None:
             editor.kill()
         SCRATCH_FILE.unlink(missing_ok=True)
         SHADER_FILE.unlink(missing_ok=True)
+        SHADER_UID_FILE.unlink(missing_ok=True)

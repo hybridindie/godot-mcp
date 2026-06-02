@@ -501,6 +501,16 @@ func _remove_file(path: String) -> void:
 		EditorInterface.get_resource_filesystem().update_file(path)
 
 
+## Remove a file and its Godot 4.4+ ".uid" sidecar (if present), so undoing a
+## freshly-created resource leaves nothing orphaned.
+func _remove_file_with_uid(path: String) -> void:
+	_remove_file(path)
+	var uid_path := path + ".uid"
+	if FileAccess.file_exists(uid_path):
+		DirAccess.remove_absolute(uid_path)
+		EditorInterface.get_resource_filesystem().update_file(uid_path)
+
+
 # --- node parity handlers (issue #31) --------------------------------------
 
 func _cmd_duplicate_node(params: Dictionary) -> Dictionary:
@@ -1914,7 +1924,9 @@ func _cmd_create_shader(params: Dictionary) -> Dictionary:
 	if existed:
 		ur.add_undo_method(self, "_write_file_text", path, old)
 	else:
-		ur.add_undo_method(self, "_remove_file", path)
+		# Undo a freshly-created shader: remove the file and its Godot 4.4+ .uid sidecar
+		# so nothing is left orphaned.
+		ur.add_undo_method(self, "_remove_file_with_uid", path)
 	ur.commit_action()
 	return _ok({"shader_path": path, "created": not existed})
 
