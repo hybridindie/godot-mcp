@@ -31,12 +31,6 @@ async def _ok(bridge: Bridge, command: str, params: dict[str, Any]) -> dict[str,
     return response.result
 
 
-async def _create(bridge: Bridge, name: str, node_type: str, parent: str = ".") -> None:
-    await _ok(
-        bridge, "cmd_create_node", {"parent_path": parent, "node_type": node_type, "name": name}
-    )
-
-
 async def _wait_scene_open(bridge: Bridge) -> None:
     for _ in range(40):
         r = await bridge.send("cmd_get_active_scene")
