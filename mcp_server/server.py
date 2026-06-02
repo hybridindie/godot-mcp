@@ -22,6 +22,7 @@ from mcp_server.config import ServerConfig
 from mcp_server.resources.context import register_resources
 from mcp_server.runtime import GodotRunner, Runner
 from mcp_server.safety import register_safety_tools
+from mcp_server.tools.animation import register_animation
 from mcp_server.tools.editor import register_editor
 from mcp_server.tools.health import register_health
 from mcp_server.tools.inspection import register_inspection
@@ -76,6 +77,7 @@ def create_server(
     register_resource_files(mcp, bridge)
     register_project_fs(mcp, bridge)
     register_physics(mcp, bridge)
+    register_animation(mcp, bridge)
     register_editor(mcp, bridge)
     register_resources(mcp, bridge)
     register_runtime(mcp, bridge, config, runner)

@@ -228,6 +228,27 @@ Generic over 2D/3D — pass the Godot type names. All `mutating` (UndoRedo-wrapp
 `setup_collision` creates a `CollisionShape` holding a `shape_type` shape with `properties`
 (size/radius). `set_physics_layers` turns `[1,3]` into the bitmask `5`.
 
+#### Animation (issue #39) — category: `animation` (gated off by default)
+
+Author AnimationPlayer animations and AnimationTree graphs. All `mutating`
+(UndoRedo-wrapped), `dry_run`.
+
+| Tool | Params | Returns |
+|------|--------|---------|
+| `create_animation` | `node_path, name, length=1.0` | `CreateAnimationResult { player_path, animation, length }` |
+| `add_animation_track` | `node_path, animation, track_path, track_type="value"` | `AnimationTrackResult { animation, track, track_path }` |
+| `insert_keyframe` | `node_path, animation, track, time, value, easing=1.0` | `KeyframeResult { animation, track, time }` |
+| `create_animation_tree` | `parent_path, name="AnimationTree", anim_player?, root_type="AnimationNodeStateMachine"` | `AnimationTreeResult { node_path, root_type }` |
+| `add_state_machine_state` | `tree_path, state_name, animation?` | `StateMachineStateResult { tree_path, state }` |
+| `set_blend_tree_node` | `tree_path, node_name, node_type` | `BlendTreeNodeResult { tree_path, node, node_type }` |
+
+`create_animation` adds a default `AnimationLibrary` ("") if absent and rejects a
+duplicate name. `add_animation_track` returns the new track index; `track_type` is one
+of value/position_3d/rotation_3d/scale_3d/method/bezier/audio/animation. `insert_keyframe`
+accepts Godot string forms for `value` (e.g. `"Vector2(10, 20)"`, coerced via `str_to_var`).
+`add_state_machine_state` requires an `AnimationNodeStateMachine` root; `set_blend_tree_node`
+requires an `AnimationNodeBlendTree` root and an `AnimationNode` `node_type`.
+
 #### Runtime (issue #13) — `runtime` (category: `runtime`, gated off by default)
 
 | Tool | Params | Returns |

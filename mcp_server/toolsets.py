@@ -15,6 +15,7 @@ from fastmcp.exceptions import ToolError
 from pydantic import BaseModel
 
 from mcp_server.categories import (
+    ANIMATION_TAG,
     CORE_TAG,
     EDITOR_TAG,
     INSPECTION_TAG,
@@ -38,6 +39,8 @@ TOOLSETS: dict[str, str] = {
     PROJECT_TAG: "Explore the filesystem, search files, read/write project settings, resolve UIDs.",
     EDITOR_TAG: "Capture editor screenshots (image content for vision-capable clients).",
     PHYSICS_TAG: "Configure physics bodies, collision shapes, layers/masks, and raycasts.",
+    ANIMATION_TAG: "Author animations (tracks/keyframes) and AnimationTree "
+    "state machines/blend trees.",
 }
 
 # Enabled at startup (plus `core`, which is always on). Everything else is gated
