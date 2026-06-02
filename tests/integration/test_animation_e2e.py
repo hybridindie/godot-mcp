@@ -134,6 +134,41 @@ async def _run() -> None:
             "cmd_set_blend_tree_node", {"tree_path": "BT", "node_name": "n", "node_type": "Node2D"}
         )
         assert bad_type.ok is False and bad_type.error == "VALIDATION_ERROR"
+        empty_name = await bridge.send(
+            "cmd_set_blend_tree_node",
+            {"tree_path": "BT", "node_name": "", "node_type": "AnimationNodeAnimation"},
+        )
+        assert empty_name.ok is False and empty_name.error == "VALIDATION_ERROR"
+
+        # track validation: unknown track_type and empty track_path are now rejected
+        bad_track_type = await bridge.send(
+            "cmd_add_animation_track",
+            {
+                "node_path": "AnimationPlayer",
+                "animation": "walk",
+                "track_path": "x",
+                "track_type": "nope",
+            },
+        )
+        assert bad_track_type.ok is False and bad_track_type.error == "VALIDATION_ERROR"
+        empty_path = await bridge.send(
+            "cmd_add_animation_track",
+            {"node_path": "AnimationPlayer", "animation": "walk", "track_path": ""},
+        )
+        assert empty_path.ok is False and empty_path.error == "VALIDATION_ERROR"
+
+        # precondition fidelity: a missing animation surfaces RESOURCE_NOT_FOUND (not collapsed)
+        missing_anim = await bridge.send(
+            "cmd_insert_keyframe",
+            {
+                "node_path": "AnimationPlayer",
+                "animation": "nope",
+                "track": 0,
+                "time": 0.0,
+                "value": "Vector2(0, 0)",
+            },
+        )
+        assert missing_anim.ok is False and missing_anim.error == "RESOURCE_NOT_FOUND"
     finally:
         await bridge.close()
 

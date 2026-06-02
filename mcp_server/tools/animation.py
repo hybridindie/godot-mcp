@@ -112,7 +112,10 @@ def register_animation(mcp: FastMCP, bridge: Bridge) -> None:
         """
         await require_node_exists(bridge, parent_path)
         if dry_run:
-            return AnimationTreeResult(node_path="", root_type=root_type, dry_run=True)
+            # Preview the scene-relative path the node would get (parent + name),
+            # matching the live result so clients can plan follow-up calls.
+            preview = name if parent_path in (".", "") else f"{parent_path}/{name}"
+            return AnimationTreeResult(node_path=preview, root_type=root_type, dry_run=True)
         params: dict[str, Any] = {"parent_path": parent_path, "name": name, "root_type": root_type}
         if anim_player:
             params["anim_player"] = anim_player

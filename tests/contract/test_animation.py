@@ -131,6 +131,19 @@ async def test_animation_tree_state_machine_and_blend_tree() -> None:
     assert blend.structured_content["node_type"] == "AnimationNodeAnimation"
 
 
+async def test_create_tree_dry_run_previews_path() -> None:
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "animation"})
+        result = await client.call_tool(
+            "create_animation_tree", {"parent_path": "World", "name": "SM", "dry_run": True}
+        )
+    # dry_run previews the scene-relative path (parent + name), not an empty string.
+    assert result.structured_content["dry_run"] is True
+    assert result.structured_content["node_path"] == "World/SM"
+    assert "cmd_create_animation_tree" not in _commands(conn)
+
+
 async def test_dry_run_sends_no_mutation() -> None:
     server, conn = _build()
     async with Client(server) as client:

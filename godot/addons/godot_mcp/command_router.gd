@@ -681,11 +681,17 @@ func _cmd_create_animation(params: Dictionary) -> Dictionary:
 
 
 func _cmd_add_animation_track(params: Dictionary) -> Dictionary:
-	var animation := _player_animation(params)
-	if animation == null:
-		return _fail("RESOURCE_NOT_FOUND", "No such AnimationPlayer/animation.")
-	var track_type := _TRACK_TYPES.get(str(params.get("track_type", "value")), Animation.TYPE_VALUE)
+	var found := _resolve_player_animation(params)
+	if not found["ok"]:
+		return found
+	var animation: Animation = found["animation"]
+	var track_type_key := str(params.get("track_type", "value"))
+	if not _TRACK_TYPES.has(track_type_key):
+		return _fail("VALIDATION_ERROR", "Unknown track_type '%s'." % track_type_key)
+	var track_type: int = _TRACK_TYPES[track_type_key]
 	var track_path := str(params.get("track_path", ""))
+	if track_path.is_empty():
+		return _fail("VALIDATION_ERROR", "'track_path' must be a non-empty string.")
 	var index := animation.get_track_count()  # add_track appends to this index
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Add animation track")
@@ -697,9 +703,10 @@ func _cmd_add_animation_track(params: Dictionary) -> Dictionary:
 
 
 func _cmd_insert_keyframe(params: Dictionary) -> Dictionary:
-	var animation := _player_animation(params)
-	if animation == null:
-		return _fail("RESOURCE_NOT_FOUND", "No such AnimationPlayer/animation.")
+	var found := _resolve_player_animation(params)
+	if not found["ok"]:
+		return found
+	var animation: Animation = found["animation"]
 	var track := int(params.get("track", -1))
 	if track < 0 or track >= animation.get_track_count():
 		return _fail("VALIDATION_ERROR", "Track %d is out of range." % track)
@@ -780,6 +787,8 @@ func _cmd_set_blend_tree_node(params: Dictionary) -> Dictionary:
 		return _fail("VALIDATION_ERROR", "Node is not an AnimationTree with a blend-tree root.")
 	var blend_tree: AnimationNodeBlendTree = tree.tree_root
 	var node_name := str(params.get("node_name", ""))
+	if node_name.is_empty():
+		return _fail("VALIDATION_ERROR", "'node_name' must be a non-empty string.")
 	var node_type := str(params.get("node_type", ""))
 	if not ClassDB.can_instantiate(node_type):
 		return _fail("VALIDATION_ERROR", "Cannot instantiate '%s'." % node_type)
@@ -797,17 +806,20 @@ func _cmd_set_blend_tree_node(params: Dictionary) -> Dictionary:
 	return _ok({"tree_path": str(params.get("tree_path")), "node": node_name, "node_type": node_type})
 
 
-## Resolve the Animation named params.animation from the AnimationPlayer at
-## params.node_path, or null if either is missing.
-func _player_animation(params: Dictionary) -> Animation:
+## Resolve {ok, animation} for the AnimationPlayer at params.node_path and its
+## animation named params.animation. Propagates _resolve's structured
+## PRECONDITION_FAILED / RESOURCE_NOT_FOUND envelope rather than collapsing it.
+func _resolve_player_animation(params: Dictionary) -> Dictionary:
 	var found := _resolve(params.get("node_path", ""))
 	if not found["ok"]:
-		return null
+		return found
 	var player: Node = found["node"]
+	if not (player is AnimationPlayer):
+		return _fail("VALIDATION_ERROR", "Node is not an AnimationPlayer.")
 	var anim_name := str(params.get("animation", ""))
-	if not (player is AnimationPlayer) or not player.has_animation(anim_name):
-		return null
-	return player.get_animation(anim_name)
+	if not player.has_animation(anim_name):
+		return _fail("RESOURCE_NOT_FOUND", "No animation '%s' on the AnimationPlayer." % anim_name)
+	return {"ok": true, "animation": player.get_animation(anim_name)}
 
 
 # --- physics (issue #41) ---------------------------------------------------
