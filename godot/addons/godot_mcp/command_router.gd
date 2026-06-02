@@ -63,6 +63,8 @@ func _init() -> void:
 	_handlers["cmd_set_setting"] = _cmd_set_setting
 	_handlers["cmd_path_to_uid"] = _cmd_path_to_uid
 	_handlers["cmd_uid_to_path"] = _cmd_uid_to_path
+	# Editor screenshots (issue #33).
+	_handlers["cmd_capture_editor_screenshot"] = _cmd_capture_editor_screenshot
 
 
 ## Dispatch one envelope ({ id, command, params }) and return a response envelope.
@@ -613,6 +615,29 @@ func _cmd_disconnect_signal(params: Dictionary) -> Dictionary:
 		"method_name": method_name,
 		"disconnected": true,
 	})
+
+
+# --- editor screenshots (issue #33) ----------------------------------------
+
+func _cmd_capture_editor_screenshot(_params: Dictionary) -> Dictionary:
+	var image: Image = EditorInterface.get_base_control().get_viewport().get_texture().get_image()
+	if image == null:
+		return _fail(
+			"INTERNAL_ERROR",
+			"Could not capture the editor viewport (no rendered frame; is a display available?).",
+		)
+	return _ok(_encode_png(image))
+
+
+## Encode an Image as a base64 PNG result (no temp files). Pure given an Image, so
+## it is headless-testable with a synthetic image (see godot/tests/screenshot_smoke.gd).
+func _encode_png(image: Image) -> Dictionary:
+	return {
+		"format": "png",
+		"width": image.get_width(),
+		"height": image.get_height(),
+		"base64": Marshalls.raw_to_base64(image.save_png_to_buffer()),
+	}
 
 
 # --- project & filesystem (issue #32) --------------------------------------

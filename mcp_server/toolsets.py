@@ -16,6 +16,7 @@ from pydantic import BaseModel
 
 from mcp_server.categories import (
     CORE_TAG,
+    EDITOR_TAG,
     INSPECTION_TAG,
     PROJECT_TAG,
     RESOURCES_EDIT_TAG,
@@ -34,6 +35,7 @@ TOOLSETS: dict[str, str] = {
     SCRIPTS_TAG: "Read, write, and patch GDScript files; check for parse errors.",
     RESOURCES_EDIT_TAG: "Read/create/edit resource (.tres) files and register autoloads.",
     PROJECT_TAG: "Explore the filesystem, search files, read/write project settings, resolve UIDs.",
+    EDITOR_TAG: "Capture editor screenshots (image content for vision-capable clients).",
 }
 
 # Enabled at startup (plus `core`, which is always on). Everything else is gated

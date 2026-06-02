@@ -202,6 +202,17 @@ and/or `content` substring (truncating at `max_results`). `set_setting` coerces 
 setting's existing type, persists to project settings (not undo-tracked), and accepts
 `dry_run`. `resolve_uid` picks direction by the input prefix.
 
+#### Editor screenshots (issue #33) — category: `editor` (gated off by default)
+
+| Tool | Params | Returns | Class |
+|------|--------|---------|-------|
+| `capture_editor_screenshot` | — | image content (PNG) | `read_only` |
+
+The addon captures the editor viewport and returns a base64 PNG; the tool decodes it
+into a FastMCP `Image` so a vision-capable client receives an image block (no temp
+files). Returns a structured `INTERNAL_ERROR` if no frame is available (e.g. headless,
+no display).
+
 #### Runtime (issue #13) — `runtime` (category: `runtime`, gated off by default)
 
 | Tool | Params | Returns |

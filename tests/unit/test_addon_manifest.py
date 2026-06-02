@@ -192,6 +192,13 @@ def test_router_registers_project_fs_commands() -> None:
         assert f'"{command}"' in source, f"router must register {command}"
 
 
+def test_router_registers_editor_commands() -> None:
+    source = (ADDON_DIR / "command_router.gd").read_text()
+    assert '"cmd_capture_editor_screenshot"' in source
+    # Capture uses the verified Image → base64 PNG chain.
+    assert "save_png_to_buffer" in source and "raw_to_base64" in source
+
+
 def test_mutations_use_undo_redo() -> None:
     source = (ADDON_DIR / "command_router.gd").read_text()
     # Every create/rename/delete/set must register with EditorUndoRedoManager.
