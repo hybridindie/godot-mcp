@@ -235,6 +235,17 @@ def test_router_registers_scene_3d_commands() -> None:
         assert f'"{command}"' in source, f"router must register {command}"
 
 
+def test_router_registers_particle_commands() -> None:
+    source = (ADDON_DIR / "command_router.gd").read_text()
+    for command in (
+        "cmd_create_particles",
+        "cmd_set_particle_material",
+        "cmd_set_particle_color_gradient",
+        "cmd_apply_particle_preset",
+    ):
+        assert f'"{command}"' in source, f"router must register {command}"
+
+
 def test_mutations_use_undo_redo() -> None:
     source = (ADDON_DIR / "command_router.gd").read_text()
     # Every create/rename/delete/set must register with EditorUndoRedoManager.

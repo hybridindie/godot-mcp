@@ -270,6 +270,27 @@ configured from `properties` (background_mode, ambient_light_color, …). `gridm
 requires a `GridMap` with a `mesh_library` (else a structured `mesh_library` precondition);
 a negative `item` clears the cell.
 
+#### Particles (issue #42) — category: `particles` (gated off by default)
+
+Create and configure GPU particle systems — generic Godot, pass the node type names.
+All `mutating` (UndoRedo-wrapped), `dry_run`.
+
+| Tool | Params | Returns |
+|------|--------|---------|
+| `create_particles` | `parent_path, particles_type="GPUParticles2D", name?, amount=8, lifetime=1.0, properties?` | `CreateParticlesResult { node_path, particles_type, created }` |
+| `set_particle_material` | `node_path, properties` | `ParticleMaterialResult { node_path, properties }` |
+| `set_particle_color_gradient` | `node_path, colors[], offsets?` | `ParticleGradientResult { node_path, stops }` |
+| `apply_particle_preset` | `node_path, preset` | `ParticlePresetResult { node_path, preset }` |
+
+`create_particles` adds a GPUParticles2D/3D with a fresh ParticleProcessMaterial.
+`set_particle_material` applies process-material properties (`gravity`,
+`initial_velocity_min`/`max`, `scale_min`/`max`, `spread`, `color`, …), creating the
+material if absent. `set_particle_color_gradient` builds a GradientTexture1D from
+`colors` (HTML strings like `#ff8800` or `[r,g,b,a]`) at `offsets` (0..1, evenly
+spaced if omitted) and assigns it to `color_ramp`. `apply_particle_preset` applies a
+generic VFX preset — one of `fire` / `smoke` / `explosion` / `sparks` — to the node +
+material + ramp in one call.
+
 #### Runtime (issue #13) — `runtime` (category: `runtime`, gated off by default)
 
 | Tool | Params | Returns |
