@@ -76,8 +76,10 @@ func _inject_mouse(d: Dictionary) -> void:
 		motion.relative = Vector2(float(d.get("relative_x", 0.0)), float(d.get("relative_y", 0.0)))
 		Input.parse_input_event(motion)
 	else:
+		if not _MOUSE_BUTTONS.has(button_name):
+			return  # ignore an unknown button name rather than defaulting to a left click
 		var event := InputEventMouseButton.new()
-		event.button_index = _MOUSE_BUTTONS.get(button_name, MOUSE_BUTTON_LEFT)
+		event.button_index = _MOUSE_BUTTONS[button_name]
 		event.pressed = bool(d.get("pressed", true))
 		event.position = position
 		Input.parse_input_event(event)
@@ -87,7 +89,7 @@ func _inject_mouse(d: Dictionary) -> void:
 func _inject_action(d: Dictionary) -> void:
 	var action := StringName(str(d.get("action", "")))
 	if not InputMap.has_action(action):
-		return  # unknown action is rejected server-side; ignore defensively here
+		return  # action not in the running game's InputMap — drop it (no ack)
 	if bool(d.get("pressed", true)):
 		Input.action_press(action, float(d.get("strength", 1.0)))
 	else:

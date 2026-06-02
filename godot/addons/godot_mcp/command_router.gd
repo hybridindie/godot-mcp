@@ -2128,12 +2128,23 @@ func _cmd_simulate_key(params: Dictionary) -> Dictionary:
 	return _ok({"sent": true, "kind": "key", "count": 1})
 
 
+const _SIM_MOUSE_BUTTONS := ["left", "right", "middle", "wheel_up", "wheel_down"]
+
+
 func _cmd_simulate_mouse(params: Dictionary) -> Dictionary:
 	var guard := _require_live_probe()
 	if not guard["ok"]:
 		return guard
+	var button := str(params.get("button", ""))
+	if not _valid_mouse_button(button):
+		return _fail("VALIDATION_ERROR", "'button' must be empty (motion) or one of %s." % str(_SIM_MOUSE_BUTTONS))
 	_debugger.send_to_probe("godot_mcp:simulate_mouse", [params])
 	return _ok({"sent": true, "kind": "mouse", "count": 1})
+
+
+## A mouse button name is valid when empty (motion) or a known button.
+func _valid_mouse_button(name: String) -> bool:
+	return name.is_empty() or name in _SIM_MOUSE_BUTTONS
 
 
 func _cmd_simulate_action(params: Dictionary) -> Dictionary:
@@ -2153,8 +2164,29 @@ func _cmd_play_input_sequence(params: Dictionary) -> Dictionary:
 	var events: Variant = params.get("events")
 	if not (events is Array) or (events as Array).is_empty():
 		return _fail("VALIDATION_ERROR", "'events' must be a non-empty array.")
+	# Validate each event's shape/type up front so the returned count is reliable and a
+	# malformed event can't be silently skipped by the probe.
+	for i in (events as Array).size():
+		var bad := _invalid_input_event(events[i])
+		if not bad.is_empty():
+			return _fail("VALIDATION_ERROR", "events[%d]: %s" % [i, bad])
 	_debugger.send_to_probe("godot_mcp:play_input_sequence", [params])
 	return _ok({"sent": true, "kind": "sequence", "count": (events as Array).size()})
+
+
+## Return a reason string if an input-sequence event is malformed, else "" (valid).
+func _invalid_input_event(event: Variant) -> String:
+	if not (event is Dictionary):
+		return "must be an object"
+	match str(event.get("type", "")):
+		"key":
+			return "" if not str(event.get("key", "")).is_empty() else "'key' is required"
+		"action":
+			return "" if not str(event.get("action", "")).is_empty() else "'action' is required"
+		"mouse":
+			return "" if _valid_mouse_button(str(event.get("button", ""))) else "invalid 'button'"
+		_:
+			return "'type' must be key/mouse/action"
 
 
 func _cmd_get_input_stats(_params: Dictionary) -> Dictionary:

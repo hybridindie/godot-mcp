@@ -445,9 +445,11 @@ follow-up #68.)
 
 `key` is a Godot key name ("A", "Space", "Enter"). `simulate_mouse` sends motion when
 `button` is empty, else a button event (left/right/middle/wheel_up/wheel_down).
-`simulate_action` presses/releases an Input Map action (unknown actions are dropped by
-the probe). `play_input_sequence` replays `events` (each `{type: key|mouse|action, …}`)
-`delay_ms` apart. All injection requires a live probe (else `PRECONDITION_FAILED`,
+`simulate_action` presses/releases an Input Map action (an action not in the *running
+game's* InputMap is dropped by the probe). `play_input_sequence` replays `events` (each
+`{type: key|mouse|action, …}`) `delay_ms` apart; every event's shape is validated up
+front (bad `type`/missing field/unknown button → `VALIDATION_ERROR`), so `count` =
+events sent. All injection requires a live probe (else `PRECONDITION_FAILED`,
 `required=play_session` / `runtime_probe`). `get_input_stats.injected` is the count of
 synthesized events the game has acknowledged — use it to confirm delivery.
 

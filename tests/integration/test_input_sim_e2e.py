@@ -105,9 +105,17 @@ async def _run() -> None:
         assert seq["count"] == 2
         await _wait_injected(bridge, 5)
 
-        # validation: empty key is rejected (after the live-probe guard passes)
+        # validation: empty key, unknown mouse button, and a malformed sequence event
         bad_key = await bridge.send("cmd_simulate_key", {"key": ""})
         assert bad_key.ok is False and bad_key.error == "VALIDATION_ERROR"
+        bad_button = await bridge.send(
+            "cmd_simulate_mouse", {"x": 0, "y": 0, "button": "nope"}
+        )
+        assert bad_button.ok is False and bad_button.error == "VALIDATION_ERROR"
+        bad_seq = await bridge.send(
+            "cmd_play_input_sequence", {"events": [{"type": "bogus"}]}
+        )
+        assert bad_seq.ok is False and bad_seq.error == "VALIDATION_ERROR"
 
         await _ok(bridge, "cmd_stop_scene", {})
     finally:
