@@ -187,6 +187,21 @@ property's declared Godot type.
 `register_autoload`/`unregister_autoload` persist to project settings. Mutating tools accept
 `dry_run: bool = False` and echo it in the result (sending no change when true).
 
+#### Project & filesystem (issue #32) — category: `project` (gated off by default)
+
+| Tool | Params | Returns | Class |
+|------|--------|---------|-------|
+| `get_filesystem_tree` | `directory="res://", max_depth=-1` | `FilesystemTree { tree: FsEntry{name,path,type,children} }` | `read_only` |
+| `search_files` | `directory="res://", name_glob="", content="", max_results=200` | `SearchResult { matches[], truncated }` | `read_only` |
+| `get_setting` | `name` | `SettingValue { name, value, exists }` | `read_only` |
+| `set_setting` | `name, value` | `SetSettingResult { name, value, set }` | `mutating` |
+| `resolve_uid` | `value` (a `res://` path or `uid://…`) | `UidResolution { uid?, path? }` | `read_only` |
+
+Hidden entries (`.godot`, `.git`, …) are skipped. `search_files` matches `name_glob`
+and/or `content` substring (truncating at `max_results`). `set_setting` coerces to the
+setting's existing type, persists to project settings (not undo-tracked), and accepts
+`dry_run`. `resolve_uid` picks direction by the input prefix.
+
 #### Runtime (issue #13) — `runtime` (category: `runtime`, gated off by default)
 
 | Tool | Params | Returns |
