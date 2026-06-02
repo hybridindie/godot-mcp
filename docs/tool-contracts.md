@@ -404,6 +404,30 @@ source?, line? }` parsed from stdout/stderr. Project directory is resolved from
 Enable with `enable_toolset("runtime")`. Launches a Godot process directly (see the
 runtime-execution note in [`architecture.md`](architecture.md)).
 
+##### Runtime session bridge (issue #66) — same `runtime` toolset
+
+Control an editor **play session** and inspect the running game live. Unlike
+`run_and_capture` (a detached headless subprocess), these play *from the editor* so the
+game connects to the editor debugger, which the addon's `MCPDebugger`
+(`EditorDebuggerPlugin`) captures. Live inspection requires the game to include the
+**godot-mcp runtime probe** autoload (`addons/godot_mcp/mcp_runtime_probe.gd`), which
+answers `godot_mcp:` debugger queries. Play control is `runtime`; reads are `read_only`.
+
+| Tool | Params | Returns |
+|------|--------|---------|
+| `play_scene` | `scene_path?` | `PlayResult { playing, scene }` |
+| `stop_scene` | — | `PlayResult { playing }` |
+| `is_playing` | — | `PlayResult { playing, scene }` |
+| `get_game_scene_tree` | — | `GameSceneTreeResult { playing, connected, tree?, hint }` (read_only) |
+
+`play_scene` runs `scene_path` (a `res://*.tscn`) or the main scene when omitted.
+`get_game_scene_tree` returns the *running* game's live tree (`GameNode { name, type,
+path, children }`) from the probe; with no play session it is a `PRECONDITION_FAILED`
+(`required=play_session`), and when playing without the probe it returns
+`connected=false` with a `hint` to add the autoload. Replies are cached addon-side
+(poll-and-cache) so the synchronous bridge stays simple. This is the foundation for
+input simulation (#36) and the rest of runtime inspection (#35).
+
 #### Safety introspection (issue #14) — `read_only`
 
 | Tool | Params | Returns |

@@ -302,6 +302,30 @@ def test_router_registers_shader_commands() -> None:
         assert f'"{command}"' in source, f"router must register {command}"
 
 
+def test_router_registers_runtime_session_commands() -> None:
+    source = (ADDON_DIR / "command_router.gd").read_text()
+    for command in (
+        "cmd_play_scene",
+        "cmd_stop_scene",
+        "cmd_is_playing",
+        "cmd_get_game_scene_tree",
+    ):
+        assert f'"{command}"' in source, f"router must register {command}"
+
+
+def test_runtime_session_addon_files_present() -> None:
+    # The EditorDebuggerPlugin captures the played game's godot_mcp channel; the probe
+    # autoload (game-side) answers its queries. Both must ship in the addon (issue #66).
+    debugger = ADDON_DIR / "mcp_debugger.gd"
+    probe = ADDON_DIR / "mcp_runtime_probe.gd"
+    assert debugger.exists() and "EditorDebuggerPlugin" in debugger.read_text()
+    assert probe.exists() and "register_message_capture" in probe.read_text()
+    # The plugin entry must register/unregister the debugger plugin and wire it to the router.
+    entry = (ADDON_DIR / "godot_mcp.gd").read_text()
+    assert "add_debugger_plugin" in entry and "remove_debugger_plugin" in entry
+    assert "set_debugger" in entry
+
+
 def test_mutations_use_undo_redo() -> None:
     source = (ADDON_DIR / "command_router.gd").read_text()
     # Every create/rename/delete/set must register with EditorUndoRedoManager.

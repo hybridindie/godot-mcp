@@ -17,6 +17,14 @@ const Inspect := preload("res://addons/godot_mcp/scene_inspect.gd")
 const Coerce := preload("res://addons/godot_mcp/type_coerce.gd")
 
 var _handlers: Dictionary = {}
+# The EditorDebuggerPlugin that captures a played game's godot_mcp channel (issue #66).
+# Set by the plugin entry; null in headless/unit contexts where there is no editor.
+var _debugger: Object = null
+
+
+## Inject the MCPDebugger so runtime-inspection handlers can read cached live state.
+func set_debugger(debugger: Object) -> void:
+	_debugger = debugger
 
 
 func _init() -> void:
@@ -114,6 +122,11 @@ func _init() -> void:
 	_handlers["cmd_read_shader"] = _cmd_read_shader
 	_handlers["cmd_assign_shader_material"] = _cmd_assign_shader_material
 	_handlers["cmd_set_shader_param"] = _cmd_set_shader_param
+	# Runtime session bridge (issue #66) — editor play control (live inspection lands next).
+	_handlers["cmd_play_scene"] = _cmd_play_scene
+	_handlers["cmd_stop_scene"] = _cmd_stop_scene
+	_handlers["cmd_is_playing"] = _cmd_is_playing
+	_handlers["cmd_get_game_scene_tree"] = _cmd_get_game_scene_tree
 
 
 ## Dispatch one envelope ({ id, command, params }) and return a response envelope.
@@ -2047,6 +2060,55 @@ func _to_vec4(value: Variant) -> Vector4:
 			float(value.get("z", 0.0)), float(value.get("w", 0.0))
 		)
 	return Vector4.ZERO
+
+
+# --- runtime session bridge (issue #66) ------------------------------------
+
+func _cmd_play_scene(params: Dictionary) -> Dictionary:
+	var scene_path := str(params.get("scene_path", ""))
+	if scene_path.is_empty():
+		EditorInterface.play_main_scene()
+	else:
+		if not scene_path.begins_with("res://") or not scene_path.ends_with(".tscn"):
+			return _fail("VALIDATION_ERROR", "scene_path must be a res:// .tscn file.")
+		if not FileAccess.file_exists(scene_path):
+			return _fail("RESOURCE_NOT_FOUND", "No scene at '%s'." % scene_path)
+		EditorInterface.play_custom_scene(scene_path)
+	return _ok({
+		"playing": EditorInterface.is_playing_scene(),
+		"scene": EditorInterface.get_playing_scene(),
+	})
+
+
+func _cmd_stop_scene(_params: Dictionary) -> Dictionary:
+	EditorInterface.stop_playing_scene()
+	return _ok({"playing": EditorInterface.is_playing_scene()})
+
+
+func _cmd_is_playing(_params: Dictionary) -> Dictionary:
+	return _ok({
+		"playing": EditorInterface.is_playing_scene(),
+		"scene": EditorInterface.get_playing_scene(),
+	})
+
+
+func _cmd_get_game_scene_tree(_params: Dictionary) -> Dictionary:
+	if not EditorInterface.is_playing_scene():
+		return _fail("PRECONDITION_FAILED", "No play session. Run play_scene first.", "play_session")
+	if _debugger == null:
+		return _fail("INTERNAL_ERROR", "Debugger plugin is unavailable.")
+	if not _debugger.is_connected_to_probe():
+		# Playing, but the probe hasn't announced itself — usually means the consuming
+		# project hasn't added the godot_mcp runtime probe autoload yet.
+		return _ok({
+			"playing": true,
+			"connected": false,
+			"tree": null,
+			"hint": "Add the godot_mcp runtime probe (addons/godot_mcp/mcp_runtime_probe.gd) as an autoload in the game to enable live inspection.",
+		})
+	var tree: Variant = _debugger.get_cached_scene_tree()
+	_debugger.request_scene_tree()  # refresh the cache for the next call
+	return _ok({"playing": true, "connected": true, "tree": tree})
 
 
 # --- editor screenshots (issue #33) ----------------------------------------

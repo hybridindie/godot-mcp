@@ -17,6 +17,7 @@ const PLUGIN_NAME := "godot_mcp"
 
 var _dock: MCPStatusDock
 var _bridge: MCPBridge
+var _debugger: MCPDebugger
 var _selection: EditorSelection
 
 
@@ -24,8 +25,15 @@ func _enter_tree() -> void:
 	_dock = MCPStatusDock.new()
 	add_control_to_dock(DOCK_SLOT_LEFT_UR, _dock)
 
+	# Capture the godot_mcp debugger channel from played games (issue #66), and give the
+	# router a handle so runtime-inspection handlers can read the cached live state.
+	_debugger = MCPDebugger.new()
+	add_debugger_plugin(_debugger)
+	var router := MCPCommandRouter.new()
+	router.set_debugger(_debugger)
+
 	# Start the WebSocket bridge and reflect its state in the dock.
-	_bridge = MCPBridge.new()
+	_bridge = MCPBridge.new(router)
 	_bridge.connection_changed.connect(_on_connection_changed)
 	_bridge.command_received.connect(_dock.log_command)
 	add_child(_bridge)
@@ -50,6 +58,10 @@ func _exit_tree() -> void:
 		_bridge.stop()
 		_bridge.queue_free()
 		_bridge = null
+
+	if _debugger != null:
+		remove_debugger_plugin(_debugger)
+		_debugger = null
 
 	if _dock != null:
 		remove_control_from_docks(_dock)
