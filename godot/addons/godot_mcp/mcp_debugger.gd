@@ -16,6 +16,8 @@ var _session_active: bool = false
 var _probe_ready: bool = false
 var _scene_tree: Variant = null  # last godot_mcp:scene_tree payload (Dictionary) or null
 var _input_acks: int = 0  # count of synthesized inputs the game has acknowledged (#36)
+var _property_samples: Variant = null  # last godot_mcp:property_samples payload (#35)
+var _ui_elements: Variant = null  # last godot_mcp:ui_elements payload (#35)
 
 
 func _has_capture(capture: String) -> bool:
@@ -37,6 +39,12 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 		"godot_mcp:input_ack":
 			_input_acks += 1
 			return true
+		"godot_mcp:property_samples":
+			_property_samples = data[0] if not data.is_empty() else null
+			return true
+		"godot_mcp:ui_elements":
+			_ui_elements = data[0] if not data.is_empty() else null
+			return true
 	return false
 
 
@@ -57,6 +65,8 @@ func _on_stopped() -> void:
 	_probe_ready = false
 	_scene_tree = null
 	_input_acks = 0
+	_property_samples = null
+	_ui_elements = null
 
 
 ## Ask the running game's probe to (re)send the scene tree. The reply lands in the cache
@@ -89,3 +99,17 @@ func send_to_probe(message: String, data: Array = []) -> void:
 
 func get_input_acks() -> int:
 	return _input_acks
+
+
+func get_property_samples() -> Variant:
+	return _property_samples
+
+
+## Drop the cached samples so a fresh monitor_property doesn't read the prior capture
+## (the next get_property_samples reports ready=false until the new series arrives).
+func clear_property_samples() -> void:
+	_property_samples = null
+
+
+func get_ui_elements() -> Variant:
+	return _ui_elements

@@ -37,6 +37,12 @@ func _capture(message: String, data: Array) -> bool:
 		"play_input_sequence":
 			_play_input_sequence(_payload(data))
 			return true
+		"monitor_property":
+			_start_monitor(_payload(data))
+			return true
+		"find_ui":
+			EngineDebugger.send_message("godot_mcp:ui_elements", [_find_ui(_payload(data))])
+			return true
 	return false
 
 
@@ -136,3 +142,122 @@ func _node_to_dict(node: Node, depth: int) -> Dictionary:
 		"path": String(node.get_path()),
 		"children": children,
 	}
+
+
+# --- runtime inspection (issue #35) ----------------------------------------
+
+const _MONITOR_MAX_SAMPLES := 300
+
+var _monitor_target: NodePath = NodePath()
+var _monitor_property := ""
+var _monitor_remaining := 0
+var _monitor_samples: Array = []
+var _monitor_error := ""
+
+
+## Sample the monitored property once per frame until the requested count is reached,
+## then push the completed series to the editor (bounded capture — no perpetual stream).
+func _process(_delta: float) -> void:
+	if _monitor_remaining <= 0:
+		return
+	_monitor_remaining -= 1
+	var node := get_node_or_null(_monitor_target)
+	if node == null:
+		_monitor_error = "node not found at '%s'" % String(_monitor_target)
+		_monitor_remaining = 0
+	else:
+		_monitor_samples.append({
+			"frame": Engine.get_process_frames(),
+			"value": _json_safe(node.get(_monitor_property)),
+		})
+	if _monitor_remaining <= 0:
+		_push_samples()
+
+
+func _start_monitor(d: Dictionary) -> void:
+	_monitor_target = NodePath(str(d.get("node_path", "")))
+	_monitor_property = str(d.get("property", ""))
+	_monitor_samples = []
+	_monitor_error = ""
+	var count := clampi(int(d.get("samples", 30)), 1, _MONITOR_MAX_SAMPLES)
+	var node := get_node_or_null(_monitor_target)
+	if node == null:
+		_monitor_error = "node not found at '%s'" % String(_monitor_target)
+		_monitor_remaining = 0
+		_push_samples()
+		return
+	if not (_monitor_property in node):
+		_monitor_error = "no property '%s' on the node" % _monitor_property
+		_monitor_remaining = 0
+		_push_samples()
+		return
+	_monitor_remaining = count  # _process collects one sample per frame
+
+
+func _push_samples() -> void:
+	EngineDebugger.send_message("godot_mcp:property_samples", [{
+		"node_path": String(_monitor_target),
+		"property": _monitor_property,
+		"samples": _monitor_samples,
+		"error": _monitor_error,
+		"ready": true,
+	}])
+
+
+## Collect live Control nodes matching the filters, with their global rect (for clicking).
+func _find_ui(d: Dictionary) -> Dictionary:
+	var out: Array = []
+	_collect_controls(
+		get_tree().root,
+		str(d.get("name_contains", "")).to_lower(),
+		str(d.get("class_filter", "")),
+		bool(d.get("visible_only", false)),
+		out,
+	)
+	return {"request": d, "elements": out}
+
+
+func _collect_controls(
+	node: Node, name_contains: String, class_filter: String, visible_only: bool, out: Array
+) -> void:
+	if node is Control:
+		var matches := true
+		if not name_contains.is_empty() and not String(node.name).to_lower().contains(name_contains):
+			matches = false
+		if matches and not class_filter.is_empty() and not node.is_class(class_filter):
+			matches = false
+		if matches and visible_only and not node.is_visible_in_tree():
+			matches = false
+		if matches:
+			out.append(_ui_element(node))
+	for child in node.get_children():
+		_collect_controls(child, name_contains, class_filter, visible_only, out)
+
+
+func _ui_element(control: Control) -> Dictionary:
+	var rect := control.get_global_rect()
+	var element := {
+		"path": String(control.get_path()),
+		"name": String(control.name),
+		"node_class": control.get_class(),
+		"visible": control.is_visible_in_tree(),
+		"rect": {"x": rect.position.x, "y": rect.position.y, "w": rect.size.x, "h": rect.size.y},
+	}
+	if "text" in control:  # Button / Label / LineEdit / …
+		element["text"] = str(control.text)
+	return element
+
+
+## Minimal JSON-safe conversion for monitored property values (common Godot types).
+func _json_safe(value: Variant) -> Variant:
+	match typeof(value):
+		TYPE_VECTOR2, TYPE_VECTOR2I:
+			return {"x": value.x, "y": value.y}
+		TYPE_VECTOR3, TYPE_VECTOR3I:
+			return {"x": value.x, "y": value.y, "z": value.z}
+		TYPE_COLOR:
+			return {"r": value.r, "g": value.g, "b": value.b, "a": value.a}
+		TYPE_BOOL, TYPE_INT, TYPE_FLOAT, TYPE_STRING:
+			return value
+		_:
+			return str(value)

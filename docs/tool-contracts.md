@@ -453,6 +453,25 @@ events sent. All injection requires a live probe (else `PRECONDITION_FAILED`,
 `required=play_session` / `runtime_probe`). `get_input_stats.injected` is the count of
 synthesized events the game has acknowledged — use it to confirm delivery.
 
+#### Runtime inspection (issue #35) — `runtime` toolset, `read_only`
+
+Inspect a *running* game on the #66 rails (the third piece, `get_game_scene_tree`, shipped
+with #66). Requires a play session + the runtime probe.
+
+| Tool | Params | Returns |
+|------|--------|---------|
+| `monitor_property` | `node_path, property, samples=30` | `MonitorResult { monitoring, node_path, property, samples }` |
+| `get_property_samples` | — | `PropertySamplesResult { ready, connected, node_path, property, samples[], error }` |
+| `find_ui_elements` | `name_contains="", class_filter="", visible_only=False, timeout_ms=2000` | `UiElementsResult { ready, elements[] }` |
+
+`monitor_property` captures `samples` readings of a live node's property (one per frame —
+`node_path` is an absolute path from `get_game_scene_tree`); collect the `[{frame, value}]`
+series with `get_property_samples` (which reports a validation `error` for a bad
+node/property). `find_ui_elements` returns matching Control nodes — each
+`UiElement { path, name, node_class, visible, rect{x,y,w,h}, text }` —
+and polls the probe up to `timeout_ms` for a fresh result; the `rect` pairs with
+`simulate_mouse` to click located UI. Replies use the same poll-and-cache as the live tree.
+
 #### Safety introspection (issue #14) — `read_only`
 
 | Tool | Params | Returns |

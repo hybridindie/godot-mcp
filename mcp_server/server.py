@@ -36,6 +36,7 @@ from mcp_server.tools.physics import register_physics
 from mcp_server.tools.project_fs import register_project_fs
 from mcp_server.tools.resource_files import register_resource_files
 from mcp_server.tools.runtime import register_runtime
+from mcp_server.tools.runtime_inspect import register_runtime_inspect
 from mcp_server.tools.runtime_session import register_runtime_session
 from mcp_server.tools.scene_3d import register_scene_3d
 from mcp_server.tools.scripts import register_scripts
@@ -98,6 +99,7 @@ def create_server(
     register_resources(mcp, bridge)
     register_runtime(mcp, bridge, config, runner)
     register_runtime_session(mcp, bridge)
+    register_runtime_inspect(mcp, bridge)
     register_input_sim(mcp, bridge)
     register_scripts(mcp, bridge, config, runner)
     register_safety_tools(mcp)

@@ -341,6 +341,15 @@ def test_router_registers_input_sim_commands() -> None:
     assert "parse_input_event" in probe and "action_press" in probe
 
 
+def test_router_registers_runtime_inspect_commands() -> None:
+    source = (ADDON_DIR / "command_router.gd").read_text()
+    for command in ("cmd_monitor_property", "cmd_get_property_samples", "cmd_find_ui_elements"):
+        assert f'"{command}"' in source, f"router must register {command}"
+    # The probe must sample properties and collect Control nodes with their rect.
+    probe = (ADDON_DIR / "mcp_runtime_probe.gd").read_text()
+    assert "_start_monitor" in probe and "get_global_rect" in probe
+
+
 def test_mutations_use_undo_redo() -> None:
     source = (ADDON_DIR / "command_router.gd").read_text()
     # Every create/rename/delete/set must register with EditorUndoRedoManager.
