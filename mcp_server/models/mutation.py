@@ -65,3 +65,10 @@ class CreateSceneResult(BaseModel):
     root_type: str
     created: bool
     dry_run: bool = False
+
+
+class InstanceSceneResult(BaseModel):
+    node_path: str
+    scene_path: str
+    instanced: bool
+    dry_run: bool = False

@@ -165,6 +165,8 @@ func _init() -> void:
 	_handlers["cmd_save_all_scenes"] = _cmd_save_all_scenes
 	_handlers["cmd_list_open_scenes"] = _cmd_list_open_scenes
 	_handlers["cmd_select_nodes"] = _cmd_select_nodes
+	# Instance scene (issue #80)
+	_handlers["cmd_instance_scene"] = _cmd_instance_scene
 
 
 ## Dispatch one envelope ({ id, command, params }) and return a response envelope.
@@ -3347,6 +3349,36 @@ func _cmd_select_nodes(params: Dictionary) -> Dictionary:
 		selected.append(path_str)
 	var scene_path := root.scene_file_path if not root.scene_file_path.is_empty() else ""
 	return _ok({"scene_path": scene_path, "selected": selected, "count": selected.size()})
+
+
+func _cmd_instance_scene(params: Dictionary) -> Dictionary:
+    var root := EditorInterface.get_edited_scene_root()
+    if root == null:
+        return _fail("PRECONDITION_FAILED", "No scene is open.", "active_scene")
+    var parent_path := str(params.get("parent_path", "."))
+    var parent: Node = root.get_node_or_null(NodePath(parent_path))
+    if parent == null:
+        return _fail("RESOURCE_NOT_FOUND", "No node at '%s'." % parent_path)
+
+    var scene_path := str(params.get("scene_path", ""))
+    if not FileAccess.file_exists(scene_path):
+        return _fail("RESOURCE_NOT_FOUND", "No scene at '%s'." % scene_path)
+    var packed: PackedScene = load(scene_path)
+    if packed == null:
+        return _fail("VALIDATION_ERROR", "Failed to load PackedScene from '%s'." % scene_path)
+
+    var instance: Node = packed.instantiate()
+    var custom_name := str(params.get("name", ""))
+    if not custom_name.is_empty():
+        instance.name = custom_name
+    var ur := EditorInterface.get_editor_undo_redo()
+    ur.create_action("Instance %s" % scene_path.get_file())
+    ur.add_do_method(parent, "add_child", instance)
+    ur.add_do_method(instance, "set_owner", root)
+    ur.add_do_reference(instance)
+    ur.add_undo_method(parent, "remove_child", instance)
+    ur.commit_action()
+    return _ok({"node_path": Inspect.relative_path(instance, root), "scene_path": scene_path, "instanced": true})
 
 
 # --- response builders -----------------------------------------------------

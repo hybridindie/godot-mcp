@@ -69,6 +69,15 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                 cmd.id,
                 {"scene_path": p["scene_path"], "root_type": p["root_type"], "created": True},
             )
+        case "cmd_instance_scene":
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "node_path": f"{p['parent_path']}/{p.get('name', 'Instance')}",
+                    "scene_path": p["scene_path"],
+                    "instanced": True,
+                },
+            )
     return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected command")
 
 
@@ -175,3 +184,54 @@ async def test_missing_node_precondition_is_structured_error() -> None:
     assert result.is_error
     assert "RESOURCE_NOT_FOUND" in str(result.content)
     assert "cmd_create_node" not in _commands(conn)
+
+
+# --- instance_scene (issue #80) ------------------------------------------------
+
+
+async def test_instance_scene_safety_class_is_mutating() -> None:
+    server, _ = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        tools = {t.name: t for t in await client.list_tools()}
+    assert tools["instance_scene"].meta["safety_class"] == "mutating"
+
+
+async def test_instance_scene_routes_to_addon() -> None:
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        result = await client.call_tool(
+            "instance_scene",
+            {"parent_path": ".", "scene_path": "res://player.tscn"},
+        )
+    assert result.structured_content["instanced"] is True
+    assert result.structured_content["scene_path"] == "res://player.tscn"
+    assert "cmd_instance_scene" in _commands(conn)
+
+
+async def test_instance_scene_dry_run_sends_no_command() -> None:
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        result = await client.call_tool(
+            "instance_scene",
+            {"parent_path": ".", "scene_path": "res://player.tscn", "name": "P1", "dry_run": True},
+        )
+    assert result.structured_content["dry_run"] is True
+    assert result.structured_content["instanced"] is False
+    assert "cmd_instance_scene" not in _commands(conn)
+
+
+async def test_instance_scene_missing_parent_is_error() -> None:
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        result = await client.call_tool(
+            "instance_scene",
+            {"parent_path": "Ghost", "scene_path": "res://player.tscn"},
+            raise_on_error=False,
+        )
+    assert result.is_error
+    assert "RESOURCE_NOT_FOUND" in str(result.content)
+    assert "cmd_instance_scene" not in _commands(conn)

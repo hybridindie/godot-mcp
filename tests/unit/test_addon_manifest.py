@@ -138,6 +138,7 @@ def test_router_registers_mutation_commands() -> None:
         "cmd_connect_signal",
         "cmd_save_scene",
         "cmd_create_scene",
+        "cmd_instance_scene",
     ):
         assert f'"{command}"' in source, f"router must register {command}"
 

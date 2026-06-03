@@ -24,6 +24,7 @@ from mcp_server.models.mutation import (
     CreateNodeResult,
     CreateSceneResult,
     DeleteNodeResult,
+    InstanceSceneResult,
     RenameNodeResult,
     SaveSceneResult,
     SetPropertyResult,
@@ -177,3 +178,22 @@ def register_mutation(mcp: FastMCP, bridge: Bridge) -> None:
             )
         params = {"root_type": root_type, "scene_path": scene_path}
         return CreateSceneResult(**await route(bridge, "cmd_create_scene", params))
+
+    @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
+    @enforce_preconditions
+    async def instance_scene(
+        parent_path: str, scene_path: str, name: str = "", dry_run: bool = False
+    ) -> InstanceSceneResult:
+        """Instance a saved scene (``scene_path``, a ``res://…​.tscn``) as a child of
+        ``parent_path``. This is the core Godot authoring move for composing scenes
+        from reusable parts. Returns the new instance's scene-relative path.
+        """
+        await require_active_scene(bridge)
+        await require_node_exists(bridge, parent_path)
+        if dry_run:
+            preview = name if parent_path in (".", "") else f"{parent_path}/{name}"
+            return InstanceSceneResult(
+                node_path=preview, scene_path=scene_path, instanced=False, dry_run=True
+            )
+        params = {"parent_path": parent_path, "scene_path": scene_path, "name": name}
+        return InstanceSceneResult(**await route(bridge, "cmd_instance_scene", params))
