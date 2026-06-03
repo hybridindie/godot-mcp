@@ -43,6 +43,7 @@ from mcp_server.tools.runtime import register_runtime
 from mcp_server.tools.runtime_inspect import register_runtime_inspect
 from mcp_server.tools.runtime_session import register_runtime_session
 from mcp_server.tools.scene_3d import register_scene_3d
+from mcp_server.tools.scene_session import register_scene_session
 from mcp_server.tools.scripts import register_scripts
 from mcp_server.tools.shader import register_shader
 from mcp_server.tools.testing import register_testing
@@ -88,6 +89,7 @@ def create_server(
     register_health(mcp, bridge, config)
     register_inspection(mcp, bridge)
     register_mutation(mcp, bridge)
+    register_scene_session(mcp, bridge)
     register_node_ops(mcp, bridge)
     register_resource_files(mcp, bridge)
     register_project_fs(mcp, bridge)

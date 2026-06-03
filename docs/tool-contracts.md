@@ -149,9 +149,27 @@ Node parity (issue #31), also in `scene_edit`:
 `duplicate_node` adds with a readable name (`Box2`). `move_node` rejects moving the root or
 into a descendant. Group membership is persistent (saved into the scene). All reversible via
 the editor's undo. The `mutating` tools also accept `dry_run: bool = False` and echo it in
-the result (omitted from the table for brevity, per the `dry_run`/`confirm` convention above).
+ the result (omitted from the table for brevity, per the `dry_run`/`confirm` convention above).
 
-#### Scripts (issue #10) — category: `scripts` (gated off by default)
+ #### Scene session (issue #79) — category: `scene_edit` (gated off by default)
+
+ Editor session management. `reload_scene` discards unsaved changes and is
+ **`destructive`** (`confirm=True` required); the rest are `mutating` or `read_only`.
+
+ | Tool | Params | Returns | Class |
+ |------|--------|---------|-------|
+ | `open_scene` | `scene_path` | `OpenSceneResult { scene_path, opened, already_open }` | `mutating` |
+ | `reload_scene` | `scene_path, confirm=False` | `ReloadSceneResult { scene_path, reloaded }` | **`destructive`** |
+ | `save_all_scenes` | — | `SaveAllScenesResult { saved, count }` | `mutating` |
+ | `list_open_scenes` | — | `ListOpenScenesResult { scenes[{path, modified}] }` | `read_only` |
+ | `select_nodes` | `node_paths: str[]` | `SelectNodesResult { scene_path, selected[], count }` | `mutating` |
+
+ `open_scene` uses `EditorInterface.open_scene_from_path`. `reload_scene` requires
+ the scene to already be open. `select_nodes` replaces the current editor
+ selection with the resolved nodes. All accept `dry_run: bool = False` (the
+ destructive tool also accepts `confirm`).
+
+ #### Scripts (issue #10) — category: `scripts` (gated off by default)
 
 Read/write/patch route through the addon (single path; the editor re-scans after
 writes, and writes register `UndoRedo`). `get_parse_errors` shells out to
