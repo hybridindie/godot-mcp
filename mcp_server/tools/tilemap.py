@@ -35,6 +35,21 @@ from mcp_server.tools._route import route
 TILEMAP = {TILEMAP_TAG}
 
 
+def _require_single_tileset_target(node_path: str, tileset_path: str) -> None:
+    """A TileSet is targeted by exactly one of an in-scene node or a saved ``.tres``;
+    reject both-set (ambiguous backing) and neither-set."""
+    if node_path and tileset_path:
+        raise PreconditionError(
+            "Pass only one of 'node_path' or 'tileset_path', not both.",
+            required="single_tileset_target",
+        )
+    if not node_path and not tileset_path:
+        raise PreconditionError(
+            "Provide 'node_path' (a TileMap/TileMapLayer) or 'tileset_path' (a .tres).",
+            required="node_path_or_tileset_path",
+        )
+
+
 def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
     """Register the tilemap tools."""
 
@@ -175,15 +190,11 @@ def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
         """Add an atlas source (a texture sliced into a tile grid) to a TileSet, then
         return its ``source_id`` (used by create_tile and tilemap_set_cell). Target the
         TileSet by ``node_path`` (an in-scene TileMap/TileMapLayer) or ``tileset_path``
-        (a saved ``.tres``); pass one. ``texture_path`` is a ``res://`` path to an already
-        imported Texture2D. ``region_size`` ``[w, h]`` is each tile's pixel size in the
-        atlas. ``source_id`` overrides the auto-assigned id.
+        (a saved ``.tres``); pass exactly one. ``texture_path`` is the path (usually
+        ``res://``) to an already imported Texture2D. ``region_size`` ``[w, h]`` is each
+        tile's pixel size in the atlas. ``source_id`` overrides the auto-assigned id.
         """
-        if not node_path and not tileset_path:
-            raise PreconditionError(
-                "Provide 'node_path' (a TileMap/TileMapLayer) or 'tileset_path' (a .tres).",
-                required="node_path_or_tileset_path",
-            )
+        _require_single_tileset_target(node_path, tileset_path)
         if node_path:
             await require_node_exists(bridge, node_path)
         if dry_run:
@@ -219,16 +230,12 @@ def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
         """Create a tile at ``atlas_coords`` ``[x, y]`` in atlas ``source_id`` of a
         TileSet, making that cell placeable with tilemap_set_cell. Target the TileSet by
         ``node_path`` (an in-scene TileMap/TileMapLayer) or ``tileset_path`` (a saved
-        ``.tres``); pass one. ``size`` ``[w, h]`` (in grid cells, default ``[1, 1]``)
-        spans a multi-cell tile. Fails if the region is out of the atlas or overlaps an
-        existing tile.
+        ``.tres``); pass exactly one. ``size`` ``[w, h]`` (in grid cells, default
+        ``[1, 1]``) spans a multi-cell tile. Fails if the region is out of the atlas or
+        overlaps an existing tile.
         """
         tile_size = size if size is not None else [1, 1]
-        if not node_path and not tileset_path:
-            raise PreconditionError(
-                "Provide 'node_path' (a TileMap/TileMapLayer) or 'tileset_path' (a .tres).",
-                required="node_path_or_tileset_path",
-            )
+        _require_single_tileset_target(node_path, tileset_path)
         if node_path:
             await require_node_exists(bridge, node_path)
         if dry_run:

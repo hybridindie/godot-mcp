@@ -194,6 +194,17 @@ async def _run() -> None:
             {"node_path": "Ground", "source_id": sid, "atlas_coords": [99, 99]},
         )
         assert oob.ok is False and oob.error == "VALIDATION_ERROR"
+        # targeting both a node and a .tres is ambiguous — rejected addon-side too
+        both = await bridge.send(
+            "cmd_add_tileset_atlas_source",
+            {
+                "node_path": "Ground",
+                "tileset_path": TILESET,
+                "texture_path": TEX,
+                "region_size": [16, 16],
+            },
+        )
+        assert both.ok is False and both.error == "VALIDATION_ERROR"
     finally:
         await bridge.close()
 

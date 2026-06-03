@@ -226,6 +226,33 @@ async def test_tileset_authoring_file_backed_and_safety() -> None:
     assert src.structured_content["tileset_path"] == "res://floor.tres"
 
 
+async def test_tileset_target_must_be_single_and_present() -> None:
+    # node_path and tileset_path are two ways to point at ONE TileSet — passing both is
+    # ambiguous, passing neither is underspecified. Both reject before any bridge call.
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "tilemap"})
+        both = await client.call_tool(
+            "create_tile",
+            {
+                "node_path": "Ground",
+                "tileset_path": "res://x.tres",
+                "source_id": 0,
+                "atlas_coords": [0, 0],
+            },
+            raise_on_error=False,
+        )
+        neither = await client.call_tool(
+            "add_tileset_atlas_source",
+            {"texture_path": "res://t.png", "region_size": [16, 16]},
+            raise_on_error=False,
+        )
+    assert both.is_error and "only one" in str(both.content)
+    assert neither.is_error
+    assert "cmd_create_tile" not in _commands(conn)
+    assert "cmd_add_tileset_atlas_source" not in _commands(conn)
+
+
 async def test_tileset_create_dry_run_sends_no_command() -> None:
     server, conn = _build()
     async with Client(server) as client:

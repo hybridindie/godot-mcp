@@ -1867,7 +1867,7 @@ func _cmd_add_tileset_atlas_source(params: Dictionary) -> Dictionary:
 	var tileset: TileSet = resolved["tileset"]
 	var texture_path := str(params.get("texture_path", ""))
 	if texture_path.is_empty():
-		return _fail("VALIDATION_ERROR", "'texture_path' must be a res:// path to a Texture2D.")
+		return _fail("VALIDATION_ERROR", "'texture_path' must be the path to an imported Texture2D (e.g. res://art/tiles.png).")
 	if not ResourceLoader.exists(texture_path):
 		return _fail("RESOURCE_NOT_FOUND", "No resource at '%s'. Import the texture into the project first." % texture_path)
 	var tex_res: Resource = ResourceLoader.load(texture_path)
@@ -1961,6 +1961,8 @@ func _cmd_create_tile(params: Dictionary) -> Dictionary:
 func _resolve_tileset(params: Dictionary) -> Dictionary:
 	var node_path := str(params.get("node_path", ""))
 	var tileset_path := str(params.get("tileset_path", ""))
+	if not node_path.is_empty() and not tileset_path.is_empty():
+		return _fail("VALIDATION_ERROR", "Pass only one of 'node_path' or 'tileset_path', not both.")
 	if not node_path.is_empty():
 		var found := _resolve(node_path)
 		if not found["ok"]:
