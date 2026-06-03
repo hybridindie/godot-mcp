@@ -460,6 +460,28 @@ returns the buffered `events` in the same `play_input_sequence` format, so a rec
 replays directly (regression). Since `parse_input_event` also fires `_input`, synthesized
 input is recorded too.
 
+#### Static analysis (issue #49) — category: `analysis` (gated off by default)
+
+Project-wide static analysis, computed Python-side from the project's files (no addon
+commands). All `read_only`. The project dir is resolved like the runtime loop
+(`GODOT_MCP_PROJECT_DIR` else the connected editor's project; `PRECONDITION_FAILED`,
+`required=project_dir` if unreachable).
+
+| Tool | Params | Returns |
+|------|--------|---------|
+| `find_unused_resources` | — | `UnusedResourcesResult { unused[], scanned, referenced }` |
+| `analyze_signal_flow` | `scene=""` | `SignalFlowResult { connections[], count }` |
+| `detect_circular_dependencies` | — | `CircularDependenciesResult { cycles[], count }` |
+| `project_stats` | — | `ProjectStatsResult { scenes, scripts, resources, total_nodes, connections, by_extension, busiest_scenes[] }` |
+
+`find_unused_resources` flags resource files not referenced by any project file (excluding
+entry points — the main scene, autoloads, plugin scripts). `analyze_signal_flow` parses
+`[connection ...]` from scene files (each `{scene, signal, from, to, method}`).
+`detect_circular_dependencies` finds cycles in the `preload`/`load`/`extends` graph among
+`.gd` files. `project_stats` reports counts, total nodes, connections, a per-extension
+breakdown, and the busiest scenes. Results are **heuristic** text analysis — dynamically
+built resource/script paths aren't tracked, so treat them as a strong hint.
+
 #### Batch / refactor (issue #48) — category: `batch` (gated off by default)
 
 Operate over many nodes/scenes. Finds/deps are `read_only`; writes are `mutating`,

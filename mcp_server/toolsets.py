@@ -15,6 +15,7 @@ from fastmcp.exceptions import ToolError
 from pydantic import BaseModel
 
 from mcp_server.categories import (
+    ANALYSIS_TAG,
     ANIMATION_TAG,
     AUDIO_TAG,
     BATCH_TAG,
@@ -73,6 +74,8 @@ TOOLSETS: dict[str, str] = {
     "physics) for the editor or a running game.",
     BATCH_TAG: "Operate over many nodes/scenes: find by type, batch-set a property, "
     "cross-scene edits, and dependency analysis.",
+    ANALYSIS_TAG: "Static project analysis: unused resources, signal flow, circular "
+    "script dependencies, and scene-complexity stats.",
 }
 
 # Enabled at startup (plus `core`, which is always on). Everything else is gated
