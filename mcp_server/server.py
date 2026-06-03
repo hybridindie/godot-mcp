@@ -33,6 +33,7 @@ from mcp_server.tools.navigation import register_navigation
 from mcp_server.tools.node_ops import register_node_ops
 from mcp_server.tools.particles import register_particles
 from mcp_server.tools.physics import register_physics
+from mcp_server.tools.profiling import register_profiling
 from mcp_server.tools.project_fs import register_project_fs
 from mcp_server.tools.resource_files import register_resource_files
 from mcp_server.tools.runtime import register_runtime
@@ -103,6 +104,7 @@ def create_server(
     register_runtime_inspect(mcp, bridge)
     register_input_sim(mcp, bridge)
     register_testing(mcp, bridge)
+    register_profiling(mcp, bridge)
     register_scripts(mcp, bridge, config, runner)
     register_safety_tools(mcp)
 

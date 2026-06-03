@@ -24,6 +24,7 @@ from mcp_server.categories import (
     NAVIGATION_TAG,
     PARTICLES_TAG,
     PHYSICS_TAG,
+    PROFILING_TAG,
     PROJECT_TAG,
     RESOURCES_EDIT_TAG,
     RUNTIME_TAG,
@@ -67,6 +68,8 @@ TOOLSETS: dict[str, str] = {
     "input sequences (needs a play session + runtime probe).",
     TESTING_TAG: "Automated play-testing: run scenarios, assert live node state, "
     "diff screenshots, and fuzz with random input.",
+    PROFILING_TAG: "Read Godot performance monitors (FPS, draw calls, memory, "
+    "physics) for the editor or a running game.",
 }
 
 # Enabled at startup (plus `core`, which is always on). Everything else is gated

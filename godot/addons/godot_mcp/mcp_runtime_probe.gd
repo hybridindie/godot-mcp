@@ -49,7 +49,41 @@ func _capture(message: String, data: Array) -> bool:
 		"record_stop":
 			_record_stop()
 			return true
+		"get_performance":
+			EngineDebugger.send_message("godot_mcp:performance", [_performance_snapshot()])
+			return true
 	return false
+
+
+# --- profiling (issue #38) -------------------------------------------------
+
+# Same curated monitors as the editor side (command_router._PERF_MONITORS).
+const _PERF_MONITORS := {
+	"fps": Performance.TIME_FPS,
+	"process_time": Performance.TIME_PROCESS,
+	"physics_process_time": Performance.TIME_PHYSICS_PROCESS,
+	"memory_static": Performance.MEMORY_STATIC,
+	"memory_static_max": Performance.MEMORY_STATIC_MAX,
+	"object_count": Performance.OBJECT_COUNT,
+	"node_count": Performance.OBJECT_NODE_COUNT,
+	"resource_count": Performance.OBJECT_RESOURCE_COUNT,
+	"orphan_node_count": Performance.OBJECT_ORPHAN_NODE_COUNT,
+	"objects_drawn": Performance.RENDER_TOTAL_OBJECTS_IN_FRAME,
+	"primitives_drawn": Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME,
+	"draw_calls": Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME,
+	"video_mem_used": Performance.RENDER_VIDEO_MEM_USED,
+	"texture_mem_used": Performance.RENDER_TEXTURE_MEM_USED,
+	"buffer_mem_used": Performance.RENDER_BUFFER_MEM_USED,
+	"physics_2d_active": Performance.PHYSICS_2D_ACTIVE_OBJECTS,
+	"physics_3d_active": Performance.PHYSICS_3D_ACTIVE_OBJECTS,
+}
+
+
+func _performance_snapshot() -> Dictionary:
+	var monitors: Dictionary = {}
+	for name in _PERF_MONITORS:
+		monitors[name] = Performance.get_monitor(_PERF_MONITORS[name])
+	return monitors
 
 
 # --- input simulation (issue #36) ------------------------------------------
