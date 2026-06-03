@@ -129,15 +129,18 @@ class GodotRunner:
         """
         flag = "--export-debug" if debug else "--export-release"
         command = [self.binary, "--headless", "--path", project_dir, flag, preset, output_path]
-        return await self._exec(command, timeout)
+        # Run from the project dir so a relative output_path resolves against it (as documented).
+        return await self._exec(command, timeout, cwd=project_dir)
 
-    async def _exec(self, command: list[str | None], timeout: float) -> RunOutput:
+    async def _exec(
+        self, command: list[str | None], timeout: float, cwd: str | None = None
+    ) -> RunOutput:
         assert self.binary is not None  # callers check availability first
         cmd = [c for c in command if c is not None]
         started = time.monotonic()
         try:
             proc = await asyncio.create_subprocess_exec(
-                *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+                *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, cwd=cwd
             )
         except OSError as exc:
             # e.g. a non-executable binary, or it vanished — surface as a structured

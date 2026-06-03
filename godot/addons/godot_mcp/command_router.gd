@@ -2545,11 +2545,16 @@ const _EXPORT_PRESETS_PATH := "res://export_presets.cfg"
 
 
 func _cmd_list_export_presets(_params: Dictionary) -> Dictionary:
-	return _ok(_read_export_presets())
+	var data := _read_export_presets()
+	if data.has("error"):
+		return _fail("INTERNAL_ERROR", str(data["error"]))
+	return _ok(data)
 
 
 func _cmd_get_export_info(_params: Dictionary) -> Dictionary:
 	var data := _read_export_presets()
+	if data.has("error"):
+		return _fail("INTERNAL_ERROR", str(data["error"]))
 	var names: Array = []
 	for preset in data["presets"]:
 		names.append(preset["name"])

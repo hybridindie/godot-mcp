@@ -70,6 +70,8 @@ async def _run() -> None:
 
 def test_live_export_presets() -> None:
     assert GODOT_BIN is not None
+    # Preserve any pre-existing export config rather than destroying it.
+    prior = PRESETS_FILE.read_bytes() if PRESETS_FILE.exists() else None
     PRESETS_FILE.write_text(_PRESETS_CONTENT, encoding="utf-8")
     editor = subprocess.Popen(
         [GODOT_BIN, "--headless", "--editor", "--path", str(GODOT_PROJECT)],
@@ -84,4 +86,7 @@ def test_live_export_presets() -> None:
             editor.wait(timeout=10)
         except subprocess.TimeoutExpired:
             editor.kill()
-        PRESETS_FILE.unlink(missing_ok=True)
+        if prior is None:
+            PRESETS_FILE.unlink(missing_ok=True)
+        else:
+            PRESETS_FILE.write_bytes(prior)
