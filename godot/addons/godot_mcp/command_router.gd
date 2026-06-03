@@ -159,6 +159,12 @@ func _init() -> void:
 	# Export (issue #50) — read-only preset/info reads (the export run is a server process).
 	_handlers["cmd_list_export_presets"] = _cmd_list_export_presets
 	_handlers["cmd_get_export_info"] = _cmd_get_export_info
+	# Scene session (issue #79) — open, reload, save-all, list-open, select.
+	_handlers["cmd_open_scene"] = _cmd_open_scene
+	_handlers["cmd_reload_scene"] = _cmd_reload_scene
+	_handlers["cmd_save_all_scenes"] = _cmd_save_all_scenes
+	_handlers["cmd_list_open_scenes"] = _cmd_list_open_scenes
+	_handlers["cmd_select_nodes"] = _cmd_select_nodes
 
 
 ## Dispatch one envelope ({ id, command, params }) and return a response envelope.
@@ -3266,6 +3272,81 @@ func _input_actions() -> Array:
 		if key.begins_with("input/"):
 			actions.append(key.trim_prefix("input/"))
 	return actions
+
+
+# --- scene session handlers (issue #79) ------------------------------------
+
+func _cmd_open_scene(params: Dictionary) -> Dictionary:
+	var scene_path := str(params.get("scene_path", ""))
+	if scene_path.is_empty():
+		return _fail("VALIDATION_ERROR", "scene_path is required.")
+	if not FileAccess.file_exists(scene_path):
+		return _fail("RESOURCE_NOT_FOUND", "No scene at '%s'." % scene_path)
+	var open_paths: PackedStringArray = EditorInterface.get_open_scenes()
+	var already_open := false
+	for p in open_paths:
+		if str(p) == scene_path:
+			already_open = true
+			break
+	EditorInterface.open_scene_from_path(scene_path)
+	return _ok({"scene_path": scene_path, "opened": true, "already_open": already_open})
+
+
+func _cmd_reload_scene(params: Dictionary) -> Dictionary:
+	var scene_path := str(params.get("scene_path", ""))
+	if scene_path.is_empty():
+		return _fail("VALIDATION_ERROR", "scene_path is required.")
+	# confirm is a server-side safety gate; we honor it defensively addon-side too.
+	if not params.get("confirm", false):
+		return _fail("PRECONDITION_FAILED", "This call discards unsaved changes. Set confirm=True to proceed.", "confirm")
+	var open_paths: PackedStringArray = EditorInterface.get_open_scenes()
+	var is_open := false
+	for p in open_paths:
+		if str(p) == scene_path:
+			is_open = true
+			break
+	if not is_open:
+		return _fail("PRECONDITION_FAILED", "Scene '%s' is not open. Open it first." % scene_path, "open_scene")
+	EditorInterface.reload_scene_from_path(scene_path)
+	return _ok({"scene_path": scene_path, "reloaded": true})
+
+
+func _cmd_save_all_scenes(_params: Dictionary) -> Dictionary:
+	EditorInterface.save_all_scenes()
+	var count := EditorInterface.get_open_scenes().size()
+	return _ok({"saved": true, "count": count})
+
+
+func _cmd_list_open_scenes(_params: Dictionary) -> Dictionary:
+	var paths: PackedStringArray = EditorInterface.get_open_scenes()
+	var scenes: Array = []
+	for p in paths:
+		scenes.append({"path": str(p), "modified": false})
+	return _ok({"scenes": scenes})
+
+
+func _cmd_select_nodes(params: Dictionary) -> Dictionary:
+	var raw_paths: Variant = params.get("node_paths", [])
+	if raw_paths is String:
+		return _fail("VALIDATION_ERROR", "node_paths must be an array of scene-relative paths.")
+	var node_paths: Array = raw_paths as Array
+	if node_paths.is_empty():
+		return _fail("VALIDATION_ERROR", "Provide at least one node path in node_paths.")
+	var root := EditorInterface.get_edited_scene_root()
+	if root == null:
+		return _fail("PRECONDITION_FAILED", "No scene is open.", "active_scene")
+	var selection := EditorInterface.get_selection()
+	selection.clear()
+	var selected: Array = []
+	for raw_path in node_paths:
+		var path_str := str(raw_path)
+		var node := root.get_node_or_null(NodePath(path_str))
+		if node == null:
+			return _fail("RESOURCE_NOT_FOUND", "No node at '%s'." % path_str)
+		selection.add_node(node)
+		selected.append(path_str)
+	var scene_path := root.scene_file_path if not root.scene_file_path.is_empty() else ""
+	return _ok({"scene_path": scene_path, "selected": selected, "count": selected.size()})
 
 
 # --- response builders -----------------------------------------------------

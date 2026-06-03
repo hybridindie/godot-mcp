@@ -326,6 +326,18 @@ def test_runtime_session_addon_files_present() -> None:
     assert "set_debugger" in entry
 
 
+def test_router_registers_scene_session_commands() -> None:
+    source = (ADDON_DIR / "command_router.gd").read_text()
+    for command in (
+        "cmd_open_scene",
+        "cmd_reload_scene",
+        "cmd_save_all_scenes",
+        "cmd_list_open_scenes",
+        "cmd_select_nodes",
+    ):
+        assert f'"{command}"' in source, f"router must register {command}"
+
+
 def test_router_registers_input_sim_commands() -> None:
     source = (ADDON_DIR / "command_router.gd").read_text()
     for command in (
