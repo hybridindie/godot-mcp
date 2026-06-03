@@ -2390,19 +2390,21 @@ func _cmd_batch_set_property(params: Dictionary) -> Dictionary:
 	var dry_run := bool(params.get("dry_run", false))
 	var applied: Array = []
 	var skipped: Array = []
-	var ur := EditorInterface.get_editor_undo_redo()
-	if not dry_run:
-		ur.create_action("Batch set %s on %d nodes" % [property, (targets as Array).size()])
+	var to_apply: Array = []  # only nodes that actually have the property
 	for node in targets:
 		var prop_type := _property_type(node, property)
 		if prop_type == -1:
 			skipped.append({"path": Inspect.relative_path(node, root), "reason": "no such property"})
 			continue
-		if not dry_run:
-			ur.add_do_property(node, property, Coerce.from_json(value, prop_type))
-			ur.add_undo_property(node, property, node.get(property))
 		applied.append(Inspect.relative_path(node, root))
-	if not dry_run:
+		to_apply.append({"node": node, "value": Coerce.from_json(value, prop_type)})
+	# Only open an UndoRedo action when at least one set is scheduled (no no-op steps).
+	if not dry_run and not to_apply.is_empty():
+		var ur := EditorInterface.get_editor_undo_redo()
+		ur.create_action("Batch set %s on %d nodes" % [property, to_apply.size()])
+		for item in to_apply:
+			ur.add_do_property(item["node"], property, item["value"])
+			ur.add_undo_property(item["node"], property, item["node"].get(property))
 		ur.commit_action()
 	return _ok({
 		"property": property,
@@ -2436,7 +2438,9 @@ func _cmd_cross_scene_set_property(params: Dictionary) -> Dictionary:
 
 func _cmd_get_dependencies(params: Dictionary) -> Dictionary:
 	var path := str(params.get("path", ""))
-	if not FileAccess.file_exists(path):
+	# ResourceLoader.exists handles uid:// and imported/remapped resources that
+	# FileAccess.file_exists would miss.
+	if not ResourceLoader.exists(path):
 		return _fail("RESOURCE_NOT_FOUND", "No resource at '%s'." % path)
 	var deps := ResourceLoader.get_dependencies(path)
 	var out: Array = []
