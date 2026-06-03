@@ -149,8 +149,37 @@ to Godot" (Article II): running the game for verification is *process execution*
 not *editor control*, and Godot exposes no public GDScript API to read the editor's
 Output/error log, so the addon cannot capture a separate game process's stdio. The
 bridge stays the only path for editor control; the runner is isolated in
-`mcp_server/runtime.py` with an injected subprocess so it stays testable. Interactive
-in-editor play/stop (via `EditorInterface.play_*`) is a possible later addition.
+`mcp_server/runtime.py` with an injected subprocess so it stays testable. The runner also
+drives `export_project` (issue #50) — `godot --headless --export-release|--export-debug` —
+for the same reason (process execution, not editor control).
+
+## Runtime session bridge (issue #66)
+
+To inspect or drive a *running* game (issues #35 inspection, #36/#68 input, #38 profiling),
+the game must be launched **from the editor** so it connects back to the editor's remote
+debugger — a fifth interaction path, distinct from the headless subprocess above:
+
+```
+server ──cmd_play_scene──> addon ──EditorInterface.play_*──> game process
+game ──EngineDebugger("godot_mcp:…")──> editor debugger ──> MCPDebugger (EditorDebuggerPlugin)
+```
+
+Why this shape: a custom `EditorDebuggerPlugin` only receives messages with its own prefix
+and there is no public API to read the engine's built-in remote scene tree, so live
+interaction needs **game-side cooperation**. The consuming project opts in by adding the
+shipped `addons/godot_mcp/mcp_runtime_probe.gd` as an **autoload**; it registers an
+`EngineDebugger` capture on the `godot_mcp:` channel and answers queries (scene tree,
+property samples, find-UI, input injection, performance monitors).
+
+- `mcp_debugger.gd` (`MCPDebugger`, an `EditorDebuggerPlugin` added in `_enter_tree`)
+  captures the channel, tracks session start/stop, and **caches** the probe's replies.
+- Because the WebSocket bridge is synchronous (one request → one response), the round-trip
+  to the running game is **poll-and-cache**: a command sends a request to the probe and
+  returns the latest cached reply; the MCP tool polls until the result is fresh (a
+  `request_id` for find-UI; a clear-on-new for property samples). This avoids making the
+  core bridge async.
+- Without the probe autoload, runtime tools return `connected: false` (with a hint) or a
+  `PRECONDITION_FAILED` (`required: play_session` / `runtime_probe`) — never a hang.
 
 ## Health check
 
