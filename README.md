@@ -52,7 +52,7 @@ godot/
     plugin.cfg               addon manifest (Godot 4.4+)
     godot_mcp.gd             EditorPlugin entry point (dock, bridge, debugger plugin)
     mcp_bridge.gd            TCPServer + WebSocketPeer; receives command envelopes
-    command_router.gd        routes cmd_* envelopes to handlers (the only Godot-touching code)
+    command_router.gd        dispatches cmd_* envelopes to the cmd_* Godot-API handlers
     mcp_dock.gd              read-only status dock (connection/scene/recent commands)
     scene_inspect.gd         JSON-safe scene-tree / node serialization
     type_coerce.gd           Godot ↔ JSON type coercion (Vector2/3, Color, …)
@@ -210,9 +210,13 @@ game must cooperate via a small **probe autoload** that godot-mcp ships:
 2. Then `play_scene` → the probe connects, and the runtime/input/profiling tools work
    against the live game. It no-ops outside a debug session, so it's safe to leave enabled.
 
-Without the probe, those tools report `connected: false` (with a hint) rather than failing —
-the editor-control, scene-edit, and static tools need no probe. (`run_and_capture` and
-`export_project` instead run Godot as a headless subprocess and don't use the probe.)
+Without the probe, those tools never hang — they either report `connected: false` with a
+hint (e.g. `get_game_scene_tree`, `get_performance_monitors`) or return a structured
+`PRECONDITION_FAILED` (`required: play_session` before you `play_scene`, or
+`required: runtime_probe` when playing without the autoload — e.g. `simulate_*`,
+`monitor_property`, `record_input`). The editor-control, scene-edit, and static tools need
+no probe. (`run_and_capture` and `export_project` instead run Godot as a headless
+subprocess and don't use the probe.)
 
 ## Contributing
 
