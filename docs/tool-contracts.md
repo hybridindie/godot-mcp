@@ -161,7 +161,7 @@ the editor's undo. The `mutating` tools also accept `dry_run: bool = False` and 
  | `open_scene` | `scene_path` | `OpenSceneResult { scene_path, opened, already_open }` | `mutating` |
  | `reload_scene` | `scene_path, confirm=False` | `ReloadSceneResult { scene_path, reloaded }` | **`destructive`** |
  | `save_all_scenes` | — | `SaveAllScenesResult { saved, count }` | `mutating` |
- | `list_open_scenes` | — | `ListOpenScenesResult { scenes[{path, modified}] }` | `read_only` |
+ | `list_open_scenes` | — | `ListOpenScenesResult { scenes[{path}] }` | `read_only` |
  | `select_nodes` | `node_paths: str[]` | `SelectNodesResult { scene_path, selected[], count }` | `mutating` |
 
  `open_scene` uses `EditorInterface.open_scene_from_path`. `reload_scene` requires

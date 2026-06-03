@@ -3321,7 +3321,7 @@ func _cmd_list_open_scenes(_params: Dictionary) -> Dictionary:
 	var paths: PackedStringArray = EditorInterface.get_open_scenes()
 	var scenes: Array = []
 	for p in paths:
-		scenes.append({"path": str(p), "modified": false})
+		scenes.append({"path": str(p)})
 	return _ok({"scenes": scenes})
 
 

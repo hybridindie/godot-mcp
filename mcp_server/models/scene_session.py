@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class OpenSceneResult(BaseModel):
@@ -29,15 +29,14 @@ class SaveAllScenesResult(BaseModel):
 
 class OpenSceneInfo(BaseModel):
     path: str
-    modified: bool = False
 
 
 class ListOpenScenesResult(BaseModel):
-    scenes: list[OpenSceneInfo] = []
+    scenes: list[OpenSceneInfo] = Field(default_factory=list)
 
 
 class SelectNodesResult(BaseModel):
     scene_path: str
-    selected: list[str] = []
+    selected: list[str] = Field(default_factory=list)
     count: int = 0
     dry_run: bool = False

@@ -56,8 +56,8 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                 cmd.id,
                 {
                     "scenes": [
-                        {"path": "res://a.tscn", "modified": False},
-                        {"path": "res://b.tscn", "modified": True},
+                        {"path": "res://a.tscn"},
+                        {"path": "res://b.tscn"},
                     ]
                 },
             )
