@@ -61,8 +61,27 @@ def test_detect_circular_dependencies(tmp_path: Path) -> None:
     index = analysis.scan(tmp_path)
     result = analysis.detect_circular_dependencies(index)
     assert result["count"] == 1
-    cycle = set(result["cycles"][0])
-    assert {"res://a.gd", "res://b.gd"} <= cycle
+    cycle_list = result["cycles"][0]
+    assert len(cycle_list) == len(set(cycle_list))  # no duplicated closing node
+    assert set(cycle_list) == {"res://a.gd", "res://b.gd"}
+
+
+def test_plugin_cfg_script_is_an_entry_point(tmp_path: Path) -> None:
+    addon = tmp_path / "addons" / "demo"
+    addon.mkdir(parents=True)
+    # relative script= (the common form) and an absolute one both resolve to res:// paths
+    (addon / "plugin.cfg").write_text('[plugin]\nscript="demo.gd"\n', encoding="utf-8")
+    (addon / "demo.gd").write_text("@tool\nextends EditorPlugin\n", encoding="utf-8")
+    abs_addon = tmp_path / "addons" / "abs"
+    abs_addon.mkdir(parents=True)
+    (abs_addon / "plugin.cfg").write_text(
+        '[plugin]\nscript="res://addons/abs/abs.gd"\n', encoding="utf-8"
+    )
+    (abs_addon / "abs.gd").write_text("@tool\nextends EditorPlugin\n", encoding="utf-8")
+    index = analysis.scan(tmp_path)
+    unused = analysis.find_unused_resources(index)["unused"]
+    assert "res://addons/demo/demo.gd" not in unused
+    assert "res://addons/abs/abs.gd" not in unused
 
 
 def test_project_stats(tmp_path: Path) -> None:

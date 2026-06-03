@@ -107,8 +107,12 @@ def _collect_entry_points(index: ProjectIndex) -> None:
         if res.endswith("plugin.cfg"):
             script = re.search(r'script\s*=\s*"([^"]+)"', text)
             if script:
-                base = res.rsplit("/", 1)[0]
-                index.entry_points.add(f"{base}/{script.group(1)}")
+                value = script.group(1)
+                # `script=` may be absolute (res://...) or relative to the addon dir.
+                if value.startswith("res://"):
+                    index.entry_points.add(value)
+                else:
+                    index.entry_points.add(f"{res.rsplit('/', 1)[0]}/{value}")
 
 
 def find_unused_resources(index: ProjectIndex) -> dict[str, Any]:
@@ -175,7 +179,7 @@ def _find_cycles(graph: dict[str, set[str]]) -> list[list[str]]:
                 key = frozenset(cycle)
                 if key not in seen_keys:
                     seen_keys.add(key)
-                    cycles.append([*cycle, dep])
+                    cycles.append(list(cycle))  # ordered, unique paths (no closing dupe)
             elif dep not in done:
                 dfs(dep)
         on_stack.discard(node)
