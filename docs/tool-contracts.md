@@ -467,7 +467,7 @@ Read Godot's `Performance` monitors. Both `read_only`.
 | Tool | Params | Returns |
 |------|--------|---------|
 | `get_editor_performance` | — | `EditorPerformanceResult { monitors }` |
-| `get_performance_monitors` | `timeout_ms=2000` | `GamePerformanceResult { playing, connected, monitors, hint }` |
+| `get_performance_monitors` | `timeout_ms=2000` | `GamePerformanceResult { playing, connected, ready, monitors, hint }` |
 
 `monitors` is a name→value map of a curated set: `fps`, `process_time`,
 `physics_process_time`, `memory_static`/`_max`, `object_count`, `node_count`,
@@ -475,8 +475,9 @@ Read Godot's `Performance` monitors. Both `read_only`.
 `video_mem_used`, `texture_mem_used`, `buffer_mem_used`, `physics_2d_active`,
 `physics_3d_active`. `get_editor_performance` reads the editor process directly;
 `get_performance_monitors` reads the *running* game via the #66 runtime probe (a
-`PRECONDITION_FAILED` with no play session, `connected=false` + hint without the probe).
-Render/memory metrics may read 0 under `--headless`.
+`PRECONDITION_FAILED` with no play session, `connected=false` + hint without the probe). It
+polls the probe up to `timeout_ms`; `ready` is true once a snapshot arrived (false on
+timeout, with `monitors` empty). Render/memory metrics may read 0 under `--headless`.
 
 #### Testing / QA (issue #37) — category: `testing` (gated off by default)
 

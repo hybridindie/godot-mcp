@@ -60,7 +60,7 @@ async def test_game_performance_monitors() -> None:
         await client.call_tool("enable_toolset", {"category": "profiling"})
         result = await client.call_tool("get_performance_monitors", {})
     sc = result.structured_content
-    assert sc["playing"] is True and sc["connected"] is True
+    assert sc["playing"] is True and sc["connected"] is True and sc["ready"] is True
     assert sc["monitors"]["memory_static"] == 1048576.0
 
 
