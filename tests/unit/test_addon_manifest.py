@@ -339,6 +339,17 @@ def test_router_registers_scene_session_commands() -> None:
         assert f'"{command}"' in source, f"router must register {command}"
 
 
+def test_router_registers_input_map_commands() -> None:
+    source = (ADDON_DIR / "command_router.gd").read_text()
+    for command in (
+        "cmd_add_input_action",
+        "cmd_remove_input_action",
+        "cmd_add_input_event",
+        "cmd_clear_input_action_events",
+    ):
+        assert f'"{command}"' in source, f"router must register {command}"
+
+
 def test_router_registers_input_sim_commands() -> None:
     source = (ADDON_DIR / "command_router.gd").read_text()
     for command in (

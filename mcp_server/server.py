@@ -29,6 +29,7 @@ from mcp_server.tools.batch import register_batch
 from mcp_server.tools.editor import register_editor
 from mcp_server.tools.export import register_export
 from mcp_server.tools.health import register_health
+from mcp_server.tools.input_map import register_input_map
 from mcp_server.tools.input_sim import register_input_sim
 from mcp_server.tools.inspection import register_inspection
 from mcp_server.tools.mutation import register_mutation
@@ -108,6 +109,7 @@ def create_server(
     register_runtime_session(mcp, bridge)
     register_runtime_inspect(mcp, bridge)
     register_input_sim(mcp, bridge)
+    register_input_map(mcp, bridge)
     register_testing(mcp, bridge)
     register_profiling(mcp, bridge)
     register_batch(mcp, bridge)

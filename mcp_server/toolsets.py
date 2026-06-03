@@ -23,6 +23,7 @@ from mcp_server.categories import (
     EDITOR_TAG,
     EXPORT_TAG,
     INPUT_TAG,
+    INPUT_MAP_TAG,
     INSPECTION_TAG,
     NAVIGATION_TAG,
     PARTICLES_TAG,
@@ -67,6 +68,7 @@ TOOLSETS: dict[str, str] = {
     "on Control nodes.",
     SHADER_TAG: "Author shaders: create/read shader files, assign ShaderMaterial, "
     "set shader parameters.",
+    INPUT_MAP_TAG: "Edit the project's Input Map actions and events (add/remove/clear).",
     INPUT_TAG: "Drive a running game: synthesize key/mouse/action input and play "
     "input sequences (needs a play session + runtime probe).",
     TESTING_TAG: "Automated play-testing: run scenarios, assert live node state, "
