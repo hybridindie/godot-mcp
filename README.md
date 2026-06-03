@@ -83,7 +83,8 @@ docs/
 
 ### Prerequisites
 
-- **Godot 4.4+** — the addon targets the Godot 4.4 editor API.
+- **Godot 4.4+** — **4.4 is the minimum supported version**; the addon warns on enable if
+  the editor is older. Built against the 4.4 editor API and validated against 4.6.x.
 - **Python 3.11+** — the MCP server.
 - **[uv](https://docs.astral.sh/uv/)** — Python dependency manager (the documented path).
 

@@ -14,6 +14,10 @@ extends EditorPlugin
 ## correct choice here.
 
 const PLUGIN_NAME := "godot_mcp"
+# Minimum supported Godot version. The addon is built for 4.4+ (UID sidecars, the
+# 4.4-compatible add_control_to_dock choice) and is validated against 4.6.x.
+const MIN_GODOT_MAJOR := 4
+const MIN_GODOT_MINOR := 4
 
 var _dock: MCPStatusDock
 var _bridge: MCPBridge
@@ -22,6 +26,7 @@ var _selection: EditorSelection
 
 
 func _enter_tree() -> void:
+	_warn_if_unsupported_version()
 	_dock = MCPStatusDock.new()
 	add_control_to_dock(DOCK_SLOT_LEFT_UR, _dock)
 
@@ -71,6 +76,19 @@ func _exit_tree() -> void:
 
 func _get_plugin_name() -> String:
 	return PLUGIN_NAME
+
+
+## Warn (don't hard-refuse) when the editor is older than the supported floor, so a user on
+## an unsupported version gets a clear message instead of cryptic parse/runtime errors.
+func _warn_if_unsupported_version() -> void:
+	var info := Engine.get_version_info()
+	var major := int(info.get("major", 0))
+	var minor := int(info.get("minor", 0))
+	if major < MIN_GODOT_MAJOR or (major == MIN_GODOT_MAJOR and minor < MIN_GODOT_MINOR):
+		push_warning(
+			"godot_mcp supports Godot %d.%d+ (running %s). Some features may misbehave on this version."
+			% [MIN_GODOT_MAJOR, MIN_GODOT_MINOR, str(info.get("string", "unknown"))]
+		)
 
 
 ## Push the full current editor state into the dock (used on enable).
