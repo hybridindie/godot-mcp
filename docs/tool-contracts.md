@@ -49,6 +49,26 @@ Every tool is tagged with exactly one:
 - `list_tools_by_safety_class()` is a `read_only` tool returning `{ class: [tool names] }`
   for agent introspection.
 
+#### Version gating (per-toolset)
+
+Some toolsets depend on Godot editor APIs that are only reliable from a specific
+version onward (e.g. `input_map` needs `ProjectSettings.save()` to persist input
+actions, which is only fully reliable from 4.4+).
+
+`enable_toolset` checks the connected Godot version **lazily** (once per session
+via `cmd_get_project_info`) against `TOOLSET_MIN_GODOT` in `mcp_server/toolsets.py`:
+
+- `list_toolsets` surfaces `min_godot: "4.4" | null` per toolset so the agent
+  knows the requirement before attempting to enable it.
+- `enable_toolset("input_map")` on a 4.3 editor raises a structured `ToolError`:
+  > "Toolset 'input_map' requires Godot 4.4+ (connected editor is 4.3). Upgrade the editor or enable a different toolset."
+- If the bridge is disconnected, the gate reports `BRIDGE_DISCONNECTED` rather
+  than enabling blindly.
+
+Only toolsets with a documented version risk are gated. The rest
+(`inspection`, `scripts`, `physics`, `runtime`, etc.) are left un-gated so the agent
+can try them; the addon will produce its own structured error if an API is missing.
+
 #### `dry_run` / `confirm` convention (issue #14)
 
 - `mutating` and `destructive` tools take `dry_run: bool = False`. With `dry_run=True`, the

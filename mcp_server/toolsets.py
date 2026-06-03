@@ -6,14 +6,20 @@ on; other categories ship gated off and the agent turns them on with
 `enable_toolset`. As the catalog grows toward full Godot coverage, the exposed set
 stays small. Built on FastMCP's tag-based `enable`/`disable` (which emit
 `tools/list_changed`).
+
+Some toolsets require a minimum Godot version because they rely on editor APIs
+added in later releases (e.g. ``input_map`` needs Godot 4.4+).
 """
 
 from __future__ import annotations
+
+import re
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 from pydantic import BaseModel
 
+from mcp_server.bridge import Bridge
 from mcp_server.categories import (
     ANALYSIS_TAG,
     ANIMATION_TAG,
@@ -83,6 +89,32 @@ TOOLSETS: dict[str, str] = {
     "an export (needs export templates).",
 }
 
+# Minimum Godot version (major, minor) per toolset. Categories omitted here work
+# on every supported version (currently 4.4+).
+TOOLSET_MIN_GODOT: dict[str, tuple[int, int]] = {
+    # scene_edit contains scene_session (#79) and instance_scene (#80).
+    # EditorInterface.open_scene_from_path / reload_scene_from_path /
+    # save_all_scenes / select_nodes exist since 4.2, and PackedScene.instantiate()
+    # (replacing instance()) is 4.0+. So scene_edit itself is broadly compatible.
+    # We gate at 4.4 because the addon is only tested/validated against 4.4+.
+    SCENE_EDIT_TAG: (4, 4),
+    # input_map (#81) edits ProjectSettings input/ entries at runtime.
+    # ProjectSettings.set_setting / save / has_setting exist in 4.2+,
+    # but we test on 4.4+. Same rationale as scene_edit.
+    INPUT_MAP_TAG: (4, 4),
+    # TileSet authoring (#82) uses TileSetSource/AtlasSource APIs that changed
+    # significantly in 4.2+. We only validate against 4.4+.
+    TILEMAP_TAG: (4, 4),
+    # MeshLibrary authoring (#83) creates MeshLibrary resources via the
+    # ResourceSaver API; stable from 4.2+ but validated on 4.4+.
+    SCENE_3D_TAG: (4, 4),
+    # Everything else (inspection, scripts, resources, project, physics,
+    # animation, audio, theme, shader, input_sim, runtime, testing, profiling,
+    # batch, analysis, export, editor) either uses very stable APIs or has been
+    # present since 4.2+. We leave them un-gated so the agent can try them;
+    # the addon will produce a structured error if an API is missing.
+}
+
 # Enabled at startup (plus `core`, which is always on). Everything else is gated
 # off until the agent enables it — keeping the default surface small and read-only.
 DEFAULT_ENABLED: frozenset[str] = frozenset({INSPECTION_TAG})
@@ -94,6 +126,9 @@ class ToolsetInfo(BaseModel):
     name: str
     enabled: bool
     description: str
+    min_godot: str | None = None
+    """Minimum Godot version required to use this toolset, or ``None`` if it
+    works on all supported versions."""
 
 
 class ToolsetManager:
@@ -104,9 +139,16 @@ class ToolsetManager:
     v1 — documented).
     """
 
-    def __init__(self, mcp: FastMCP, default_enabled: frozenset[str] = DEFAULT_ENABLED) -> None:
+    def __init__(
+        self,
+        mcp: FastMCP,
+        bridge: Bridge | None = None,
+        default_enabled: frozenset[str] = DEFAULT_ENABLED,
+    ) -> None:
         self._mcp = mcp
+        self._bridge = bridge
         self._enabled: set[str] = {CORE_TAG} | set(default_enabled)
+        self._godot_version: tuple[int, int] | None = None
 
     def apply_defaults(self) -> None:
         """Set the initial exposure: enable defaults, gate the rest off.
@@ -119,13 +161,14 @@ class ToolsetManager:
             else:
                 self._mcp.disable(tags={category})
 
-    def enable(self, category: str) -> ToolsetInfo:
+    async def enable(self, category: str) -> ToolsetInfo:
         self._check_toggleable(category)
+        await self._require_godot_version(category)
         self._enabled.add(category)
         self._mcp.enable(tags={category})
         return self._info(category)
 
-    def disable(self, category: str) -> ToolsetInfo:
+    async def disable(self, category: str) -> ToolsetInfo:
         self._check_toggleable(category)
         self._enabled.discard(category)
         self._mcp.disable(tags={category})
@@ -136,12 +179,17 @@ class ToolsetManager:
             name=CORE_TAG,
             enabled=True,
             description="Always-on diagnostics and toolset management.",
+            min_godot=None,
         )
         return [core, *(self._info(c) for c in TOOLSETS)]
 
     def _info(self, category: str) -> ToolsetInfo:
+        req = TOOLSET_MIN_GODOT.get(category)
         return ToolsetInfo(
-            name=category, enabled=category in self._enabled, description=TOOLSETS[category]
+            name=category,
+            enabled=category in self._enabled,
+            description=TOOLSETS[category],
+            min_godot=f"{req[0]}.{req[1]}" if req else None,
         )
 
     def _check_toggleable(self, category: str) -> None:
@@ -150,6 +198,60 @@ class ToolsetManager:
         if category not in TOOLSETS:
             known = ", ".join(TOOLSETS)
             raise ToolError(f"Unknown toolset '{category}'. Available: {known}.")
+
+    async def _require_godot_version(self, category: str) -> None:
+        """Fail enable() if the connected Godot editor is older than the toolset's
+        minimum supported version. The version is lazily queried from the bridge
+        once and cached.
+        """
+        req = TOOLSET_MIN_GODOT.get(category)
+        if req is None:
+            return
+        if self._bridge is None or not self._bridge.connected:
+            raise ToolError(
+                f"Toolset '{category}' requires Godot {req[0]}.{req[1]}+, but the "
+                "Godot bridge is not connected. Start the editor with the addon "
+                "enabled and retry."
+            )
+        if self._godot_version is None:
+            self._godot_version = await self._fetch_godot_version()
+        if self._godot_version is not None and self._godot_version < req:
+            raise ToolError(
+                f"Toolset '{category}' requires Godot {req[0]}.{req[1]}+ "
+                f"(connected editor is {self._godot_version[0]}.{self._godot_version[1]}). "
+                f"Upgrade the editor or enable a different toolset."
+            )
+
+    async def _fetch_godot_version(self) -> tuple[int, int] | None:
+        """Query the addon for Godot version info and parse (major, minor).
+
+        Returns ``None`` if the query fails or the version string is unparseable.
+        """
+        bridge = self._bridge
+        assert bridge is not None  # guarded by _require_godot_version caller
+        try:
+            # Best-effort: use a short timeout so a slow bridge doesn't hang
+            # enable_toolset indefinitely.
+            response = await bridge.send("cmd_get_project_info", timeout=3.0)
+        except Exception:
+            return None
+        if not response.ok:
+            return None
+        version_str = (response.result or {}).get("godot_version", "")
+        return _parse_godot_version(version_str)
+
+
+def _parse_godot_version(version_str: str) -> tuple[int, int] | None:
+    """Parse a Godot version string (e.g. ``"4.4.1-stable"``) into ``(major, minor)``.
+
+    Returns ``None`` if the string does not start with a ``MAJOR.MINOR`` pattern.
+    """
+    if not version_str:
+        return None
+    m = re.search(r"(\d+)\.(\d+)", version_str)
+    if not m:
+        return None
+    return int(m.group(1)), int(m.group(2))
 
 
 def register_toolset_tools(mcp: FastMCP, manager: ToolsetManager) -> None:
@@ -167,9 +269,9 @@ def register_toolset_tools(mcp: FastMCP, manager: ToolsetManager) -> None:
         """Expose a toolset's tools (e.g. "scene_edit") for this session. Returns the
         toolset's new state. Does not change anything in the Godot project.
         """
-        return manager.enable(category)
+        return await manager.enable(category)
 
     @mcp.tool(meta=READ_ONLY, tags={CORE_TAG})
     async def disable_toolset(category: str) -> ToolsetInfo:
         """Hide a toolset's tools again to keep the active tool surface small."""
-        return manager.disable(category)
+        return await manager.disable(category)

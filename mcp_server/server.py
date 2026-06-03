@@ -120,7 +120,7 @@ def create_server(
 
     # Gate the tool surface by category, then apply the default exposure (core +
     # inspection on; scene_edit and future categories off until enabled).
-    manager = ToolsetManager(mcp)
+    manager = ToolsetManager(mcp, bridge=bridge)
     register_toolset_tools(mcp, manager)
     manager.apply_defaults()
     return mcp

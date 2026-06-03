@@ -93,3 +93,37 @@ async def immediate_sleep(_seconds: float) -> None:
     """A no-op sleep so timeout/backoff paths run without real waiting."""
     return None
 
+
+def make_addon_responder(
+    *,
+    godot_version: str = "4.4.1-stable",
+    project_name: str = "TestProject",
+    main_scene: str = "res://main.tscn",
+) -> Responder:
+    """Build a responder that handles ``cmd_get_project_info`` and ``cmd_ping``.
+
+    Other commands return a generic failure so tests can opt-in to the commands
+    they care about.
+    """
+
+    def _responder(command: CommandEnvelope) -> ResponseEnvelope | None:
+        if command.command == "cmd_ping":
+            return ResponseEnvelope.success(command.id, {"pong": True})
+        if command.command == "cmd_get_project_info":
+            return ResponseEnvelope.success(
+                command.id,
+                {
+                    "name": project_name,
+                    "godot_version": godot_version,
+                    "main_scene": main_scene,
+                    "project_path": "/tmp/test_project",
+                    "autoloads": {},
+                    "input_actions": [],
+                },
+            )
+        return ResponseEnvelope.failure(
+            command.id, "VALIDATION_ERROR", f"Unknown command '{command.command}'."
+        )
+
+    return _responder
+
