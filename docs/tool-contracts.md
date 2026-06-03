@@ -460,6 +460,26 @@ returns the buffered `events` in the same `play_input_sequence` format, so a rec
 replays directly (regression). Since `parse_input_event` also fires `_input`, synthesized
 input is recorded too.
 
+#### Export (issue #50) — category: `export` (gated off by default)
+
+Drive Godot's export pipeline. List/info are `read_only` (read `export_presets.cfg` via
+the addon's `ConfigFile`); `export_project` is `runtime` (runs a Godot process, like the
+runtime loop — see the note in [`architecture.md`](architecture.md)).
+
+| Tool | Params | Returns |
+|------|--------|---------|
+| `list_export_presets` | — | `ExportPresetsResult { presets[], has_config }` |
+| `get_export_info` | — | `ExportInfoResult { has_config, preset_count, preset_names, config_path }` |
+| `export_project` | `preset, output_path, debug=False, timeout_seconds=300` | `ExportResult { exported, preset, output_path, exit_code, timed_out, duration_seconds, errors[], warnings[], output[], command }` |
+
+`list_export_presets` returns each preset's `{index, name, platform, runnable,
+export_path}`. `export_project` validates the preset name, then runs `godot --headless
+--path <project> --export-release|--export-debug "<preset>" <output_path>` (relative
+`output_path` resolves against the project dir) and summarizes the run — `exported` is
+true when the process exits 0. **Requires export templates installed** for the target
+platform (missing templates surface as errors in the result). Use a generous
+`timeout_seconds`.
+
 #### Static analysis (issue #49) — category: `analysis` (gated off by default)
 
 Project-wide static analysis, computed Python-side from the project's files (no addon

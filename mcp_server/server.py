@@ -27,6 +27,7 @@ from mcp_server.tools.animation import register_animation
 from mcp_server.tools.audio import register_audio
 from mcp_server.tools.batch import register_batch
 from mcp_server.tools.editor import register_editor
+from mcp_server.tools.export import register_export
 from mcp_server.tools.health import register_health
 from mcp_server.tools.input_sim import register_input_sim
 from mcp_server.tools.inspection import register_inspection
@@ -109,6 +110,7 @@ def create_server(
     register_profiling(mcp, bridge)
     register_batch(mcp, bridge)
     register_analysis(mcp, bridge, config)
+    register_export(mcp, bridge, config, runner)
     register_scripts(mcp, bridge, config, runner)
     register_safety_tools(mcp)
 

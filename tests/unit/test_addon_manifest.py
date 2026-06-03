@@ -381,6 +381,14 @@ def test_router_registers_batch_commands() -> None:
     assert "GEN_EDIT_STATE_MAIN" in source and "ResourceLoader.get_dependencies" in source
 
 
+def test_router_registers_export_commands() -> None:
+    source = (ADDON_DIR / "command_router.gd").read_text()
+    for command in ("cmd_list_export_presets", "cmd_get_export_info"):
+        assert f'"{command}"' in source, f"router must register {command}"
+    # presets are read from export_presets.cfg via Godot's ConfigFile.
+    assert "export_presets.cfg" in source and "ConfigFile" in source
+
+
 def test_mutations_use_undo_redo() -> None:
     source = (ADDON_DIR / "command_router.gd").read_text()
     # Every create/rename/delete/set must register with EditorUndoRedoManager.

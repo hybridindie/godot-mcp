@@ -86,6 +86,10 @@ class Runner(Protocol):
         self, project_dir: str, script_path: str, timeout: float
     ) -> RunOutput: ...
 
+    async def export(
+        self, project_dir: str, preset: str, output_path: str, debug: bool, timeout: float
+    ) -> RunOutput: ...
+
 
 @dataclass
 class GodotRunner:
@@ -115,6 +119,16 @@ class GodotRunner:
             "--script",
             script_path,
         ]
+        return await self._exec(command, timeout)
+
+    async def export(
+        self, project_dir: str, preset: str, output_path: str, debug: bool, timeout: float
+    ) -> RunOutput:
+        """Run Godot's export pipeline headlessly for ``preset`` to ``output_path``
+        (release unless ``debug``). Requires export templates installed (issue #50).
+        """
+        flag = "--export-debug" if debug else "--export-release"
+        command = [self.binary, "--headless", "--path", project_dir, flag, preset, output_path]
         return await self._exec(command, timeout)
 
     async def _exec(self, command: list[str | None], timeout: float) -> RunOutput:

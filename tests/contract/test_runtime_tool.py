@@ -33,6 +33,12 @@ class FakeRunner:
     async def check_script(self, project_dir: str, script_path: str, timeout: float) -> RunOutput:
         return self._output
 
+    async def export(
+        self, project_dir: str, preset: str, output_path: str, debug: bool, timeout: float
+    ) -> RunOutput:
+        self.calls.append((project_dir, f"{preset}->{output_path}", timeout))
+        return self._output
+
 
 def _build(
     runner: FakeRunner, *, project_dir: str | None = "/tmp/proj"

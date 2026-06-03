@@ -21,6 +21,7 @@ from mcp_server.categories import (
     BATCH_TAG,
     CORE_TAG,
     EDITOR_TAG,
+    EXPORT_TAG,
     INPUT_TAG,
     INSPECTION_TAG,
     NAVIGATION_TAG,
@@ -76,6 +77,8 @@ TOOLSETS: dict[str, str] = {
     "cross-scene edits, and dependency analysis.",
     ANALYSIS_TAG: "Static project analysis: unused resources, signal flow, circular "
     "script dependencies, and scene-complexity stats.",
+    EXPORT_TAG: "Drive the export pipeline: list presets, report export info, and run "
+    "an export (needs export templates).",
 }
 
 # Enabled at startup (plus `core`, which is always on). Everything else is gated
