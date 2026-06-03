@@ -67,6 +67,38 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                     "layers": [{"index": 0, "name": "Ground", "enabled": True}],
                 },
             )
+        case "cmd_create_tileset":
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "node_path": p.get("node_path", ""),
+                    "tileset_path": p.get("save_path", ""),
+                    "tile_size": p["tile_size"],
+                    "created": True,
+                },
+            )
+        case "cmd_add_tileset_atlas_source":
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "node_path": p.get("node_path", ""),
+                    "tileset_path": p.get("tileset_path", ""),
+                    "source_id": 0,
+                    "texture_path": p["texture_path"],
+                    "region_size": p["region_size"],
+                },
+            )
+        case "cmd_create_tile":
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "node_path": p.get("node_path", ""),
+                    "tileset_path": p.get("tileset_path", ""),
+                    "source_id": p["source_id"],
+                    "atlas_coords": p["atlas_coords"],
+                    "size": p["size"],
+                },
+            )
     return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
 
 
@@ -144,6 +176,65 @@ async def test_readonly_tool_surfaces_structured_precondition() -> None:
         )
     assert result.is_error
     assert "active_scene" in str(result.content)
+
+
+async def test_tileset_authoring_chain() -> None:
+    # Build a TileSet on a node, add an atlas source from a texture, and create a tile —
+    # the prerequisite chain that lets tilemap_set_cell place real tiles.
+    server, _ = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "tilemap"})
+        ts = await client.call_tool(
+            "create_tileset", {"node_path": "Ground", "tile_size": [16, 16]}
+        )
+        src = await client.call_tool(
+            "add_tileset_atlas_source",
+            {"node_path": "Ground", "texture_path": "res://tiles.png", "region_size": [16, 16]},
+        )
+        tile = await client.call_tool(
+            "create_tile", {"node_path": "Ground", "source_id": 0, "atlas_coords": [0, 0]},
+        )
+    assert ts.structured_content["tile_size"] == [16, 16]
+    assert ts.structured_content["created"] is True
+    assert src.structured_content["source_id"] == 0
+    assert src.structured_content["texture_path"] == "res://tiles.png"
+    assert tile.structured_content["atlas_coords"] == [0, 0]
+    assert tile.structured_content["size"] == [1, 1]
+
+
+async def test_tileset_authoring_file_backed_and_safety() -> None:
+    server, _ = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "tilemap"})
+        tools = {t.name: t for t in await client.list_tools()}
+        authoring = {"create_tileset", "add_tileset_atlas_source", "create_tile"}
+        assert authoring <= set(tools)
+        assert all(tools[n].meta["safety_class"] == "mutating" for n in authoring)
+        # a .tres-backed source needs no node_path
+        saved = await client.call_tool(
+            "create_tileset", {"save_path": "res://floor.tres", "tile_size": [8, 8]}
+        )
+        src = await client.call_tool(
+            "add_tileset_atlas_source",
+            {
+                "tileset_path": "res://floor.tres",
+                "texture_path": "res://tiles.png",
+                "region_size": [8, 8],
+            },
+        )
+    assert saved.structured_content["tileset_path"] == "res://floor.tres"
+    assert src.structured_content["tileset_path"] == "res://floor.tres"
+
+
+async def test_tileset_create_dry_run_sends_no_command() -> None:
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "tilemap"})
+        dry = await client.call_tool(
+            "create_tileset", {"save_path": "res://x.tres", "dry_run": True}
+        )
+    assert dry.structured_content["dry_run"] is True
+    assert "cmd_create_tileset" not in _commands(conn)
 
 
 async def test_clear_and_dry_run() -> None:

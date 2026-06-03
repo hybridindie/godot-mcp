@@ -350,6 +350,27 @@ above that). `tilemap_clear` clears a layer (TileMap: the given layer, default 0
 TileMapLayer: the node) and reports the cell count, undo restoring the prior cells.
 `tilemap_layers` lists each layer's index/name/enabled.
 
+#### TileSet authoring (issue #82) — category: `tilemap` (gated off by default)
+
+Build the TileSet that `tilemap_set_cell`/`tilemap_fill_rect` reference — without one,
+those tools have nothing to place. Target a TileSet by `node_path` (an in-scene
+TileMap/TileMapLayer, UndoRedo-wrapped) or `tileset_path` (a saved `.tres`, re-saved via
+ResourceSaver). All `mutating`, `dry_run`.
+
+| Tool | Params | Returns |
+|------|--------|---------|
+| `create_tileset` | `node_path="", save_path="", tile_size[w,h]=[16,16]` | `TileSetResult { node_path, tileset_path, tile_size, created }` |
+| `add_tileset_atlas_source` | `texture_path, region_size[w,h], node_path="", tileset_path="", source_id?` | `TileSetSourceResult { node_path, tileset_path, source_id, texture_path, region_size }` |
+| `create_tile` | `source_id, atlas_coords[x,y], node_path="", tileset_path="", size[w,h]=[1,1]` | `TileCreateResult { node_path, tileset_path, source_id, atlas_coords, size }` |
+
+Typical chain: `create_tileset` (assign to a node and/or save a `.tres`) →
+`add_tileset_atlas_source` (slice an imported `Texture2D` at `res://texture_path` into a
+tile grid, returns the `source_id`) → `create_tile` (mark an atlas cell placeable). Then
+`tilemap_set_cell` with that `source_id` + `atlas_coords` places a real tile.
+`add_tileset_atlas_source` requires the texture to already exist in the project (it
+`load`s `texture_path`); `create_tile` validates the region is inside the atlas grid and
+not overlapping (`has_room_for_tile`).
+
 #### Theme & UI (issue #46) — category: `theme_ui` (gated off by default)
 
 Create a Theme for a Control and override theme colors, font sizes, and styleboxes on

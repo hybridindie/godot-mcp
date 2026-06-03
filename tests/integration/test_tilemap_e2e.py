@@ -1,9 +1,10 @@
-"""End-to-end tilemap test against a live editor (issue #45).
+"""End-to-end tilemap test against a live editor (issues #45, #82).
 
-Tile *placement* needs a configured TileSet (atlas source + texture), which can't be
-built through the current tool surface — so the live test exercises the cell-erase /
-get / fill / clear / layers paths and validation, while the full place-a-tile data
-round-trip is covered by the contract test.
+Exercises the cell-erase / get / fill / clear / layers paths and validation, then the
+TileSet authoring chain from #82 (create_tileset → add_tileset_atlas_source →
+create_tile) — which finally lets tilemap_set_cell place a *real*, non-empty tile. A
+PlaceholderTexture2D stands in for an imported image so the atlas grid resolves without
+a real asset import.
 """
 
 from __future__ import annotations
@@ -23,6 +24,17 @@ pytestmark = pytest.mark.skipif(GODOT_BIN is None, reason="Godot binary not inst
 BRIDGE_URL = "ws://localhost:9080"
 SCRATCH = "res://tmp_e2e_tilemap.tscn"
 SCRATCH_FILE = GODOT_PROJECT / "tmp_e2e_tilemap.tscn"
+TEX = "res://tmp_e2e_tile_tex.tres"
+TILESET = "res://tmp_e2e_tileset.tres"
+TILESET_FILE = GODOT_PROJECT / "tmp_e2e_tileset.tres"
+# .tres resources + their Godot 4.4 .uid sidecars, all cleaned up after the run.
+_ARTIFACTS = [
+    "tmp_e2e_tilemap.tscn",
+    "tmp_e2e_tile_tex.tres",
+    "tmp_e2e_tile_tex.tres.uid",
+    "tmp_e2e_tileset.tres",
+    "tmp_e2e_tileset.tres.uid",
+]
 
 
 async def _ok(bridge: Bridge, command: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -119,6 +131,69 @@ async def _run() -> None:
         assert bad_coords.ok is False and bad_coords.error == "VALIDATION_ERROR"
         bad_get = await bridge.send("cmd_tilemap_get_cell", {"node_path": "Ground", "coords": []})
         assert bad_get.ok is False and bad_get.error == "VALIDATION_ERROR"
+
+        # --- TileSet authoring (issue #82): build a TileSet and place a REAL tile ---
+        # PlaceholderTexture2D is a Texture2D whose size we set directly, so the atlas
+        # grid (64 / 16 = 4x4) resolves without importing an actual image file.
+        await _ok(
+            bridge,
+            "cmd_create_resource",
+            {
+                "type": "PlaceholderTexture2D",
+                "resource_path": TEX,
+                "properties": {"size": {"x": 64, "y": 64}},
+            },
+        )
+        # node-backed: TileSet on the TileMapLayer → atlas source → tile
+        ts = await _ok(bridge, "cmd_create_tileset", {"node_path": "Ground", "tile_size": [16, 16]})
+        assert ts["created"] is True and ts["tile_size"] == [16, 16]
+        src = await _ok(
+            bridge,
+            "cmd_add_tileset_atlas_source",
+            {"node_path": "Ground", "texture_path": TEX, "region_size": [16, 16]},
+        )
+        sid = src["source_id"]
+        await _ok(
+            bridge,
+            "cmd_create_tile",
+            {"node_path": "Ground", "source_id": sid, "atlas_coords": [0, 0]},
+        )
+        # the payoff: set_cell now places a real, non-empty tile that reads back
+        await _ok(
+            bridge,
+            "cmd_tilemap_set_cell",
+            {"node_path": "Ground", "coords": [2, 2], "source_id": sid, "atlas_coords": [0, 0]},
+        )
+        placed = await _ok(
+            bridge, "cmd_tilemap_get_cell", {"node_path": "Ground", "coords": [2, 2]}
+        )
+        assert placed["empty"] is False and placed["source_id"] == sid
+
+        # file-backed: author a TileSet saved as .tres, then add a source + tile to it
+        saved = await _ok(bridge, "cmd_create_tileset", {"save_path": TILESET, "tile_size": [8, 8]})
+        assert saved["tileset_path"] == TILESET and TILESET_FILE.exists()
+        fsrc = await _ok(
+            bridge,
+            "cmd_add_tileset_atlas_source",
+            {"tileset_path": TILESET, "texture_path": TEX, "region_size": [8, 8]},
+        )
+        await _ok(
+            bridge,
+            "cmd_create_tile",
+            {"tileset_path": TILESET, "source_id": fsrc["source_id"], "atlas_coords": [1, 1]},
+        )
+
+        # validation: a node without a tile_set, and an out-of-atlas tile
+        no_ts = await bridge.send(
+            "cmd_add_tileset_atlas_source",
+            {"node_path": "Grid", "texture_path": TEX, "region_size": [16, 16]},
+        )
+        assert no_ts.ok is False and no_ts.error == "VALIDATION_ERROR"
+        oob = await bridge.send(
+            "cmd_create_tile",
+            {"node_path": "Ground", "source_id": sid, "atlas_coords": [99, 99]},
+        )
+        assert oob.ok is False and oob.error == "VALIDATION_ERROR"
     finally:
         await bridge.close()
 
@@ -138,4 +213,5 @@ def test_live_tilemap() -> None:
             editor.wait(timeout=10)
         except subprocess.TimeoutExpired:
             editor.kill()
-        SCRATCH_FILE.unlink(missing_ok=True)
+        for artifact in _ARTIFACTS:
+            (GODOT_PROJECT / artifact).unlink(missing_ok=True)

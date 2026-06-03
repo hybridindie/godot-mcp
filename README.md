@@ -9,7 +9,7 @@ built-in game vocabulary. A specific game is a separate project that consumes th
 > scripts, resources, project/filesystem, screenshots, the full content domains (physics,
 > animation, 3D, particles, navigation, audio, tilemap, theme/UI, shaders), the runtime
 > session bridge (live inspection, input simulation/recording, profiling), play-testing/QA,
-> batch refactor, static analysis, and export are all merged. 116 tools across 22 gated
+> batch refactor, static analysis, and export are all merged. 119 tools across 22 gated
 > toolsets (plus always-on `core`). See [`docs/tool-contracts.md`](docs/tool-contracts.md)
 > for the full surface.
 
@@ -179,7 +179,7 @@ environment). Use an absolute path or a `--directory` if launching elsewhere.
 
 ## Toolsets (keeping the tool surface small)
 
-With ~116 tools, exposing them all at once would degrade an agent's tool selection, so
+With ~119 tools, exposing them all at once would degrade an agent's tool selection, so
 tools are grouped into **toolsets** and most are **gated off by default**. Only `core`
 (diagnostics + toolset management) and `inspection` are exposed initially. The agent turns
 others on at runtime with the always-available meta-tools:

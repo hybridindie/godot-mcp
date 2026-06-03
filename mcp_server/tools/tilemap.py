@@ -16,11 +16,20 @@ from mcp_server.categories import TILEMAP_TAG
 from mcp_server.models.tilemap import (
     TileCellResult,
     TileClearResult,
+    TileCreateResult,
     TileFillResult,
     TileGetResult,
     TileLayersResult,
+    TileSetResult,
+    TileSetSourceResult,
 )
-from mcp_server.safety import MUTATING, READ_ONLY, enforce_preconditions, require_node_exists
+from mcp_server.safety import (
+    MUTATING,
+    READ_ONLY,
+    PreconditionError,
+    enforce_preconditions,
+    require_node_exists,
+)
 from mcp_server.tools._route import route
 
 TILEMAP = {TILEMAP_TAG}
@@ -123,3 +132,119 @@ def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
         """
         params = {"node_path": node_path}
         return TileLayersResult(**await route(bridge, "cmd_tilemap_layers", params))
+
+    @mcp.tool(meta=MUTATING, tags=TILEMAP)
+    @enforce_preconditions
+    async def create_tileset(
+        node_path: str = "",
+        save_path: str = "",
+        tile_size: list[int] | None = None,
+        dry_run: bool = False,
+    ) -> TileSetResult:
+        """Create a new TileSet resource — the prerequisite for placing real tiles with
+        tilemap_set_cell. Assign it to a TileMap/TileMapLayer via ``node_path`` and/or
+        persist it as a ``.tres`` via ``save_path`` (a ``res://`` path); pass at least
+        one. ``tile_size`` ``[w, h]`` is the grid cell size (default ``[16, 16]``). Next
+        add an atlas source with add_tileset_atlas_source.
+        """
+        size = tile_size if tile_size is not None else [16, 16]
+        if not node_path and not save_path:
+            raise PreconditionError(
+                "Provide 'node_path' to assign the TileSet and/or 'save_path' to save it.",
+                required="node_path_or_save_path",
+            )
+        if node_path:
+            await require_node_exists(bridge, node_path)
+        if dry_run:
+            return TileSetResult(
+                node_path=node_path, tileset_path=save_path, tile_size=size, dry_run=True
+            )
+        params = {"node_path": node_path, "save_path": save_path, "tile_size": size}
+        return TileSetResult(**await route(bridge, "cmd_create_tileset", params))
+
+    @mcp.tool(meta=MUTATING, tags=TILEMAP)
+    @enforce_preconditions
+    async def add_tileset_atlas_source(
+        texture_path: str,
+        region_size: list[int],
+        node_path: str = "",
+        tileset_path: str = "",
+        source_id: int | None = None,
+        dry_run: bool = False,
+    ) -> TileSetSourceResult:
+        """Add an atlas source (a texture sliced into a tile grid) to a TileSet, then
+        return its ``source_id`` (used by create_tile and tilemap_set_cell). Target the
+        TileSet by ``node_path`` (an in-scene TileMap/TileMapLayer) or ``tileset_path``
+        (a saved ``.tres``); pass one. ``texture_path`` is a ``res://`` path to an already
+        imported Texture2D. ``region_size`` ``[w, h]`` is each tile's pixel size in the
+        atlas. ``source_id`` overrides the auto-assigned id.
+        """
+        if not node_path and not tileset_path:
+            raise PreconditionError(
+                "Provide 'node_path' (a TileMap/TileMapLayer) or 'tileset_path' (a .tres).",
+                required="node_path_or_tileset_path",
+            )
+        if node_path:
+            await require_node_exists(bridge, node_path)
+        if dry_run:
+            return TileSetSourceResult(
+                node_path=node_path,
+                tileset_path=tileset_path,
+                source_id=source_id if source_id is not None else -1,
+                texture_path=texture_path,
+                region_size=region_size,
+                dry_run=True,
+            )
+        params = {
+            "node_path": node_path,
+            "tileset_path": tileset_path,
+            "texture_path": texture_path,
+            "region_size": region_size,
+            "source_id": source_id,
+        }
+        return TileSetSourceResult(
+            **await route(bridge, "cmd_add_tileset_atlas_source", params)
+        )
+
+    @mcp.tool(meta=MUTATING, tags=TILEMAP)
+    @enforce_preconditions
+    async def create_tile(
+        source_id: int,
+        atlas_coords: list[int],
+        node_path: str = "",
+        tileset_path: str = "",
+        size: list[int] | None = None,
+        dry_run: bool = False,
+    ) -> TileCreateResult:
+        """Create a tile at ``atlas_coords`` ``[x, y]`` in atlas ``source_id`` of a
+        TileSet, making that cell placeable with tilemap_set_cell. Target the TileSet by
+        ``node_path`` (an in-scene TileMap/TileMapLayer) or ``tileset_path`` (a saved
+        ``.tres``); pass one. ``size`` ``[w, h]`` (in grid cells, default ``[1, 1]``)
+        spans a multi-cell tile. Fails if the region is out of the atlas or overlaps an
+        existing tile.
+        """
+        tile_size = size if size is not None else [1, 1]
+        if not node_path and not tileset_path:
+            raise PreconditionError(
+                "Provide 'node_path' (a TileMap/TileMapLayer) or 'tileset_path' (a .tres).",
+                required="node_path_or_tileset_path",
+            )
+        if node_path:
+            await require_node_exists(bridge, node_path)
+        if dry_run:
+            return TileCreateResult(
+                node_path=node_path,
+                tileset_path=tileset_path,
+                source_id=source_id,
+                atlas_coords=atlas_coords,
+                size=tile_size,
+                dry_run=True,
+            )
+        params = {
+            "node_path": node_path,
+            "tileset_path": tileset_path,
+            "source_id": source_id,
+            "atlas_coords": atlas_coords,
+            "size": tile_size,
+        }
+        return TileCreateResult(**await route(bridge, "cmd_create_tile", params))
