@@ -460,6 +460,30 @@ returns the buffered `events` in the same `play_input_sequence` format, so a rec
 replays directly (regression). Since `parse_input_event` also fires `_input`, synthesized
 input is recorded too.
 
+#### Batch / refactor (issue #48) — category: `batch` (gated off by default)
+
+Operate over many nodes/scenes. Finds/deps are `read_only`; writes are `mutating`,
+`dry_run`.
+
+| Tool | Params | Returns |
+|------|--------|---------|
+| `find_nodes_by_type` | `node_type, parent_path=".", recursive=True` | `FindNodesResult { type, nodes[], count }` |
+| `batch_set_property` | `property, value, node_paths?, node_type?, dry_run=False` | `BatchSetResult { property, applied[], skipped[], count, dry_run }` |
+| `cross_scene_set_property` | `scenes[], node_type, property, value, dry_run=False` | `CrossSceneResult { results[], total_modified, scenes, dry_run }` |
+| `get_dependencies` | `path` | `DependenciesResult { path, dependencies[], count }` |
+
+`find_nodes_by_type` matches by class (incl. derived) under `parent_path` in the open
+scene. `batch_set_property` sets one property on many nodes in the open scene in a single
+undoable action — target by explicit `node_paths` or by `node_type`; nodes lacking the
+property are reported in `skipped`. `cross_scene_set_property` edits scene **files** on
+disk: it loads each (`GEN_EDIT_STATE_MAIN`), sets the property on every `node_type` node,
+re-packs and saves, and re-scans — the **currently-edited** scene is skipped (its
+in-memory copy would clobber the change; reported as an `error`), and each scene's
+`{modified, error}` is reported so skips are explicit (this path is not UndoRedo-wrapped —
+closed files). `get_dependencies` lists what a `res://` resource/scene depends on (each
+`{raw, path, type}` parsed from `ResourceLoader.get_dependencies`). `dry_run` on the writes
+returns the plan/counts without changing anything.
+
 #### Profiling (issue #38) — category: `profiling` (gated off by default)
 
 Read Godot's `Performance` monitors. Both `read_only`.

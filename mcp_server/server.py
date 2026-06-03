@@ -24,6 +24,7 @@ from mcp_server.runtime import GodotRunner, Runner
 from mcp_server.safety import register_safety_tools
 from mcp_server.tools.animation import register_animation
 from mcp_server.tools.audio import register_audio
+from mcp_server.tools.batch import register_batch
 from mcp_server.tools.editor import register_editor
 from mcp_server.tools.health import register_health
 from mcp_server.tools.input_sim import register_input_sim
@@ -105,6 +106,7 @@ def create_server(
     register_input_sim(mcp, bridge)
     register_testing(mcp, bridge)
     register_profiling(mcp, bridge)
+    register_batch(mcp, bridge)
     register_scripts(mcp, bridge, config, runner)
     register_safety_tools(mcp)
 

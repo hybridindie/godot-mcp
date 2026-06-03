@@ -368,6 +368,19 @@ def test_router_registers_profiling_commands() -> None:
     assert "_performance_snapshot" in probe  # the probe answers get_performance
 
 
+def test_router_registers_batch_commands() -> None:
+    source = (ADDON_DIR / "command_router.gd").read_text()
+    for command in (
+        "cmd_find_nodes_by_type",
+        "cmd_batch_set_property",
+        "cmd_cross_scene_set_property",
+        "cmd_get_dependencies",
+    ):
+        assert f'"{command}"' in source, f"router must register {command}"
+    # cross-scene edits load with GEN_EDIT_STATE_MAIN and re-pack/save faithfully.
+    assert "GEN_EDIT_STATE_MAIN" in source and "ResourceLoader.get_dependencies" in source
+
+
 def test_mutations_use_undo_redo() -> None:
     source = (ADDON_DIR / "command_router.gd").read_text()
     # Every create/rename/delete/set must register with EditorUndoRedoManager.

@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from mcp_server.categories import (
     ANIMATION_TAG,
     AUDIO_TAG,
+    BATCH_TAG,
     CORE_TAG,
     EDITOR_TAG,
     INPUT_TAG,
@@ -70,6 +71,8 @@ TOOLSETS: dict[str, str] = {
     "diff screenshots, and fuzz with random input.",
     PROFILING_TAG: "Read Godot performance monitors (FPS, draw calls, memory, "
     "physics) for the editor or a running game.",
+    BATCH_TAG: "Operate over many nodes/scenes: find by type, batch-set a property, "
+    "cross-scene edits, and dependency analysis.",
 }
 
 # Enabled at startup (plus `core`, which is always on). Everything else is gated
