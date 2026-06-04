@@ -26,7 +26,7 @@ from mcp_server.models.physics import (
     SetupBodyResult,
 )
 from mcp_server.safety import MUTATING, enforce_preconditions, require_node_exists
-from mcp_server.tools._route import route
+from mcp_server.tools._route import run_or_preview
 
 PHYSICS = {PHYSICS_TAG}
 
@@ -43,10 +43,11 @@ def register_physics(mcp: FastMCP, bridge: Bridge) -> None:
         ``node_path`` in one call. The node must be a CollisionObject2D/3D.
         """
         await require_node_exists(bridge, node_path)
-        if dry_run:
-            return SetupBodyResult(node_path=node_path, properties={}, dry_run=True)
         params = {"node_path": node_path, "properties": properties}
-        return SetupBodyResult(**await route(bridge, "cmd_setup_physics_body", params))
+        preview = {"node_path": node_path, "properties": {}}
+        return await run_or_preview(
+            dry_run, SetupBodyResult, preview, bridge, "cmd_setup_physics_body", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=PHYSICS)
     @enforce_preconditions
@@ -62,17 +63,16 @@ def register_physics(mcp: FastMCP, bridge: Bridge) -> None:
         (e.g. RectangleShape2D) with ``properties`` (size/radius/…).
         """
         await require_node_exists(bridge, node_path)
-        if dry_run:
-            return CollisionShapeResult(
-                node_path="", shape_type=shape_type, created=False, dry_run=True
-            )
         params = {
             "node_path": node_path,
             "shape_type": shape_type,
             "collision_node_type": collision_node_type,
             "properties": properties or {},
         }
-        return CollisionShapeResult(**await route(bridge, "cmd_setup_collision", params))
+        preview = {"node_path": "", "shape_type": shape_type, "created": False}
+        return await run_or_preview(
+            dry_run, CollisionShapeResult, preview, bridge, "cmd_setup_collision", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=PHYSICS)
     @enforce_preconditions
@@ -86,10 +86,11 @@ def register_physics(mcp: FastMCP, bridge: Bridge) -> None:
         1-based bit indices (e.g. ``layers=[1,3]``). Pass null to leave one unchanged.
         """
         await require_node_exists(bridge, node_path)
-        if dry_run:
-            return PhysicsLayersResult(node_path=node_path, dry_run=True)
         params = {"node_path": node_path, "layers": layers, "mask": mask}
-        return PhysicsLayersResult(**await route(bridge, "cmd_set_physics_layers", params))
+        preview = {"node_path": node_path}
+        return await run_or_preview(
+            dry_run, PhysicsLayersResult, preview, bridge, "cmd_set_physics_layers", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=PHYSICS)
     @enforce_preconditions
@@ -104,12 +105,13 @@ def register_physics(mcp: FastMCP, bridge: Bridge) -> None:
         ``properties`` such as ``target_position``.
         """
         await require_node_exists(bridge, parent_path)
-        if dry_run:
-            return RaycastResult(node_path="", created=False, dry_run=True)
         params = {
             "parent_path": parent_path,
             "name": name,
             "raycast_type": raycast_type,
             "properties": properties or {},
         }
-        return RaycastResult(**await route(bridge, "cmd_add_raycast", params))
+        preview = {"node_path": "", "created": False}
+        return await run_or_preview(
+            dry_run, RaycastResult, preview, bridge, "cmd_add_raycast", params
+        )

@@ -39,7 +39,7 @@ from mcp_server.safety import (
     require_confirmation,
     require_node_exists,
 )
-from mcp_server.tools._route import route
+from mcp_server.tools._route import run_or_preview
 
 SCENE_EDIT = {SCENE_EDIT_TAG}
 
@@ -57,24 +57,27 @@ def register_mutation(mcp: FastMCP, bridge: Bridge) -> None:
         """
         await require_active_scene(bridge)
         await require_node_exists(bridge, parent_path)
-        if dry_run:
-            # Mirror the addon's scene-relative path (root children have no "./").
-            preview = node_name if parent_path in (".", "") else f"{parent_path}/{node_name}"
-            return CreateNodeResult(node_path=preview, created=False, dry_run=True)
+        preview = node_name if parent_path in (".", "") else f"{parent_path}/{node_name}"
         params = {"parent_path": parent_path, "node_type": node_type, "name": node_name}
-        return CreateNodeResult(**await route(bridge, "cmd_create_node", params))
+        return await run_or_preview(
+            dry_run,
+            CreateNodeResult,
+            {"node_path": preview, "created": False},
+            bridge,
+            "cmd_create_node",
+            params,
+        )
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
     @enforce_preconditions
     async def rename_node(node_path: str, new_name: str, dry_run: bool = False) -> RenameNodeResult:
         """Rename the node at ``node_path`` to ``new_name``."""
         await require_node_exists(bridge, node_path)
-        if dry_run:
-            return RenameNodeResult(
-                node_path=node_path, new_name=new_name, renamed=False, dry_run=True
-            )
         params = {"node_path": node_path, "new_name": new_name}
-        return RenameNodeResult(**await route(bridge, "cmd_rename_node", params))
+        preview = {"node_path": node_path, "new_name": new_name, "renamed": False}
+        return await run_or_preview(
+            dry_run, RenameNodeResult, preview, bridge, "cmd_rename_node", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
     @enforce_preconditions
@@ -86,12 +89,11 @@ def register_mutation(mcp: FastMCP, bridge: Bridge) -> None:
         addon to match the property's declared type.
         """
         await require_node_exists(bridge, node_path)
-        if dry_run:
-            return SetPropertyResult(
-                node_path=node_path, property=property, value=value, set=False, dry_run=True
-            )
         params = {"node_path": node_path, "property": property, "value": value}
-        return SetPropertyResult(**await route(bridge, "cmd_set_node_property", params))
+        preview = {"node_path": node_path, "property": property, "value": value, "set": False}
+        return await run_or_preview(
+            dry_run, SetPropertyResult, preview, bridge, "cmd_set_node_property", params
+        )
 
     @mcp.tool(meta=DESTRUCTIVE, tags=SCENE_EDIT)
     @enforce_preconditions
@@ -102,11 +104,13 @@ def register_mutation(mcp: FastMCP, bridge: Bridge) -> None:
         to actually delete (``dry_run=True`` previews without confirming).
         """
         await require_node_exists(bridge, node_path)
-        if dry_run:
-            return DeleteNodeResult(node_path=node_path, deleted=False, dry_run=True)
-        require_confirmation(confirm, "delete_node")
+        if not dry_run:
+            require_confirmation(confirm, "delete_node")
         params = {"node_path": node_path, "confirm": True}
-        return DeleteNodeResult(**await route(bridge, "cmd_delete_node", params))
+        preview = {"node_path": node_path, "deleted": False}
+        return await run_or_preview(
+            dry_run, DeleteNodeResult, preview, bridge, "cmd_delete_node", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
     @enforce_preconditions
@@ -117,12 +121,11 @@ def register_mutation(mcp: FastMCP, bridge: Bridge) -> None:
         node at ``node_path``.
         """
         await require_node_exists(bridge, node_path)
-        if dry_run:
-            return AttachScriptResult(
-                node_path=node_path, script_path=script_path, attached=False, dry_run=True
-            )
         params = {"node_path": node_path, "script_path": script_path}
-        return AttachScriptResult(**await route(bridge, "cmd_attach_script", params))
+        preview = {"node_path": node_path, "script_path": script_path, "attached": False}
+        return await run_or_preview(
+            dry_run, AttachScriptResult, preview, bridge, "cmd_attach_script", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
     @enforce_preconditions
@@ -138,31 +141,32 @@ def register_mutation(mcp: FastMCP, bridge: Bridge) -> None:
         """
         await require_node_exists(bridge, source_path)
         await require_node_exists(bridge, target_path)
-        if dry_run:
-            return ConnectSignalResult(
-                source_path=source_path,
-                signal_name=signal_name,
-                target_path=target_path,
-                method_name=method_name,
-                connected=False,
-                dry_run=True,
-            )
         params = {
             "source_path": source_path,
             "signal_name": signal_name,
             "target_path": target_path,
             "method_name": method_name,
         }
-        return ConnectSignalResult(**await route(bridge, "cmd_connect_signal", params))
+        preview = {
+            "source_path": source_path,
+            "signal_name": signal_name,
+            "target_path": target_path,
+            "method_name": method_name,
+            "connected": False,
+        }
+        return await run_or_preview(
+            dry_run, ConnectSignalResult, preview, bridge, "cmd_connect_signal", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
     @enforce_preconditions
     async def save_scene(dry_run: bool = False) -> SaveSceneResult:
         """Save the currently open scene to disk, reporting the file path."""
         await require_active_scene(bridge)
-        if dry_run:
-            return SaveSceneResult(saved=False, dry_run=True)
-        return SaveSceneResult(**await route(bridge, "cmd_save_scene"))
+        preview = {"saved": False}
+        return await run_or_preview(
+            dry_run, SaveSceneResult, preview, bridge, "cmd_save_scene"
+        )
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
     @enforce_preconditions
@@ -173,12 +177,11 @@ def register_mutation(mcp: FastMCP, bridge: Bridge) -> None:
         node of ``root_type``, and open it for editing.
         """
         require_bridge_connected(bridge)
-        if dry_run:
-            return CreateSceneResult(
-                scene_path=scene_path, root_type=root_type, created=False, dry_run=True
-            )
         params = {"root_type": root_type, "scene_path": scene_path}
-        return CreateSceneResult(**await route(bridge, "cmd_create_scene", params))
+        preview = {"scene_path": scene_path, "root_type": root_type, "created": False}
+        return await run_or_preview(
+            dry_run, CreateSceneResult, preview, bridge, "cmd_create_scene", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
     @enforce_preconditions
@@ -191,13 +194,16 @@ def register_mutation(mcp: FastMCP, bridge: Bridge) -> None:
         """
         await require_active_scene(bridge)
         await require_node_exists(bridge, parent_path)
-        if dry_run:
-            # Deterministic fallback: use scene file name (without extension) when name is empty,
-            # matching what the addon creates by default.
-            _name = name or Path(scene_path).stem
-            preview = _name if parent_path in (".", "") else f"{parent_path}/{_name}"
-            return InstanceSceneResult(
-                node_path=preview, scene_path=scene_path, instanced=False, dry_run=True
-            )
+        # Deterministic fallback: use scene file name (without extension) when name is empty,
+        # matching what the addon creates by default.
+        _name = name or Path(scene_path).stem
+        preview = _name if parent_path in (".", "") else f"{parent_path}/{_name}"
         params = {"parent_path": parent_path, "scene_path": scene_path, "name": name}
-        return InstanceSceneResult(**await route(bridge, "cmd_instance_scene", params))
+        return await run_or_preview(
+            dry_run,
+            InstanceSceneResult,
+            {"node_path": preview, "scene_path": scene_path, "instanced": False},
+            bridge,
+            "cmd_instance_scene",
+            params,
+        )

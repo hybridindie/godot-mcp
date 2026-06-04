@@ -26,7 +26,7 @@ from mcp_server.models.navigation import (
     NavigationRegionResult,
 )
 from mcp_server.safety import MUTATING, enforce_preconditions, require_node_exists
-from mcp_server.tools._route import route
+from mcp_server.tools._route import run_or_preview
 
 NAVIGATION = {NAVIGATION_TAG}
 
@@ -48,17 +48,16 @@ def register_navigation(mcp: FastMCP, bridge: Bridge) -> None:
         bake. ``properties`` (e.g. ``enabled``, ``navigation_layers``) are applied.
         """
         await require_node_exists(bridge, parent_path)
-        if dry_run:
-            return NavigationRegionResult(
-                node_path="", region_type=region_type, created=False, dry_run=True
-            )
         params = {
             "parent_path": parent_path,
             "region_type": region_type,
             "name": name or region_type,
             "properties": properties or {},
         }
-        return NavigationRegionResult(**await route(bridge, "cmd_setup_navigation_region", params))
+        preview = {"node_path": "", "region_type": region_type, "created": False}
+        return await run_or_preview(
+            dry_run, NavigationRegionResult, preview, bridge, "cmd_setup_navigation_region", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=NAVIGATION)
     @enforce_preconditions
@@ -74,17 +73,16 @@ def register_navigation(mcp: FastMCP, bridge: Bridge) -> None:
         ``target_desired_distance``, ``max_speed``, ``avoidance_enabled``.
         """
         await require_node_exists(bridge, parent_path)
-        if dry_run:
-            return NavigationAgentResult(
-                node_path="", agent_type=agent_type, created=False, dry_run=True
-            )
         params = {
             "parent_path": parent_path,
             "agent_type": agent_type,
             "name": name or agent_type,
             "properties": properties or {},
         }
-        return NavigationAgentResult(**await route(bridge, "cmd_setup_navigation_agent", params))
+        preview = {"node_path": "", "agent_type": agent_type, "created": False}
+        return await run_or_preview(
+            dry_run, NavigationAgentResult, preview, bridge, "cmd_setup_navigation_agent", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=NAVIGATION)
     @enforce_preconditions
@@ -94,10 +92,11 @@ def register_navigation(mcp: FastMCP, bridge: Bridge) -> None:
         navmesh resource assigned (``setup_navigation_region`` creates one).
         """
         await require_node_exists(bridge, node_path)
-        if dry_run:
-            return BakeNavigationResult(node_path=node_path, baked=False, dry_run=True)
         params = {"node_path": node_path}
-        return BakeNavigationResult(**await route(bridge, "cmd_bake_navigation_mesh", params))
+        preview = {"node_path": node_path, "baked": False}
+        return await run_or_preview(
+            dry_run, BakeNavigationResult, preview, bridge, "cmd_bake_navigation_mesh", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=NAVIGATION)
     @enforce_preconditions
@@ -109,7 +108,8 @@ def register_navigation(mcp: FastMCP, bridge: Bridge) -> None:
         a ``navigation_layers`` property.
         """
         await require_node_exists(bridge, node_path)
-        if dry_run:
-            return NavigationLayersResult(node_path=node_path, dry_run=True)
         params = {"node_path": node_path, "layers": layers}
-        return NavigationLayersResult(**await route(bridge, "cmd_set_navigation_layers", params))
+        preview = {"node_path": node_path}
+        return await run_or_preview(
+            dry_run, NavigationLayersResult, preview, bridge, "cmd_set_navigation_layers", params
+        )

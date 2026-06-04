@@ -29,7 +29,7 @@ from mcp_server.models.animation import (
     StateMachineStateResult,
 )
 from mcp_server.safety import MUTATING, enforce_preconditions, require_node_exists
-from mcp_server.tools._route import route
+from mcp_server.tools._route import run_or_preview
 
 ANIMATION = {ANIMATION_TAG}
 
@@ -46,12 +46,11 @@ def register_animation(mcp: FastMCP, bridge: Bridge) -> None:
         AnimationPlayer at ``node_path`` (adds a default library if needed).
         """
         await require_node_exists(bridge, node_path)
-        if dry_run:
-            return CreateAnimationResult(
-                player_path=node_path, animation=name, length=length, dry_run=True
-            )
         params = {"node_path": node_path, "name": name, "length": length}
-        return CreateAnimationResult(**await route(bridge, "cmd_create_animation", params))
+        preview = {"player_path": node_path, "animation": name, "length": length}
+        return await run_or_preview(
+            dry_run, CreateAnimationResult, preview, bridge, "cmd_create_animation", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=ANIMATION)
     @enforce_preconditions
@@ -67,15 +66,16 @@ def register_animation(mcp: FastMCP, bridge: Bridge) -> None:
         scale_3d/method/bezier/audio/animation. Returns the track index.
         """
         await require_node_exists(bridge, node_path)
-        if dry_run:
-            return AnimationTrackResult(animation=animation, track_path=track_path, dry_run=True)
         params = {
             "node_path": node_path,
             "animation": animation,
             "track_path": track_path,
             "track_type": track_type,
         }
-        return AnimationTrackResult(**await route(bridge, "cmd_add_animation_track", params))
+        preview = {"animation": animation, "track_path": track_path}
+        return await run_or_preview(
+            dry_run, AnimationTrackResult, preview, bridge, "cmd_add_animation_track", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=ANIMATION)
     @enforce_preconditions
@@ -92,8 +92,6 @@ def register_animation(mcp: FastMCP, bridge: Bridge) -> None:
         forms like "Vector2(10, 20)" are accepted). ``easing`` is the key transition.
         """
         await require_node_exists(bridge, node_path)
-        if dry_run:
-            return KeyframeResult(animation=animation, track=track, time=time, dry_run=True)
         params = {
             "node_path": node_path,
             "animation": animation,
@@ -102,7 +100,10 @@ def register_animation(mcp: FastMCP, bridge: Bridge) -> None:
             "value": value,
             "easing": easing,
         }
-        return KeyframeResult(**await route(bridge, "cmd_insert_keyframe", params))
+        preview = {"animation": animation, "track": track, "time": time}
+        return await run_or_preview(
+            dry_run, KeyframeResult, preview, bridge, "cmd_insert_keyframe", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=ANIMATION)
     @enforce_preconditions
@@ -118,15 +119,18 @@ def register_animation(mcp: FastMCP, bridge: Bridge) -> None:
         ``anim_player`` path to the driving AnimationPlayer.
         """
         await require_node_exists(bridge, parent_path)
-        if dry_run:
-            # Preview the scene-relative path the node would get (parent + name),
-            # matching the live result so clients can plan follow-up calls.
-            preview = name if parent_path in (".", "") else f"{parent_path}/{name}"
-            return AnimationTreeResult(node_path=preview, root_type=root_type, dry_run=True)
+        preview = name if parent_path in (".", "") else f"{parent_path}/{name}"
         params: dict[str, Any] = {"parent_path": parent_path, "name": name, "root_type": root_type}
         if anim_player:
             params["anim_player"] = anim_player
-        return AnimationTreeResult(**await route(bridge, "cmd_create_animation_tree", params))
+        return await run_or_preview(
+            dry_run,
+            AnimationTreeResult,
+            {"node_path": preview, "root_type": root_type},
+            bridge,
+            "cmd_create_animation_tree",
+            params,
+        )
 
     @mcp.tool(meta=MUTATING, tags=ANIMATION)
     @enforce_preconditions
@@ -137,12 +141,13 @@ def register_animation(mcp: FastMCP, bridge: Bridge) -> None:
         AnimationTree's state-machine root at ``tree_path``.
         """
         await require_node_exists(bridge, tree_path)
-        if dry_run:
-            return StateMachineStateResult(tree_path=tree_path, state=state_name, dry_run=True)
         params: dict[str, Any] = {"tree_path": tree_path, "state_name": state_name}
         if animation:
             params["animation"] = animation
-        return StateMachineStateResult(**await route(bridge, "cmd_add_state_machine_state", params))
+        preview = {"tree_path": tree_path, "state": state_name}
+        return await run_or_preview(
+            dry_run, StateMachineStateResult, preview, bridge, "cmd_add_state_machine_state", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=ANIMATION)
     @enforce_preconditions
@@ -153,9 +158,8 @@ def register_animation(mcp: FastMCP, bridge: Bridge) -> None:
         ``node_name`` to the AnimationTree's blend-tree root at ``tree_path``.
         """
         await require_node_exists(bridge, tree_path)
-        if dry_run:
-            return BlendTreeNodeResult(
-                tree_path=tree_path, node=node_name, node_type=node_type, dry_run=True
-            )
         params = {"tree_path": tree_path, "node_name": node_name, "node_type": node_type}
-        return BlendTreeNodeResult(**await route(bridge, "cmd_set_blend_tree_node", params))
+        preview = {"tree_path": tree_path, "node": node_name, "node_type": node_type}
+        return await run_or_preview(
+            dry_run, BlendTreeNodeResult, preview, bridge, "cmd_set_blend_tree_node", params
+        )

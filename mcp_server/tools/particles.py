@@ -26,7 +26,7 @@ from mcp_server.models.particles import (
     ParticlePresetResult,
 )
 from mcp_server.safety import MUTATING, enforce_preconditions, require_node_exists
-from mcp_server.tools._route import route
+from mcp_server.tools._route import run_or_preview
 
 PARTICLES = {PARTICLES_TAG}
 
@@ -53,10 +53,6 @@ def register_particles(mcp: FastMCP, bridge: Bridge) -> None:
         and any node ``properties`` (e.g. ``one_shot``, ``explosiveness``) are applied.
         """
         await require_node_exists(bridge, parent_path)
-        if dry_run:
-            return CreateParticlesResult(
-                node_path="", particles_type=particles_type, created=False, dry_run=True
-            )
         params = {
             "parent_path": parent_path,
             "particles_type": particles_type,
@@ -65,7 +61,10 @@ def register_particles(mcp: FastMCP, bridge: Bridge) -> None:
             "lifetime": lifetime,
             "properties": properties or {},
         }
-        return CreateParticlesResult(**await route(bridge, "cmd_create_particles", params))
+        preview = {"node_path": "", "particles_type": particles_type, "created": False}
+        return await run_or_preview(
+            dry_run, CreateParticlesResult, preview, bridge, "cmd_create_particles", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=PARTICLES)
     @enforce_preconditions
@@ -77,10 +76,11 @@ def register_particles(mcp: FastMCP, bridge: Bridge) -> None:
         ``initial_velocity_min``/``max``, ``scale_min``/``max``, ``spread``, ``color``.
         """
         await require_node_exists(bridge, node_path)
-        if dry_run:
-            return ParticleMaterialResult(node_path=node_path, properties={}, dry_run=True)
         params = {"node_path": node_path, "properties": properties}
-        return ParticleMaterialResult(**await route(bridge, "cmd_set_particle_material", params))
+        preview = {"node_path": node_path, "properties": {}}
+        return await run_or_preview(
+            dry_run, ParticleMaterialResult, preview, bridge, "cmd_set_particle_material", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=PARTICLES)
     @enforce_preconditions
@@ -96,13 +96,17 @@ def register_particles(mcp: FastMCP, bridge: Bridge) -> None:
         Builds a GradientTexture1D and assigns it to ``color_ramp``.
         """
         await require_node_exists(bridge, node_path)
-        if dry_run:
-            return ParticleGradientResult(node_path=node_path, stops=len(colors), dry_run=True)
         params: dict[str, Any] = {"node_path": node_path, "colors": colors}
         if offsets is not None:
             params["offsets"] = offsets
-        return ParticleGradientResult(
-            **await route(bridge, "cmd_set_particle_color_gradient", params)
+        preview = {"node_path": node_path, "stops": len(colors)}
+        return await run_or_preview(
+            dry_run,
+            ParticleGradientResult,
+            preview,
+            bridge,
+            "cmd_set_particle_color_gradient",
+            params,
         )
 
     @mcp.tool(meta=MUTATING, tags=PARTICLES)
@@ -115,7 +119,8 @@ def register_particles(mcp: FastMCP, bridge: Bridge) -> None:
         color ramp in one call as a starting point you can then tweak.
         """
         await require_node_exists(bridge, node_path)
-        if dry_run:
-            return ParticlePresetResult(node_path=node_path, preset=preset, dry_run=True)
         params = {"node_path": node_path, "preset": preset}
-        return ParticlePresetResult(**await route(bridge, "cmd_apply_particle_preset", params))
+        preview = {"node_path": node_path, "preset": preset}
+        return await run_or_preview(
+            dry_run, ParticlePresetResult, preview, bridge, "cmd_apply_particle_preset", params
+        )

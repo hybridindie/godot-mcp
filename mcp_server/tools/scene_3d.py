@@ -37,7 +37,7 @@ from mcp_server.safety import (
     enforce_preconditions,
     require_node_exists,
 )
-from mcp_server.tools._route import route, run_or_preview
+from mcp_server.tools._route import run_or_preview
 
 SCENE_3D = {SCENE_3D_TAG}
 

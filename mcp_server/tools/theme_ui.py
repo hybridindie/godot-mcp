@@ -24,7 +24,7 @@ from mcp_server.models.theme_ui import (
     ThemeStyleboxResult,
 )
 from mcp_server.safety import MUTATING, enforce_preconditions, require_node_exists
-from mcp_server.tools._route import route
+from mcp_server.tools._route import run_or_preview
 
 THEME_UI = {THEME_UI_TAG}
 
@@ -42,12 +42,11 @@ def register_theme_ui(mcp: FastMCP, bridge: Bridge) -> None:
         shared resource; otherwise it is embedded with the scene.
         """
         await require_node_exists(bridge, node_path)
-        if dry_run:
-            return ThemeResult(
-                node_path=node_path, theme_path=save_path, created=False, dry_run=True
-            )
         params = {"node_path": node_path, "save_path": save_path}
-        return ThemeResult(**await route(bridge, "cmd_create_theme", params))
+        preview = {"node_path": node_path, "theme_path": save_path, "created": False}
+        return await run_or_preview(
+            dry_run, ThemeResult, preview, bridge, "cmd_create_theme", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=THEME_UI)
     @enforce_preconditions
@@ -59,10 +58,11 @@ def register_theme_ui(mcp: FastMCP, bridge: Bridge) -> None:
         Local overrides take precedence over the node's theme.
         """
         await require_node_exists(bridge, node_path)
-        if dry_run:
-            return ThemeColorResult(node_path=node_path, name=name, dry_run=True)
         params = {"node_path": node_path, "name": name, "color": color}
-        return ThemeColorResult(**await route(bridge, "cmd_set_theme_color", params))
+        preview = {"node_path": node_path, "name": name}
+        return await run_or_preview(
+            dry_run, ThemeColorResult, preview, bridge, "cmd_set_theme_color", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=THEME_UI)
     @enforce_preconditions
@@ -73,10 +73,11 @@ def register_theme_ui(mcp: FastMCP, bridge: Bridge) -> None:
         the Control at ``node_path``.
         """
         await require_node_exists(bridge, node_path)
-        if dry_run:
-            return ThemeFontSizeResult(node_path=node_path, name=name, size=size, dry_run=True)
         params = {"node_path": node_path, "name": name, "size": size}
-        return ThemeFontSizeResult(**await route(bridge, "cmd_set_theme_font_size", params))
+        preview = {"node_path": node_path, "name": name, "size": size}
+        return await run_or_preview(
+            dry_run, ThemeFontSizeResult, preview, bridge, "cmd_set_theme_font_size", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=THEME_UI)
     @enforce_preconditions
@@ -93,14 +94,13 @@ def register_theme_ui(mcp: FastMCP, bridge: Bridge) -> None:
         ``corner_radius_top_left``, ``border_width_all``).
         """
         await require_node_exists(bridge, node_path)
-        if dry_run:
-            return ThemeStyleboxResult(
-                node_path=node_path, name=name, stylebox_type=stylebox_type, dry_run=True
-            )
         params = {
             "node_path": node_path,
             "name": name,
             "stylebox_type": stylebox_type,
             "properties": properties or {},
         }
-        return ThemeStyleboxResult(**await route(bridge, "cmd_set_theme_stylebox", params))
+        preview = {"node_path": node_path, "name": name, "stylebox_type": stylebox_type}
+        return await run_or_preview(
+            dry_run, ThemeStyleboxResult, preview, bridge, "cmd_set_theme_stylebox", params
+        )

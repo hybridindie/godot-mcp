@@ -28,7 +28,7 @@ from mcp_server.safety import (
     require_bridge_connected,
     require_confirmation,
 )
-from mcp_server.tools._route import route
+from mcp_server.tools._route import run_or_preview
 
 INPUT_MAP = {INPUT_MAP_TAG}
 
@@ -47,10 +47,11 @@ def register_input_map(mcp: FastMCP, bridge: Bridge) -> None:
         Events for this action are added separately with ``add_input_event``.
         """
         require_bridge_connected(bridge)
-        if dry_run:
-            return AddInputActionResult(name=name, added=False, deadzone=deadzone, dry_run=True)
         params = {"name": name, "deadzone": deadzone}
-        return AddInputActionResult(**await route(bridge, "cmd_add_input_action", params))
+        preview = {"name": name, "added": False, "deadzone": deadzone}
+        return await run_or_preview(
+            dry_run, AddInputActionResult, preview, bridge, "cmd_add_input_action", params
+        )
 
     @mcp.tool(meta=DESTRUCTIVE, tags=INPUT_MAP)
     @enforce_preconditions
@@ -62,11 +63,13 @@ def register_input_map(mcp: FastMCP, bridge: Bridge) -> None:
         Destructive: requires ``confirm=True``.
         """
         require_bridge_connected(bridge)
-        if dry_run:
-            return RemoveInputActionResult(name=name, removed=False, dry_run=True)
-        require_confirmation(confirm, "remove_input_action")
+        if not dry_run:
+            require_confirmation(confirm, "remove_input_action")
         params = {"name": name, "confirm": True}
-        return RemoveInputActionResult(**await route(bridge, "cmd_remove_input_action", params))
+        preview = {"name": name, "removed": False}
+        return await run_or_preview(
+            dry_run, RemoveInputActionResult, preview, bridge, "cmd_remove_input_action", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=INPUT_MAP)
     @enforce_preconditions
@@ -98,8 +101,6 @@ def register_input_map(mcp: FastMCP, bridge: Bridge) -> None:
         ``joy_button_index`` (button events) or ``axis`` + ``axis_value`` (motion events).
         """
         require_bridge_connected(bridge)
-        if dry_run:
-            return AddInputEventResult(action=action, added=False, dry_run=True)
         params: dict[str, object] = {
             "action": action,
             "event_type": event_type,
@@ -115,7 +116,10 @@ def register_input_map(mcp: FastMCP, bridge: Bridge) -> None:
             "axis_value": axis_value,
             "joy_button_index": joy_button_index,
         }
-        return AddInputEventResult(**await route(bridge, "cmd_add_input_event", params))
+        preview = {"action": action, "added": False}
+        return await run_or_preview(
+            dry_run, AddInputEventResult, preview, bridge, "cmd_add_input_event", params
+        )
 
     @mcp.tool(meta=DESTRUCTIVE, tags=INPUT_MAP)
     @enforce_preconditions
@@ -127,10 +131,15 @@ def register_input_map(mcp: FastMCP, bridge: Bridge) -> None:
         Destructive: requires ``confirm=True``.
         """
         require_bridge_connected(bridge)
-        if dry_run:
-            return ClearInputActionEventsResult(action=action, cleared=False, dry_run=True)
-        require_confirmation(confirm, "clear_input_action_events")
+        if not dry_run:
+            require_confirmation(confirm, "clear_input_action_events")
         params = {"action": action, "confirm": True}
-        return ClearInputActionEventsResult(
-            **await route(bridge, "cmd_clear_input_action_events", params)
+        preview = {"action": action, "cleared": False}
+        return await run_or_preview(
+            dry_run,
+            ClearInputActionEventsResult,
+            preview,
+            bridge,
+            "cmd_clear_input_action_events",
+            params,
         )

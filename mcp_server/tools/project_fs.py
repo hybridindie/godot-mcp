@@ -24,7 +24,7 @@ from mcp_server.models.project_fs import (
     UidResolution,
 )
 from mcp_server.safety import MUTATING, READ_ONLY
-from mcp_server.tools._route import route
+from mcp_server.tools._route import route, run_or_preview
 
 PROJECT = {PROJECT_TAG}
 
@@ -72,10 +72,11 @@ def register_project_fs(mcp: FastMCP, bridge: Bridge) -> None:
         """Set a project setting and persist it. Coerced to the setting's existing type
         when it already exists. Not undo-tracked (it writes project settings).
         """
-        if dry_run:
-            return SetSettingResult(name=name, value=value, set=False, dry_run=True)
-        result = await route(bridge, "cmd_set_setting", {"name": name, "value": value})
-        return SetSettingResult(**result)
+        params = {"name": name, "value": value}
+        preview = {"name": name, "value": value, "set": False}
+        return await run_or_preview(
+            dry_run, SetSettingResult, preview, bridge, "cmd_set_setting", params
+        )
 
     @mcp.tool(meta=READ_ONLY, tags=PROJECT)
     async def resolve_uid(value: str) -> UidResolution:

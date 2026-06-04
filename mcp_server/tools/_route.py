@@ -39,7 +39,7 @@ async def run_or_preview(
     ``if dry_run: return ...`` / ``return ... route(...)`` two-branch boilerplate.
     """
     if dry_run:
-        return result_cls(dry_run=True, **preview)
+        return result_cls(**preview, dry_run=True)
     return result_cls(**await route(bridge, command, params or {}))
 
 

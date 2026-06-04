@@ -27,7 +27,7 @@ from mcp_server.models.audio import (
     AudioPlayerResult,
 )
 from mcp_server.safety import MUTATING, READ_ONLY, enforce_preconditions, require_node_exists
-from mcp_server.tools._route import route
+from mcp_server.tools._route import route, run_or_preview
 
 AUDIO = {AUDIO_TAG}
 
@@ -51,10 +51,6 @@ def register_audio(mcp: FastMCP, bridge: Bridge) -> None:
         ``autoplay``, ``pitch_scale``).
         """
         await require_node_exists(bridge, parent_path)
-        if dry_run:
-            return AudioPlayerResult(
-                node_path="", player_type=player_type, created=False, dry_run=True
-            )
         params = {
             "parent_path": parent_path,
             "player_type": player_type,
@@ -62,7 +58,10 @@ def register_audio(mcp: FastMCP, bridge: Bridge) -> None:
             "stream_path": stream_path,
             "properties": properties or {},
         }
-        return AudioPlayerResult(**await route(bridge, "cmd_add_audio_player", params))
+        preview = {"node_path": "", "player_type": player_type, "created": False}
+        return await run_or_preview(
+            dry_run, AudioPlayerResult, preview, bridge, "cmd_add_audio_player", params
+        )
 
     @mcp.tool(meta=READ_ONLY, tags=AUDIO)
     async def get_audio_bus_layout() -> AudioBusLayoutResult:
@@ -81,10 +80,11 @@ def register_audio(mcp: FastMCP, bridge: Bridge) -> None:
         AudioServer layout. Returns its index. Route a player to it via the player's
         ``bus`` property, or attach effects with ``add_audio_bus_effect``.
         """
-        if dry_run:
-            return AudioBusResult(index=-1, name=name, dry_run=True)
         params = {"name": name, "volume_db": volume_db}
-        return AudioBusResult(**await route(bridge, "cmd_add_audio_bus", params))
+        preview = {"index": -1, "name": name}
+        return await run_or_preview(
+            dry_run, AudioBusResult, preview, bridge, "cmd_add_audio_bus", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=AUDIO)
     @enforce_preconditions
@@ -98,9 +98,8 @@ def register_audio(mcp: FastMCP, bridge: Bridge) -> None:
         AudioEffectDelay / AudioEffectEQ) to the bus named ``bus``, configured with
         ``properties``. Returns the bus index and the new effect's stack index.
         """
-        if dry_run:
-            return AudioBusEffectResult(
-                bus=bus, bus_index=-1, effect_type=effect_type, effect_index=-1, dry_run=True
-            )
         params = {"bus": bus, "effect_type": effect_type, "properties": properties or {}}
-        return AudioBusEffectResult(**await route(bridge, "cmd_add_audio_bus_effect", params))
+        preview = {"bus": bus, "bus_index": -1, "effect_type": effect_type, "effect_index": -1}
+        return await run_or_preview(
+            dry_run, AudioBusEffectResult, preview, bridge, "cmd_add_audio_bus_effect", params
+        )

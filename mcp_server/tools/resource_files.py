@@ -22,7 +22,7 @@ from mcp_server.models.resource_files import (
     UnregisterAutoloadResult,
 )
 from mcp_server.safety import MUTATING, READ_ONLY
-from mcp_server.tools._route import route
+from mcp_server.tools._route import route, run_or_preview
 
 RESOURCES_EDIT = {RESOURCES_EDIT_TAG}
 
@@ -45,15 +45,14 @@ def register_resource_files(mcp: FastMCP, bridge: Bridge) -> None:
         properties: dict[str, Any] | None = None,
         dry_run: bool = False,
     ) -> CreateResourceResult:
-        """Create a resource of ``type`` at ``resource_path`` (`.tres`/`.res`), setting
+        """Create a resource of ``type`` at ``resource_path`` (``.tres``/``.res``), setting
         ``properties`` (coerced to each property's Godot type), and save it.
         """
-        if dry_run:
-            return CreateResourceResult(
-                resource_path=resource_path, type=type, created=False, dry_run=True
-            )
         params = {"type": type, "resource_path": resource_path, "properties": properties or {}}
-        return CreateResourceResult(**await route(bridge, "cmd_create_resource", params))
+        preview = {"resource_path": resource_path, "type": type, "created": False}
+        return await run_or_preview(
+            dry_run, CreateResourceResult, preview, bridge, "cmd_create_resource", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=RESOURCES_EDIT)
     async def set_resource_property(
@@ -62,12 +61,11 @@ def register_resource_files(mcp: FastMCP, bridge: Bridge) -> None:
         """Set a property on the resource file at ``resource_path`` and re-save it.
         Reversible via the editor's undo.
         """
-        if dry_run:
-            return SetResourcePropertyResult(
-                resource_path=resource_path, property=property, value=value, dry_run=True
-            )
         params = {"resource_path": resource_path, "property": property, "value": value}
-        return SetResourcePropertyResult(**await route(bridge, "cmd_set_resource_property", params))
+        preview = {"resource_path": resource_path, "property": property, "value": value}
+        return await run_or_preview(
+            dry_run, SetResourcePropertyResult, preview, bridge, "cmd_set_resource_property", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=RESOURCES_EDIT)
     async def register_autoload(
@@ -76,15 +74,17 @@ def register_resource_files(mcp: FastMCP, bridge: Bridge) -> None:
         """Register an autoload singleton ``name`` pointing at the script/scene ``path``
         (persisted to project settings).
         """
-        if dry_run:
-            return RegisterAutoloadResult(name=name, path=path, registered=False, dry_run=True)
         params = {"name": name, "path": path}
-        return RegisterAutoloadResult(**await route(bridge, "cmd_register_autoload", params))
+        preview = {"name": name, "path": path, "registered": False}
+        return await run_or_preview(
+            dry_run, RegisterAutoloadResult, preview, bridge, "cmd_register_autoload", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=RESOURCES_EDIT)
     async def unregister_autoload(name: str, dry_run: bool = False) -> UnregisterAutoloadResult:
         """Remove the autoload singleton ``name`` from project settings."""
-        if dry_run:
-            return UnregisterAutoloadResult(name=name, unregistered=False, dry_run=True)
         params = {"name": name}
-        return UnregisterAutoloadResult(**await route(bridge, "cmd_unregister_autoload", params))
+        preview = {"name": name, "unregistered": False}
+        return await run_or_preview(
+            dry_run, UnregisterAutoloadResult, preview, bridge, "cmd_unregister_autoload", params
+        )

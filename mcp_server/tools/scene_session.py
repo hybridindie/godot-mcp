@@ -31,7 +31,7 @@ from mcp_server.safety import (
     require_confirmation,
     require_node_exists,
 )
-from mcp_server.tools._route import route
+from mcp_server.tools._route import route, run_or_preview
 
 SCENE_EDIT = {SCENE_EDIT_TAG}
 
@@ -47,13 +47,11 @@ def register_scene_session(mcp: FastMCP, bridge: Bridge) -> None:
         If the scene is already open, returns ``already_open=True``.
         """
         require_bridge_connected(bridge)
-        # No preconditions beyond bridge — the file may or may not exist.
-        if dry_run:
-            return OpenSceneResult(
-                scene_path=scene_path, opened=False, already_open=False, dry_run=True
-            )
         params: dict[str, Any] = {"scene_path": scene_path}
-        return OpenSceneResult(**await route(bridge, "cmd_open_scene", params))
+        preview = {"scene_path": scene_path, "opened": False, "already_open": False}
+        return await run_or_preview(
+            dry_run, OpenSceneResult, preview, bridge, "cmd_open_scene", params
+        )
 
     @mcp.tool(meta=DESTRUCTIVE, tags=SCENE_EDIT)
     @enforce_preconditions
@@ -65,22 +63,23 @@ def register_scene_session(mcp: FastMCP, bridge: Bridge) -> None:
         Destructive: requires ``confirm=True``.
         """
         require_bridge_connected(bridge)
-        if dry_run:
-            return ReloadSceneResult(
-                scene_path=scene_path, reloaded=False, dry_run=True
-            )
-        require_confirmation(confirm, "reload_scene")
+        if not dry_run:
+            require_confirmation(confirm, "reload_scene")
         params: dict[str, Any] = {"scene_path": scene_path, "confirm": True}
-        return ReloadSceneResult(**await route(bridge, "cmd_reload_scene", params))
+        preview = {"scene_path": scene_path, "reloaded": False}
+        return await run_or_preview(
+            dry_run, ReloadSceneResult, preview, bridge, "cmd_reload_scene", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
     @enforce_preconditions
     async def save_all_scenes(dry_run: bool = False) -> SaveAllScenesResult:
         """Save all currently open scenes. Returns the count saved."""
         await require_active_scene(bridge)
-        if dry_run:
-            return SaveAllScenesResult(saved=False, count=0, dry_run=True)
-        return SaveAllScenesResult(**await route(bridge, "cmd_save_all_scenes"))
+        preview = {"saved": False, "count": 0}
+        return await run_or_preview(
+            dry_run, SaveAllScenesResult, preview, bridge, "cmd_save_all_scenes"
+        )
 
     @mcp.tool(meta=READ_ONLY, tags=SCENE_EDIT)
     @enforce_preconditions
@@ -106,9 +105,8 @@ def register_scene_session(mcp: FastMCP, bridge: Bridge) -> None:
         await require_active_scene(bridge)
         for path in node_paths:
             await require_node_exists(bridge, path)
-        if dry_run:
-            return SelectNodesResult(
-                scene_path="", selected=node_paths, count=len(node_paths), dry_run=True
-            )
         params: dict[str, Any] = {"node_paths": node_paths}
-        return SelectNodesResult(**await route(bridge, "cmd_select_nodes", params))
+        preview = {"scene_path": "", "selected": node_paths, "count": len(node_paths)}
+        return await run_or_preview(
+            dry_run, SelectNodesResult, preview, bridge, "cmd_select_nodes", params
+        )

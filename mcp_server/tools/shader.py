@@ -24,7 +24,7 @@ from mcp_server.models.shader import (
     ShaderResult,
 )
 from mcp_server.safety import MUTATING, READ_ONLY, enforce_preconditions, require_node_exists
-from mcp_server.tools._route import route
+from mcp_server.tools._route import route, run_or_preview
 
 SHADER = {SHADER_TAG}
 
@@ -41,10 +41,11 @@ def register_shader(mcp: FastMCP, bridge: Bridge) -> None:
         ``res://``) with ``code`` (defaults to a minimal canvas_item shader). Undoable —
         restores the previous content (or removes the file) on undo.
         """
-        if dry_run:
-            return ShaderResult(shader_path=shader_path, created=False, dry_run=True)
         params = {"shader_path": shader_path, "code": code}
-        return ShaderResult(**await route(bridge, "cmd_create_shader", params))
+        preview = {"shader_path": shader_path, "created": False}
+        return await run_or_preview(
+            dry_run, ShaderResult, preview, bridge, "cmd_create_shader", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=SHADER)
     @enforce_preconditions
@@ -56,12 +57,15 @@ def register_shader(mcp: FastMCP, bridge: Bridge) -> None:
         GeometryInstance3D). Returns which material property was set.
         """
         await require_node_exists(bridge, node_path)
-        if dry_run:
-            return ShaderMaterialResult(
-                node_path=node_path, shader_path=shader_path, material_property="", dry_run=True
-            )
         params = {"node_path": node_path, "shader_path": shader_path}
-        return ShaderMaterialResult(**await route(bridge, "cmd_assign_shader_material", params))
+        preview = {
+            "node_path": node_path,
+            "shader_path": shader_path,
+            "material_property": "",
+        }
+        return await run_or_preview(
+            dry_run, ShaderMaterialResult, preview, bridge, "cmd_assign_shader_material", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=SHADER)
     @enforce_preconditions
@@ -78,10 +82,11 @@ def register_shader(mcp: FastMCP, bridge: Bridge) -> None:
         HTML string → color). The node must have a ShaderMaterial assigned.
         """
         await require_node_exists(bridge, node_path)
-        if dry_run:
-            return ShaderParamResult(node_path=node_path, name=name, dry_run=True)
         params = {"node_path": node_path, "name": name, "value": value, "param_type": param_type}
-        return ShaderParamResult(**await route(bridge, "cmd_set_shader_param", params))
+        preview = {"node_path": node_path, "name": name}
+        return await run_or_preview(
+            dry_run, ShaderParamResult, preview, bridge, "cmd_set_shader_param", params
+        )
 
     @mcp.tool(meta=READ_ONLY, tags=SHADER)
     async def read_shader(shader_path: str) -> ShaderReadResult:

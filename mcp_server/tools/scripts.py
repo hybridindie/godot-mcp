@@ -28,7 +28,7 @@ from mcp_server.models.scripts import (
 )
 from mcp_server.runtime import Runner, resolve_project_dir
 from mcp_server.safety import MUTATING, READ_ONLY, PreconditionError, enforce_preconditions
-from mcp_server.tools._route import route
+from mcp_server.tools._route import route, run_or_preview
 
 SCRIPTS = {SCRIPTS_TAG}
 
@@ -89,10 +89,11 @@ def register_scripts(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
         """Create or overwrite the GDScript at ``script_path`` with ``content``.
         Reversible via the editor's undo. ``dry_run=True`` writes nothing.
         """
-        if dry_run:
-            return WriteScriptResult(script_path=script_path, created=False, dry_run=True)
         params = {"script_path": script_path, "content": content}
-        return WriteScriptResult(**await route(bridge, "cmd_write_script", params))
+        preview = {"script_path": script_path, "created": False}
+        return await run_or_preview(
+            dry_run, WriteScriptResult, preview, bridge, "cmd_write_script", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=SCRIPTS)
     async def patch_script(
@@ -101,10 +102,11 @@ def register_scripts(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
         """Replace every occurrence of ``find`` with ``replace`` in the script.
         Errors if ``find`` isn't present. Reversible via undo; ``dry_run`` previews.
         """
-        if dry_run:
-            return PatchScriptResult(script_path=script_path, replacements=0, dry_run=True)
         params = {"script_path": script_path, "find": find, "replace": replace}
-        return PatchScriptResult(**await route(bridge, "cmd_patch_script", params))
+        preview = {"script_path": script_path, "replacements": 0}
+        return await run_or_preview(
+            dry_run, PatchScriptResult, preview, bridge, "cmd_patch_script", params
+        )
 
     @mcp.tool(meta=READ_ONLY, tags=SCRIPTS)
     @enforce_preconditions

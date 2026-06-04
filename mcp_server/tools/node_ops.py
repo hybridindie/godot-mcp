@@ -20,7 +20,7 @@ from mcp_server.models.node_ops import (
     SignalConnectionList,
 )
 from mcp_server.safety import MUTATING, READ_ONLY, enforce_preconditions, require_node_exists
-from mcp_server.tools._route import route
+from mcp_server.tools._route import route, run_or_preview
 
 SCENE_EDIT = {SCENE_EDIT_TAG}
 
@@ -35,10 +35,11 @@ def register_node_ops(mcp: FastMCP, bridge: Bridge) -> None:
         Returns the new node's path. Reversible via undo.
         """
         await require_node_exists(bridge, node_path)
-        if dry_run:
-            return DuplicateNodeResult(node_path="", source_path=node_path, dry_run=True)
-        result = await route(bridge, "cmd_duplicate_node", {"node_path": node_path})
-        return DuplicateNodeResult(**result)
+        preview = {"node_path": "", "source_path": node_path}
+        params = {"node_path": node_path}
+        return await run_or_preview(
+            dry_run, DuplicateNodeResult, preview, bridge, "cmd_duplicate_node", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
     @enforce_preconditions
@@ -50,10 +51,11 @@ def register_node_ops(mcp: FastMCP, bridge: Bridge) -> None:
         """
         await require_node_exists(bridge, node_path)
         await require_node_exists(bridge, new_parent_path)
-        if dry_run:
-            return MoveNodeResult(node_path=node_path, moved=False, dry_run=True)
         params = {"node_path": node_path, "new_parent_path": new_parent_path, "index": index}
-        return MoveNodeResult(**await route(bridge, "cmd_move_node", params))
+        preview = {"node_path": node_path, "moved": False}
+        return await run_or_preview(
+            dry_run, MoveNodeResult, preview, bridge, "cmd_move_node", params
+        )
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
     @enforce_preconditions
@@ -107,19 +109,19 @@ def register_node_ops(mcp: FastMCP, bridge: Bridge) -> None:
         """
         await require_node_exists(bridge, source_path)
         await require_node_exists(bridge, target_path)
-        if dry_run:
-            return DisconnectSignalResult(
-                source_path=source_path,
-                signal_name=signal_name,
-                target_path=target_path,
-                method_name=method_name,
-                disconnected=False,
-                dry_run=True,
-            )
         params = {
             "source_path": source_path,
             "signal_name": signal_name,
             "target_path": target_path,
             "method_name": method_name,
         }
-        return DisconnectSignalResult(**await route(bridge, "cmd_disconnect_signal", params))
+        preview = {
+            "source_path": source_path,
+            "signal_name": signal_name,
+            "target_path": target_path,
+            "method_name": method_name,
+            "disconnected": False,
+        }
+        return await run_or_preview(
+            dry_run, DisconnectSignalResult, preview, bridge, "cmd_disconnect_signal", params
+        )
