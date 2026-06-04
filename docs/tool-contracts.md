@@ -61,9 +61,11 @@ via `cmd_get_project_info`) against `TOOLSET_MIN_GODOT` in `mcp_server/toolsets.
 - `list_toolsets` surfaces `min_godot: "4.4" | null` per toolset so the agent
   knows the requirement before attempting to enable it.
 - `enable_toolset("input_map")` on a 4.3 editor raises a structured `ToolError`:
-  > "Toolset 'input_map' requires Godot 4.4+ (connected editor is 4.3). Upgrade the editor or enable a different toolset."
-- If the bridge is disconnected, the gate reports `BRIDGE_DISCONNECTED` rather
-  than enabling blindly.
+  ```
+  PRECONDITION_FAILED: Toolset 'input_map' requires Godot 4.4+ (connected editor is 4.3). Upgrade the editor or enable a different toolset. [required=godot_version]
+  ```
+- If the bridge is disconnected, the gate raises `BRIDGE_DISCONNECTED: ... [required=bridge_connected]` rather than enabling blindly.
+- If the version cannot be determined (query fails or response is unparseable), the gate raises `PRECONDITION_FAILED: ... [required=bridge_connected]` — failing closed rather than enabling blindly.
 
 Only toolsets with a documented version risk are gated. The rest
 (`inspection`, `scripts`, `physics`, `runtime`, etc.) are left un-gated so the agent

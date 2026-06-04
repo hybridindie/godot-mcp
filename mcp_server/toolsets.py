@@ -126,9 +126,7 @@ class ToolsetInfo(BaseModel):
     name: str
     enabled: bool
     description: str
-    min_godot: str | None = None
-    """Minimum Godot version required to use this toolset, or ``None`` if it
-    works on all supported versions."""
+    min_godot: str | None = None  # Minimum Godot version required, or None if un-gated.
 
 
 class ToolsetManager:
@@ -209,23 +207,32 @@ class ToolsetManager:
             return
         if self._bridge is None or not self._bridge.connected:
             raise ToolError(
-                f"Toolset '{category}' requires Godot {req[0]}.{req[1]}+, but the "
-                "Godot bridge is not connected. Start the editor with the addon "
-                "enabled and retry."
+                f"BRIDGE_DISCONNECTED: Toolset '{category}' requires Godot {req[0]}.{req[1]}+, "
+                "but the Godot bridge is not connected. Start the editor with the addon "
+                "enabled and retry. [required=bridge_connected]"
             )
         if self._godot_version is None:
             self._godot_version = await self._fetch_godot_version()
-        if self._godot_version is not None and self._godot_version < req:
+        if self._godot_version is None:
             raise ToolError(
-                f"Toolset '{category}' requires Godot {req[0]}.{req[1]}+ "
-                f"(connected editor is {self._godot_version[0]}.{self._godot_version[1]}). "
-                f"Upgrade the editor or enable a different toolset."
+                f"PRECONDITION_FAILED: Toolset '{category}' requires Godot {req[0]}.{req[1]}+, "
+                "but the Godot version could not be determined. Check the editor and addon "
+                "status, then retry. [required=bridge_connected]"
+            )
+        if self._godot_version < req:
+            raise ToolError(
+                f"PRECONDITION_FAILED: Toolset '{category}' requires Godot "
+                f"{req[0]}.{req[1]}+ (connected editor is "
+                f"{self._godot_version[0]}.{self._godot_version[1]}). "
+                "Upgrade the editor or enable a different toolset. "
+                "[required=godot_version]"
             )
 
     async def _fetch_godot_version(self) -> tuple[int, int] | None:
         """Query the addon for Godot version info and parse (major, minor).
 
-        Returns ``None`` if the query fails or the version string is unparseable.
+        Returns ``None`` when the bridge call fails or the version string is
+        unparseable (e.g. empty, missing, or not starting with ``MAJOR.MINOR``).
         """
         bridge = self._bridge
         assert bridge is not None  # guarded by _require_godot_version caller
@@ -244,11 +251,11 @@ class ToolsetManager:
 def _parse_godot_version(version_str: str) -> tuple[int, int] | None:
     """Parse a Godot version string (e.g. ``"4.4.1-stable"``) into ``(major, minor)``.
 
-    Returns ``None`` if the string does not start with a ``MAJOR.MINOR`` pattern.
+    Returns ``None`` if the string does not **start** with a ``MAJOR.MINOR`` pattern.
     """
     if not version_str:
         return None
-    m = re.search(r"(\d+)\.(\d+)", version_str)
+    m = re.match(r"(\d+)\.(\d+)", version_str)
     if not m:
         return None
     return int(m.group(1)), int(m.group(2))

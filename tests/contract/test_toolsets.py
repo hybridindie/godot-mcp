@@ -108,8 +108,10 @@ async def test_enable_gated_toolset_on_too_old_godot_fails() -> None:
         )
     assert result.is_error
     detail = str(result.content)
+    assert "PRECONDITION_FAILED" in detail
     assert "requires Godot 4.4+" in detail
     assert "connected editor is 4.3" in detail
+    assert "[required=godot_version]" in detail
 
 
 async def test_enable_unrestricted_toolset_on_old_godot_succeeds() -> None:
@@ -132,7 +134,9 @@ async def test_enable_gated_toolset_without_bridge_fails() -> None:
             "enable_toolset", {"category": "scene_edit"}, raise_on_error=False
         )
     assert result.is_error
-    assert "bridge is not connected" in str(result.content).lower()
+    content = str(result.content)
+    assert "BRIDGE_DISCONNECTED" in content
+    assert "[required=bridge_connected]" in content
 
 
 async def test_enable_gated_toolset_on_exact_minimum_succeeds() -> None:
