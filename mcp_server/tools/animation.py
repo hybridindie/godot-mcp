@@ -13,6 +13,13 @@ from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import ANIMATION_TAG
+from mcp_server.defaults import (
+    DEFAULT_ANIMATION_EASING,
+    DEFAULT_ANIMATION_LENGTH,
+    DEFAULT_ANIMATION_TRACK_TYPE,
+    DEFAULT_ANIMATION_TREE_NAME,
+    DEFAULT_ANIMATION_TREE_ROOT_TYPE,
+)
 from mcp_server.models.animation import (
     AnimationTrackResult,
     AnimationTreeResult,
@@ -33,7 +40,7 @@ def register_animation(mcp: FastMCP, bridge: Bridge) -> None:
     @mcp.tool(meta=MUTATING, tags=ANIMATION)
     @enforce_preconditions
     async def create_animation(
-        node_path: str, name: str, length: float = 1.0, dry_run: bool = False
+        node_path: str, name: str, length: float = DEFAULT_ANIMATION_LENGTH, dry_run: bool = False
     ) -> CreateAnimationResult:
         """Create an empty animation ``name`` (seconds ``length``) in the
         AnimationPlayer at ``node_path`` (adds a default library if needed).
@@ -52,7 +59,7 @@ def register_animation(mcp: FastMCP, bridge: Bridge) -> None:
         node_path: str,
         animation: str,
         track_path: str,
-        track_type: str = "value",
+        track_type: str = DEFAULT_ANIMATION_TRACK_TYPE,
         dry_run: bool = False,
     ) -> AnimationTrackResult:
         """Add a track to ``animation`` targeting ``track_path`` (e.g.
@@ -78,7 +85,7 @@ def register_animation(mcp: FastMCP, bridge: Bridge) -> None:
         track: int,
         time: float,
         value: Any,
-        easing: float = 1.0,
+        easing: float = DEFAULT_ANIMATION_EASING,
         dry_run: bool = False,
     ) -> KeyframeResult:
         """Insert a keyframe on ``track`` at ``time`` with ``value`` (Godot string
@@ -101,9 +108,9 @@ def register_animation(mcp: FastMCP, bridge: Bridge) -> None:
     @enforce_preconditions
     async def create_animation_tree(
         parent_path: str,
-        name: str = "AnimationTree",
+        name: str = DEFAULT_ANIMATION_TREE_NAME,
         anim_player: str = "",
-        root_type: str = "AnimationNodeStateMachine",
+        root_type: str = DEFAULT_ANIMATION_TREE_ROOT_TYPE,
         dry_run: bool = False,
     ) -> AnimationTreeResult:
         """Create an AnimationTree under ``parent_path`` with a ``root_type`` root

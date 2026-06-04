@@ -15,6 +15,9 @@ from fastmcp.exceptions import ToolError
 from mcp_server.bridge import Bridge
 from mcp_server.categories import EXPORT_TAG
 from mcp_server.config import ServerConfig
+from mcp_server.defaults import (
+    DEFAULT_EXPORT_TIMEOUT_SECONDS,
+)
 from mcp_server.models.export import ExportInfoResult, ExportPresetsResult, ExportResult
 from mcp_server.runtime import Runner, resolve_project_dir, summarize_run
 from mcp_server.safety import READ_ONLY, RUNTIME, PreconditionError, enforce_preconditions
@@ -43,7 +46,10 @@ def register_export(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner: 
     @mcp.tool(meta=RUNTIME, tags=EXPORT)
     @enforce_preconditions
     async def export_project(
-        preset: str, output_path: str, debug: bool = False, timeout_seconds: int = 300
+        preset: str,
+        output_path: str,
+        debug: bool = False,
+        timeout_seconds: float = DEFAULT_EXPORT_TIMEOUT_SECONDS,
     ) -> ExportResult:
         """Export the project with the named ``preset`` to ``output_path`` (relative paths
         resolve against the project dir). ``debug`` does a debug export. Runs Godot headless

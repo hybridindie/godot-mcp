@@ -14,6 +14,9 @@ from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import SHADER_TAG
+from mcp_server.defaults import (
+    DEFAULT_SHADER_CODE,
+)
 from mcp_server.models.shader import (
     ShaderMaterialResult,
     ShaderParamResult,
@@ -24,9 +27,6 @@ from mcp_server.safety import MUTATING, READ_ONLY, enforce_preconditions, requir
 from mcp_server.tools._route import route
 
 SHADER = {SHADER_TAG}
-
-# A minimal valid canvas_item shader, used when create_shader is called with no code.
-DEFAULT_SHADER_CODE = "shader_type canvas_item;\n\nvoid fragment() {\n\tCOLOR = vec4(1.0);\n}\n"
 
 
 def register_shader(mcp: FastMCP, bridge: Bridge) -> None:

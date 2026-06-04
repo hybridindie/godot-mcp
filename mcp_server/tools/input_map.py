@@ -11,6 +11,10 @@ from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import INPUT_MAP_TAG
+from mcp_server.defaults import (
+    DEFAULT_INPUT_AXIS_VALUE,
+    DEFAULT_INPUT_DEADZONE,
+)
 from mcp_server.models.input_map import (
     AddInputActionResult,
     AddInputEventResult,
@@ -35,7 +39,7 @@ def register_input_map(mcp: FastMCP, bridge: Bridge) -> None:
     @mcp.tool(meta=MUTATING, tags=INPUT_MAP)
     @enforce_preconditions
     async def add_input_action(
-        name: str, deadzone: float = 0.5, dry_run: bool = False
+        name: str, deadzone: float = DEFAULT_INPUT_DEADZONE, dry_run: bool = False
     ) -> AddInputActionResult:
         """Add a new input action to the project Input Map.
 
@@ -81,7 +85,7 @@ def register_input_map(mcp: FastMCP, bridge: Bridge) -> None:
         # joypad event
         device: int = 0,
         axis: int = -1,
-        axis_value: float = 1.0,
+        axis_value: float = DEFAULT_INPUT_AXIS_VALUE,
         joy_button_index: int = -1,
         dry_run: bool = False,
     ) -> AddInputEventResult:

@@ -16,6 +16,9 @@ from typing import Any
 from fastmcp.exceptions import ToolError
 
 from mcp_server.bridge import Bridge
+from mcp_server.defaults import (
+    DEFAULT_POLL_INTERVAL_SECONDS,
+)
 
 
 async def route(
@@ -51,6 +54,6 @@ async def poll_ready(
         remaining = deadline - asyncio.get_event_loop().time()
         if remaining <= 0:
             break
-        await asyncio.sleep(min(0.1, remaining))
+        await asyncio.sleep(min(DEFAULT_POLL_INTERVAL_SECONDS, remaining))
         result = await route(bridge, command, params)
     return result

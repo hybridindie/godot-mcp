@@ -16,6 +16,17 @@ from fastmcp.exceptions import ToolError
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import TESTING_TAG
+from mcp_server.defaults import (
+    DEFAULT_ASSERT_NODE_TIMEOUT_MS,
+    DEFAULT_PROBE_POLL_INTERVAL_SECONDS,
+    DEFAULT_STRESS_BUFFER_SECONDS,
+    DEFAULT_STRESS_DELAY_MS,
+    DEFAULT_STRESS_ITERATIONS,
+    DEFAULT_STRESS_MAX_ITERATIONS,
+    DEFAULT_STRESS_MAX_WAIT_SECONDS,
+    DEFAULT_TEST_SETTLE_MS,
+    DEFAULT_TEST_SETUP_MS,
+)
 from mcp_server.models.testing import (
     AssertionResult,
     ScenarioResult,
@@ -27,7 +38,7 @@ from mcp_server.safety import READ_ONLY, RUNTIME
 from mcp_server.tools._route import poll_ready, route
 
 TESTING = {TESTING_TAG}
-_MAX_STRESS_ITERATIONS = 2000
+_MAX_STRESS_ITERATIONS = DEFAULT_STRESS_MAX_ITERATIONS
 
 
 async def _read_live_value(
@@ -74,7 +85,7 @@ async def _wait_connected(bridge: Bridge, timeout_ms: int) -> bool:
         state = await route(bridge, "cmd_get_game_scene_tree", {})
         if state.get("connected"):
             return True
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(DEFAULT_PROBE_POLL_INTERVAL_SECONDS)
     return False
 
 
@@ -83,7 +94,11 @@ def register_testing(mcp: FastMCP, bridge: Bridge) -> None:
 
     @mcp.tool(meta=READ_ONLY, tags=TESTING)
     async def assert_node_state(
-        node_path: str, property: str, expected: Any, op: str = "==", timeout_ms: int = 1500
+        node_path: str,
+        property: str,
+        expected: Any,
+        op: str = "==",
+        timeout_ms: int = DEFAULT_ASSERT_NODE_TIMEOUT_MS,
     ) -> AssertionResult:
         """Assert that a *running* game node's ``property`` satisfies ``op`` vs ``expected``
         (==, !=, <, <=, >, >=, contains, approx). Reads the live value via the runtime
@@ -100,8 +115,8 @@ def register_testing(mcp: FastMCP, bridge: Bridge) -> None:
         scene: str = "",
         events: list[dict[str, Any]] | None = None,
         assertions: list[dict[str, Any]] | None = None,
-        setup_ms: int = 800,
-        settle_ms: int = 300,
+        setup_ms: int = DEFAULT_TEST_SETUP_MS,
+        settle_ms: int = DEFAULT_TEST_SETTLE_MS,
         stop_after: bool = True,
     ) -> ScenarioResult:
         """Run a play-test: play ``scene`` (or the main scene), wait ``setup_ms`` for the
@@ -135,10 +150,10 @@ def register_testing(mcp: FastMCP, bridge: Bridge) -> None:
 
     @mcp.tool(meta=RUNTIME, tags=TESTING)
     async def run_stress_test(
-        iterations: int = 100,
+        iterations: int = DEFAULT_STRESS_ITERATIONS,
         actions: list[str] | None = None,
         seed: int = 0,
-        delay_ms: int = 8,
+        delay_ms: int = DEFAULT_STRESS_DELAY_MS,
     ) -> StressTestResult:
         """Fuzz the *running* game with ``iterations`` random input events drawn from
         ``actions`` (key names / input-map actions / "click"; a sensible default pool if
@@ -150,7 +165,12 @@ def register_testing(mcp: FastMCP, bridge: Bridge) -> None:
         events = random_input_events(iterations, actions, seed)
         await route(bridge, "cmd_play_input_sequence", {"events": events, "delay_ms": delay_ms})
         # Give the sequence time to play out, then check the game is still alive.
-        await asyncio.sleep(min(10.0, iterations * delay_ms / 1000 + 0.5))
+        await asyncio.sleep(
+            min(
+                DEFAULT_STRESS_MAX_WAIT_SECONDS,
+                iterations * delay_ms / 1000 + DEFAULT_STRESS_BUFFER_SECONDS,
+            )
+        )
         playing = bool((await route(bridge, "cmd_is_playing", {})).get("playing"))
         return StressTestResult(
             survived=playing, iterations=iterations, playing_after=playing, seed=seed

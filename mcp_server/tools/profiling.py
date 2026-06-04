@@ -12,6 +12,9 @@ from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import PROFILING_TAG
+from mcp_server.defaults import (
+    DEFAULT_PERF_MONITORS_TIMEOUT_MS,
+)
 from mcp_server.models.profiling import EditorPerformanceResult, GamePerformanceResult
 from mcp_server.safety import READ_ONLY
 from mcp_server.tools._route import poll_ready, route
@@ -30,7 +33,9 @@ def register_profiling(mcp: FastMCP, bridge: Bridge) -> None:
         return EditorPerformanceResult(**await route(bridge, "cmd_get_editor_performance", {}))
 
     @mcp.tool(meta=READ_ONLY, tags=PROFILING)
-    async def get_performance_monitors(timeout_ms: int = 2000) -> GamePerformanceResult:
+    async def get_performance_monitors(
+        timeout_ms: int = DEFAULT_PERF_MONITORS_TIMEOUT_MS,
+    ) -> GamePerformanceResult:
         """Read the *running* game's Performance monitors (same metrics, live) via the
         runtime probe. Requires a play session; if the probe isn't connected, returns
         ``connected=false`` with a hint. Errors (no play session) surface structured.

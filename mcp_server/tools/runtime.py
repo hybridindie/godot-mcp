@@ -12,6 +12,9 @@ from fastmcp import FastMCP
 from mcp_server.bridge import Bridge
 from mcp_server.categories import RUNTIME_TAG
 from mcp_server.config import ServerConfig
+from mcp_server.defaults import (
+    DEFAULT_RUN_TIMEOUT_SECONDS,
+)
 from mcp_server.models.runtime import RunCaptureResult
 from mcp_server.runtime import Runner, resolve_project_dir, summarize_run
 from mcp_server.safety import RUNTIME, PreconditionError, enforce_preconditions
@@ -25,7 +28,7 @@ def register_runtime(
     @mcp.tool(meta=RUNTIME, tags={RUNTIME_TAG})
     @enforce_preconditions
     async def run_and_capture(
-        scene: str | None = None, timeout_seconds: int = 10
+        scene: str | None = None, timeout_seconds: float = DEFAULT_RUN_TIMEOUT_SECONDS
     ) -> RunCaptureResult:
         """Run the project headless (optionally a specific ``scene`` like
         "res://main.tscn"), wait up to ``timeout_seconds``, then return a summary of

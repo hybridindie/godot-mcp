@@ -17,6 +17,10 @@ from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import INPUT_TAG
+from mcp_server.defaults import (
+    DEFAULT_INPUT_RECORDING_TIMEOUT_MS,
+    DEFAULT_INPUT_STRENGTH,
+)
 from mcp_server.models.input_sim import (
     InputStatsResult,
     RecordingResult,
@@ -80,7 +84,7 @@ def register_input_sim(mcp: FastMCP, bridge: Bridge) -> None:
 
     @mcp.tool(meta=RUNTIME, tags=INPUT)
     async def simulate_action(
-        action: str, pressed: bool = True, strength: float = 1.0
+        action: str, pressed: bool = True, strength: float = DEFAULT_INPUT_STRENGTH
     ) -> SimInputResult:
         """Press or release an input-map action (e.g. "ui_accept", "jump") on the running
         game. ``strength`` (0..1) applies to a press. The action must exist in the
@@ -117,7 +121,9 @@ def register_input_sim(mcp: FastMCP, bridge: Bridge) -> None:
         return RecordResult(**await route(bridge, "cmd_record_input", params))
 
     @mcp.tool(meta=READ_ONLY, tags=INPUT)
-    async def stop_recording(timeout_ms: int = 2000) -> RecordingResult:
+    async def stop_recording(
+        timeout_ms: int = DEFAULT_INPUT_RECORDING_TIMEOUT_MS,
+    ) -> RecordingResult:
         """Stop recording and return the captured ``events`` (in the
         ``play_input_sequence`` format). Polls the addon up to ``timeout_ms`` for the
         buffered sequence.

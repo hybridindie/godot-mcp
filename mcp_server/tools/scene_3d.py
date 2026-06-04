@@ -14,6 +14,14 @@ from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import SCENE_3D_TAG
+from mcp_server.defaults import (
+    DEFAULT_CAMERA_NAME,
+    DEFAULT_GRIDMAP_ORIENTATION,
+    DEFAULT_LIGHT_TYPE,
+    DEFAULT_MESH_INSTANCE_NAME,
+    DEFAULT_MESH_TYPE,
+    DEFAULT_WORLD_ENVIRONMENT_NAME,
+)
 from mcp_server.models.scene_3d import (
     CameraResult,
     EnvironmentResult,
@@ -71,8 +79,8 @@ def register_scene_3d(mcp: FastMCP, bridge: Bridge) -> None:
     @enforce_preconditions
     async def add_mesh_instance(
         parent_path: str,
-        mesh_type: str = "BoxMesh",
-        name: str = "MeshInstance3D",
+        mesh_type: str = DEFAULT_MESH_TYPE,
+        name: str = DEFAULT_MESH_INSTANCE_NAME,
         properties: dict[str, Any] | None = None,
         dry_run: bool = False,
     ) -> MeshInstanceResult:
@@ -97,7 +105,7 @@ def register_scene_3d(mcp: FastMCP, bridge: Bridge) -> None:
     @enforce_preconditions
     async def setup_camera(
         parent_path: str,
-        name: str = "Camera3D",
+        name: str = DEFAULT_CAMERA_NAME,
         make_current: bool = True,
         properties: dict[str, Any] | None = None,
         dry_run: bool = False,
@@ -120,7 +128,7 @@ def register_scene_3d(mcp: FastMCP, bridge: Bridge) -> None:
     @enforce_preconditions
     async def setup_lighting(
         parent_path: str,
-        light_type: str = "DirectionalLight3D",
+        light_type: str = DEFAULT_LIGHT_TYPE,
         name: str = "",
         properties: dict[str, Any] | None = None,
         dry_run: bool = False,
@@ -144,7 +152,7 @@ def register_scene_3d(mcp: FastMCP, bridge: Bridge) -> None:
     @enforce_preconditions
     async def setup_environment(
         parent_path: str,
-        name: str = "WorldEnvironment",
+        name: str = DEFAULT_WORLD_ENVIRONMENT_NAME,
         properties: dict[str, Any] | None = None,
         dry_run: bool = False,
     ) -> EnvironmentResult:
@@ -168,7 +176,7 @@ def register_scene_3d(mcp: FastMCP, bridge: Bridge) -> None:
         node_path: str,
         position: list[int],
         item: int,
-        orientation: int = 0,
+        orientation: int = DEFAULT_GRIDMAP_ORIENTATION,
         dry_run: bool = False,
     ) -> GridMapCellResult:
         """Set a GridMap cell at the integer grid ``position`` ``[x, y, z]`` to mesh
@@ -229,8 +237,6 @@ def register_scene_3d(mcp: FastMCP, bridge: Bridge) -> None:
         or ``library_path`` (a saved ``.tres``); pass exactly one. The item's mesh comes
         from exactly one of ``mesh_type`` (a primitive like BoxMesh, configured with
         ``properties`` such as ``size``) or ``mesh_path`` (the path to an imported Mesh
-        resource — ``.tres``/``.res``/``.obj``; note ``.glb``/``.gltf`` import as scenes,
-        not meshes). ``item_id`` overrides the auto-assigned id; ``name`` labels the item.
         """
         _require_single_library_target(node_path, library_path)
         _require_single_mesh_source(mesh_type, mesh_path)

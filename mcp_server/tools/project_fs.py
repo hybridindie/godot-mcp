@@ -13,6 +13,9 @@ from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import PROJECT_TAG
+from mcp_server.defaults import (
+    DEFAULT_SEARCH_MAX_RESULTS,
+)
 from mcp_server.models.project_fs import (
     FilesystemTree,
     SearchResult,
@@ -43,7 +46,7 @@ def register_project_fs(mcp: FastMCP, bridge: Bridge) -> None:
         directory: str = "res://",
         name_glob: str = "",
         content: str = "",
-        max_results: int = 200,
+        max_results: int = DEFAULT_SEARCH_MAX_RESULTS,
     ) -> SearchResult:
         """Search ``directory`` recursively for files matching ``name_glob`` (e.g.
         "*.gd") and/or containing ``content``. ``truncated`` is true if capped at

@@ -14,6 +14,11 @@ from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import PHYSICS_TAG
+from mcp_server.defaults import (
+    DEFAULT_COLLISION_NODE_TYPE,
+    DEFAULT_RAYCAST_NAME,
+    DEFAULT_RAYCAST_TYPE,
+)
 from mcp_server.models.physics import (
     CollisionShapeResult,
     PhysicsLayersResult,
@@ -48,7 +53,7 @@ def register_physics(mcp: FastMCP, bridge: Bridge) -> None:
     async def setup_collision(
         node_path: str,
         shape_type: str,
-        collision_node_type: str = "CollisionShape2D",
+        collision_node_type: str = DEFAULT_COLLISION_NODE_TYPE,
         properties: dict[str, Any] | None = None,
         dry_run: bool = False,
     ) -> CollisionShapeResult:
@@ -90,8 +95,8 @@ def register_physics(mcp: FastMCP, bridge: Bridge) -> None:
     @enforce_preconditions
     async def add_raycast(
         parent_path: str,
-        name: str = "RayCast",
-        raycast_type: str = "RayCast2D",
+        name: str = DEFAULT_RAYCAST_NAME,
+        raycast_type: str = DEFAULT_RAYCAST_TYPE,
         properties: dict[str, Any] | None = None,
         dry_run: bool = False,
     ) -> RaycastResult:

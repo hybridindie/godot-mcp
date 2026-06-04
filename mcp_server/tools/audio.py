@@ -16,6 +16,10 @@ from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import AUDIO_TAG
+from mcp_server.defaults import (
+    DEFAULT_AUDIO_BUS_VOLUME_DB,
+    DEFAULT_AUDIO_PLAYER_TYPE,
+)
 from mcp_server.models.audio import (
     AudioBusEffectResult,
     AudioBusLayoutResult,
@@ -35,7 +39,7 @@ def register_audio(mcp: FastMCP, bridge: Bridge) -> None:
     @enforce_preconditions
     async def add_audio_player(
         parent_path: str,
-        player_type: str = "AudioStreamPlayer",
+        player_type: str = DEFAULT_AUDIO_PLAYER_TYPE,
         name: str = "",
         stream_path: str = "",
         properties: dict[str, Any] | None = None,
@@ -71,7 +75,7 @@ def register_audio(mcp: FastMCP, bridge: Bridge) -> None:
     @mcp.tool(meta=MUTATING, tags=AUDIO)
     @enforce_preconditions
     async def add_audio_bus(
-        name: str, volume_db: float = 0.0, dry_run: bool = False
+        name: str, volume_db: float = DEFAULT_AUDIO_BUS_VOLUME_DB, dry_run: bool = False
     ) -> AudioBusResult:
         """Add an audio bus named ``name`` (must be unique) at ``volume_db`` to the
         AudioServer layout. Returns its index. Route a player to it via the player's

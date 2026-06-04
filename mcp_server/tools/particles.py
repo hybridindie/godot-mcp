@@ -15,6 +15,10 @@ from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import PARTICLES_TAG
+from mcp_server.defaults import (
+    DEFAULT_PARTICLE_AMOUNT,
+    DEFAULT_PARTICLE_LIFETIME,
+)
 from mcp_server.models.particles import (
     CreateParticlesResult,
     ParticleGradientResult,
@@ -39,8 +43,8 @@ def register_particles(mcp: FastMCP, bridge: Bridge) -> None:
         parent_path: str,
         particles_type: str = "GPUParticles2D",
         name: str = "",
-        amount: int = 8,
-        lifetime: float = 1.0,
+        amount: int = DEFAULT_PARTICLE_AMOUNT,
+        lifetime: float = DEFAULT_PARTICLE_LIFETIME,
         properties: dict[str, Any] | None = None,
         dry_run: bool = False,
     ) -> CreateParticlesResult:

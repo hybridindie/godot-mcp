@@ -15,6 +15,10 @@ from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import NAVIGATION_TAG
+from mcp_server.defaults import (
+    DEFAULT_NAV_AGENT_TYPE,
+    DEFAULT_NAV_REGION_TYPE,
+)
 from mcp_server.models.navigation import (
     BakeNavigationResult,
     NavigationAgentResult,
@@ -34,7 +38,7 @@ def register_navigation(mcp: FastMCP, bridge: Bridge) -> None:
     @enforce_preconditions
     async def setup_navigation_region(
         parent_path: str,
-        region_type: str = "NavigationRegion2D",
+        region_type: str = DEFAULT_NAV_REGION_TYPE,
         name: str = "",
         properties: dict[str, Any] | None = None,
         dry_run: bool = False,
@@ -60,7 +64,7 @@ def register_navigation(mcp: FastMCP, bridge: Bridge) -> None:
     @enforce_preconditions
     async def setup_navigation_agent(
         parent_path: str,
-        agent_type: str = "NavigationAgent2D",
+        agent_type: str = DEFAULT_NAV_AGENT_TYPE,
         name: str = "",
         properties: dict[str, Any] | None = None,
         dry_run: bool = False,

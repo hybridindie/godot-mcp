@@ -14,6 +14,9 @@ from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import THEME_UI_TAG
+from mcp_server.defaults import (
+    DEFAULT_STYLEBOX_TYPE,
+)
 from mcp_server.models.theme_ui import (
     ThemeColorResult,
     ThemeFontSizeResult,
@@ -80,7 +83,7 @@ def register_theme_ui(mcp: FastMCP, bridge: Bridge) -> None:
     async def set_theme_stylebox(
         node_path: str,
         name: str,
-        stylebox_type: str = "StyleBoxFlat",
+        stylebox_type: str = DEFAULT_STYLEBOX_TYPE,
         properties: dict[str, Any] | None = None,
         dry_run: bool = False,
     ) -> ThemeStyleboxResult:
