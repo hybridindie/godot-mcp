@@ -115,7 +115,10 @@ def test_inspection_helpers_exist() -> None:
 
 
 def test_router_registers_inspection_commands() -> None:
-    source = (ADDON_DIR / "command_router.gd").read_text()
+    sources = [ADDON_DIR / "command_router.gd", ADDON_DIR / "handlers" / "scene_inspect.gd"]
+    for src in sources:
+        assert src.exists(), f"required source missing: {src}"
+    combined = "".join(src.read_text() for src in sources)
     # Wire commands are cmd_-prefixed (the handler name); see docs/architecture.md.
     for command in (
         "cmd_get_project_info",
@@ -124,7 +127,7 @@ def test_router_registers_inspection_commands() -> None:
         "cmd_get_selected_node",
         "cmd_get_node_properties",
     ):
-        assert f'"{command}"' in source, f"router must register {command}"
+        assert f'"{command}"' in combined, f"router must register {command}"
 
 
 def test_router_registers_mutation_commands() -> None:
