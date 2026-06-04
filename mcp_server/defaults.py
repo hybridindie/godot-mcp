@@ -1,8 +1,8 @@
 """Canonical defaults for tool parameters ("default constants").
 
-Every magic number or string that appears in a tool signature or a hard-coded
-sleep / poll interval lives here so there is one place to change it. Constants
-are grouped by domain and typed so ``mypy`` catches unit mismatches.
+This is the canonical place for shared defaults that appear in tool signatures,
+polling loops, and sleep intervals.  Constants are grouped by domain and typed so
+``mypy`` catches unit mismatches.
 
 Import from here in ``mcp_server/tools/*.py`` instead of inlining values.
 """

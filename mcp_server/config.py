@@ -25,6 +25,15 @@ BRIDGE_URL_ENV = "GODOT_MCP_BRIDGE_URL"
 Transport = Literal["stdio", "http"]
 
 
+def _parse_transport(value: str | None) -> Transport:
+    """Validate and narrow a transport string to the supported literal."""
+    if value == "stdio":
+        return "stdio"
+    if value == "http":
+        return "http"
+    return "stdio"
+
+
 class BridgeConfig(BaseModel):
     """Connection settings for the Godot addon bridge."""
 
@@ -63,7 +72,7 @@ class ServerConfig(BaseModel):
         """Build full server config from the environment."""
         return cls(
             bridge=BridgeConfig.from_env(),
-            transport=os.environ.get("GODOT_MCP_TRANSPORT", "stdio"),  # type: ignore[arg-type]
+            transport=_parse_transport(os.environ.get("GODOT_MCP_TRANSPORT", "stdio")),
             host=os.environ.get("GODOT_MCP_HTTP_HOST", DEFAULT_HTTP_HOST),
             port=int(os.environ.get("GODOT_MCP_HTTP_PORT", DEFAULT_HTTP_PORT)),
             log_level=os.environ.get("GODOT_MCP_LOG_LEVEL", "INFO"),

@@ -235,7 +235,8 @@ class ToolsetManager:
         unparseable (e.g. empty, missing, or not starting with ``MAJOR.MINOR``).
         """
         bridge = self._bridge
-        assert bridge is not None  # guarded by _require_godot_version caller
+        if bridge is None:
+            raise RuntimeError("_fetch_godot_version called with no bridge")
         try:
             # Best-effort: use a short timeout so a slow bridge doesn't hang
             # enable_toolset indefinitely.

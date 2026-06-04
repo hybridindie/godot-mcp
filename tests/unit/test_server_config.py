@@ -31,7 +31,8 @@ def test_from_env_reads_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
     assert config.bridge.url == "ws://localhost:9081"
 
 
-def test_from_env_rejects_unknown_transport(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_from_env_falls_back_to_stdio_on_unknown_transport(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GODOT_MCP_TRANSPORT", "carrier-pigeon")
-    with pytest.raises(ValueError):
-        ServerConfig.from_env()
+    config = ServerConfig.from_env()
+    # Unknown transports fall back to "stdio" rather than crashing.
+    assert config.transport == "stdio"

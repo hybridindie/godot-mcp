@@ -237,6 +237,7 @@ def register_scene_3d(mcp: FastMCP, bridge: Bridge) -> None:
         or ``library_path`` (a saved ``.tres``); pass exactly one. The item's mesh comes
         from exactly one of ``mesh_type`` (a primitive like BoxMesh, configured with
         ``properties`` such as ``size``) or ``mesh_path`` (the path to an imported Mesh
+        resource).
         """
         _require_single_library_target(node_path, library_path)
         _require_single_mesh_source(mesh_type, mesh_path)

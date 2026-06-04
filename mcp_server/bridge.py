@@ -84,7 +84,7 @@ class Bridge:
             try:
                 await self.connect()
                 return
-            except Exception:
+            except (ConnectionError, OSError, TimeoutError):
                 attempt += 1
                 if max_attempts is not None and attempt >= max_attempts:
                     logger.error("bridge connect gave up", extra={"attempts": attempt})

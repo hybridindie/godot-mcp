@@ -80,7 +80,8 @@ async def _assert_one(bridge: Bridge, spec: dict[str, Any], timeout_ms: int) -> 
 
 
 async def _wait_connected(bridge: Bridge, timeout_ms: int) -> bool:
-    deadline_attempts = max(1, timeout_ms // 200)
+    poll_interval_ms = int(DEFAULT_PROBE_POLL_INTERVAL_SECONDS * 1000)
+    deadline_attempts = max(1, timeout_ms // poll_interval_ms)
     for _ in range(deadline_attempts):
         state = await route(bridge, "cmd_get_game_scene_tree", {})
         if state.get("connected"):
