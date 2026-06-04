@@ -11,14 +11,36 @@ the calling tool is decorated with ``@enforce_preconditions`` (read-only tools a
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import Any, TypeVar
 
 from fastmcp.exceptions import ToolError
+from pydantic import BaseModel
 
 from mcp_server.bridge import Bridge
 from mcp_server.defaults import (
     DEFAULT_POLL_INTERVAL_SECONDS,
 )
+
+T = TypeVar("T", bound=BaseModel)
+
+
+async def run_or_preview(
+    dry_run: bool,
+    result_cls: type[T],
+    preview: dict[str, Any],
+    bridge: Bridge,
+    command: str,
+    params: dict[str, Any] | None = None,
+) -> T:
+    """Return ``result_cls(**preview, dry_run=True)`` when ``dry_run`` is set,
+    otherwise ``result_cls(**await route(...))``.
+
+    Keeps tool handlers DRY: a single call replaces the
+    ``if dry_run: return ...`` / ``return ... route(...)`` two-branch boilerplate.
+    """
+    if dry_run:
+        return result_cls(dry_run=True, **preview)
+    return result_cls(**await route(bridge, command, params or {}))
 
 
 async def route(
