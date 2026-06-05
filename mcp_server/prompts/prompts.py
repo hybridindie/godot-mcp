@@ -135,7 +135,8 @@ def _register_play_test(mcp: FastMCP) -> None:
                     "Step 1 — Enable toolsets:\n"
                     "  enable_toolset('runtime')\n"
                     "  enable_toolset('input')\n"
-                    "  enable_toolset('testing')\n\n"
+                    "  enable_toolset('testing')\n"
+                    "  enable_toolset('resources_edit')\n\n"
                     "Step 2 — Ensure the runtime probe is registered:\n"
                     "  get_project_info() → check autoloads for 'MCPRuntimeProbe'\n"
                     "  If missing: register_autoload(\n"
@@ -227,7 +228,7 @@ def _register_debug_scene(mcp: FastMCP) -> None:
         name="debug_scene",
         description=(
             "Systematic debugging workflow for a Godot scene or script that is failing. "
-            "Uses debug_workflow, get_parse_errors, run_and_capture, and analyze_signal_flow "
+            "Uses health_check, get_parse_errors, run_and_capture, and analyze_signal_flow "
             "to identify root causes and suggest fixes."
         ),
     )
@@ -244,10 +245,18 @@ def _register_debug_scene(mcp: FastMCP) -> None:
                 content=(
                     f"Debug a failing Godot scene or script{scene_clause}{script_clause}. "
                     "Follow this systematic checklist.\n\n"
+                    "TOOLSETS TO ENABLE (before any debug steps):\n"
+                    "  enable_toolset('scripts')\n"
+                    "  enable_toolset('runtime')\n"
+                    "  enable_toolset('analysis')\n"
+                    "  enable_toolset('inspection')  [already on by default]\n\n"
                     "PHASE 1 — Quick Health Check\n"
-                    "  debug_workflow()\n"
-                    "  → Returns bridge state, scene tree, headless run "
-                    "errors, and suggestions.\n\n"
+                    "  health_check()\n"
+                    "  → Returns server version and bridge connection status.\n"
+                    "  get_project_info()\n"
+                    "  → Returns project name, Godot version, autoloads, and main scene.\n"
+                    "  get_scene_tree(max_depth=2)\n"
+                    "  → Spot-check the scene structure for obvious problems.\n\n"
                     "PHASE 2 — Script Analysis (if a script is involved)\n"
                     f"  get_parse_errors(script_path='{script_path or 'res://scripts/my_script.gd'}')"  # noqa: E501
                     "\n  → Fix any parse errors (syntax, missing parentheses, "  # noqa: E501
@@ -308,8 +317,8 @@ def _register_troubleshoot(mcp: FastMCP) -> None:
                 content=(
                     "Something went wrong. Follow this diagnostic checklist in order.\n\n"
                     "STEP 1 — Check server health:\n"
-                    "  get_server_info()\n"
-                    "  → Look at 'bridge.connected', 'active_scene', and 'next_steps'.\n\n"
+                    "  health_check()\n"
+                    "  → Look at 'bridge.connected' and 'server.version'.\n\n"
                     "STEP 2 — If bridge is disconnected:\n"
                     "  - Godot must be running with the addon enabled.\n"
                     "  - Check Project Settings → Plugins → godot_mcp → Enable.\n"

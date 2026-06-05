@@ -42,6 +42,7 @@ def test_prompts_are_registered(server: FastMCP) -> None:
         "build_scene",
         "play_test",
         "script_edit",
+        "debug_scene",
         "troubleshoot",
     }
     names = asyncio.run(_get_prompt_names(server))
@@ -108,7 +109,28 @@ def test_troubleshoot_prompt_returns_messages(server: FastMCP) -> None:
     assert result is not None
     assert len(result.messages) > 0
     content = " ".join(str(m.content) for m in result.messages)
-    assert "get_server_info" in content
+    assert "health_check" in content
     assert "bridge is disconnected" in content
     assert "PRECONDITION_FAILED" in content
     assert "DOCUMENTATION" in content
+
+
+def test_debug_scene_prompt_parameterized(server: FastMCP) -> None:
+    """The debug_scene prompt accepts scene_path and script_path arguments."""
+    result = asyncio.run(
+        _render_prompt(
+            server,
+            "debug_scene",
+            {
+                "scene_path": "res://scenes/main.tscn",
+                "script_path": "res://scripts/hero.gd",
+            },
+        )
+    )
+    assert result is not None
+    content = " ".join(str(m.content) for m in result.messages)
+    assert "res://scenes/main.tscn" in content
+    assert "res://scripts/hero.gd" in content
+    assert "health_check" in content
+    assert "get_parse_errors" in content
+    assert "run_and_capture" in content
