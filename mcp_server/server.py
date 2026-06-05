@@ -19,6 +19,7 @@ from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.config import ServerConfig
+from mcp_server.prompts import register_prompts
 from mcp_server.resources.context import register_resources
 from mcp_server.runtime import GodotRunner, Runner
 from mcp_server.safety import register_safety_tools
@@ -117,6 +118,9 @@ def create_server(
     register_export(mcp, bridge, config, runner)
     register_scripts(mcp, bridge, config, runner)
     register_safety_tools(mcp)
+
+    # Register workflow prompts (instruction templates for the agent).
+    register_prompts(mcp)
 
     # Gate the tool surface by category, then apply the default exposure (core +
     # inspection on; scene_edit and future categories off until enabled).
