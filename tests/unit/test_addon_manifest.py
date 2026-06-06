@@ -131,7 +131,7 @@ def test_router_registers_inspection_commands() -> None:
 
 
 def test_router_registers_mutation_commands() -> None:
-    source = (ADDON_DIR / "command_router.gd").read_text()
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in (
         "cmd_create_node",
         "cmd_rename_node",
@@ -147,7 +147,7 @@ def test_router_registers_mutation_commands() -> None:
 
 
 def test_router_registers_script_commands() -> None:
-    source = (ADDON_DIR / "command_router.gd").read_text()
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in (
         "cmd_read_script",
         "cmd_list_scripts",
@@ -159,7 +159,7 @@ def test_router_registers_script_commands() -> None:
 
 
 def test_router_registers_node_parity_commands() -> None:
-    source = (ADDON_DIR / "command_router.gd").read_text()
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in (
         "cmd_duplicate_node",
         "cmd_move_node",
@@ -172,7 +172,7 @@ def test_router_registers_node_parity_commands() -> None:
 
 
 def test_router_registers_resource_commands() -> None:
-    source = (ADDON_DIR / "command_router.gd").read_text()
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in (
         "cmd_read_resource",
         "cmd_create_resource",
@@ -184,7 +184,7 @@ def test_router_registers_resource_commands() -> None:
 
 
 def test_router_registers_project_fs_commands() -> None:
-    source = (ADDON_DIR / "command_router.gd").read_text()
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in (
         "cmd_get_filesystem_tree",
         "cmd_search_files",
@@ -197,14 +197,14 @@ def test_router_registers_project_fs_commands() -> None:
 
 
 def test_router_registers_editor_commands() -> None:
-    source = (ADDON_DIR / "command_router.gd").read_text()
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     assert '"cmd_capture_editor_screenshot"' in source
     # Capture uses the verified Image → base64 PNG chain.
     assert "save_png_to_buffer" in source and "raw_to_base64" in source
 
 
 def test_router_registers_physics_commands() -> None:
-    source = (ADDON_DIR / "command_router.gd").read_text()
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in (
         "cmd_setup_physics_body",
         "cmd_setup_collision",
@@ -215,7 +215,7 @@ def test_router_registers_physics_commands() -> None:
 
 
 def test_router_registers_animation_commands() -> None:
-    source = (ADDON_DIR / "command_router.gd").read_text()
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in (
         "cmd_create_animation",
         "cmd_add_animation_track",
@@ -228,7 +228,7 @@ def test_router_registers_animation_commands() -> None:
 
 
 def test_router_registers_scene_3d_commands() -> None:
-    source = (ADDON_DIR / "command_router.gd").read_text()
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in (
         "cmd_add_mesh_instance",
         "cmd_setup_camera",
@@ -240,7 +240,7 @@ def test_router_registers_scene_3d_commands() -> None:
 
 
 def test_router_registers_particle_commands() -> None:
-    source = (ADDON_DIR / "command_router.gd").read_text()
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in (
         "cmd_create_particles",
         "cmd_set_particle_material",
@@ -251,7 +251,7 @@ def test_router_registers_particle_commands() -> None:
 
 
 def test_router_registers_navigation_commands() -> None:
-    source = (ADDON_DIR / "command_router.gd").read_text()
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in (
         "cmd_setup_navigation_region",
         "cmd_setup_navigation_agent",
@@ -262,7 +262,7 @@ def test_router_registers_navigation_commands() -> None:
 
 
 def test_router_registers_audio_commands() -> None:
-    source = (ADDON_DIR / "command_router.gd").read_text()
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in (
         "cmd_add_audio_player",
         "cmd_get_audio_bus_layout",
@@ -273,7 +273,7 @@ def test_router_registers_audio_commands() -> None:
 
 
 def test_router_registers_tilemap_commands() -> None:
-    source = (ADDON_DIR / "command_router.gd").read_text()
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in (
         "cmd_tilemap_set_cell",
         "cmd_tilemap_fill_rect",
@@ -285,7 +285,7 @@ def test_router_registers_tilemap_commands() -> None:
 
 
 def test_router_registers_theme_ui_commands() -> None:
-    source = (ADDON_DIR / "command_router.gd").read_text()
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in (
         "cmd_create_theme",
         "cmd_set_theme_color",
@@ -296,7 +296,7 @@ def test_router_registers_theme_ui_commands() -> None:
 
 
 def test_router_registers_shader_commands() -> None:
-    source = (ADDON_DIR / "command_router.gd").read_text()
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in (
         "cmd_create_shader",
         "cmd_read_shader",
@@ -307,7 +307,7 @@ def test_router_registers_shader_commands() -> None:
 
 
 def test_router_registers_runtime_session_commands() -> None:
-    source = (ADDON_DIR / "command_router.gd").read_text()
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in (
         "cmd_play_scene",
         "cmd_stop_scene",
@@ -331,7 +331,7 @@ def test_runtime_session_addon_files_present() -> None:
 
 
 def test_router_registers_scene_session_commands() -> None:
-    source = (ADDON_DIR / "command_router.gd").read_text()
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in (
         "cmd_open_scene",
         "cmd_reload_scene",
@@ -343,7 +343,7 @@ def test_router_registers_scene_session_commands() -> None:
 
 
 def test_router_registers_input_map_commands() -> None:
-    source = (ADDON_DIR / "command_router.gd").read_text()
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in (
         "cmd_add_input_action",
         "cmd_remove_input_action",
@@ -354,7 +354,7 @@ def test_router_registers_input_map_commands() -> None:
 
 
 def test_router_registers_input_sim_commands() -> None:
-    source = (ADDON_DIR / "command_router.gd").read_text()
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in (
         "cmd_simulate_key",
         "cmd_simulate_mouse",
@@ -369,7 +369,7 @@ def test_router_registers_input_sim_commands() -> None:
 
 
 def test_router_registers_runtime_inspect_commands() -> None:
-    source = (ADDON_DIR / "command_router.gd").read_text()
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in ("cmd_monitor_property", "cmd_get_property_samples", "cmd_find_ui_elements"):
         assert f'"{command}"' in source, f"router must register {command}"
     # The probe must sample properties and collect Control nodes with their rect.
@@ -378,7 +378,7 @@ def test_router_registers_runtime_inspect_commands() -> None:
 
 
 def test_router_registers_input_recording_commands() -> None:
-    source = (ADDON_DIR / "command_router.gd").read_text()
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in ("cmd_record_input", "cmd_stop_recording", "cmd_get_recording"):
         assert f'"{command}"' in source, f"router must register {command}"
     # The probe must capture input via _input and serialize events for replay.
@@ -387,7 +387,7 @@ def test_router_registers_input_recording_commands() -> None:
 
 
 def test_router_registers_profiling_commands() -> None:
-    source = (ADDON_DIR / "command_router.gd").read_text()
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in ("cmd_get_editor_performance", "cmd_get_performance_monitors"):
         assert f'"{command}"' in source, f"router must register {command}"
     assert "Performance.get_monitor" in source  # editor snapshot reads the monitors
@@ -396,7 +396,7 @@ def test_router_registers_profiling_commands() -> None:
 
 
 def test_router_registers_batch_commands() -> None:
-    source = (ADDON_DIR / "command_router.gd").read_text()
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in (
         "cmd_find_nodes_by_type",
         "cmd_batch_set_property",
@@ -409,7 +409,7 @@ def test_router_registers_batch_commands() -> None:
 
 
 def test_router_registers_export_commands() -> None:
-    source = (ADDON_DIR / "command_router.gd").read_text()
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in ("cmd_list_export_presets", "cmd_get_export_info"):
         assert f'"{command}"' in source, f"router must register {command}"
     # presets are read from export_presets.cfg via Godot's ConfigFile.
@@ -427,7 +427,7 @@ def test_plugin_declares_minimum_godot_version() -> None:
 
 
 def test_mutations_use_undo_redo() -> None:
-    source = (ADDON_DIR / "command_router.gd").read_text()
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     # Every create/rename/delete/set must register with EditorUndoRedoManager.
     assert "get_editor_undo_redo" in source
     assert source.count("create_action") >= 6  # the UndoRedo-wrapped mutations
