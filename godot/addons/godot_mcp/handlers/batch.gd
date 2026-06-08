@@ -50,7 +50,7 @@ func _cross_scene_one(
 		targets.push_front(root)
 	var modified := 0
 	for node in targets:
-		var prop_type := _property_type(node, property)
+		var prop_type := _router._property_type(node, property)
 		if prop_type == -1:
 			continue
 		if not dry_run:
@@ -128,9 +128,9 @@ func _cmd_find_nodes_by_type(params: Dictionary) -> Dictionary:
 	var root := EditorInterface.get_edited_scene_root()
 	var nodes: Array = []
 	if parent.is_class(type_name):
-		nodes.append(_router._node_summary(parent, root))
+		nodes.append(_node_summary(parent, root))
 	for node in parent.find_children("*", type_name, recursive, false):
-		nodes.append(_router._node_summary(node, root))
+		nodes.append(_node_summary(node, root))
 	return _router._ok({"type": type_name, "nodes": nodes, "count": nodes.size()})
 
 
@@ -142,7 +142,7 @@ func _cmd_batch_set_property(params: Dictionary) -> Dictionary:
 	var property := str(params.get("property", ""))
 	if property.is_empty():
 		return _router._fail("VALIDATION_ERROR", "'property' must be a non-empty string.")
-	var targets := _router._batch_targets(root, params)
+	var targets := _batch_targets(root, params)
 	if targets is Dictionary:
 		return targets  # structured error from target resolution
 	var value: Variant = params.get("value")
@@ -190,7 +190,7 @@ func _cmd_cross_scene_set_property(params: Dictionary) -> Dictionary:
 	var results: Array = []
 	var total := 0
 	for raw in scenes:
-		var res := _router._cross_scene_one(str(raw), type_name, property, value, dry_run, current_path)
+		var res := _cross_scene_one(str(raw), type_name, property, value, dry_run, current_path)
 		results.append(res)
 		total += int(res.get("modified", 0))
 	return _router._ok({"results": results, "total_modified": total, "scenes": results.size(), "dry_run": dry_run})
@@ -206,7 +206,7 @@ func _cmd_get_dependencies(params: Dictionary) -> Dictionary:
 	var deps := ResourceLoader.get_dependencies(path)
 	var out: Array = []
 	for dep in deps:
-		out.append(_router._parse_dependency(dep))
+		out.append(_parse_dependency(dep))
 	return _router._ok({"path": path, "dependencies": out, "count": out.size()})
 
 

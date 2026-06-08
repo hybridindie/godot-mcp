@@ -95,7 +95,7 @@ func _cmd_simulate_mouse(params: Dictionary) -> Dictionary:
 		return guard
 	var button := str(params.get("button", ""))
 	if not _router._valid_mouse_button(button):
-		return _router._fail("VALIDATION_ERROR", "'button' must be empty (motion) or one of %s." % str(_SIM_MOUSE_BUTTONS))
+		return _router._fail("VALIDATION_ERROR", "'button' must be empty (motion) or one of %s." % str(["left", "right", "middle", "wheel_up", "wheel_down"]))
 	_router._debugger.send_to_probe("godot_mcp:simulate_mouse", [params])
 	return _router._ok({"sent": true, "kind": "mouse", "count": 1})
 

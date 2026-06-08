@@ -43,7 +43,7 @@ func _cmd_capture_editor_screenshot(_params: Dictionary) -> Dictionary:
 	var image := texture.get_image()
 	if image == null:
 		return _router._fail("INTERNAL_ERROR", "Could not capture the editor viewport image.")
-	var result := _router._encode_png(image)
+	var result := _encode_png(image)
 	if str(result.get("base64", "")).is_empty():
 		return _router._fail("INTERNAL_ERROR", "PNG encoding produced no data.")
 	return _router._ok(result)

@@ -100,7 +100,7 @@ func _cmd_get_filesystem_tree(params: Dictionary) -> Dictionary:
 	if not DirAccess.dir_exists_absolute(directory):
 		return _router._fail("RESOURCE_NOT_FOUND", "No directory '%s'." % directory)
 	var max_depth := int(params.get("max_depth", -1))
-	return _router._ok({"tree": _router._fs_node(directory, max_depth)})
+	return _router._ok({"tree": _fs_node(directory, max_depth)})
 
 
 
@@ -114,7 +114,7 @@ func _cmd_search_files(params: Dictionary) -> Dictionary:
 	var content := str(params.get("content", ""))
 	var max_results := int(params.get("max_results", 200))
 	var matches: Array = []
-	var truncated := _router._search(directory, name_glob, content, max_results, matches)
+	var truncated := _search(directory, name_glob, content, max_results, matches)
 	return _router._ok({"matches": matches, "truncated": truncated})
 
 

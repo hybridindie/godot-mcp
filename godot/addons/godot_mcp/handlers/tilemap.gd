@@ -199,6 +199,12 @@ func _resolve_tilemap(raw_path: Variant, layer: int) -> Dictionary:
 
 func _apply_tile_cell(
 	node: Node, layer: int, coords: Vector2i, source_id: int, atlas_coords: Vector2i, alternative_tile: int
+) -> void:
+	if node is TileMapLayer:
+		node.set_cell(coords, source_id, atlas_coords, alternative_tile)
+	else:
+		node.set_cell(layer, coords, source_id, atlas_coords, alternative_tile)
+
 func _clear_tile_layer(node: Node, layer: int) -> void:
 	if node is TileMapLayer:
 		node.clear()

@@ -109,9 +109,9 @@ func _cmd_set_navigation_layers(params: Dictionary) -> Dictionary:
 	var node: Node = found["node"]
 	if _router._property_type(node, "navigation_layers") == -1:
 		return _router._fail("VALIDATION_ERROR", "Node has no 'navigation_layers' property.")
-	if not _valid_bits(params.get("layers")):
+	if not _router._valid_bits(params.get("layers")):
 		return _router._fail("VALIDATION_ERROR", "'layers' must be an array of bit indices in [1, 32].")
-	var mask := _bitmask(params["layers"])
+	var mask: int = _router._bitmask(params["layers"])
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Set navigation layers on %s" % node.name)
 	ur.add_do_property(node, "navigation_layers", mask)

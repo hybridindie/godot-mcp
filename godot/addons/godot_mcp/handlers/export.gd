@@ -48,7 +48,7 @@ func register(handlers: Dictionary) -> void:
 # -- handlers ----------------------------------------------------------------
 
 func _cmd_list_export_presets(_params: Dictionary) -> Dictionary:
-	var data := _router._read_export_presets()
+	var data := _read_export_presets()
 	if data.has("error"):
 		return _router._fail("INTERNAL_ERROR", str(data["error"]))
 	return _router._ok(data)
@@ -56,7 +56,7 @@ func _cmd_list_export_presets(_params: Dictionary) -> Dictionary:
 
 
 func _cmd_get_export_info(_params: Dictionary) -> Dictionary:
-	var data := _router._read_export_presets()
+	var data := _read_export_presets()
 	if data.has("error"):
 		return _router._fail("INTERNAL_ERROR", str(data["error"]))
 	var names: Array = []
