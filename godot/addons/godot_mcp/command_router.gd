@@ -46,6 +46,33 @@ var _handlers: Dictionary = {}
 # The EditorDebuggerPlugin that captures a played game's godot_mcp channel (issue #66).
 # Set by the plugin entry; null in headless/unit contexts where there is no editor.
 var _debugger: Object = null
+# Handler instances must NOT be local to _init() (they are RefCounted and get freed).
+var _scene_inspect: MCPSceneInspectHandlers = null
+var _mutation: MCPMutationHandlers = null
+var _scripts: MCPScriptHandlers = null
+var _node_parity: MCPNodeParityHandlers = null
+var _animation: MCPAnimationHandlers = null
+var _physics: MCPPhysicsHandlers = null
+var _scene_3d: MCPScene3DHandlers = null
+var _mesh_library: MCPMeshLibraryHandlers = null
+var _particles: MCPParticlesHandlers = null
+var _navigation: MCPNavigationHandlers = null
+var _audio: MCPAudioHandlers = null
+var _tilemap: MCPTileMapHandlers = null
+var _tileset: MCPTileSetHandlers = null
+var _theme_ui: MCPThemeUIHandlers = null
+var _shaders: MCPShadersHandlers = null
+var _runtime_session: MCPRuntimeSessionHandlers = null
+var _runtime_inspect: MCPRuntimeInspectHandlers = null
+var _input_recording: MCPInputRecordingHandlers = null
+var _profiling: MCPProfilingHandlers = null
+var _batch: MCPBatchHandlers = null
+var _export: MCPExportHandlers = null
+var _editor: MCPEditorHandlers = null
+var _project_fs: MCPProjectFSHandlers = null
+var _resources: MCPResourcesHandlers = null
+var _scene_session: MCPSceneSessionHandlers = null
+var _input_map: MCPInputMapHandlers = null
 
 
 ## Inject the MCPDebugger so runtime-inspection handlers can read cached live state.
@@ -58,57 +85,59 @@ func _init() -> void:
 	# tool drops the cmd_ prefix); see docs/architecture.md.
 	_handlers["cmd_ping"] = _cmd_ping
 	_handlers["cmd_get_project_info"] = _cmd_get_project_info
-	var _scene_inspect := MCPSceneInspectHandlers.new(self)
+	# Instances are promoted to member variables so RefCounted objects survive
+	# beyond _init(); see discussion in git history.
+	_scene_inspect = MCPSceneInspectHandlers.new(self)
 	_scene_inspect.register(_handlers)
-	var _mutation := MCPMutationHandlers.new(self)
+	_mutation = MCPMutationHandlers.new(self)
 	_mutation.register(_handlers)
-	var _scripts := MCPScriptHandlers.new(self)
+	_scripts = MCPScriptHandlers.new(self)
 	_scripts.register(_handlers)
-	var _node_parity := MCPNodeParityHandlers.new(self)
+	_node_parity = MCPNodeParityHandlers.new(self)
 	_node_parity.register(_handlers)
-	var _animation := MCPAnimationHandlers.new(self)
+	_animation = MCPAnimationHandlers.new(self)
 	_animation.register(_handlers)
-	var _physics := MCPPhysicsHandlers.new(self)
+	_physics = MCPPhysicsHandlers.new(self)
 	_physics.register(_handlers)
-	var _scene_3d := MCPScene3DHandlers.new(self)
+	_scene_3d = MCPScene3DHandlers.new(self)
 	_scene_3d.register(_handlers)
-	var _mesh_library := MCPMeshLibraryHandlers.new(self)
+	_mesh_library = MCPMeshLibraryHandlers.new(self)
 	_mesh_library.register(_handlers)
-	var _particles := MCPParticlesHandlers.new(self)
+	_particles = MCPParticlesHandlers.new(self)
 	_particles.register(_handlers)
-	var _navigation := MCPNavigationHandlers.new(self)
+	_navigation = MCPNavigationHandlers.new(self)
 	_navigation.register(_handlers)
-	var _audio := MCPAudioHandlers.new(self)
+	_audio = MCPAudioHandlers.new(self)
 	_audio.register(_handlers)
-	var _tilemap := MCPTileMapHandlers.new(self)
+	_tilemap = MCPTileMapHandlers.new(self)
 	_tilemap.register(_handlers)
-	var _tileset := MCPTileSetHandlers.new(self)
+	_tileset = MCPTileSetHandlers.new(self)
 	_tileset.register(_handlers)
-	var _theme_ui := MCPThemeUIHandlers.new(self)
+	_theme_ui = MCPThemeUIHandlers.new(self)
 	_theme_ui.register(_handlers)
-	var _shaders := MCPShadersHandlers.new(self)
+	_shaders = MCPShadersHandlers.new(self)
 	_shaders.register(_handlers)
-	var _runtime_session := MCPRuntimeSessionHandlers.new(self)
+	_runtime_session = MCPRuntimeSessionHandlers.new(self)
 	_runtime_session.register(_handlers)
-	var _runtime_inspect := MCPRuntimeInspectHandlers.new(self)
+	_runtime_inspect = MCPRuntimeInspectHandlers.new(self)
 	_runtime_inspect.register(_handlers)
-	var _input_recording := MCPInputRecordingHandlers.new(self)
+	_input_recording = MCPInputRecordingHandlers.new(self)
 	_input_recording.register(_handlers)
-	var _profiling := MCPProfilingHandlers.new(self)
+	_profiling = MCPProfilingHandlers.new(self)
 	_profiling.register(_handlers)
-	var _batch := MCPBatchHandlers.new(self)
+	_batch = MCPBatchHandlers.new(self)
 	_batch.register(_handlers)
-	var _export := MCPExportHandlers.new(self)
+	_export = MCPExportHandlers.new(self)
 	_export.register(_handlers)
-	var _editor := MCPEditorHandlers.new(self)
+	_editor = MCPEditorHandlers.new(self)
 	_editor.register(_handlers)
-	var _project_fs := MCPProjectFSHandlers.new(self)
+	_project_fs = MCPProjectFSHandlers.new(self)
 	_project_fs.register(_handlers)
-	var _resources := MCPResourcesHandlers.new(self)
+	_resources = MCPResourcesHandlers.new(self)
 	_resources.register(_handlers)
-	var _scene_session := MCPSceneSessionHandlers.new(self)
+	_scene_session = MCPSceneSessionHandlers.new(self)
 	_scene_session.register(_handlers)
-	var _input_map := MCPInputMapHandlers.new(self)
+	_input_map = MCPInputMapHandlers.new(self)
 	_input_map.register(_handlers)
 
 

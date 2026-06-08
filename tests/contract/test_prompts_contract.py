@@ -8,6 +8,7 @@ and they return the expected structured content.
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
 import pytest
 
@@ -15,23 +16,23 @@ from mcp_server.server import create_server
 
 
 @pytest.fixture
-def server():
+def server() -> Any:
     """A fully-built server with all tools, resources, and prompts."""
     return create_server()
 
 
-async def _get_prompt_names(server) -> set[str]:
+async def _get_prompt_names(server: Any) -> set[str]:
     """Async helper: list all registered prompt names."""
     prompts = await server.list_prompts()
     return {p.name for p in prompts}
 
 
-async def _render_prompt(server, name: str, arguments: dict | None = None):
+async def _render_prompt(server: Any, name: str, arguments: dict[str, str] | None = None) -> Any:
     """Async helper: render a prompt with optional arguments."""
     return await server.render_prompt(name, arguments=arguments)
 
 
-def test_prompts_are_registered(server) -> None:
+def test_prompts_are_registered(server: Any) -> None:
     """Every expected prompt name appears in the server's prompt list."""
     expected = {
         "toolset_discovery",
@@ -44,7 +45,7 @@ def test_prompts_are_registered(server) -> None:
     assert expected <= names, f"Missing prompts: {expected - names}"
 
 
-def test_toolset_discovery_prompt_returns_messages(server) -> None:
+def test_toolset_discovery_prompt_returns_messages(server: Any) -> None:
     """The toolset_discovery prompt returns a non-empty list of messages."""
     result = asyncio.run(_render_prompt(server, "toolset_discovery"))
     assert result is not None
@@ -55,7 +56,7 @@ def test_toolset_discovery_prompt_returns_messages(server) -> None:
     assert "enable_toolset" in content
 
 
-def test_build_scene_prompt_parameterized(server) -> None:
+def test_build_scene_prompt_parameterized(server: Any) -> None:
     """The build_scene prompt accepts scene_path and root_type arguments."""
     result = asyncio.run(
         _render_prompt(
@@ -69,7 +70,7 @@ def test_build_scene_prompt_parameterized(server) -> None:
     assert "Node3D" in content
 
 
-def test_play_test_prompt_parameterized(server) -> None:
+def test_play_test_prompt_parameterized(server: Any) -> None:
     """The play_test prompt accepts a scene_path argument."""
     result = asyncio.run(_render_prompt(server, "play_test", {"scene_path": "res://demo.tscn"}))
     assert result is not None
@@ -79,7 +80,7 @@ def test_play_test_prompt_parameterized(server) -> None:
     assert "get_game_scene_tree" in content
 
 
-def test_script_edit_prompt_parameterized(server) -> None:
+def test_script_edit_prompt_parameterized(server: Any) -> None:
     """The script_edit prompt accepts script_path and node_path arguments."""
     result = asyncio.run(
         _render_prompt(
@@ -98,7 +99,7 @@ def test_script_edit_prompt_parameterized(server) -> None:
     assert "patch_script" in content
 
 
-def test_troubleshoot_prompt_returns_messages(server) -> None:
+def test_troubleshoot_prompt_returns_messages(server: Any) -> None:
     """The troubleshoot prompt returns a diagnostic checklist."""
     result = asyncio.run(_render_prompt(server, "troubleshoot"))
     assert result is not None
