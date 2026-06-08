@@ -14,6 +14,7 @@ build/
 
 # Godot
 godot/.godot/
+examples/**/.godot/
 *.import
 
 # OS / editor

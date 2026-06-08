@@ -1,0 +1,260 @@
+[gd_scene load_steps=26 format=3 uid="uid://demo_vampire_main"]
+
+[ext_resource type="Script" path="res://scripts/player.gd" id="1_player"]
+[ext_resource type="Script" path="res://scripts/enemy.gd" id="2_enemy"]
+[ext_resource type="Script" path="res://scripts/enemy_spawner.gd" id="3_spawner"]
+[ext_resource type="Script" path="res://scripts/weapon_projectile.gd" id="4_projectile"]
+[ext_resource type="Script" path="res://scripts/weapon_area.gd" id="5_area"]
+[ext_resource type="Script" path="res://scripts/xp_gem.gd" id="6_xp"]
+[ext_resource type="Script" path="res://scripts/game_manager.gd" id="7_manager"]
+[ext_resource type="Script" path="res://scripts/hud.gd" id="8_hud"]
+[ext_resource type="Script" path="res://scripts/upgrade_menu.gd" id="9_upgrade"]
+[ext_resource type="Script" path="res://scripts/camera_follow.gd" id="10_camera"]
+[ext_resource type="Script" path="res://scripts/background.gd" id="12_background"]
+[ext_resource type="Script" path="res://scripts/game_over_screen.gd" id="13_gameover"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_player"]
+radius = 20.0
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_enemy"]
+radius = 16.0
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_projectile"]
+radius = 6.0
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_area"]
+radius = 60.0
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_xp"]
+radius = 8.0
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_player_hurt"]
+radius = 20.0
+
+[sub_resource type="Gradient" id="Gradient_blood"]
+colors = PackedColorArray(1, 0, 0, 1, 1, 0.5, 0, 0)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture_blood"]
+gradient = SubResource("Gradient_blood")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticlesMaterial_blood"]
+particle_flag_disable_z = true
+direction = Vector3(0, 0, 0)
+spread = 180.0
+gravity = Vector3(0, 0, 0)
+initial_velocity_min = 20.0
+initial_velocity_max = 80.0
+angular_velocity_min = -180.0
+angular_velocity_max = 180.0
+scale_min = 3.0
+scale_max = 6.0
+color_initial_ramp = SubResource("Gradient_blood")
+
+[sub_resource type="Gradient" id="Gradient_xp"]
+colors = PackedColorArray(0.2, 0.8, 1, 1, 0.8, 1, 1, 0)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture_xp"]
+gradient = SubResource("Gradient_xp")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticlesMaterial_xp"]
+particle_flag_disable_z = true
+spread = 180.0
+gravity = Vector3(0, -50, 0)
+initial_velocity_min = 20.0
+initial_velocity_max = 60.0
+scale_min = 2.0
+scale_max = 5.0
+color_initial_ramp = SubResource("Gradient_xp")
+
+[node name="Main" type="Node2D"]
+
+[node name="Background" type="Node2D" parent="."]
+script = ExtResource("12_background")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(0, 0)
+zoom = Vector2(0.8, 0.8)
+script = ExtResource("10_camera")
+
+[node name="Player" type="CharacterBody2D" parent="."]
+position = Vector2(0, 0)
+collision_layer = 2
+collision_mask = 1
+script = ExtResource("1_player")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Player"]
+shape = SubResource("CircleShape2D_player")
+
+[node name="Hurtbox" type="Area2D" parent="Player"]
+collision_layer = 0
+collision_mask = 5
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Player/Hurtbox"]
+shape = SubResource("CircleShape2D_player_hurt")
+
+[node name="WeaponProjectile" type="Node2D" parent="Player"]
+script = ExtResource("4_projectile")
+
+[node name="WeaponArea" type="Area2D" parent="Player"]
+collision_layer = 0
+collision_mask = 4
+script = ExtResource("5_area")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Player/WeaponArea"]
+shape = SubResource("CircleShape2D_area")
+
+[node name="Hitbox" type="Area2D" parent="Player/WeaponArea"]
+collision_layer = 0
+collision_mask = 4
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Player/WeaponArea/Hitbox"]
+shape = SubResource("CircleShape2D_area")
+
+[node name="EnemySpawner" type="Node" parent="."]
+script = ExtResource("3_spawner")
+
+[node name="HUD" type="CanvasLayer" parent="."]
+script = ExtResource("8_hud")
+
+[node name="HealthBar" type="ProgressBar" parent="HUD"]
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = -40.0
+offset_right = 220.0
+offset_bottom = -10.0
+max_value = 100.0
+value = 100.0
+
+[node name="XPBar" type="ProgressBar" parent="HUD"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -150.0
+offset_top = -40.0
+offset_right = 150.0
+offset_bottom = -10.0
+max_value = 100.0
+value = 0.0
+tint_progress = Color(1, 0.8, 0.2, 1)
+
+[node name="ScoreLabel" type="Label" parent="HUD"]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -200.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = 60.0
+horizontal_alignment = 2
+
+[node name="WaveLabel" type="Label" parent="HUD"]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -200.0
+offset_top = 70.0
+offset_right = -20.0
+offset_bottom = 110.0
+horizontal_alignment = 2
+
+[node name="TimerLabel" type="Label" parent="HUD"]
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -100.0
+offset_top = 20.0
+offset_right = 100.0
+offset_bottom = 60.0
+horizontal_alignment = 1
+
+[node name="UpgradeMenu" type="CanvasLayer" parent="."]
+visible = false
+script = ExtResource("9_upgrade")
+script = ExtResource("9_upgrade")
+
+[node name="Panel" type="Panel" parent="UpgradeMenu"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -150.0
+offset_right = 200.0
+offset_bottom = 150.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="UpgradeMenu/Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = -20.0
+
+[node name="Title" type="Label" parent="UpgradeMenu/Panel/VBoxContainer"]
+layout_mode = 2
+text = "Level Up!"
+horizontal_alignment = 1
+
+[node name="HSeparator" type="HSeparator" parent="UpgradeMenu/Panel/VBoxContainer"]
+layout_mode = 2
+
+[node name="OptionsContainer" type="VBoxContainer" parent="UpgradeMenu/Panel/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="GameOverScreen" type="CanvasLayer" parent="."]
+visible = false
+script = ExtResource("13_gameover")
+
+[node name="Panel" type="Panel" parent="GameOverScreen"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="GameOverScreen/Panel"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -150.0
+offset_top = -100.0
+offset_right = 150.0
+offset_bottom = 100.0
+
+[node name="Label" type="Label" parent="GameOverScreen/Panel/VBoxContainer"]
+layout_mode = 2
+text = "You Died"
+horizontal_alignment = 1
+
+[node name="Score" type="Label" parent="GameOverScreen/Panel/VBoxContainer"]
+layout_mode = 2
+horizontal_alignment = 1
+
+[node name="HSeparator" type="HSeparator" parent="GameOverScreen/Panel/VBoxContainer"]
+layout_mode = 2
+
+[node name="RestartButton" type="Button" parent="GameOverScreen/Panel/VBoxContainer"]
+layout_mode = 2
+text = "Restart"
+
+[node name="DeathParticles" type="GPUParticles2D" parent="."]
+emitting = false
+amount = 24
+lifetime = 0.4
+one_shot = true
+explosiveness = 1.0
+process_material = SubResource("ParticlesMaterial_blood")
+
+[node name="XPPickupParticles" type="GPUParticles2D" parent="."]
+emitting = false
+amount = 10
+process_material = SubResource("ParticlesMaterial_xp")

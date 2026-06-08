@@ -1,0 +1,21 @@
+[gd_scene load_steps=3 format=3 uid="uid://demo_vampire_xp"]
+
+[ext_resource type="Script" path="res://scripts/xp_gem.gd" id="1_xp"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_xp"]
+radius = 8.0
+
+[node name="XPGem" type="Area2D"]
+collision_layer = 8
+collision_mask = 2
+script = ExtResource("1_xp")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_xp")
+
+[node name="Sprite2D" type="ColorRect" parent="."]
+offset_left = -8.0
+offset_top = -8.0
+offset_right = 8.0
+offset_bottom = 8.0
+color = Color(0.2, 0.8, 1, 1)
