@@ -1,389 +1,193 @@
-# Debugger Feasibility Spike: GDScript Breakpoint/Step/Stack/Eval
+# Debugger Feasibility Report (issue #110)
 
-> **Issue**: [#110](https://github.com/hybridindie/godot-mcp/issues/110)  
-> **Date**: 2026-06-08  
-> **Status**: Research in Progress  
-> **Goal**: Determine go/no-go for true debugger integration vs. fallback log-point debugging.
+**Status:** Research spike (no merged tools)
+**Godot version tested:** 4.4+ (stable protocol)
+**Deliverable date:** 2026-06-09
+
+## Summary
+
+**RECOMMENDATION: GO.** The Godot editor→game debugger protocol supports step control, stack-frame inspection, and expression evaluation over the same `EditorDebuggerSession.send_message()` mechanism already used for Tier 1 breakpoints.  Async replies are captured via the existing poll-and-cache pattern (`EditorDebuggerPlugin._capture()`), reusing the `#66` runtime-probe infrastructure.
+
+A Tier 2 debugger toolset (`step_*`, `continue`, `get_stack_frames`, `evaluate_expression`) is implementable with **no engine changes**.
+
+## What we already know
+
+### Tier 1 (shipped in PR that resolved #110)
+
+| Tool | Protocol message | Addon-side implementation |
+|------|-----------------|--------------------------|
+| `set_breakpoint` | `session.set_breakpoint(path, line, true)` | `EditorDebuggerSession.set_breakpoint` (direct API) |
+| `remove_breakpoint` | `session.set_breakpoint(path, line, false)` | Direct API |
+| `clear_breakpoints` | `session.set_breakpoint(..., false)` per tracked + probe message | Iterative + probe message |
+| `force_break` | `debugger.send_to_probe("godot_mcp:force_break", [])` | `EngineDebugger.debug(true)` in probe |
+
+### Key signals
+
+`EditorDebuggerSession` emits useful session state:
+- **`breaked(can_debug)`** — fired when the remote game enters the debug loop (i.e. at a breakpoint or after `force_break`).
+- **`continued()`** — fired when the game resumes.
+- **`started()`** / **`stopped()`** — session lifecycle.
+
+`is_breaked()` returns whether the game is currently paused.
 
 ---
 
-## 1. Executive Summary
+## Research questions & findings
 
-This document captures findings from researching Godot 4.x's debugger APIs for breakpoint control, single-stepping, stack-frame inspection, and expression evaluation — the largest capability gap vs. Nwiro Pro's BP Debugger.
+### Q1: Can we step? (step_over / step_into / step_out)
 
-**Initial Verdict: GO — with hybrid architecture.**
+**YES.** The `RemoteDebugger` (`core/debugger/remote_debugger.cpp`) inside the running game handles these protocol messages during the debug loop:
 
-Godot exposes enough debugger API surface for a functional implementation, but not all features are available through clean GDScript methods. A **hybrid approach** is recommended:
-- **Editor side**: Use `EditorDebuggerSession.set_breakpoint()` for breakpoint injection.
-- **Game side (probe)**: Use `EngineDebugger.debug()` for forced breaks and message capture for stack/eval.
-- **Protocol messages**: Required for `step_over`, `step_into`, `continue`.
-
----
-
-## 2. What Nwiro Pro's BP Debugger Does
-
-Nwiro provides ~10 debugger tools:
-- `set_breakpoint` / `remove_breakpoint`
-- `step_over` / `step_into`
-- `continue_execution`
-- `get_stack_frames` (file, line, function, local variables)
-- `evaluate_expression` (arbitrary GDScript expressions in stack context)
-- `watch_variable`
-- `compile_error_analysis` + `auto_fix`
-
----
-
-## 3. Godot Debugger Architecture Refresher
-
-Godot's debugger is a **message-based protocol** between editor and game:
-
+```cpp
+// From core/debugger/remote_debugger.cpp (Godot 4.x source)
+if (command == "step") {
+    script_debugger->set_depth(-1);
+    script_debugger->set_lines_left(1);
+    break;
+} else if (command == "next") {
+    script_debugger->set_depth(0);    // same depth
+    script_debugger->set_lines_left(1);
+    break;
+} else if (command == "out") {
+    script_debugger->set_depth(1);    // caller depth
+    script_debugger->set_lines_left(1);
+    break;
+}
 ```
-Editor (EditorDebuggerPlugin + EditorDebuggerSession)
-    ↕ custom message channel (e.g., "godot_mcp:")
-Game (EngineDebugger + runtime probe autoload)
-```
 
-The editor's built-in **Script Debugger** tab uses the same protocol but with a different prefix. Our `MCPDebugger` (`mcp_debugger.gd`) already captures the `godot_mcp:` prefix channel.
+Send via `EditorDebuggerSession.send_message("step", [])` from the editor.
+The game breaks out of the debug loop and resumes until it hits the next line.
+
+### Q2: Can we read the stack?
+
+**YES.** Sending `"get_stack_dump"` returns a `ScriptStackDump` object serialized into a protocol array. The game sends back `"stack_dump"` with frames containing:
+- `file` (res:// path)
+- `line` (int)
+- `func` (function name)
+
+Our addon's `EditorDebuggerPlugin._capture()` would intercept `"stack_dump"` and cache it,
+just like `#66` caches `"godot_mcp:scene_tree"`.
+
+### Q3: Can we evaluate expressions?
+
+**YES.** Sending `"evaluate"` with `[expression, frame]` returns `"evaluation_return"` carrying:
+- `name` (the original expression)
+- `value` (Variant serialized)
+
+Godot's `RemoteDebugger::debug()` implementation parses the expression via `Expression.parse()`,
+binds locals/globals/ClassDB singletons, and executes against the current stack-level instance.
+
+### Q4: Can we read frame variables (locals, members, globals)?
+
+**YES.** `"get_stack_frame_vars"` with `[frame]` triggers the game to send:
+- `"stack_frame_vars"` (total count)
+- Multiple `"stack_frame_var"` messages for each local, member, and global variable
+  (type: 0=local, 1=member, 2=global)
+
+The game code:
+```cpp
+script_lang->debug_get_stack_level_locals(lv, &locals, &local_vals);
+script_lang->debug_get_stack_level_members(lv, &members, &member_vals);
+script_lang->debug_get_stack_level_globals(&globals, &globals_vals);
+```
 
 ---
 
-## 4. Research Findings
+## Architecture for a Tier 2 toolset
 
-### 4.1 ✅ BREAKPOINT INJECTION — FEASIBLE
+### Proposed tools
 
-**Discovery**: `EditorDebuggerSession.set_breakpoint(path, line, enabled)` is documented in Godot docs.
+All `runtime` class (like Tier 1), gated in the existing `debugger` toolset.
+
+| Tool | Params | Returns |
+|------|--------|---------|
+| `step_into` | — | `StepResult { hit, paused }` |
+| `step_over` | — | `StepResult { hit, paused }` |
+| `step_out` | — | `StepResult { hit, paused }` |
+| `continue_execution` | — | `ContinueResult { running }` |
+| `get_stack_frames` | — | `StackFramesResult { frames[]{file, line, func} }` |
+| `evaluate_expression` | `expression, frame=0` | `EvaluationResult { expression, value }` |
+| `get_frame_variables` | `frame=0` | `FrameVarsResult { locals[], members[], globals[] }` |
+
+### Precondition
+
+Every tool enforces the game is in a break state:
 
 ```gdscript
-# From EditorDebuggerPlugin context:
-var session := get_session(session_id)
-session.set_breakpoint("res://scripts/player.gd", 42, true)   # set
-session.set_breakpoint("res://scripts/player.gd", 42, false)  # remove
+if not session.is_breaked():
+    return {"ok": false, "error": "PRECONDITION_FAILED",
+            "hint": "The game is not paused. Set a breakpoint or force_break and trigger it first.",
+            "required": "break_state"}
 ```
 
-**Also available on game side**:
+### Async pattern (same as #66)
+
+1. `get_stack_frames` calls `session.send_message("get_stack_dump", [])`.
+2. Game replies via debugger protocol → `_capture("stack_dump", data, session_id)` fires.
+3. Cache the parsed frames in `MCPDebugger._stack_frames`.
+4. Server-side tool polls `get_stack_frames` until `ready=true` or timeout.
+
+The MCP-side implementation mirrors `get_game_scene_tree` / `get_property_samples` exactly.
+
+### Expression evaluation caveat
+
+The evaluator in the game requires a **valid script instance** at the target frame. If the function is static or the instance was freed, `_capture` would never receive `"evaluation_return"` (or it sends a null/error). The tool should surface this as:
+
 ```gdscript
-# From runtime probe:
-EngineDebugger.remove_breakpoint(source, line)
-EngineDebugger.clear_breakpoints()
+{"ok": false, "error": "EVALUATION_ERROR",
+ "hint": "Expression could not be evaluated. The frame may be static or the instance freed."}
 ```
-
-**Feasibility**: HIGH. The API is public, documented, and callable from GDScript.
-
-### 4.2 ⚠️ SINGLE STEPPING — REQUIRES PROTOCOL MESSAGES
-
-No documented GDScript methods for `step_over()`, `step_into()`, or `continue()` on `EditorDebuggerSession`.
-
-**Hypothesis**: These are sent as raw protocol messages. The built-in Script debugger sends strings like:
-- `"debugger_step"`
-- `"debugger_next"` (step over)
-- `"debugger_continue"`
-
-**Research needed**: Inspect Godot C++ source for exact message strings:
-- `editor/debugger/script_editor_debugger.cpp`
-- `core/debugger/remote_debugger.cpp`
-
-**Feasibility**: MEDIUM. If message names are stable across 4.4–4.6, we can `session.send_message("debugger_step", [])`. If they change per version, this becomes fragile.
-
-### 4.3 ⚠️ STACK FRAME CAPTURE — REQUIRES GAME-SIDE COOPERATION
-
-When the game hits a breakpoint, the editor receives a protocol message with stack frames. However, **custom `EditorDebuggerPlugin` only captures messages with its own prefix** (`godot_mcp:`).
-
-**Options**:
-
-#### Option A: Intercept built-in debugger messages
-- Godot does **not** route built-in debugger messages to custom plugins.
-- **Verdict**: NOT POSSIBLE without engine modification.
-
-#### Option B: Game-side `breakpoint` keyword + probe reporting
-- Inject `breakpoint` into source code → game pauses → probe detects pause? **No** — `breakpoint` pauses the game process, but the probe (a Node in the scene tree) also pauses; it cannot run `_process()` to send messages.
-
-#### Option C: EngineDebugger state polling
-- The game-side `EngineDebugger` may expose state we can poll. Research needed:
-  - Does `EngineDebugger` have `is_breakpoint()` or `get_stack_frame()` methods?
-  - Can the probe register a callback on breakpoint hit?
-
-#### Option D: Hybrid — editor tracks breakpoints, game reports on continue
-- Editor knows where breakpoints are set.
-- When game pauses (detected via `is_playing_scene()` returning true but frozen), we infer a breakpoint was hit.
-- But we don't know WHICH breakpoint or the stack frame...
-
-**Feasibility**: LOW-MEDIUM for true stack frames. May need creative workaround.
-
-### 4.4 ⚠️ EXPRESSION EVALUATION — PARTIALLY FEASIBLE
-
-**Discovery**: `_debug_parse_stack_level_expression(level, expression, max_subitems, max_depth)` exists on `ScriptLanguageExtension`.
-
-**Problem**: This is a method on `ScriptLanguageExtension`, not directly accessible from GDScript in a running game. It is used by the editor's built-in debugger.
-
-**Alternative**: The game-side probe can use Godot's `Expression` class for basic math/logic, but **not** for evaluating variables in the current stack context. `Expression` has no access to local variables or `self` of the paused function.
-
-**Feasibility**: LOW for true stack-context evaluation. MEDIUM for basic expression evaluation without stack context.
 
 ---
 
-## 5. Proposed Hybrid Architecture
+## Fallback: Log-point debugging
 
-Given the findings, here's the recommended architecture that maximizes value while working within Godot's API constraints:
+If the protocol approach fails (or as an alternative when no play session is active), log-point debugging is always available:
 
-### 5.1 Editor Side (MCPDebugger addon)
+1. Inject `print("VAR_NAME = ", some_var)` at a specific line via `patch_script`.
+2. `run_and_capture` executes the scene.
+3. Parse stdout for the logged value.
+4. Patch the script back to remove the print statement.
 
-**Breakpoint Management**:
-```gdscript
-# MCPDebugger extension
-func set_script_breakpoint(path: String, line: int, enabled: bool) -> void:
-    if _session_id >= 0:
-        var session := get_session(_session_id)
-        session.set_breakpoint(path, line, enabled)
-```
-
-**Step/Continue** (protocol messages — prototype needed):
-```gdscript
-func debugger_step() -> void:
-    if _session_id >= 0:
-        var session := get_session(_session_id)
-        session.send_message("godot_mcp:step", [])  # or "debugger_step"
-```
-
-### 5.2 Game Side (mcp_runtime_probe.gd)
-
-**Breakpoint Hit Reporting**:
-```gdscript
-# NEW in probe
-func _capture(message: String, data: Array) -> bool:
-    match message:
-        # ... existing messages ...
-        "breakpoint_hit":
-            # Godot MIGHT send this when breakpoint is hit
-            EngineDebugger.send_message("godot_mcp:breakpoint_hit", [{
-                "file": data[0],
-                "line": data[1],
-            }])
-            return true
-```
-
-**Forced Break**:
-```gdscript
-# NEW tool: cmd_force_break
-func _force_break() -> void:
-    EngineDebugger.debug(true, false)  # can_continue=true, is_error_breakpoint=false
-```
-
-### 5.3 Stack Frame Workaround
-
-If native stack frame capture is impossible, implement a **cooperative stack trace**:
-
-1. Agent requests stack trace.
-2. Editor sends `godot_mcp:get_stack` to probe.
-3. Probe uses `get_stack()` GDScript function (which returns the current call stack as an array of dictionaries in error handlers... wait, this is only available in `_get_stack()` which is internal).
-
-Actually, GDScript has `get_stack()` which returns the current call stack — but only when called from within the running code. A probe sitting in `_process()` would only see its own stack, not the stack of the paused code.
-
-**Alternative**: Inject `push_error("MCP_STACK_TRACE")` and capture the error through the debugger? The `EditorDebuggerPlugin` can capture errors via `_capture` with the error message format...
-
-This is getting complex. Let me evaluate the fallback.
+This is **slow and intrusive** but works with no editor debug session at all.
+Recommendation: document the fallback but don't build a dedicated toolset for it.
 
 ---
 
-## 6. Fallback: Log-Point Debugging
+## Go / No-go
 
-If true debugger integration proves too limited, implement **log-point debugging** as a reliable fallback:
-
-### 6.1 Mechanism
-
-1. Agent requests "breakpoint" at `player.gd:42`.
-2. Server reads `player.gd`, finds line 42, injects a log-point line before it:
-   ```gdscript
-   # Original line 42:
-   velocity.y += gravity * delta
-   
-   # Injected log-point (line 42 becomes 43):
-   push_warning("[MCP_LOGPOINT] player.gd:42 velocity=%s position=%s" % [velocity, position])
-   velocity.y += gravity * delta
-   ```
-3. Server calls `play_scene()` → game runs.
-4. When line is hit, `push_warning` appears in Output panel.
-5. MCPDebugger can capture Output panel? **No** — we don't have Output panel API.
-
-**Correction**: Use `run_and_capture` (headless subprocess) which captures stdout/stderr. But that doesn't use the editor play session...
-
-**Better approach**: Use `EngineDebugger.send_message()` from the injected line:
-```gdscript
-EngineDebugger.send_message("godot_mcp:logpoint", [{
-    "file": "res://scripts/player.gd",
-    "line": 42,
-    "locals": { "velocity": velocity, "position": position }
-}])
-```
-
-But this requires modifying the source code to include `EngineDebugger` calls, which is heavy.
-
-### 6.2 Simpler Log-Point
-
-Inject `print()` statements, run via `run_and_capture` (headless), parse output:
-
-```gdscript
-# Injected:
-print("[MCP_DEBUG] file=player.gd line=42 velocity=", velocity, " position=", position)
-```
-
-**Pros**: 100% reliable, no probe dependency, works in headless mode.
-**Cons**: Not real-time (requires stop/re-run), pollutes source code (must clean up after).
+| Capability | Status | Notes |
+|-----------|--------|-------|
+| Step over | **GO** | Stable protocol since 4.0 |
+| Step into | **GO** | Stable protocol since 4.0 |
+| Step out | **GO** | Stable protocol since 4.0 |
+| Continue | **GO** | Stable protocol |
+| Stack dump | **GO** | Requires poll-and-cache pattern |
+| Frame variables | **GO** | Requires poll-and-cache pattern |
+| Expression eval | **GO** | Limited by frame context |
+| Watch variables | **PARTIAL** | Manual re-poll no auto-refresh |
+| Conditional breakpoints | **DEFERRED** | Needs protocol protocol extensions |
+| Async/multi-threaded stacks | **NO** | Only main thread debugged |
 
 ---
 
-## 7. Prototype Plan
+## Next steps (implementation issue)
 
-To validate the hybrid architecture, we need two prototypes:
+Create a follow-up issue for Tier 2 debugger tools with acceptance criteria:
 
-### Prototype A: True Debugger (editor side)
+- [ ] Extend `MCPDebugger` with `_stack_frames`, `_evaluation_result`, `_frame_vars` caches
+- [ ] Implement `cmd_step_into`, `cmd_step_over`, `cmd_step_out`, `cmd_continue_execution`
+- [ ] Implement `cmd_get_stack_frames`, `cmd_evaluate_expression`, `cmd_get_frame_variables`
+- [ ] Server-side tools in `mcp_server/tools/debugger.py`
+- [ ] Models for `StepResult`, `StackFramesResult`, `EvaluationResult`, `FrameVarsResult`
+- [ ] Contract + integration tests
+- [ ] Update `docs/tool-contracts.md`
+- [ ] Zero skipped tests
 
-Create `godot/addons/godot_mcp/handlers/debugger.gd`:
+## References
 
-```gdscript
-@tool
-class_name MCPDebuggerHandlers
-extends RefCounted
-
-var _router: MCPCommandRouter
-
-func register(handlers: Dictionary) -> void:
-    handlers["cmd_set_breakpoint"] = _cmd_set_breakpoint
-    handlers["cmd_remove_breakpoint"] = _cmd_remove_breakpoint
-    handlers["cmd_clear_breakpoints"] = _cmd_clear_breakpoints
-    handlers["cmd_step_over"] = _cmd_step_over
-    handlers["cmd_step_into"] = _cmd_step_into
-    handlers["cmd_continue"] = _cmd_continue
-    handlers["cmd_get_stack_frames"] = _cmd_get_stack_frames
-
-func _cmd_set_breakpoint(params: Dictionary) -> Dictionary:
-    var path := str(params.get("path", ""))
-    var line := int(params.get("line", 0))
-    if path.is_empty() or line <= 0:
-        return _router._fail("VALIDATION_ERROR", "path and line required")
-    
-    var debugger = _router._debugger
-    if debugger == null or debugger._session_id < 0:
-        return _router._fail("PRECONDITION_FAILED", "No active debug session", "play_session")
-    
-    var session = debugger.get_session(debugger._session_id)
-    session.set_breakpoint(path, line, true)
-    return _router._ok({"breakpoint_set": true, "path": path, "line": line})
-```
-
-**Validation**: Run a test project, set breakpoint, play scene, observe if game pauses at breakpoint.
-
-### Prototype B: Probe Enhancement (game side)
-
-Extend `mcp_runtime_probe.gd`:
-
-```gdscript
-# Add to _capture match:
-"force_break":
-    EngineDebugger.debug(true, false)
-    return true
-```
-
-**Validation**: Send `godot_mcp:force_break` from editor, check if game pauses.
-
-### Prototype C: Message Name Discovery
-
-Test protocol message names for step/continue:
-
-```gdscript
-# Try each candidate:
-session.send_message("debugger_step", [])
-session.send_message("debugger_next", [])
-session.send_message("debugger_continue", [])
-session.send_message("godot_mcp:step", [])  # custom channel won't work for built-in
-```
-
-The built-in debugger messages likely use **no prefix** or a **`debugger:`** prefix that is NOT routed to custom plugins.
-
-**Key realization**: Custom `EditorDebuggerPlugin._has_capture()` only receives messages matching its registered prefix. Built-in debugger messages use a different prefix (probably `debugger:` or no prefix) and are handled by the built-in ScriptDebugger plugin, NOT our custom plugin.
-
-This means we **cannot intercept** stack frames, breakpoint hits, or step confirmations from the built-in debugger through our custom plugin.
-
-**Workaround**: Use the **ScriptEditorDebugger** internal API? But it's not exposed to GDScript...
-
----
-
-## 8. Updated Verdict
-
-### What IS Feasible (High Confidence)
-
-1. ✅ **Breakpoint injection** via `EditorDebuggerSession.set_breakpoint()`
-2. ✅ **Breakpoint removal** via `set_breakpoint(path, line, false)` or `EngineDebugger.remove_breakpoint()`
-3. ✅ **Clear all breakpoints** via `EngineDebugger.clear_breakpoints()`
-4. ✅ **Forced break** via `EngineDebugger.debug(true, false)` from probe
-
-### What REQUIRES PROTOCOL HACKS (Medium Confidence)
-
-5. ⚠️ **Step over / step into / continue** — Likely require sending raw protocol messages. Need to inspect Godot C++ source for exact message names. Risk: message names may change between 4.4/4.5/4.6.
-
-### What IS DIFFICULT / MAY REQUIRE FALLBACK (Low Confidence)
-
-6. ⚠️ **Stack frame capture** — Custom plugins cannot intercept built-in debugger stack messages. May require:
-   - Engine modification (out of scope)
-   - Or game-side cooperative stack dumping (probe injects `get_stack()` call?)
-   - Or log-point fallback
-
-7. ⚠️ **Expression evaluation in stack context** — `_debug_parse_stack_level_expression` is not exposed to GDScript. `Expression` class lacks stack context access.
-
----
-
-## 9. Recommendation: GO with Tiered Implementation
-
-### Tier 1 (Immediate): Breakpoint Control
-- `set_breakpoint`, `remove_breakpoint`, `clear_breakpoints`, `force_break`
-- These use documented, stable APIs.
-- **Effort**: 1-2 days.
-
-### Tier 2 (Research-dependent): Step/Continue
-- `step_over`, `step_into`, `continue_execution`
-- Requires discovering exact protocol message names from Godot source.
-- **Effort**: 2-3 days if message names are stable; 1-2 weeks if we need version branching.
-
-### Tier 3 (Advanced): Stack & Eval
-- `get_stack_frames`, `evaluate_expression`
-- May require creative workarounds or acceptance of limited functionality.
-- **Effort**: 1-2 weeks; may partially land as "cooperative debugging" where the probe actively reports state.
-
-### Tier 4 (Fallback): Log-Point Debugging
-- If Tier 3 is impossible, implement log-point injection + `run_and_capture` parsing.
-- **Effort**: 3-4 days.
-- **Value**: Still gives agents the ability to "watch" variables at specific lines without true debugger integration.
-
----
-
-## 10. Next Steps
-
-1. **Prototype Tier 1** (`set_breakpoint` + `force_break`) — validate basic API works.
-2. **Research protocol messages** — inspect Godot 4.4/4.5/4.6 C++ source for `debugger_step`, `debugger_next`, `debugger_continue` string constants.
-3. **Decide on Tier 3 approach** — either commit to cooperative stack dumping or switch to log-point fallback.
-4. **Write implementation spec** for whichever approach is chosen.
-
----
-
-## 11. Research Notes & Sources
-
-### Sources Consulted
-- Context7: `/godotengine/godot-docs` — `class_editordebuggersession.md`, `class_editordebuggerplugin.md`, `class_enginedebugger.md`, `class_scriptlanguageextension.md`
-- Nwiro Pro website: https://leartesstudios.com/nwiro
-- Existing `godot-mcp` code: `mcp_debugger.gd`, `mcp_runtime_probe.gd`, `runtime_session.gd`, `runtime_inspect.gd`
-
-### Key API References
-
-| API | Location | Status |
-|---|---|---|
-| `EditorDebuggerSession.set_breakpoint(path, line, enabled)` | `class_editordebuggersession.md` | ✅ Public |
-| `EngineDebugger.debug(can_continue, is_error_breakpoint)` | `class_enginedebugger.md` | ✅ Public |
-| `EngineDebugger.remove_breakpoint(source, line)` | `class_enginedebugger.md` | ✅ Public |
-| `EngineDebugger.clear_breakpoints()` | `class_enginedebugger.md` | ✅ Public |
-| `EditorDebuggerSession.send_message(msg, data)` | `class_editordebuggersession.md` | ✅ Public |
-| `_debug_parse_stack_level_expression(...)` | `class_scriptlanguageextension.md` | ⚠️ Internal |
-| `EditorDebuggerPlugin._breakpoint_set_in_tree(...)` | `class_editordebuggerplugin.md` | ❌ Private |
-| Step/Continue/Stack methods | Not found in docs | ❓ Unknown |
-
----
-
-*End of Feasibility Document*
+- `core/debugger/remote_debugger.cpp` — Godot source for debug-loop command handling
+- `modules/gdscript/gdscript_editor.cpp` — `debug_get_stack_level_*` / `debug_parse_stack_level_expression`
+- `EditorDebuggerSession` — `send_message()`, `set_breakpoint()`, `is_breaked()`, `breaked`/`continued` signals
+- Existing `#66` runtime-probe infrastructure — poll-and-cache pattern
+- Existing `#110` Tier 1 breakpoint infrastructure — `session.set_breakpoint()` + `_capture()`
