@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 
 class BreakpointResult(BaseModel):
@@ -36,3 +38,25 @@ class ContinueResult(BaseModel):
     """Outcome of resuming execution after a breakpoint."""
 
     running: bool = False
+
+
+class StackFramesResult(BaseModel):
+    """Outcome of requesting the current call stack."""
+
+    frames: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class EvaluationResult(BaseModel):
+    """Outcome of evaluating an expression in a paused frame."""
+
+    expression: str = ""
+    value: Any = None
+
+
+class FrameVarsResult(BaseModel):
+    """Outcome of requesting variables at a given stack frame."""
+
+    frame: int = 0
+    locals: list[dict[str, Any]] = Field(default_factory=list)
+    members: list[dict[str, Any]] = Field(default_factory=list)
+    globals: list[dict[str, Any]] = Field(default_factory=list)

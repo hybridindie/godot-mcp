@@ -175,14 +175,14 @@ Recommendation: document the fallback but don't build a dedicated toolset for it
 
 Create a follow-up issue for Tier 2 debugger tools with acceptance criteria:
 
-- [ ] Extend `MCPDebugger` with `_stack_frames`, `_evaluation_result`, `_frame_vars` caches
-- [ ] Implement `cmd_step_into`, `cmd_step_over`, `cmd_step_out`, `cmd_continue_execution`
-- [ ] Implement `cmd_get_stack_frames`, `cmd_evaluate_expression`, `cmd_get_frame_variables`
-- [ ] Server-side tools in `mcp_server/tools/debugger.py`
-- [ ] Models for `StepResult`, `StackFramesResult`, `EvaluationResult`, `FrameVarsResult`
-- [ ] Contract + integration tests
-- [ ] Update `docs/tool-contracts.md`
-- [ ] Zero skipped tests
+- [x] Extend `MCPDebugger` with `_stack_frames`, `_evaluation_result`, `_frame_vars` caches
+- [x] Implement `cmd_step_into`, `cmd_step_over`, `cmd_step_out`, `cmd_continue_execution`
+- [x] Implement `cmd_get_stack_frames`, `cmd_evaluate_expression`, `cmd_get_frame_variables`
+- [x] Server-side tools in `mcp_server/tools/debugger.py`
+- [x] Models for `StepResult`, `StackFramesResult`, `EvaluationResult`, `FrameVarsResult`
+- [x] Contract + integration tests
+- [x] Update `docs/tool-contracts.md`
+- [x] Zero skipped tests
 
 ## References
 

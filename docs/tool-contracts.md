@@ -689,9 +689,11 @@ closed files). `get_dependencies` lists what a `res://` resource/scene depends o
 `{raw, path, type}` parsed from `ResourceLoader.get_dependencies`). `dry_run` on the writes
 returns the plan/counts without changing anything.
 
-#### Debugger breakpoint control (issue #110, Tier 1) — category: `debugger` (gated off by default)
+#### Debugger (issue #110, Tier 1 + Tier 2) — category: `debugger` (gated off by default)
 
-Set, remove, clear, and force breakpoints in a running editor play session. Requires an active play session; `force_break` additionally needs the godot-mcp runtime probe autoload. All are `runtime`.
+Control breakpoints, step execution, and inspect the paused call stack in a running editor play session. Requires an active play session; `force_break` additionally needs the godot-mcp runtime probe autoload. All are `runtime`.
+
+**Tier 1 — breakpoint control:**
 
 | Tool | Params | Returns |
 |------|--------|---------|
@@ -701,6 +703,20 @@ Set, remove, clear, and force breakpoints in a running editor play session. Requ
 | `force_break` | — | `ForceBreakResult { force_break_sent }` |
 
 `set_breakpoint` uses `EditorDebuggerSession.set_breakpoint(path, line, true)`; `remove_breakpoint` uses `set_breakpoint(path, line, false)`. `clear_breakpoints` clears on the game side via the probe (when connected) and removes any individually tracked breakpoints on the editor side. `force_break` sends `EngineDebugger.debug(true, false)` through the probe to trigger an immediate break.
+
+**Tier 2 — step control & stack inspection (issue #110 follow-up):**
+
+| Tool | Params | Returns |
+|------|--------|---------|
+| `step_into` | — | `StepResult { stepped }` |
+| `step_over` | — | `StepResult { stepped }` |
+| `step_out` | — | `StepResult { stepped }` |
+| `continue_execution` | — | `ContinueResult { running }` |
+| `get_stack_frames` | — | `StackFramesResult { frames[] }` |
+| `evaluate_expression` | `expression, frame=0` | `EvaluationResult { expression, value }` |
+| `get_frame_variables` | `frame=0` | `FrameVarsResult { frame, locals[], members[], globals[] }` |
+
+Step tools send `step`/`next`/`out`/ `continue` via `EditorDebuggerSession.send_message` and require the game to be paused (`session.is_breaked()`). `get_stack_frames` returns the current call stack from the debugger protocol (`get_stack_dump` → `stack_dump`); `evaluate_expression` evaluates a GDScript expression at the given frame (`evaluate` → `evaluation_return`); `get_frame_variables` fetches locals, members, and globals (`get_stack_frame_vars` → `stack_frame_vars`). All three are captured via the poll-and-cache pattern on `MCPDebugger`, so the first call after a break may return empty data until the async reply arrives.
 
 #### Profiling (issue #38) — category: `profiling` (gated off by default)
 

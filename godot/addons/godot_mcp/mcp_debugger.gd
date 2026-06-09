@@ -24,11 +24,19 @@ var _performance: Variant = null  # last godot_mcp:performance payload (#38)
 var _breakpoints: Array = []  # tracked breakpoints for issue #110
 var _stack_frames: Variant = null  # last stack_dump payload (Tier 2)
 var _evaluation_result: Variant = null  # last evaluation_return payload (Tier 2)
-var _frame_vars: Variant = null  # last stack_frame_vars payload (Tier 2)
+var _frame_vars: Variant = null  # last accumulated frame vars (Tier 2)
+var _frame_vars_expected: int = 0  # count from stack_frame_vars (Tier 2)
+var _frame_vars_locals: Array = []
+var _frame_vars_members: Array = []
+var _frame_vars_globals: Array = []
+
+
+## Debugger protocol capture names we claim so _capture receives raw messages.
+const _DEBUGGER_CAPTURES := ["stack_dump", "evaluation_return", "stack_frame_vars", "stack_frame_var"]
 
 
 func _has_capture(capture: String) -> bool:
-	return capture == CAPTURE_PREFIX
+	return capture == CAPTURE_PREFIX or capture in _DEBUGGER_CAPTURES
 
 
 func _capture(message: String, data: Array, session_id: int) -> bool:
@@ -58,6 +66,42 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 		"godot_mcp:performance":
 			_performance = data[0] if not data.is_empty() else null
 			return true
+		# Tier 2 debugger: raw Godot debugger protocol replies (issue #110)
+		"stack_dump":
+			_stack_frames = data[0] if not data.is_empty() else null
+			return true
+		"evaluation_return":
+			_evaluation_result = data[0] if not data.is_empty() else null
+			return true
+		"stack_frame_vars":
+			# The count message tells us how many variables to expect; reset accumulators.
+			_frame_vars_expected = data[0] if not data.is_empty() else 0
+			_frame_vars_locals = []
+			_frame_vars_members = []
+			_frame_vars_globals = []
+			_frame_vars = null
+			return true
+		"stack_frame_var":
+			# Accumulate a single variable: [type(0=local,1=member,2=global), name, value]
+			if data.size() >= 3:
+				var vtype: int = int(data[0])
+				var entry := {"name": str(data[1]), "value": data[2]}
+				match vtype:
+					0:
+						_frame_vars_locals.append(entry)
+					1:
+						_frame_vars_members.append(entry)
+					2:
+						_frame_vars_globals.append(entry)
+				# When the expected count is reached, build the final dict.
+				var total := _frame_vars_locals.size() + _frame_vars_members.size() + _frame_vars_globals.size()
+				if total >= _frame_vars_expected:
+					_frame_vars = {
+						"locals": _frame_vars_locals.duplicate(),
+						"members": _frame_vars_members.duplicate(),
+						"globals": _frame_vars_globals.duplicate(),
+					}
+			return true
 	return false
 
 
@@ -86,6 +130,10 @@ func _on_stopped() -> void:
 	_stack_frames = null
 	_evaluation_result = null
 	_frame_vars = null
+	_frame_vars_expected = 0
+	_frame_vars_locals = []
+	_frame_vars_members = []
+	_frame_vars_globals = []
 
 
 ## Ask the running game's probe to (re)send the scene tree. The reply lands in the cache
@@ -171,6 +219,36 @@ func get_cached_evaluation() -> Variant:
 
 func get_cached_frame_vars() -> Variant:
 	return _frame_vars
+
+
+## Ask the editor debugger for the current call stack. Reply lands in
+## _stack_frames via _capture("stack_dump", data).
+func request_stack_frames() -> void:
+	if not _session_active or _session_id < 0:
+		return
+	var session := get_session(_session_id)
+	if session != null and session.is_active():
+		session.send_message("get_stack_dump", [])
+
+
+## Ask the editor debugger to evaluate ``expression`` at ``frame`` (0 is top).
+## Reply lands in _evaluation_result via _capture("evaluation_return", data).
+func request_evaluation(expression: String, frame: int = 0) -> void:
+	if not _session_active or _session_id < 0:
+		return
+	var session := get_session(_session_id)
+	if session != null and session.is_active():
+		session.send_message("evaluate", [expression, frame])
+
+
+## Ask the editor debugger for locals / members / globals at ``frame`` (0 is top).
+## Reply lands in _frame_vars via _capture("stack_frame_vars", data).
+func request_frame_variables(frame: int = 0) -> void:
+	if not _session_active or _session_id < 0:
+		return
+	var session := get_session(_session_id)
+	if session != null and session.is_active():
+		session.send_message("get_stack_frame_vars", [frame])
 
 
 ## Return the current session ID so handlers can call get_session().

@@ -18,11 +18,15 @@ func register(handlers: Dictionary) -> void:
 	handlers["cmd_remove_breakpoint"] = _cmd_remove_breakpoint
 	handlers["cmd_clear_breakpoints"] = _cmd_clear_breakpoints
 	handlers["cmd_force_break"] = _cmd_force_break
-# Tier 2: step control via EditorDebuggerSession.send_message
+	# Tier 2: step control via EditorDebuggerSession.send_message
 	handlers["cmd_step_into"] = _cmd_step
 	handlers["cmd_step_over"] = _cmd_step
 	handlers["cmd_step_out"] = _cmd_step
 	handlers["cmd_continue_execution"] = _cmd_continue
+	# Tier 2: stack / eval
+	handlers["cmd_get_stack_frames"] = _cmd_get_stack_frames
+	handlers["cmd_evaluate_expression"] = _cmd_evaluate_expression
+	handlers["cmd_get_frame_variables"] = _cmd_get_frame_variables
 
 
 
@@ -88,7 +92,6 @@ func _cmd_force_break(_params: Dictionary) -> Dictionary:
 	_router._debugger.send_to_probe("godot_mcp:force_break", [])
 	return _router._ok({"force_break_sent": true})
 
-
 # Tier 2: step control via EditorDebuggerSession.send_message ----------------
 
 ## Maps the MCP tool name (from the command string) to the Godot debugger protocol
@@ -138,3 +141,82 @@ func _cmd_continue(_params: Dictionary) -> Dictionary:
 
 	session.send_message("continue", [])
 	return _router._ok({"running": true})
+
+
+# Tier 2: stack / eval ------------------------------------------------------
+
+func _cmd_get_stack_frames(_params: Dictionary) -> Dictionary:
+	var guard := _router._require_debug_session()
+	if not guard["ok"]:
+		return guard
+
+	var debugger := _router._debugger as MCPDebugger
+	var session := debugger.get_session(debugger.get_session_id())
+	if not session.is_breaked():
+		return _router._fail(
+			"PRECONDITION_FAILED",
+			"The game is not paused. Set a breakpoint or force_break first.",
+			"break_state",
+		)
+
+	var frames: Variant = debugger.get_cached_stack_frames()
+	debugger.request_stack_frames()  # refresh cache for next call
+	if frames == null:
+		return _router._ok({"frames": []})
+	return _router._ok({"frames": frames})
+
+
+func _cmd_evaluate_expression(params: Dictionary) -> Dictionary:
+	var guard := _router._require_debug_session()
+	if not guard["ok"]:
+		return guard
+
+	var expression := str(params.get("expression", ""))
+	if expression.is_empty():
+		return _router._fail("VALIDATION_ERROR", "'expression' is required.")
+	var frame := int(params.get("frame", 0))
+
+	var debugger := _router._debugger as MCPDebugger
+	var session := debugger.get_session(debugger.get_session_id())
+	if not session.is_breaked():
+		return _router._fail(
+			"PRECONDITION_FAILED",
+			"The game is not paused. Set a breakpoint or force_break first.",
+			"break_state",
+		)
+
+	var cached: Variant = debugger.get_cached_evaluation()
+	debugger.request_evaluation(expression, frame)  # refresh cache for next call
+	var value: Variant = null
+	if cached is Dictionary:
+		value = (cached as Dictionary).get("value", null)
+	return _router._ok({"expression": expression, "value": value})
+
+
+func _cmd_get_frame_variables(params: Dictionary) -> Dictionary:
+	var guard := _router._require_debug_session()
+	if not guard["ok"]:
+		return guard
+
+	var frame := int(params.get("frame", 0))
+
+	var debugger := _router._debugger as MCPDebugger
+	var session := debugger.get_session(debugger.get_session_id())
+	if not session.is_breaked():
+		return _router._fail(
+			"PRECONDITION_FAILED",
+			"The game is not paused. Set a breakpoint or force_break first.",
+			"break_state",
+		)
+
+	var cached: Variant = debugger.get_cached_frame_vars()
+	debugger.request_frame_variables(frame)  # refresh cache for next call
+	if cached == null:
+		return _router._ok({"frame": frame, "locals": [], "members": [], "globals": []})
+	var d: Dictionary = cached as Dictionary
+	return _router._ok({
+		"frame": frame,
+		"locals": d.get("locals", []),
+		"members": d.get("members", []),
+		"globals": d.get("globals", []),
+	})

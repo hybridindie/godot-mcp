@@ -20,7 +20,10 @@ from mcp_server.models.debugger import (
     BreakpointResult,
     ClearBreakpointsResult,
     ContinueResult,
+    EvaluationResult,
     ForceBreakResult,
+    FrameVarsResult,
+    StackFramesResult,
     StepResult,
 )
 from mcp_server.safety import RUNTIME
@@ -81,5 +84,39 @@ def register_debugger(mcp: FastMCP, bridge: Bridge) -> None:
     @mcp.tool(meta=RUNTIME, tags=DEBUGGER)
     async def continue_execution() -> ContinueResult:
         """Resume GDScript execution after a breakpoint or forced break.
-        The game must be paused."""
+        The game must be paused.
+        """
         return ContinueResult(**await route(bridge, "cmd_continue_execution"))
+
+    # Tier 2: stack / eval --------------------------------------------------
+
+    @mcp.tool(meta=RUNTIME, tags=DEBUGGER)
+    async def get_stack_frames() -> StackFramesResult:
+        """Get the current GDScript call stack while the game is paused.
+        Returns a list of frames, each with ``file``, ``line``, and ``func``.
+        """
+        return StackFramesResult(**await route(bridge, "cmd_get_stack_frames"))
+
+    @mcp.tool(meta=RUNTIME, tags=DEBUGGER)
+    async def evaluate_expression(expression: str, frame: int = 0) -> EvaluationResult:
+        """Evaluate a GDScript expression in the context of the given ``frame``.
+        ``frame`` 0 is the top of the stack (the currently executing function).
+        The game must be paused.
+        """
+        return EvaluationResult(
+            **await route(
+                bridge,
+                "cmd_evaluate_expression",
+                {"expression": expression, "frame": frame},
+            )
+        )
+
+    @mcp.tool(meta=RUNTIME, tags=DEBUGGER)
+    async def get_frame_variables(frame: int = 0) -> FrameVarsResult:
+        """Get local, member, and global variables for ``frame``.
+        Returns three arrays under ``locals``, ``members``, and ``globals``.
+        The game must be paused.
+        """
+        return FrameVarsResult(
+            **await route(bridge, "cmd_get_frame_variables", {"frame": frame})
+        )
