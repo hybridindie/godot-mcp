@@ -20,6 +20,7 @@ func register(handlers: Dictionary) -> void:
 	handlers["cmd_get_scene_tree"] = _cmd_get_scene_tree
 	handlers["cmd_get_selected_node"] = _cmd_get_selected_node
 	handlers["cmd_get_node_properties"] = _cmd_get_node_properties
+	handlers["cmd_get_node_property_list"] = _cmd_get_node_property_list
 
 
 # -- handlers ----------------------------------------------------------------
@@ -57,3 +58,22 @@ func _cmd_get_node_properties(params: Dictionary) -> Dictionary:
 	if node == null:
 		return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(params["node_path"]))
 	return _router._ok(Inspect.node_info(node, root))
+
+
+func _cmd_get_node_property_list(params: Dictionary) -> Dictionary:
+	if not params.has("node_path"):
+		return _router._fail("VALIDATION_ERROR", "'node_path' is required.")
+	var root: Node = EditorInterface.get_edited_scene_root()
+	if root == null:
+		return _router._fail("PRECONDITION_FAILED", "No scene is open.", "active_scene")
+	var node: Node = root.get_node_or_null(NodePath(str(params["node_path"])))
+	if node == null:
+		return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(params["node_path"]))
+	var names: Array = []
+	for entry in node.get_property_list():
+		names.append(str(entry["name"]))
+	return _router._ok({
+		"node_path": str(params["node_path"]),
+		"type": node.get_class(),
+		"properties": names,
+	})

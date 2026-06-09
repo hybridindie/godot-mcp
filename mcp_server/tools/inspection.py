@@ -14,6 +14,7 @@ from mcp_server.categories import INSPECTION_TAG
 from mcp_server.models.inspection import (
     ActiveScene,
     NodeInfo,
+    NodePropertyList,
     ProjectInfo,
     SceneTree,
     SelectedNode,
@@ -25,7 +26,7 @@ INSPECTION = {INSPECTION_TAG}
 
 
 def register_inspection(mcp: FastMCP, bridge: Bridge) -> None:
-    """Register all five inspection tools on the server."""
+    """Register all inspection tools on the server."""
 
     @mcp.tool(meta=READ_ONLY, tags=INSPECTION)
     async def get_project_info() -> ProjectInfo:
@@ -67,3 +68,13 @@ def register_inspection(mcp: FastMCP, bridge: Bridge) -> None:
         if no scene is open.
         """
         return NodeInfo(**await route(bridge, "cmd_get_node_properties", {"node_path": node_path}))
+
+    @mcp.tool(meta=READ_ONLY, tags=INSPECTION)
+    async def get_node_property_list(node_path: str) -> NodePropertyList:
+        """Return the flat list of valid property names for the node at
+        ``node_path``, plus its runtime class name. Use this to discover what
+        properties you can set before calling ``set_node_property``.
+        """
+        return NodePropertyList(
+            **await route(bridge, "cmd_get_node_property_list", {"node_path": node_path})
+        )

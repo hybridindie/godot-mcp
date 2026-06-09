@@ -12,10 +12,13 @@ All editor work + UndoRedo lives in the addon; all safety lives here
 
 from __future__ import annotations
 
+import asyncio
+import json
 from pathlib import Path
 from typing import Any
 
 from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import SCENE_EDIT_TAG
@@ -39,9 +42,54 @@ from mcp_server.safety import (
     require_confirmation,
     require_node_exists,
 )
-from mcp_server.tools._route import run_or_preview
+from mcp_server.suggestions import suggest
+from mcp_server.tools._route import route, run_or_preview
 
 SCENE_EDIT = {SCENE_EDIT_TAG}
+
+
+async def _node_property_names(bridge: Bridge, node_path: str) -> list[str]:
+    """Fetch the full property list for a node from the addon.
+    Returns ``[]`` on any non-cancellation failure (best-effort).
+    """
+    try:
+        resp = await bridge.send(
+            "cmd_get_node_property_list", {"node_path": node_path}
+        )
+        if resp.ok and resp.result:
+            return [str(p) for p in resp.result.get("properties", [])]
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        pass
+    return []
+
+
+async def _try_set_with_suggestions(
+    bridge: Bridge,
+    params: dict[str, Any],
+    node_path: str,
+    property: str,
+) -> SetPropertyResult:
+    """Route to the addon; on property-not-found enrich the error with suggestions."""
+    try:
+        result = await route(bridge, "cmd_set_node_property", params)
+        return SetPropertyResult(**result)
+    except ToolError as exc:
+        text = str(exc)
+        if "has no property" in text:
+            props = await _node_property_names(bridge, node_path)
+            sug = suggest(property, props)
+            if sug:
+                hint = (
+                    f"Node has no property '{property}'."
+                    f" Did you mean: {', '.join(sug)}?"
+                    f" [suggestions={json.dumps(sug)}]"
+                )
+            else:
+                hint = f"Node has no property '{property}'."
+            raise ToolError(f"VALIDATION_ERROR: {hint}") from None
+        raise
 
 
 def register_mutation(mcp: FastMCP, bridge: Bridge) -> None:
@@ -91,9 +139,9 @@ def register_mutation(mcp: FastMCP, bridge: Bridge) -> None:
         await require_node_exists(bridge, node_path)
         params = {"node_path": node_path, "property": property, "value": value}
         preview = {"node_path": node_path, "property": property, "value": value, "set": False}
-        return await run_or_preview(
-            dry_run, SetPropertyResult, preview, bridge, "cmd_set_node_property", params
-        )
+        if dry_run:
+            return SetPropertyResult(**preview, dry_run=True)
+        return await _try_set_with_suggestions(bridge, params, node_path, property)
 
     @mcp.tool(meta=DESTRUCTIVE, tags=SCENE_EDIT)
     @enforce_preconditions

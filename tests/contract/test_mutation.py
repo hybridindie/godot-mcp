@@ -141,6 +141,93 @@ async def test_set_property_maps_value_and_flag() -> None:
     assert result.structured_content["value"] == {"x": 1, "y": 2}
 
 
+# -- suggestions (issue #109) --------------------------------------------------
+
+
+def _addon_base(cmd: CommandEnvelope) -> ResponseEnvelope:
+    """Handle bootstrap commands and node checks for suggestion tests."""
+    if cmd.command == "cmd_get_active_scene":
+        return ResponseEnvelope.success(cmd.id, {"is_open": True, "path": "res://main.tscn"})
+    if cmd.command == "cmd_get_node_properties":
+        return ResponseEnvelope.success(
+            cmd.id, {"node_path": cmd.params["node_path"], "type": "Node2D"}
+        )
+    # Return failure for bootstrap commands so FakeAddonConnection auto-replaces
+    # cmd_ping / cmd_get_project_info with its default responder.
+    return ResponseEnvelope.failure(
+        cmd.id, "VALIDATION_ERROR", f"Unknown command '{cmd.command}'."
+    )
+
+
+def _respond_with_suggestions(cmd: CommandEnvelope) -> ResponseEnvelope:
+    if cmd.command == "cmd_get_node_property_list":
+        return ResponseEnvelope.success(
+            cmd.id,
+            {
+                "node_path": cmd.params["node_path"],
+                "type": "CharacterBody2D",
+                "properties": [
+                    "position",
+                    "position_smoothing_enabled",
+                    "global_position",
+                ],
+            },
+        )
+    if cmd.command == "cmd_set_node_property":
+        return ResponseEnvelope.failure(
+            cmd.id,
+            "VALIDATION_ERROR",
+            "Node has no property '{}'.".format(cmd.params.get("property")),
+        )
+    return _addon_base(cmd)
+
+
+async def test_set_node_property_suggests_closest_matches() -> None:
+    conn = FakeAddonConnection(responder=_respond_with_suggestions)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    server = create_server(ServerConfig(), bridge=bridge)
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        result = await client.call_tool(
+            "set_node_property",
+            {"node_path": "Player", "property": "positoin", "value": 1},
+            raise_on_error=False,
+        )
+    assert result.is_error
+    text = str(result.content)
+    assert "position" in text
+    assert "suggestions=" in text
+
+
+async def test_set_node_property_no_suggestions_when_list_empty() -> None:
+    def _empty(cmd: CommandEnvelope) -> ResponseEnvelope:
+        if cmd.command == "cmd_get_node_property_list":
+            return ResponseEnvelope.success(
+                cmd.id, {"node_path": cmd.params["node_path"], "properties": []}
+            )
+        if cmd.command == "cmd_set_node_property":
+            return ResponseEnvelope.failure(
+                cmd.id, "VALIDATION_ERROR", "Node has no property 'bad'."
+            )
+        return _addon_base(cmd)
+
+    conn = FakeAddonConnection(responder=_empty)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    server = create_server(ServerConfig(), bridge=bridge)
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        result = await client.call_tool(
+            "set_node_property",
+            {"node_path": "Player", "property": "bad", "value": 1},
+            raise_on_error=False,
+        )
+    assert result.is_error
+    text = str(result.content)
+    assert "has no property 'bad'" in text
+    # No suggestions bracket when the list is empty.
+    assert "suggestions=" not in text
+
+
 async def test_delete_without_confirm_is_blocked() -> None:
     server, conn = _build()
     async with Client(server) as client:

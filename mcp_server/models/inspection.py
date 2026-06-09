@@ -54,6 +54,14 @@ class NodeInfo(BaseModel):
     children: list[str] = Field(default_factory=list)
 
 
+class NodePropertyList(BaseModel):
+    """All property names for a node, returned by get_node_property_list."""
+
+    node_path: str
+    type: str = ""
+    properties: list[str] = Field(default_factory=list)
+
+
 class SelectedNode(BaseModel):
     """The selected node, or ``selected=None`` when nothing is selected."""
 

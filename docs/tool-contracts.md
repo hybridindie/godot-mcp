@@ -133,9 +133,12 @@ states return an empty model (`is_open=False` / `tree=None` / `selected=None`), 
 | `get_scene_tree` | `max_depth: int = -1` | `SceneTree { tree: SceneNode? }` | `cmd_get_scene_tree` |
 | `get_selected_node` | — | `SelectedNode { selected: NodeInfo? }` | `cmd_get_selected_node` |
 | `get_node_properties` | `node_path: str` | `NodeInfo { node_path, type, script?, properties, children }` | `cmd_get_node_properties` |
+| `get_node_property_list` | `node_path: str` | `NodePropertyList { node_path, type, properties[] }` | `cmd_get_node_property_list` |
 
 `SceneNode = { name, type, script?, children: [SceneNode] }`. `get_node_properties` errors
 with `RESOURCE_NOT_FOUND` (bad path) or `PRECONDITION_FAILED` (no scene open).
+`get_node_property_list` returns every valid property name for a node (useful before calling
+`set_node_property`).
 
 #### Mutation (issue #6) — `mutating` (except `delete_node`)
 
