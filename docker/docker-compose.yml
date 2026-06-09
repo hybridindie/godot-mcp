@@ -1,0 +1,23 @@
+services:
+  mcp-server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "9090:9090"
+    environment:
+      GODOT_MCP_TRANSPORT: http
+      GODOT_MCP_HTTP_HOST: "0.0.0.0"
+      GODOT_MCP_HTTP_PORT: "9090"
+      # Default for a Godot editor running on the Docker host.
+      GODOT_MCP_BRIDGE_URL: ws://host.docker.internal:9080
+      # Optional: point at a project directory mounted from the host.
+      # GODOT_MCP_PROJECT_DIR: /project
+    # volumes:
+    #   - /path/to/your/godot/project:/project:ro
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9090/"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
