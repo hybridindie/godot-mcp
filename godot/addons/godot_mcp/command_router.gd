@@ -42,6 +42,7 @@ const MCPResourcesHandlers := preload("res://addons/godot_mcp/handlers/resources
 const MCPSceneSessionHandlers := preload("res://addons/godot_mcp/handlers/scene_session.gd")
 const MCPInputMapHandlers := preload("res://addons/godot_mcp/handlers/input_map.gd")
 const MCPDebuggerHandlers := preload("res://addons/godot_mcp/handlers/debugger.gd")
+const MCPImportAssetHandlers := preload("res://addons/godot_mcp/handlers/import_asset.gd")
 
 var _handlers: Dictionary = {}
 # The EditorDebuggerPlugin that captures a played game's godot_mcp channel (issue #66).
@@ -75,6 +76,7 @@ var _resources: MCPResourcesHandlers = null
 var _scene_session: MCPSceneSessionHandlers = null
 var _input_map: MCPInputMapHandlers = null
 var _debugger_handlers: MCPDebuggerHandlers = null
+var _import_asset: MCPImportAssetHandlers = null
 
 
 ## Inject the MCPDebugger so runtime-inspection handlers can read cached live state.
@@ -143,6 +145,8 @@ func _init() -> void:
 	_input_map.register(_handlers)
 	_debugger_handlers = MCPDebuggerHandlers.new(self)
 	_debugger_handlers.register(_handlers)
+	_import_asset = MCPImportAssetHandlers.new(self)
+	_import_asset.register(_handlers)
 
 
 ## Dispatch one envelope ({ id, command, params }) and return a response envelope.

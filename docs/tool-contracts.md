@@ -237,6 +237,22 @@ property's declared Godot type.
 `register_autoload`/`unregister_autoload` persist to project settings. Mutating tools accept
 `dry_run: bool = False` and echo it in the result (sending no change when true).
 
+#### External asset import (issue #108) — category: `asset_import` (gated off by default)
+
+Import external files (local paths or HTTP URLs) into a Godot project and assemble PBR materials from texture channels. This is the open-source foundation for external AI content pipelines (e.g. Meshy, Tripo) without hard-coding provider-specific logic.
+
+| Tool | Params | Returns | Class |
+|------|--------|---------|-------|
+| `import_asset` | `source: str`, `target_path: str`, `options?: dict` | `ImportAssetResult { imported, target_path, detected_type }` | `mutating` |
+| `create_material_from_textures` | `albedo?, normal?, roughness?, metallic?, ao?, emission?, path?` | `CreateMaterialResult { material_path, created, channels_set }` | `mutating` |
+| `get_import_status` | `target_path: str` | `ImportStatusResult { imported, last_modified?, type? }` | `read_only` |
+
+`import_asset` auto-detects the Godot type from the file extension (`.png`→`Texture2D`, `.glb`→`PackedScene`, `.wav`→`AudioStreamWAV`, etc.). When `source` is an HTTP(S) URL it is downloaded via `httpx` with a 60-second timeout, then copied to `target_path` (must start with `res://`). The `options` dict may contain `overwrite` (bool, default `false`) and `import_settings` (dict, e.g. `{"type": "Texture2D", "compress": "lossy"}`). The editor filesystem scan is triggered after copy so Godot imports the file.
+
+`create_material_from_textures` creates a `StandardMaterial3D`, assigns every non-empty texture channel that exists in the project, and saves the material as a `.tres`. The default `path` is `res://materials/generated_{uuid}.tres`. Only channels with a valid `res://` texture path are included in `channels_set`.
+
+`get_import_status` checks whether the target file exists in `.godot/imported/` and reads the `.import` metadata when available.
+
 #### Project & filesystem (issue #32) — category: `project` (gated off by default)
 
 | Tool | Params | Returns | Class |

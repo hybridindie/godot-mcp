@@ -23,6 +23,7 @@ from mcp_server.bridge import Bridge
 from mcp_server.categories import (
     ANALYSIS_TAG,
     ANIMATION_TAG,
+    ASSET_IMPORT_TAG,
     AUDIO_TAG,
     BATCH_TAG,
     CORE_TAG,
@@ -90,6 +91,8 @@ TOOLSETS: dict[str, str] = {
     "an export (needs export templates).",
     DEBUGGER_TAG: "Debugger breakpoint control: set, remove, clear breakpoints and force "
     "breaks in a running game (needs a play session).",
+    ASSET_IMPORT_TAG: "Import external assets (local files or URLs) into the project and "
+    "assemble PBR materials from textures.",
 }
 
 # Minimum Godot version (major, minor) per toolset. Categories omitted here work

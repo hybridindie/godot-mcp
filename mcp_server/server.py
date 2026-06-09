@@ -33,6 +33,7 @@ from mcp_server.tools.debugger import register_debugger
 from mcp_server.tools.editor import register_editor
 from mcp_server.tools.export import register_export
 from mcp_server.tools.health import register_health
+from mcp_server.tools.import_asset import register_import_asset
 from mcp_server.tools.input_map import register_input_map
 from mcp_server.tools.input_sim import register_input_sim
 from mcp_server.tools.inspection import register_inspection
@@ -112,7 +113,8 @@ def create_server(
             "- testing     → assert_node_state, run_test_scenario\n"
             "- batch       → batch_set_property, find_nodes_by_type\n"
             "- physics     → setup_physics_body, setup_collision\n"
-            "- resources_edit → register_autoload, create_resource\n\n"
+            "- resources_edit → register_autoload, create_resource\n"
+            "- asset_import → import_asset, create_material_from_textures\n\n"
             "DOCUMENTATION:\n"
             "- Tutorial (prompt-driven walkthrough): https://github.com/hybridindie/godot-mcp/blob/main/TUTORIAL.md\n"
             "- Tool contracts (per-tool spec): https://github.com/hybridindie/godot-mcp/blob/main/docs/tool-contracts.md\n"
@@ -129,7 +131,7 @@ def create_server(
             "godot_mcp": {
                 "version": "2026.06.01",
                 "min_godot": "4.4",
-                "toolset_count": 25,
+                "toolset_count": 26,
                 "docs": {
                     "tutorial": "https://github.com/hybridindie/godot-mcp/blob/main/TUTORIAL.md",
                     "tool_contracts": "https://github.com/hybridindie/godot-mcp/blob/main/docs/tool-contracts.md",
@@ -174,6 +176,7 @@ def create_server(
     register_runtime(mcp, bridge, config, runner)
     register_runtime_session(mcp, bridge)
     register_runtime_inspect(mcp, bridge)
+    register_import_asset(mcp, bridge)
     register_input_sim(mcp, bridge)
     register_input_map(mcp, bridge)
     register_testing(mcp, bridge)
