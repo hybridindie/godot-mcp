@@ -47,6 +47,7 @@ from mcp_server.categories import (
     TESTING_TAG,
     THEME_UI_TAG,
     TILEMAP_TAG,
+    VISUAL_SHADER_TAG,
 )
 from mcp_server.safety import READ_ONLY
 
@@ -93,6 +94,8 @@ TOOLSETS: dict[str, str] = {
     "breaks in a running game (needs a play session).",
     ASSET_IMPORT_TAG: "Import external assets (local files or URLs) into the project and "
     "assemble PBR materials from textures.",
+    VISUAL_SHADER_TAG: "Create and edit Visual Shader node graphs: create shaders, add "
+    "nodes, wire connections, and set node parameters.",
 }
 
 # Minimum Godot version (major, minor) per toolset. Categories omitted here work

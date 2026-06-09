@@ -55,6 +55,7 @@ from mcp_server.tools.shader import register_shader
 from mcp_server.tools.testing import register_testing
 from mcp_server.tools.theme_ui import register_theme_ui
 from mcp_server.tools.tilemap import register_tilemap
+from mcp_server.tools.visual_shader import register_visual_shader
 from mcp_server.toolsets import ToolsetManager, register_toolset_tools
 
 logger = logging.getLogger(__name__)
@@ -131,7 +132,7 @@ def create_server(
             "godot_mcp": {
                 "version": "2026.06.01",
                 "min_godot": "4.4",
-                "toolset_count": 26,
+                "toolset_count": 27,
                 "docs": {
                     "tutorial": "https://github.com/hybridindie/godot-mcp/blob/main/TUTORIAL.md",
                     "tool_contracts": "https://github.com/hybridindie/godot-mcp/blob/main/docs/tool-contracts.md",
@@ -171,6 +172,7 @@ def create_server(
     register_tilemap(mcp, bridge)
     register_theme_ui(mcp, bridge)
     register_shader(mcp, bridge)
+    register_visual_shader(mcp, bridge)
     register_editor(mcp, bridge)
     register_resources(mcp, bridge)
     register_runtime(mcp, bridge, config, runner)

@@ -498,6 +498,27 @@ to `material` (CanvasItem) or `material_override` (GeometryInstance3D), reportin
 (float/int/bool/vector2/vector3/vector4/color) coerces `value`, or it is inferred
 (number/bool as-is, `[x,y,z]` → vector, HTML string → color).
 
+#### Visual shaders (issue #107) — category: `visual_shader` (gated off by default)
+
+Create and edit VisualShader node graphs programmatically — the node-based counterpart
+to the text-shader `shader` toolset (issue #47). All mutating tools support `dry_run`.
+
+| Tool | Params | Returns | Class |
+|------|--------|---------|-------|
+| `create_visual_shader` | `name, type="3d", path?` | `CreateVisualShaderResult { path, created }` | `mutating` |
+| `add_shader_node` | `shader_path, node_type, node_id, position=[x,y]` | `AddShaderNodeResult { node_id, node_type, added }` | `mutating` |
+| `connect_shader_nodes` | `shader_path, from_node, from_port, to_node, to_port` | `ConnectShaderNodesResult { connected }` | `mutating` |
+| `set_shader_node_param` | `shader_path, node_id, property, value` | `SetShaderNodeParamResult { node_id, property, value, set }` | `mutating` |
+| `list_shader_node_types` | — | `ListShaderNodeTypesResult { types[] }` | `read_only` |
+
+`create_visual_shader` creates a `VisualShader` resource with `shader_type` set from
+`type` (`"2d"` → canvas_item, `"3d"` → spatial, `"particles"` | `"sky"` | `"fog"`).
+`add_shader_node` instantiates a `VisualShaderNode` subclass and assigns it a graph
+`position`. `connect_shader_nodes` wires an output port to an input port by
+integer ids. `set_shader_node_param` sets a property on the node (values coerced via
+`type_coerce`). `list_shader_node_types` scans ClassDB for instantiable
+`VisualShaderNode*` classes so agents know what's available.
+
 #### Runtime (issue #13) — `runtime` (category: `runtime`, gated off by default)
 
 | Tool | Params | Returns |
