@@ -44,6 +44,7 @@ from mcp_server.tools.particles import register_particles
 from mcp_server.tools.physics import register_physics
 from mcp_server.tools.profiling import register_profiling
 from mcp_server.tools.project_fs import register_project_fs
+from mcp_server.tools.project_scaffold import register_project_scaffold
 from mcp_server.tools.resource_files import register_resource_files
 from mcp_server.tools.runtime import register_runtime
 from mcp_server.tools.runtime_inspect import register_runtime_inspect
@@ -132,7 +133,7 @@ def create_server(
             "godot_mcp": {
                 "version": "2026.06.01",
                 "min_godot": "4.4",
-                "toolset_count": 27,
+                "toolset_count": 28,
                 "docs": {
                     "tutorial": "https://github.com/hybridindie/godot-mcp/blob/main/TUTORIAL.md",
                     "tool_contracts": "https://github.com/hybridindie/godot-mcp/blob/main/docs/tool-contracts.md",
@@ -189,6 +190,7 @@ def create_server(
     register_export(mcp, bridge, config, runner)
     register_scripts(mcp, bridge, config, runner)
     register_debug_workflow(mcp, bridge, config, runner)
+    register_project_scaffold(mcp, bridge)
     register_safety_tools(mcp)
 
     # Gate the tool surface by category, then apply the default exposure (core +

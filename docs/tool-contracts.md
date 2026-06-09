@@ -519,6 +519,29 @@ integer ids. `set_shader_node_param` sets a property on the node (values coerced
 `type_coerce`). `list_shader_node_types` scans ClassDB for instantiable
 `VisualShaderNode*` classes so agents know what's available.
 
+#### Project scaffold (issue #112) — category: `project_scaffold` (gated off by default)
+
+Generate a project skeleton (directories, settings, autoloads, root scene) for common
+game types so agents start from a known structure.  This is not a template system — it
+creates empty nodes and configuration values that the agent builds on with existing tools.
+
+| Tool | Params | Returns | Class |
+|------|--------|---------|-------|
+| `scaffold_project` | `type, project_name?, main_scene?, confirm=False, dry_run=False` | `ScaffoldProjectResult { created, paths_created[], autoloads_registered[] }` | **`destructive`** |
+
+`type` is one of `2d_platformer`, `3d_fps`, `top_down_rpg`, `visual_novel`.
+Requires `confirm=True` because it mutates the project filesystem broadly.
+Action (when not dry-run):
+
+1. Creates directories: `res://scenes/`, `res://scripts/`, `res://assets/`, `res://shaders/`
+2. Sets project defaults: application name, viewport size, rendering method, gravity
+3. Registers autoloads: `GameState` (empty Node script)
+4. Creates a root scene (`Node2D` for 2D types, `Node3D` for 3D) saved as `res://scenes/{main_scene}.tscn`
+5. Sets `application/run/main_scene` and persists to `project.godot`
+
+All changes are persisted via `ProjectSettings.save()`.  The tool is `destructive`
+because there is no clean UndoRedo path for broad project mutations.
+
 #### Runtime (issue #13) — `runtime` (category: `runtime`, gated off by default)
 
 | Tool | Params | Returns |

@@ -37,6 +37,7 @@ from mcp_server.categories import (
     PARTICLES_TAG,
     PHYSICS_TAG,
     PROFILING_TAG,
+    PROJECT_SCAFFOLD_TAG,
     PROJECT_TAG,
     RESOURCES_EDIT_TAG,
     RUNTIME_TAG,
@@ -96,6 +97,8 @@ TOOLSETS: dict[str, str] = {
     "assemble PBR materials from textures.",
     VISUAL_SHADER_TAG: "Create and edit Visual Shader node graphs: create shaders, add "
     "nodes, wire connections, and set node parameters.",
+    PROJECT_SCAFFOLD_TAG: "Generate a project skeleton (directories, settings, autoloads, "
+    "root scene) for common game types so agents start from a known structure.",
 }
 
 # Minimum Godot version (major, minor) per toolset. Categories omitted here work

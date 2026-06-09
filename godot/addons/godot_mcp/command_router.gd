@@ -44,6 +44,7 @@ const MCPInputMapHandlers := preload("res://addons/godot_mcp/handlers/input_map.
 const MCPDebuggerHandlers := preload("res://addons/godot_mcp/handlers/debugger.gd")
 const MCPImportAssetHandlers := preload("res://addons/godot_mcp/handlers/import_asset.gd")
 const MCPVisualShaderHandlers := preload("res://addons/godot_mcp/handlers/visual_shader.gd")
+const MCPProjectScaffoldHandlers := preload("res://addons/godot_mcp/handlers/project_scaffold.gd")
 
 var _handlers: Dictionary = {}
 # The EditorDebuggerPlugin that captures a played game's godot_mcp channel (issue #66).
@@ -79,6 +80,7 @@ var _input_map: MCPInputMapHandlers = null
 var _debugger_handlers: MCPDebuggerHandlers = null
 var _import_asset: MCPImportAssetHandlers = null
 var _visual_shader: MCPVisualShaderHandlers = null
+var _project_scaffold: MCPProjectScaffoldHandlers = null
 
 
 ## Inject the MCPDebugger so runtime-inspection handlers can read cached live state.
@@ -151,6 +153,8 @@ func _init() -> void:
 	_import_asset.register(_handlers)
 	_visual_shader = MCPVisualShaderHandlers.new(self)
 	_visual_shader.register(_handlers)
+	_project_scaffold = MCPProjectScaffoldHandlers.new(self)
+	_project_scaffold.register(_handlers)
 
 
 ## Dispatch one envelope ({ id, command, params }) and return a response envelope.
