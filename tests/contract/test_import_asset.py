@@ -5,6 +5,10 @@ All three tools live in a new ``asset_import`` toolset (gated off by default).
 
 from __future__ import annotations
 
+import os
+import tempfile
+from unittest.mock import patch
+
 import pytest
 from fastmcp import Client, FastMCP
 
@@ -81,6 +85,34 @@ async def test_import_asset_success() -> None:
     assert result.structured_content["target_path"] == "res://assets/download.png"
     assert result.structured_content["detected_type"] == "Texture2D"
     assert "cmd_import_asset" in _commands(conn)
+
+
+async def test_import_asset_with_url_download_cleanup() -> None:
+    """When source is a URL, the downloaded temporary file is cleaned up
+    after the addon call.
+    """
+    server, conn = _build()
+    fd, tmp = tempfile.mkstemp(suffix=".png")
+    os.close(fd)
+    assert os.path.exists(tmp)
+
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "asset_import"})
+        with patch(
+            "mcp_server.tools.import_asset._download_url", return_value=tmp
+        ):
+            result = await client.call_tool(
+                "import_asset",
+                {
+                    "source": "https://example.com/img.png",
+                    "target_path": "res://assets/img.png",
+                },
+            )
+    assert result.structured_content["imported"] is True
+    # The addon was called with the temp path; it should have been cleaned up.
+    assert not os.path.exists(tmp)
+    last = CommandEnvelope.model_validate_json(conn.sent[-1])
+    assert last.params.get("source") == tmp
 
 
 async def test_import_asset_dry_run() -> None:

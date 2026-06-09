@@ -9,6 +9,7 @@ Gated ``asset_import`` toolset.
 
 from __future__ import annotations
 
+import os
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -72,8 +73,8 @@ def _is_url(source: str) -> bool:
 async def _download_url(url: str) -> str:
     """Download ``url`` to a temporary file and return its absolute path.
 
-    Uses ``httpx`` (already in server dependencies) with a 60-second timeout.
-    Raises ``ToolError`` on network or HTTP failure.
+    Streams the response to disk in 64 KiB chunks to avoid buffering the
+    entire payload in memory. Raises ``ToolError`` on network or HTTP failure.
     """
     try:
         import httpx
@@ -85,8 +86,20 @@ async def _download_url(url: str) -> str:
 
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.get(url, follow_redirects=True)
-            response.raise_for_status()
+            async with client.stream(
+                "GET", url, follow_redirects=True
+            ) as response:
+                response.raise_for_status()
+                suffix = Path(url.split("?")[0]).suffix or ".tmp"
+                fd, tmp_path = tempfile.mkstemp(suffix=suffix)
+                try:
+                    with os.fdopen(fd, "wb") as tmp:
+                        async for chunk in response.aiter_bytes(chunk_size=65536):
+                            tmp.write(chunk)
+                    return tmp_path
+                except Exception:
+                    os.close(fd)
+                    raise
     except httpx.HTTPStatusError as exc:
         raise ToolError(
             f"DOWNLOAD_FAILED: HTTP {exc.response.status_code} for '{url}'."
@@ -95,11 +108,6 @@ async def _download_url(url: str) -> str:
         raise ToolError(
             f"DOWNLOAD_FAILED: Network error downloading '{url}': {exc}."
         ) from exc
-
-    suffix = Path(url.split("?")[0]).suffix or ".tmp"
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        tmp.write(response.content)
-        return tmp.name
 
 
 # ---------------------------------------------------------------------------
@@ -142,8 +150,10 @@ def register_import_asset(mcp: FastMCP, bridge: Bridge) -> None:
             return preview
 
         local_source = source
+        downloaded_tmp: str | None = None
         if _is_url(source):
-            local_source = await _download_url(source)
+            downloaded_tmp = await _download_url(source)
+            local_source = downloaded_tmp
 
         params: dict[str, Any] = {
             "source": local_source,
@@ -151,7 +161,11 @@ def register_import_asset(mcp: FastMCP, bridge: Bridge) -> None:
             "overwrite": options.get("overwrite", False),
             "import_settings": options.get("import_settings", {}),
         }
-        result = await route(bridge, "cmd_import_asset", params)
+        try:
+            result = await route(bridge, "cmd_import_asset", params)
+        finally:
+            if downloaded_tmp and os.path.exists(downloaded_tmp):
+                os.unlink(downloaded_tmp)
         return ImportAssetResult(
             imported=result.get("imported", True),
             target_path=result.get("target_path", target_path),
@@ -172,9 +186,9 @@ def register_import_asset(mcp: FastMCP, bridge: Bridge) -> None:
     ) -> CreateMaterialResult:
         """Assemble a PBR material from texture paths and save it as a ``.tres``.
 
-        Creates a ``StandardMaterial3D`` (or ``CanvasItemMaterial`` if inferred 2D)
-        and assigns whichever texture channels were provided.  ``path`` defaults to
-        ``res://materials/generated_{uuid}.tres`` when omitted.
+        Creates a ``StandardMaterial3D`` and assigns whichever texture channels
+        were provided.  ``path`` defaults to ``res://materials/generated_{rand}.tres``
+        when omitted.
         """
         params: dict[str, Any] = {
             "albedo": albedo,
@@ -186,7 +200,7 @@ def register_import_asset(mcp: FastMCP, bridge: Bridge) -> None:
             "path": path,
         }
         preview = {
-            "material_path": path or "res://materials/generated_{uuid}.tres",
+            "material_path": path or "res://materials/generated_{rand}.tres",
             "created": False,
             "channels_set": [],
         }

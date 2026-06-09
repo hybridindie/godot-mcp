@@ -32,8 +32,13 @@ func _copy_file(source: String, target: String, overwrite: bool) -> int:
 	if dst == null:
 		src.close()
 		return FileAccess.get_open_error()
-	var buf := src.get_buffer(src.get_length())
-	dst.store_buffer(buf)
+	const CHUNK := 65536
+	var remaining := src.get_length()
+	while remaining > 0:
+		var read_size := mini(CHUNK, remaining)
+		var buf := src.get_buffer(read_size)
+		dst.store_buffer(buf)
+		remaining -= read_size
 	src.close()
 	dst.close()
 	return OK
@@ -170,24 +175,25 @@ func _cmd_get_import_status(params: Dictionary) -> Dictionary:
 	if not target_path.begins_with("res://"):
 		return _router._fail("VALIDATION_ERROR", "target_path must start with res://.")
 
-	var imported_path := ProjectSettings.globalize_path("res://.godot/imported/" + target_path.trim_prefix("res://"))
-	var imported := FileAccess.file_exists(imported_path)
+	var import_file := ProjectSettings.globalize_path(target_path + ".import")
+	var imported := FileAccess.file_exists(import_file)
 	var last_modified: String = ""
 	var type: String = ""
 
 	if imported:
-		# Derive the .import file path to read metadata.
-		var import_file := ProjectSettings.globalize_path(target_path + ".import")
-		if FileAccess.file_exists(import_file):
-			var cfg := ConfigFile.new()
-			var err := cfg.load(import_file)
-			if err == OK:
-				type = cfg.get_value("remap", "type", "")
-				if type.is_empty():
-					type = _detect_type(target_path)
-				var mtime := FileAccess.get_modified_time(import_file)
-				last_modified = Time.get_datetime_string_from_unix_time(mtime)
-		else:
+		var cfg := ConfigFile.new()
+		var err := cfg.load(import_file)
+		if err == OK:
+			type = cfg.get_value("remap", "type", "")
+		if type.is_empty():
+			type = _detect_type(target_path)
+		var mtime := FileAccess.get_modified_time(import_file)
+		last_modified = Time.get_datetime_string_from_unix_time(mtime)
+	else:
+		# Fallback: the file may not have an .import sidecar yet; report
+		# whether the actual resource file exists and the extension type.
+		imported = ResourceLoader.exists(target_path)
+		if imported:
 			type = _detect_type(target_path)
 
 	return _router._ok({
