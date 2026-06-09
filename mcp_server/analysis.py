@@ -47,10 +47,18 @@ _REF_EXTS = {".tscn", ".tres", ".gd", ".gdshader", ".godot", ".cfg"}
 _SKIP_DIRS = {".godot", ".git", ".import"}
 
 _RES_REF = re.compile(r"res://[^\s\"'()\[\]]+")
+_UID_REF = re.compile(r"uid://[^\s\"'()\[\]]+")
+_EXT_RESOURCE = re.compile(r'\[ext_resource\s+[^\]]*type="([^"]+)"[^\]]*path="([^"]+)"')
+_EXT_RESOURCE_ID = re.compile(r'\[ext_resource\s+[^\]]*id="([^"]+)"[^\]]*path="([^"]+)"')
+_SUB_RESOURCE = re.compile(r'\[sub_resource\s+[^\]]*type="([^"]+)"')
+_NODE_HEADER = re.compile(r"^\[node ", re.MULTILINE)
+_NODE_HEADER_LINE = re.compile(r'^\[node\s+name="([^"]+)"\s+type="([^"]+)"')
+_SCRIPT_ASSIGN = re.compile(r'script\s*=\s*ExtResource\("([^"]+)"\)')
 _CONNECTION = re.compile(
     r'\[connection signal="([^"]+)" from="([^"]+)" to="([^"]+)" method="([^"]+)"'
 )
-_NODE_HEADER = re.compile(r"^\[node ", re.MULTILINE)
+_SIGNAL_CONN = _CONNECTION
+_NODE_PARENT = re.compile(r'parent="([^"]+)"')
 _SCRIPT_DEP = re.compile(
     r'(?:preload|load)\(\s*"(res://[^"]+\.gd)"\s*\)|extends\s+"(res://[^"]+\.gd)"'
 )
@@ -139,7 +147,7 @@ def analyze_signal_flow(index: ProjectIndex, scene: str = "") -> dict[str, Any]:
             continue
         if scene and res != scene:
             continue
-        for signal, src, dst, method in _CONNECTION.findall(text):
+        for signal, src, dst, method in _SIGNAL_CONN.findall(text):
             connections.append(
                 {"scene": res, "signal": signal, "from": src, "to": dst, "method": method}
             )
@@ -205,7 +213,7 @@ def project_stats(index: ProjectIndex) -> dict[str, Any]:
         if res.endswith((".tscn", ".scn")):
             nodes = len(_NODE_HEADER.findall(text))
             total_nodes += nodes
-            total_connections += len(_CONNECTION.findall(text))
+            total_connections += len(_SIGNAL_CONN.findall(text))
             scenes_by_nodes.append({"scene": res, "nodes": nodes})
     scenes_by_nodes.sort(key=lambda s: s["nodes"], reverse=True)
     return {
@@ -216,4 +224,248 @@ def project_stats(index: ProjectIndex) -> dict[str, Any]:
         "connections": total_connections,
         "by_extension": by_extension,
         "busiest_scenes": scenes_by_nodes[:10],
+    }
+
+
+# ---------------------------------------------------------------------------
+# Issue #111 — asset dependency, orphan detection, scene integrity
+# ---------------------------------------------------------------------------
+
+
+def _ext_resource_map(text: str) -> dict[str, str]:
+    """Map ExtResource id -> path for a scene/resource file."""
+    mapping: dict[str, str] = {}
+    for block in re.findall(r'\[ext_resource\s+[^\]]*\]', text):
+        id_match = re.search(r'id="([^"]+)"', block)
+        path_match = re.search(r'path="([^"]+)"', block)
+        if id_match and path_match:
+            mapping[id_match.group(1)] = path_match.group(1)
+    return mapping
+
+
+def _ext_resource_type_map(text: str) -> dict[str, tuple[str, str]]:
+    """Map ExtResource id -> (type, path) for a scene/resource file."""
+    mapping: dict[str, tuple[str, str]] = {}
+    for block in re.findall(r'\[ext_resource\s+[^\]]*\]', text):
+        id_match = re.search(r'id="([^"]+)"', block)
+        type_match = re.search(r'type="([^"]+)"', block)
+        path_match = re.search(r'path="([^"]+)"', block)
+        if id_match and type_match and path_match:
+            mapping[id_match.group(1)] = (type_match.group(1), path_match.group(1))
+    return mapping
+
+
+def _collect_references(text: str, res: str) -> set[str]:
+    """All res:// / uid:// refs found in a file's text, plus ext_resources."""
+    refs: set[str] = set()
+    refs.update(_RES_REF.findall(text))
+    refs.update(_UID_REF.findall(text))
+    # For scenes/resources, also explicitly parse ext_resource paths
+    if res.endswith((".tscn", ".tres", ".scn")):
+        for block in re.findall(r'\[ext_resource\s+[^\]]*\]', text):
+            path_match = re.search(r'path="([^"]+)"', block)
+            if path_match:
+                refs.add(path_match.group(1))
+    return refs
+
+
+def analyze_dependencies(index: ProjectIndex, resource_path: str) -> dict[str, Any]:
+    """Parse a resource file and extract all ``res://`` / ``uid://`` references.
+    Recurse into sub-dependencies up to a depth limit.
+    """
+    if resource_path not in index.texts and resource_path not in index.resources:
+        return {"path": resource_path, "type": "", "references": [], "referencers": []}
+
+    visited: set[str] = set()
+    references: list[str] = []
+
+    def _dfs(path: str, depth: int) -> None:
+        if depth > 5 or path in visited:
+            return
+        visited.add(path)
+        text = index.texts.get(path, "")
+        if not text:
+            return
+        for ref in sorted(_collect_references(text, path)):
+            if ref.startswith(("res://", "uid://")) and ref not in visited:
+                references.append(ref)
+                if ref in index.texts:
+                    _dfs(ref, depth + 1)
+
+    _dfs(resource_path, 0)
+    # deduplicate while preserving order
+    seen: set[str] = set()
+    unique_refs: list[str] = []
+    for r in references:
+        if r not in seen:
+            seen.add(r)
+            unique_refs.append(r)
+
+    # Type inference
+    rtype = ""
+    ext = Path(resource_path).suffix.lower()
+    if ext == ".gd":
+        rtype = "GDScript"
+    elif ext in {".tscn", ".scn"}:
+        rtype = "PackedScene"
+    elif ext == ".tres":
+        rtype = "Resource"
+    elif ext in {".png", ".jpg", ".jpeg", ".svg", ".webp", ".bmp"}:
+        rtype = "Texture2D"
+    elif ext in {".ogg", ".wav", ".mp3"}:
+        rtype = "AudioStream"
+    text = index.texts.get(resource_path, "")
+    type_map = _ext_resource_type_map(text)
+    if type_map:
+        # any parsed ext_resource type overrides generic suffix inference
+        first = next(iter(type_map.values()))
+        rtype = first[0]
+
+    # referencers = files that reference this path
+    referencers: list[str] = sorted(
+        res for res, text in index.texts.items() if resource_path in _collect_references(text, res)
+    )
+
+    return {
+        "path": resource_path,
+        "type": rtype,
+        "references": unique_refs,
+        "referencers": referencers,
+    }
+
+
+def find_orphaned_resources(
+    index: ProjectIndex, scan_dir: str = "res://", resource_types: list[str] | None = None
+) -> dict[str, Any]:
+    """Resource files not referenced by any project file (excluding entry points).
+    ``scan_dir`` narrows the scope (default whole project). ``resource_types`` filters
+    by Godot type string (e.g. ``["Texture2D"]``); when omitted, all resource types
+    are considered. Excludes ``.godot/`` and ``addons/`` by default.
+    """
+    orphaned: list[dict[str, Any]] = []
+    for res, path in index.resources.items():
+        if not res.startswith(scan_dir):
+            continue
+        # skip .godot cache and addons by default
+        if "/.godot/" in res or "/addons/" in res:
+            continue
+        if res in index.referenced or res in index.entry_points:
+            continue
+        ext = path.suffix.lower()
+        rtype = ""
+        if ext in {".png", ".jpg", ".jpeg", ".svg", ".webp", ".bmp"}:
+            rtype = "Texture2D"
+        elif ext in {".ogg", ".wav", ".mp3"}:
+            rtype = "AudioStream"
+        elif ext == ".tres":
+            rtype = "Resource"
+        elif ext in {".tscn", ".scn"}:
+            rtype = "PackedScene"
+        elif ext == ".gd":
+            rtype = "GDScript"
+        if resource_types and rtype not in resource_types:
+            continue
+        estimated_size = path.stat().st_size if path.exists() else 0
+        orphaned.append({"path": res, "type": rtype, "estimated_size": estimated_size})
+    orphaned.sort(key=lambda o: o["path"])
+    return {"orphaned": orphaned, "scanned": len(index.resources)}
+
+
+def validate_scene_integrity(index: ProjectIndex, scene_path: str) -> dict[str, Any]:
+    """Validate a scene file for broken references and malformed signal connections.
+    Returns ``valid`` only when zero errors are found; warnings are non-blocking.
+    """
+    text = index.texts.get(scene_path, "")
+    if not text:
+        return {
+            "valid": False,
+            "errors": [{"severity": "error", "message": f"Scene not found: {scene_path}"}],
+            "warnings": [],
+        }
+
+    errors: list[dict[str, Any]] = []
+    warnings: list[dict[str, Any]] = []
+
+    ext_map = _ext_resource_map(text)
+    ext_type_map = _ext_resource_type_map(text)
+
+    # broken ext_resource paths
+    for _rid, (rtype, path) in ext_type_map.items():
+        if path.startswith("res://") and path not in index.resources:
+            errors.append(
+                {
+                    "severity": "error",
+                    "message": f"Missing ext_resource: {path} ({rtype})",
+                    "node_path": "",
+                    "property": "",
+                }
+            )
+
+    # collect node names for signal target validation
+    node_names: set[str] = set()
+    for line in text.splitlines():
+        m = _NODE_HEADER_LINE.match(line)
+        if m:
+            node_names.add(m.group(1))
+
+    # broken script assignments (resolve ExtResource id -> path)
+    for line in text.splitlines():
+        m = _SCRIPT_ASSIGN.search(line)
+        if m:
+            rid = m.group(1)
+            script_path = ext_map.get(rid)
+            if (
+                script_path
+                and script_path.startswith("res://")
+                and script_path not in index.resources
+            ):
+                errors.append(
+                    {
+                        "severity": "error",
+                        "message": f"Missing script: {script_path}",
+                        "node_path": "",
+                        "property": "script",
+                    }
+                )
+
+    # broken signal connections
+    for signal, src, dst, method in _SIGNAL_CONN.findall(text):
+        for target in (src, dst):
+            if target != "." and target not in node_names:
+                errors.append(
+                    {
+                        "severity": "error",
+                        "message": (
+                            f"Signal '{signal}' connection points to missing node "
+                            f"'{target}' (method '{method}')"
+                        ),
+                        "node_path": target,
+                        "property": "",
+                    }
+                )
+
+    return {"valid": len(errors) == 0, "errors": errors, "warnings": warnings}
+
+
+def cross_scene_find_refs(index: ProjectIndex, target_path: str) -> dict[str, Any]:
+    """Scan all project files for references to ``target_path`` (or its ``uid://``).
+    Returns which scenes, resources, and scripts mention it.
+    """
+    scenes: list[str] = []
+    resources: list[str] = []
+    scripts: list[str] = []
+
+    for res, text in index.texts.items():
+        if target_path in text:
+            if res.endswith((".tscn", ".scn")):
+                scenes.append(res)
+            elif res.endswith(".tres"):
+                resources.append(res)
+            elif res.endswith(".gd"):
+                scripts.append(res)
+
+    return {
+        "scenes": sorted(set(scenes)),
+        "resources": sorted(set(resources)),
+        "scripts": sorted(set(scripts)),
     }

@@ -67,7 +67,9 @@ async def test_remove_breakpoint() -> None:
     server, _ = _build()
     async with Client(server) as client:
         await client.call_tool("enable_toolset", {"category": "debugger"})
-        result = await client.call_tool("remove_breakpoint", {"path": "res://player.gd", "line": 42})
+        result = await client.call_tool(
+            "remove_breakpoint", {"path": "res://player.gd", "line": 42}
+        )
     sc = result.structured_content
     assert sc["breakpoint_removed"] is True
     assert sc["path"] == "res://player.gd"

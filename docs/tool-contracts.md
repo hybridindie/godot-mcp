@@ -569,7 +569,7 @@ true when the process exits 0. **Requires export templates installed** for the t
 platform (missing templates surface as errors in the result). Use a generous
 `timeout_seconds`.
 
-#### Static analysis (issue #49) — category: `analysis` (gated off by default)
+#### Static analysis (issue #49, #111) — category: `analysis` (gated off by default)
 
 Project-wide static analysis, computed Python-side from the project's files (no addon
 commands). All `read_only`. The project dir is resolved like the runtime loop
@@ -582,14 +582,25 @@ commands). All `read_only`. The project dir is resolved like the runtime loop
 | `analyze_signal_flow` | `scene=""` | `SignalFlowResult { connections[], count }` |
 | `detect_circular_dependencies` | — | `CircularDependenciesResult { cycles[], count }` |
 | `project_stats` | — | `ProjectStatsResult { scenes, scripts, resources, total_nodes, connections, by_extension, busiest_scenes[] }` |
+| `analyze_dependencies` | `resource_path` | `AnalyzeDependenciesResult { path, type, references[], referencers[] }` |
+| `find_orphaned_resources` | `scan_dir="res://"`, `resource_types` | `FindOrphanedResult { orphaned[]{path, type, estimated_size}, scanned }` |
+| `validate_scene_integrity` | `scene_path` | `ValidateSceneIntegrityResult { valid, errors[]{severity, message, node_path, property}, warnings[] }` |
+| `cross_scene_find_refs` | `target_path` | `CrossSceneRefsResult { scenes[], resources[], scripts[] }` |
 
 `find_unused_resources` flags resource files not referenced by any project file (excluding
 entry points — the main scene, autoloads, plugin scripts). `analyze_signal_flow` parses
 `[connection ...]` from scene files (each `{scene, signal, from, to, method}`).
 `detect_circular_dependencies` finds cycles in the `preload`/`load`/`extends` graph among
 `.gd` files. `project_stats` reports counts, total nodes, connections, a per-extension
-breakdown, and the busiest scenes. Results are **heuristic** text analysis — dynamically
-built resource/script paths aren't tracked, so treat them as a strong hint.
+breakdown, and the busiest scenes.
+
+Issue #111 adds **dependency-aware** analysis: `analyze_dependencies` extracts `res://` and
+`uid://` references from a resource file (recursing into sub-dependencies). `find_orphaned_resources`
+surfaces resource files with no referencers, optionally filtered by Godot type and scoped to a
+directory. `validate_scene_integrity` checks a scene for broken `ext_resource` paths, missing
+scripts, and signal connections pointing to non-existent nodes. `cross_scene_find_refs` scans
+all project files to find who references a given resource. Results remain **heuristic** text
+analysis — dynamically-built paths aren't tracked, so treat them as a strong hint.
 
 #### Batch / refactor (issue #48) — category: `batch` (gated off by default)
 

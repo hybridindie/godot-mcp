@@ -60,6 +60,10 @@ async def test_gated_read_only_in_analysis_toolset(tmp_path: Path) -> None:
         "analyze_signal_flow",
         "detect_circular_dependencies",
         "project_stats",
+        "analyze_dependencies",
+        "find_orphaned_resources",
+        "validate_scene_integrity",
+        "cross_scene_find_refs",
     }
     assert expected <= set(tools)
     assert all(tools[n].meta["safety_class"] == "read_only" for n in expected)
@@ -94,3 +98,111 @@ async def test_missing_project_dir_is_precondition_error(tmp_path: Path) -> None
         result = await client.call_tool("project_stats", {}, raise_on_error=False)
     assert result.is_error
     assert "project_dir" in str(result.content)
+
+
+async def test_analyze_dependencies(tmp_path: Path) -> None:
+    (tmp_path / "project.godot").write_text(
+        'config_version=5\n[application]\nrun/main_scene="res://main.tscn"\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "icon.png").write_bytes(b"\x89PNG")
+    (tmp_path / "player.gd").write_text(
+        'extends CharacterBody2D\nconst Explosion = preload("res://explosion.tscn")\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "main.tscn").write_text(
+        "[gd_scene format=3]\n"
+        '[ext_resource type="Script" path="res://player.gd" id="1"]\n'
+        '[ext_resource type="Texture2D" path="res://icon.png" id="2"]\n'
+        '[node name="Main" type="Node2D"]\n'
+        '[node name="Player" type="CharacterBody2D" parent="."]\n'
+        'script = ExtResource("1")\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "explosion.tscn").write_bytes(b"\x00")  # binary-ish stub
+    async with Client(_server(tmp_path)) as client:
+        await client.call_tool("enable_toolset", {"category": "analysis"})
+        deps = await client.call_tool(
+            "analyze_dependencies", {"resource_path": "res://player.gd"}
+        )
+    sc = deps.structured_content
+    assert sc["path"] == "res://player.gd"
+    assert "res://explosion.tscn" in sc["references"]
+
+
+async def test_find_orphaned_resources(tmp_path: Path) -> None:
+    (tmp_path / "project.godot").write_text(
+        'config_version=5\n[application]\nrun/main_scene="res://main.tscn"\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "used.png").write_bytes(b"\x89PNG")
+    (tmp_path / "orphan.png").write_bytes(b"\x89PNG")
+    (tmp_path / "main.tscn").write_text(
+        "[gd_scene format=3]\n"
+        '[ext_resource type="Texture2D" path="res://used.png" id="1"]\n'
+        '[node name="Main" type="Node2D"]\n',
+        encoding="utf-8",
+    )
+    async with Client(_server(tmp_path)) as client:
+        await client.call_tool("enable_toolset", {"category": "analysis"})
+        orphans = await client.call_tool("find_orphaned_resources", {})
+    sc = orphans.structured_content
+    assert any(o["path"] == "res://orphan.png" for o in sc["orphaned"])
+    assert all(o["path"] != "res://used.png" for o in sc["orphaned"])
+    assert sc["scanned"] >= 2
+
+
+async def test_validate_scene_integrity(tmp_path: Path) -> None:
+    (tmp_path / "project.godot").write_text(
+        'config_version=5\n[application]\nrun/main_scene="res://main.tscn"\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "main.tscn").write_text(
+        "[gd_scene format=3]\n"
+        '[ext_resource type="Script" path="res://missing.gd" id="1"]\n'
+        '[node name="Main" type="Node2D"]\n'
+        '[node name="Child" type="Sprite2D" parent="."]\n'
+        'script = ExtResource("1")\n',
+        encoding="utf-8",
+    )
+    async with Client(_server(tmp_path)) as client:
+        await client.call_tool("enable_toolset", {"category": "analysis"})
+        integrity = await client.call_tool(
+            "validate_scene_integrity", {"scene_path": "res://main.tscn"}
+        )
+    sc = integrity.structured_content
+    assert sc["valid"] is False
+    assert any(
+        e["severity"] == "error" and "missing.gd" in e["message"]
+        for e in sc["errors"]
+    )
+
+
+async def test_cross_scene_find_refs(tmp_path: Path) -> None:
+    (tmp_path / "project.godot").write_text(
+        'config_version=5\n[application]\nrun/main_scene="res://main.tscn"\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "shared.gd").write_text("extends Node\n", encoding="utf-8")
+    (tmp_path / "a.tscn").write_text(
+        "[gd_scene format=3]\n"
+        '[ext_resource type="Script" path="res://shared.gd" id="1"]\n'
+        '[node name="A" type="Node2D"]\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "b.tscn").write_text(
+        "[gd_scene format=3]\n"
+        '[ext_resource type="Script" path="res://shared.gd" id="1"]\n'
+        '[node name="B" type="Node2D"]\n',
+        encoding="utf-8",
+    )
+    async with Client(_server(tmp_path)) as client:
+        await client.call_tool("enable_toolset", {"category": "analysis"})
+        refs = await client.call_tool(
+            "cross_scene_find_refs", {"target_path": "res://shared.gd"}
+        )
+    sc = refs.structured_content
+    assert "res://a.tscn" in sc["scenes"]
+    assert "res://b.tscn" in sc["scenes"]
+    assert sc["scripts"] == []
+    assert sc["resources"] == []

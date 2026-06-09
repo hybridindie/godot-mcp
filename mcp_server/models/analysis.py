@@ -1,4 +1,4 @@
-"""Typed results for static analysis tools (issue #49)."""
+"""Typed results for static analysis tools (issue #49, #111)."""
 
 from __future__ import annotations
 
@@ -45,3 +45,45 @@ class ProjectStatsResult(BaseModel):
     connections: int = 0
     by_extension: dict[str, int] = Field(default_factory=dict)
     busiest_scenes: list[SceneNodeCount] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Issue #111 — asset dependency, orphan detection, scene integrity
+# ---------------------------------------------------------------------------
+
+
+class AnalyzeDependenciesResult(BaseModel):
+    path: str
+    type: str = ""
+    references: list[str] = Field(default_factory=list)
+    referencers: list[str] = Field(default_factory=list)
+
+
+class OrphanedResource(BaseModel):
+    path: str
+    type: str = ""
+    estimated_size: int = 0
+
+
+class FindOrphanedResult(BaseModel):
+    orphaned: list[OrphanedResource] = Field(default_factory=list)
+    scanned: int = 0
+
+
+class IntegrityIssue(BaseModel):
+    severity: str = "error"
+    message: str
+    node_path: str = ""
+    property: str = ""
+
+
+class ValidateSceneIntegrityResult(BaseModel):
+    valid: bool = True
+    errors: list[IntegrityIssue] = Field(default_factory=list)
+    warnings: list[IntegrityIssue] = Field(default_factory=list)
+
+
+class CrossSceneRefsResult(BaseModel):
+    scenes: list[str] = Field(default_factory=list)
+    resources: list[str] = Field(default_factory=list)
+    scripts: list[str] = Field(default_factory=list)
