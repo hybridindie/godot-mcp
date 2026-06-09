@@ -22,6 +22,9 @@ var _ui_pending := "__none__"  # request_id of the in-flight find_ui request (#3
 var _recorded_input: Variant = null  # last godot_mcp:recorded_input payload (#68)
 var _performance: Variant = null  # last godot_mcp:performance payload (#38)
 var _breakpoints: Array = []  # tracked breakpoints for issue #110
+var _stack_frames: Variant = null  # last stack_dump payload (Tier 2)
+var _evaluation_result: Variant = null  # last evaluation_return payload (Tier 2)
+var _frame_vars: Variant = null  # last stack_frame_vars payload (Tier 2)
 
 
 func _has_capture(capture: String) -> bool:
@@ -80,6 +83,9 @@ func _on_stopped() -> void:
 	_ui_pending = "__none__"
 	_recorded_input = null
 	_performance = null
+	_stack_frames = null
+	_evaluation_result = null
+	_frame_vars = null
 
 
 ## Ask the running game's probe to (re)send the scene tree. The reply lands in the cache
@@ -151,6 +157,20 @@ func clear_recorded_input() -> void:
 
 func get_performance() -> Variant:
 	return _performance
+
+
+## Cache accessors for Tier 2 debugger tools (step, stack, eval).
+
+func get_cached_stack_frames() -> Variant:
+	return _stack_frames
+
+
+func get_cached_evaluation() -> Variant:
+	return _evaluation_result
+
+
+func get_cached_frame_vars() -> Variant:
+	return _frame_vars
 
 
 ## Return the current session ID so handlers can call get_session().

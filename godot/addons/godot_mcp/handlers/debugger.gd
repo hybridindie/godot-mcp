@@ -18,6 +18,12 @@ func register(handlers: Dictionary) -> void:
 	handlers["cmd_remove_breakpoint"] = _cmd_remove_breakpoint
 	handlers["cmd_clear_breakpoints"] = _cmd_clear_breakpoints
 	handlers["cmd_force_break"] = _cmd_force_break
+# Tier 2: step control via EditorDebuggerSession.send_message
+	handlers["cmd_step_into"] = _cmd_step
+	handlers["cmd_step_over"] = _cmd_step
+	handlers["cmd_step_out"] = _cmd_step
+	handlers["cmd_continue_execution"] = _cmd_continue
+
 
 
 # -- handlers ----------------------------------------------------------------
@@ -81,3 +87,54 @@ func _cmd_force_break(_params: Dictionary) -> Dictionary:
 		return guard
 	_router._debugger.send_to_probe("godot_mcp:force_break", [])
 	return _router._ok({"force_break_sent": true})
+
+
+# Tier 2: step control via EditorDebuggerSession.send_message ----------------
+
+## Maps the MCP tool name (from the command string) to the Godot debugger protocol
+## message string sent to the session.
+const _STEP_COMMANDS: Dictionary = {
+	"cmd_step_into": "step",
+	"cmd_step_over": "next",
+	"cmd_step_out": "out",
+}
+
+
+func _cmd_step(params: Dictionary, command: String) -> Dictionary:
+	var guard := _router._require_debug_session()
+	if not guard["ok"]:
+		return guard
+
+	var debugger := _router._debugger as MCPDebugger
+	var session := debugger.get_session(debugger.get_session_id())
+	if not session.is_breaked():
+		return _router._fail(
+			"PRECONDITION_FAILED",
+			"The game is not paused. Set a breakpoint or force_break first.",
+			"break_state",
+		)
+
+	var msg: String = _STEP_COMMANDS.get(command, "")
+	if msg.is_empty():
+		return _router._fail("INTERNAL_ERROR", "Unknown step command '%s'." % command)
+
+	session.send_message(msg, [])
+	return _router._ok({"stepped": true})
+
+
+func _cmd_continue(_params: Dictionary) -> Dictionary:
+	var guard := _router._require_debug_session()
+	if not guard["ok"]:
+		return guard
+
+	var debugger := _router._debugger as MCPDebugger
+	var session := debugger.get_session(debugger.get_session_id())
+	if not session.is_breaked():
+		return _router._fail(
+			"PRECONDITION_FAILED",
+			"The game is not paused. Set a breakpoint or force_break first.",
+			"break_state",
+		)
+
+	session.send_message("continue", [])
+	return _router._ok({"running": true})

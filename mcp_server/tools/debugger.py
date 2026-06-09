@@ -1,7 +1,12 @@
-"""Debugger breakpoint control tools (issue #110, Tier 1).
+"""Debugger breakpoint control tools (issue #110, Tier 1 + Tier 2).
 
-Control breakpoints in a running editor play session via the debugger session.
-Requires a play session; the game must be connected to the editor debugger.
+Control breakpoints and step execution in a running editor play session via the
+debugger session. Requires a play session; the game must be connected to the
+editor debugger.
+
+Tier 1: set_breakpoint, remove_breakpoint, clear_breakpoints, force_break
+Tier 2: step_into, step_over, step_out, continue_execution
+
 Gated in the ``debugger`` toolset.
 """
 
@@ -14,7 +19,9 @@ from mcp_server.categories import DEBUGGER_TAG
 from mcp_server.models.debugger import (
     BreakpointResult,
     ClearBreakpointsResult,
+    ContinueResult,
     ForceBreakResult,
+    StepResult,
 )
 from mcp_server.safety import RUNTIME
 from mcp_server.tools._route import route
@@ -23,7 +30,7 @@ DEBUGGER = {DEBUGGER_TAG}
 
 
 def register_debugger(mcp: FastMCP, bridge: Bridge) -> None:
-    """Register the debugger breakpoint control tools."""
+    """Register the debugger breakpoint and step control tools."""
 
     @mcp.tool(meta=RUNTIME, tags=DEBUGGER)
     async def set_breakpoint(path: str, line: int) -> BreakpointResult:
@@ -50,3 +57,29 @@ def register_debugger(mcp: FastMCP, bridge: Bridge) -> None:
         Requires a play session with the godot-mcp runtime probe autoload.
         """
         return ForceBreakResult(**await route(bridge, "cmd_force_break", {}))
+
+    # Tier 2: step control --------------------------------------------------
+
+    @mcp.tool(meta=RUNTIME, tags=DEBUGGER)
+    async def step_into() -> StepResult:
+        """Step into the next line of GDScript execution. The game must be paused
+        (e.g. at a breakpoint or after force_break)."""
+        return StepResult(**await route(bridge, "cmd_step_into"))
+
+    @mcp.tool(meta=RUNTIME, tags=DEBUGGER)
+    async def step_over() -> StepResult:
+        """Step over the next line of GDScript execution, treating function calls
+        as a single step. The game must be paused."""
+        return StepResult(**await route(bridge, "cmd_step_over"))
+
+    @mcp.tool(meta=RUNTIME, tags=DEBUGGER)
+    async def step_out() -> StepResult:
+        """Step out of the current function, pausing at the caller's next line
+        of GDScript execution. The game must be paused."""
+        return StepResult(**await route(bridge, "cmd_step_out"))
+
+    @mcp.tool(meta=RUNTIME, tags=DEBUGGER)
+    async def continue_execution() -> ContinueResult:
+        """Resume GDScript execution after a breakpoint or forced break.
+        The game must be paused."""
+        return ContinueResult(**await route(bridge, "cmd_continue_execution"))
