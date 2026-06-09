@@ -1,19 +1,22 @@
 # syntax=docker/dockerfile:1
 FROM python:3.11-slim
 
-# Install uv for fast, reproducible dependency resolution.
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+# Pin uv to a specific version for reproducible builds.
+COPY --from=ghcr.io/astral-sh/uv:0.6.0 /uv /usr/local/bin/uv
 
 WORKDIR /app
 
-# Copy package manifest and lockfile first for layer caching.
+# Copy only package metadata first so `uv sync` can be cached independently
+# of source-code changes.
 COPY pyproject.toml uv.lock ./
 COPY LICENSE ./
-COPY mcp_server/ ./mcp_server/
 COPY README.md ./
 
 # Sync dependencies (production only — no dev group).
 RUN uv sync --no-dev
+
+# Now copy the source — changes here won't invalidate the dependency layer.
+COPY mcp_server/ ./mcp_server/
 
 # HTTP transport is the intended mode inside the container.
 ENV GODOT_MCP_TRANSPORT=http
