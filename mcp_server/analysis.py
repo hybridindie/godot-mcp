@@ -43,7 +43,7 @@ RESOURCE_EXTS = {
     ".csv",
 }
 # Text files we scan for ``res://`` references and structure.
-_REF_EXTS = {".tscn", ".tres", ".gd", ".gdshader", ".godot", ".cfg"}
+_REF_EXTS = {".tscn", ".tres", ".gd", ".gdshader", ".godot", ".cfg", ".uid"}
 _SKIP_DIRS = {".godot", ".git", ".import"}
 
 _RES_REF = re.compile(r"res://[^\s\"'()\[\]]+")
@@ -71,6 +71,7 @@ class ProjectIndex:
     texts: dict[str, str] = field(default_factory=dict)  # res:// path -> file text
     referenced: set[str] = field(default_factory=set)  # res:// paths referenced anywhere
     entry_points: set[str] = field(default_factory=set)  # main scene + autoloads + plugins
+    uid_map: dict[str, str] = field(default_factory=dict)  # uid:// -> res:// path
 
 
 def _to_res(project_dir: Path, path: Path) -> str:
@@ -78,8 +79,8 @@ def _to_res(project_dir: Path, path: Path) -> str:
 
 
 def scan(project_dir: Path) -> ProjectIndex:
-    """Walk the project once: index resource files, read text files, and collect every
-    ``res://`` reference plus entry points (main scene, autoloads, plugin scripts).
+    """Walk the project once: index resource files, read text files, collect every
+    ``res://`` reference, uid mappings, and entry points.
     """
     index = ProjectIndex(project_dir=project_dir)
     for path in sorted(project_dir.rglob("*")):
@@ -99,6 +100,12 @@ def scan(project_dir: Path) -> ProjectIndex:
             index.texts[res] = text
             for ref in _RES_REF.findall(text):
                 index.referenced.add(ref.rstrip(".,"))
+            # uid sidecar files: map uid -> resource path
+            if ext == ".uid":
+                uid = text.strip()
+                if uid.startswith("uid://"):
+                    base_res = res.removesuffix(".uid")
+                    index.uid_map[uid] = base_res
     _collect_entry_points(index)
     return index
 
@@ -301,7 +308,8 @@ def analyze_dependencies(index: ProjectIndex, resource_path: str) -> dict[str, A
             seen.add(r)
             unique_refs.append(r)
 
-    # Type inference
+    # Type inference from file suffix (ext_resource types are dependencies,
+    # not the resource's own type, so we don't override here).
     rtype = ""
     ext = Path(resource_path).suffix.lower()
     if ext == ".gd":
@@ -314,12 +322,6 @@ def analyze_dependencies(index: ProjectIndex, resource_path: str) -> dict[str, A
         rtype = "Texture2D"
     elif ext in {".ogg", ".wav", ".mp3"}:
         rtype = "AudioStream"
-    text = index.texts.get(resource_path, "")
-    type_map = _ext_resource_type_map(text)
-    if type_map:
-        # any parsed ext_resource type overrides generic suffix inference
-        first = next(iter(type_map.values()))
-        rtype = first[0]
 
     # referencers = files that reference this path
     referencers: list[str] = sorted(
@@ -448,15 +450,24 @@ def validate_scene_integrity(index: ProjectIndex, scene_path: str) -> dict[str, 
 
 
 def cross_scene_find_refs(index: ProjectIndex, target_path: str) -> dict[str, Any]:
-    """Scan all project files for references to ``target_path`` (or its ``uid://``).
+    """Scan all project files for references to ``target_path``.
+    Also resolves any ``uid://`` sidecar for the target and searches for that uid.
     Returns which scenes, resources, and scripts mention it.
     """
+    search_terms: set[str] = {target_path}
+    # If there's a .uid sidecar, also search for the uid://
+    uid_path = target_path + ".uid"
+    if uid_path in index.texts:
+        uid = index.texts[uid_path].strip()
+        if uid.startswith("uid://"):
+            search_terms.add(uid)
+
     scenes: list[str] = []
     resources: list[str] = []
     scripts: list[str] = []
 
     for res, text in index.texts.items():
-        if target_path in text:
+        if any(term in text for term in search_terms):
             if res.endswith((".tscn", ".scn")):
                 scenes.append(res)
             elif res.endswith(".tres"):

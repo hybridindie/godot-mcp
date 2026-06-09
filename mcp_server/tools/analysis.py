@@ -110,7 +110,7 @@ def register_analysis(mcp: FastMCP, bridge: Bridge, config: ServerConfig) -> Non
     @mcp.tool(meta=READ_ONLY, tags=ANALYSIS)
     @enforce_preconditions
     async def validate_scene_integrity(scene_path: str) -> ValidateSceneIntegrityResult:
-        """Check a scene file for broken ``ext_resource`` / ``sub_resource`` paths, missing
+        """Check a scene file for broken ``ext_resource`` paths, missing
         scripts, and broken signal connections. Returns errors (blocking) and warnings
         (non-blocking). ``valid`` is true only when there are zero errors.
         """
