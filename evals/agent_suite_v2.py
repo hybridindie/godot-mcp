@@ -110,13 +110,16 @@ class BridgeConnector:
             return False
 
     async def call(self, command: str, params: dict | None = None) -> dict:
+        t0 = time.perf_counter()
         resp = await self._bridge.send(command, params or {})
+        latency_ms = round((time.perf_counter() - t0) * 1000, 2)
         return {
             "ok": resp.ok,
             "result": resp.result or {},
             "error": resp.error,
             "hint": resp.hint,
             "required": resp.required,
+            "latency_ms": latency_ms,
         }
 
     async def close(self) -> None:

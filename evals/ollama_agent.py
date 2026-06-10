@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -150,13 +151,16 @@ class OllamaAgent:
 
         cmd = f"cmd_{call.tool}"
         try:
+            t0 = time.perf_counter()
             response = await self._bridge.send(cmd, call.params)
+            latency_ms = round((time.perf_counter() - t0) * 1000, 2)
             return {
                 "ok": response.ok,
                 "result": response.result or {},
                 "error": response.error,
                 "hint": response.hint,
                 "done": False,
+                "latency_ms": latency_ms,
             }
         except Exception as e:
             return {"ok": False, "error": str(e), "hint": "Bridge execution failed", "done": False}

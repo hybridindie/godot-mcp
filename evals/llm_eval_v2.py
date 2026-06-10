@@ -30,6 +30,7 @@ from evals.agent_suite_v2 import (
 )
 from evals.mlflow_tracker import EvalTracker
 from evals.ollama_agent import OllamaAgent
+from evals.profiler import ToolProfiler
 
 # ---------------------------------------------------------------------------
 # Token tracking
@@ -495,6 +496,8 @@ class LLMTaskResult:
     duration_ms: float = 0.0
     error_categories: list[str] = field(default_factory=list)
     notes: str = ""
+    latency_profile: dict[str, dict[str, float | int]] = field(default_factory=dict)
+    overall_latency: dict[str, float | int] = field(default_factory=dict)
 
     @property
     def step_count(self) -> int:
@@ -506,10 +509,12 @@ class LLMTaskRunner:
         self._bridge = bridge
         self._model = model
         self._agent: OllamaAgent | None = None
+        self._profiler = ToolProfiler()
 
     async def run_task(self, task_name: str, max_steps: int = 12) -> LLMTaskResult:
         result = LLMTaskResult(task_name=task_name)
         start = time.perf_counter()
+        self._profiler.reset()
 
         await self._bridge.cleanup()
 
@@ -576,8 +581,17 @@ class LLMTaskRunner:
                 "ok": exec_result.get("ok", False),
                 "error": exec_result.get("error"),
                 "hint": exec_result.get("hint"),
+                "latency_ms": exec_result.get("latency_ms"),
             }
             result.steps.append(step_record)
+
+            # Record latency in profiler
+            if call.tool != "done":
+                self._profiler.record(
+                    call.tool,
+                    latency_ms=exec_result.get("latency_ms", 0.0) or 0.0,
+                    ok=exec_result.get("ok", False),
+                )
 
             # Track created nodes and renames for cleanup
             if call.tool == "create_node" and exec_result.get("ok"):
@@ -633,6 +647,8 @@ class LLMTaskRunner:
 
         result.duration_ms = (time.perf_counter() - start) * 1000
         result.score = self._score_task(result, task_name)
+        result.latency_profile = self._profiler.summary()
+        result.overall_latency = self._profiler.overall()
         return result
 
     def _score_task(self, result: LLMTaskResult, task_name: str) -> TaskScore:
@@ -779,6 +795,34 @@ def print_summary(results: list[LLMTaskResult]) -> None:
         for cat, count in sorted(cat_counts.items(), key=lambda x: -x[1]):
             print(f"    {cat}: {count}")
 
+    # Aggregate latency across all results
+    all_tools: dict[str, list[dict]] = {}
+    for r in results:
+        for tool, stats in r.latency_profile.items():
+            all_tools.setdefault(tool, []).append(stats)
+    if all_tools:
+        print("\n  Latency profile (per tool, aggregated across tasks):")
+        for tool in sorted(all_tools.keys()):
+            entries = all_tools[tool]
+            total_count = sum(e["count"] for e in entries)
+            mean_ms = round(
+                sum(e["mean_ms"] * e["count"] for e in entries) / total_count, 2
+            )
+            max_ms = max(e["max_ms"] for e in entries)
+            total_err = sum(e["error_rate"] * e["count"] for e in entries)
+            err_rate = round(total_err / total_count, 3)
+            print(
+                f"    {tool}: n={total_count}, mean={mean_ms}ms, "
+                f"max={max_ms}ms, errors={err_rate}"
+            )
+        overall = [r.overall_latency for r in results if r.overall_latency]
+        if overall:
+            total_calls = sum(o["total_calls"] for o in overall)
+            grand_mean = round(
+                sum(o["mean_ms"] * o["total_calls"] for o in overall) / total_calls, 2
+            )
+            print(f"  Overall: {total_calls} calls, mean={grand_mean}ms")
+
     print(f"\n  Breakdown: {total_pass} pass, {total_partial} partial, {total_fail} fail")
     print("=" * 70)
 
@@ -841,8 +885,32 @@ def log_results(
             tracker.log_metric(f"{prefix}_first_attempt", 1.0 if r.first_attempt_correct else 0.0)
             tracker.log_metric(f"{prefix}_prompt_tokens", r.token_usage.prompt_tokens)
             tracker.log_metric(f"{prefix}_completion_tokens", r.token_usage.completion_tokens)
+            tracker.log_metric(f"{prefix}_duration_ms", r.duration_ms)
+            # Log per-tool latency for this task
+            for tool, stats in r.latency_profile.items():
+                t_prefix = f"{prefix}_{tool}"
+                tracker.log_metric(f"{t_prefix}_mean_ms", stats["mean_ms"])
+                tracker.log_metric(f"{t_prefix}_count", stats["count"])
+                if "p95_ms" in stats:
+                    tracker.log_metric(f"{t_prefix}_p95_ms", stats["p95_ms"])
+            if r.overall_latency:
+                overall_mean = r.overall_latency.get("mean_ms", 0)
+                overall_calls = r.overall_latency.get("total_calls", 0)
+                tracker.log_metric(f"{prefix}_overall_mean_ms", overall_mean)
+                tracker.log_metric(f"{prefix}_overall_calls", overall_calls)
             if r.notes:
                 tracker.log_param(f"{prefix}_notes", r.notes[:250])
+
+        # Log aggregate latency metrics
+        if results:
+            overall_latencies = [r.overall_latency for r in results if r.overall_latency]
+            if overall_latencies:
+                total_calls = sum(o["total_calls"] for o in overall_latencies)
+                grand_mean = round(
+                    sum(o["mean_ms"] * o["total_calls"] for o in overall_latencies) / total_calls, 2
+                )
+                tracker.log_metric("aggregate_mean_latency_ms", grand_mean)
+                tracker.log_metric("aggregate_total_calls", total_calls)
 
     tracker.end_run()
     print("\n📊 Logged to MLFlow: https://mlflow.johndstudios.net/#/experiments/55")
