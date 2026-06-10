@@ -87,8 +87,8 @@ def _register_toolset_discovery(mcp: FastMCP) -> None:
                     "- Some tools run in the Python server: list_toolsets, enable_toolset, "
                     "get_server_info. These never send messages to Godot.\n"
                     "- Most tools send commands to the Godot addon via a WebSocket bridge.\n"
-                    "- If a server-side tool is called through the bridge, you get 'unknown tool'.\n"
-                    "- If an addon tool is called before enable_toolset, you get 'unknown tool'.\n\n"
+                    "- Server-side tools through the bridge = 'unknown tool'.\n"
+                    "- Addon tools before enable_toolset = 'unknown tool'.\n\n"
                     "If you try to call a tool and get 'ToolError: unknown tool', the toolset "
                     "is not enabled. Call enable_toolset first."
                 ),

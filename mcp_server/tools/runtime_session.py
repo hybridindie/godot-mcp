@@ -28,6 +28,12 @@ def register_runtime_session(mcp: FastMCP, bridge: Bridge) -> None:
         """Run the game from the editor: play ``scene_path`` (a ``res://*.tscn``) or the
         project's main scene when omitted. The game connects to the editor debugger, so
         runtime inspection/input tools can reach it.
+
+        WHEN TO USE: You need to interact with the running game (simulate input,
+        inspect live nodes, debug, test assertions).
+        WHEN NOT TO USE: Headless CI/automation without an editor — use
+        run_and_capture() instead. That runs Godot in a subprocess and returns
+        logs without an editor session.
         """
         params = {"scene_path": scene_path}
         return PlayResult(**await route(bridge, "cmd_play_scene", params))
@@ -47,5 +53,10 @@ def register_runtime_session(mcp: FastMCP, bridge: Bridge) -> None:
         """Get the *running* game's live scene tree ({name, type, path, children}).
         Requires an active play session with the godot-mcp runtime probe autoload; if the
         probe isn't connected, returns ``connected=false`` with a ``hint`` to add it.
+
+        WHEN TO USE: You need to inspect node hierarchy, positions, or state while
+        the game is actively running (e.g., after simulating input to verify movement).
+        WHEN NOT TO USE: The editor is idle with no play session — use
+        get_scene_tree() to read the static scene structure instead.
         """
         return GameSceneTreeResult(**await route(bridge, "cmd_get_game_scene_tree", {}))

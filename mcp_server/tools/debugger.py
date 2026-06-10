@@ -39,6 +39,11 @@ def register_debugger(mcp: FastMCP, bridge: Bridge) -> None:
     async def set_breakpoint(path: str, line: int) -> BreakpointResult:
         """Set a breakpoint at ``line`` in ``path`` (a ``res://`` script path).
         The game must be running from the editor so the debugger session is active.
+
+        WHEN TO USE: You want the game to pause automatically when a specific
+        line of code is reached (e.g., to inspect state at the moment of impact).
+        WHEN NOT TO USE: You need the game to pause RIGHT NOW — use force_break()
+        instead. Setting a breakpoint only triggers when that line executes.
         """
         params = {"path": path, "line": line}
         return BreakpointResult(**await route(bridge, "cmd_set_breakpoint", params))
@@ -58,6 +63,13 @@ def register_debugger(mcp: FastMCP, bridge: Bridge) -> None:
     async def force_break() -> ForceBreakResult:
         """Trigger an immediate break in the running game via the runtime probe.
         Requires a play session with the godot-mcp runtime probe autoload.
+
+        WHEN TO USE: You need the game to pause RIGHT NOW so you can inspect
+        stack frames, step through code, or evaluate expressions (e.g., the player
+        just hit an enemy and you want to see local variables).
+        WHEN NOT TO USE: You want the game to pause later when a specific line
+        runs — use set_breakpoint(path, line) instead. force_break pauses
+        immediately, which may land in an unrelated function.
         """
         return ForceBreakResult(**await route(bridge, "cmd_force_break", {}))
 

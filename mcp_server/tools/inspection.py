@@ -49,6 +49,11 @@ def register_inspection(mcp: FastMCP, bridge: Bridge) -> None:
         ``max_depth`` limits how many child levels are returned (-1 = unlimited,
         0 = root only); use it to avoid huge payloads on deep scenes. ``tree`` is
         null when no scene is open.
+
+        WHEN TO USE: You need to understand the static scene structure before
+        making edits (adding nodes, attaching scripts, setting properties).
+        WHEN NOT TO USE: The game is running and you need live state — use
+        get_game_scene_tree() to read the running game's current hierarchy.
         """
         return SceneTree(**await route(bridge, "cmd_get_scene_tree", {"max_depth": max_depth}))
 

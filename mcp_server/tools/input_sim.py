@@ -48,6 +48,12 @@ def register_input_sim(mcp: FastMCP, bridge: Bridge) -> None:
         """Send a key event to the running game. ``key`` is a Godot key name
         ("A", "Space", "Enter", "Escape", …); ``pressed`` false sends a release. Optional
         modifier flags (shift/ctrl/alt/meta). Requires a play session + runtime probe.
+
+        WHEN TO USE: You need to send a SINGLE key press or release (e.g., tap
+        Space to jump, or hold Shift for sprint). Simple, one-off interactions.
+        WHEN NOT TO USE: You need a timed sequence of many inputs — use
+        play_input_sequence(events=[...], delay_ms=...) instead. That replays a
+        whole macro with configurable delays between events.
         """
         params = {
             "key": key,
@@ -100,6 +106,13 @@ def register_input_sim(mcp: FastMCP, bridge: Bridge) -> None:
         """Play a sequence of input events in order, ``delay_ms`` apart. Each event is a
         dict with ``type`` = "key" | "mouse" | "action" and that type's fields (as for
         the simulate_* tools, e.g. ``{"type":"key","key":"Space","pressed":true}``).
+
+        WHEN TO USE: You need to replay a recorded or scripted sequence of many
+        inputs (e.g., a combo move, a login macro, a stress test). Events are
+        replayed with a fixed delay between each.
+        WHEN NOT TO USE: You only need a single key press — use simulate_key()
+        for simplicity. Or you need real-time interactive control — simulate_*
+        gives per-event control, while this replays a pre-built list.
         """
         params = {"events": events, "delay_ms": delay_ms}
         return SimInputResult(**await route(bridge, "cmd_play_input_sequence", params))

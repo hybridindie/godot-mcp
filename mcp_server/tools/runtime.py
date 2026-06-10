@@ -34,6 +34,11 @@ def register_runtime(
         "res://main.tscn"), wait up to ``timeout_seconds``, then return a summary of
         ``errors`` / ``warnings`` / ``output`` and the exit code. Use this to verify
         a change actually runs and to read back failures.
+
+        WHEN TO USE: You need to verify a scene runs without an editor open
+        (CI, automation, smoke test) or you want the full stdout/stderr log.
+        WHEN NOT TO USE: You need to simulate input or inspect live state —
+        use play_scene() + get_game_scene_tree() / simulate_key() instead.
         """
         if runner.binary is None:
             raise PreconditionError(
