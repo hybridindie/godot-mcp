@@ -58,9 +58,11 @@ func _cmd_get_script_for_node(params: Dictionary) -> Dictionary:
 	else:
 		if root == null:
 			return _router._fail("PRECONDITION_FAILED", "No scene is open.", "active_scene")
+		if raw.begins_with("/"):
+			raw = raw.substr(1)
 		node = root.get_node_or_null(NodePath(raw))
 		if node == null:
-			return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % raw)
+			return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(params.get("node_path", "")))
 	# Always report the resolved scene-relative path so the response is self-describing.
 	var resolved := Inspect.relative_path(node, root) if root != null else String(node.name)
 	var script: Variant = node.get_script()

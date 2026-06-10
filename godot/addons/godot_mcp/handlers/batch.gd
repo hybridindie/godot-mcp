@@ -77,7 +77,10 @@ func _batch_targets(root: Node, params: Dictionary) -> Variant:
 	if node_paths is Array and not (node_paths as Array).is_empty():
 		var nodes: Array = []
 		for raw in node_paths:
-			var node := root.get_node_or_null(NodePath(str(raw)))
+			var raw_str := str(raw)
+			if raw_str.begins_with("/"):
+				raw_str = raw_str.substr(1)
+			var node := root.get_node_or_null(NodePath(raw_str))
 			if node == null:
 				return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(raw))
 			nodes.append(node)

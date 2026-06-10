@@ -54,7 +54,10 @@ func _cmd_get_node_properties(params: Dictionary) -> Dictionary:
 	var root: Node = EditorInterface.get_edited_scene_root()
 	if root == null:
 		return _router._fail("PRECONDITION_FAILED", "No scene is open.", "active_scene")
-	var node: Node = root.get_node_or_null(NodePath(str(params["node_path"])))
+	var node_path := str(params["node_path"])
+	if node_path.begins_with("/"):
+		node_path = node_path.substr(1)
+	var node: Node = root.get_node_or_null(NodePath(node_path))
 	if node == null:
 		return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(params["node_path"]))
 	return _router._ok(Inspect.node_info(node, root))
@@ -66,7 +69,10 @@ func _cmd_get_node_property_list(params: Dictionary) -> Dictionary:
 	var root: Node = EditorInterface.get_edited_scene_root()
 	if root == null:
 		return _router._fail("PRECONDITION_FAILED", "No scene is open.", "active_scene")
-	var node: Node = root.get_node_or_null(NodePath(str(params["node_path"])))
+	var node_path := str(params["node_path"])
+	if node_path.begins_with("/"):
+		node_path = node_path.substr(1)
+	var node: Node = root.get_node_or_null(NodePath(node_path))
 	if node == null:
 		return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(params["node_path"]))
 	var names: Array = []

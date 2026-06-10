@@ -36,7 +36,10 @@ func _cmd_create_node(params: Dictionary) -> Dictionary:
 	var node_type := str(params.get("node_type", ""))
 	if not ClassDB.class_exists(node_type) or not ClassDB.can_instantiate(node_type):
 		return _router._fail("VALIDATION_ERROR", "Unknown or non-instantiable node type '%s'." % node_type)
-	var parent: Node = root.get_node_or_null(NodePath(str(params.get("parent_path", "."))))
+	var parent_path := str(params.get("parent_path", "."))
+	if parent_path.begins_with("/"):
+		parent_path = parent_path.substr(1)
+	var parent: Node = root.get_node_or_null(NodePath(parent_path))
 	if parent == null:
 		return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(params.get("parent_path")))
 

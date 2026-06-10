@@ -94,6 +94,8 @@ func _cmd_select_nodes(params: Dictionary) -> Dictionary:
 	var selected: Array = []
 	for raw_path in node_paths:
 		var path_str := str(raw_path)
+		if path_str.begins_with("/"):
+			path_str = path_str.substr(1)
 		var node := root.get_node_or_null(NodePath(path_str))
 		if node == null:
 			return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % path_str)
@@ -109,9 +111,11 @@ func _cmd_instance_scene(params: Dictionary) -> Dictionary:
 	if root == null:
 		return _router._fail("PRECONDITION_FAILED", "No scene is open.", "active_scene")
 	var parent_path := str(params.get("parent_path", "."))
+	if parent_path.begins_with("/"):
+		parent_path = parent_path.substr(1)
 	var parent: Node = root.get_node_or_null(NodePath(parent_path))
 	if parent == null:
-		return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % parent_path)
+		return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(params.get("parent_path")))
 
 	var scene_path := str(params.get("scene_path", ""))
 	if not FileAccess.file_exists(scene_path):

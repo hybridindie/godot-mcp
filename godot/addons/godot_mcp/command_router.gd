@@ -341,7 +341,10 @@ func _resolve(raw_path: Variant) -> Dictionary:
 	var root := EditorInterface.get_edited_scene_root()
 	if root == null:
 		return _fail("PRECONDITION_FAILED", "No scene is open.", "active_scene")
-	var node: Node = root.get_node_or_null(NodePath(str(raw_path)))
+	var path_str := str(raw_path)
+	if path_str.begins_with("/"):
+		path_str = path_str.substr(1)
+	var node: Node = root.get_node_or_null(NodePath(path_str))
 	if node == null:
 		return _fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(raw_path))
 	return {"ok": true, "node": node}
