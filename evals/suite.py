@@ -17,14 +17,12 @@ import sys
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Any
 
 sys.path.insert(0, "/Users/johnd/Development/godot-mcp")
 
+from evals.mlflow_tracker import EvalTracker
 from mcp_server.bridge import Bridge
 from mcp_server.config import BridgeConfig
-
-from evals.mlflow_tracker import EvalTracker
 
 
 @dataclass
@@ -493,12 +491,27 @@ async def run_suite() -> list[ToolsetResult]:
             toolset_result = ToolsetResult(toolset=toolset, tasks=[task_result])
             results.append(toolset_result)
             status = "✅ PASS" if task_result.success else "❌ FAIL"
-            print(f"    {status} | steps={task_result.steps} | errors={task_result.errors} | duration={task_result.duration_ms:.0f}ms")
+            print(
+                f"    {status} | steps={task_result.steps} | "
+                f"errors={task_result.errors} | "
+                f"duration={task_result.duration_ms:.0f}ms"
+            )
             if task_result.notes:
                 print(f"    {task_result.notes}")
         except Exception as e:
             print(f"    💥 EXCEPTION: {type(e).__name__}: {e}")
-            results.append(ToolsetResult(toolset=toolset, tasks=[TaskResult(task_name="exception", toolset=toolset, notes=str(e))]))
+            results.append(
+                ToolsetResult(
+                    toolset=toolset,
+                    tasks=[
+                        TaskResult(
+                            task_name="exception",
+                            toolset=toolset,
+                            notes=str(e),
+                        )
+                    ],
+                )
+            )
 
     await bridge.close()
     return results
@@ -506,7 +519,7 @@ async def run_suite() -> list[ToolsetResult]:
 
 def log_results(results: list[ToolsetResult]) -> None:
     tracker = EvalTracker()
-    run = tracker.start_run(run_name=f"full-suite-{int(time.time())}", variant="comprehensive")
+    tracker.start_run(run_name=f"full-suite-{int(time.time())}", variant="comprehensive")
 
     total_tasks = sum(len(tr.tasks) for tr in results)
     total_errors = sum(tr.total_errors for tr in results)
@@ -545,11 +558,21 @@ def print_summary(results: list[ToolsetResult]) -> None:
                 total_pass += 1
             else:
                 total_fail += 1
-            note = task.notes[:40] + "..." if len(task.notes) > 40 else task.notes
-            print(f"  {tr.toolset:<18} {status:<8} {task.steps:<6} {task.errors:<7} {task.duration_ms:<10.0f} {note}")
+            note = (
+                task.notes[:40] + "..."
+                if len(task.notes) > 40
+                else task.notes
+            )
+            print(
+                f"  {tr.toolset:<18} {status:<8} {task.steps:<6} "
+                f"{task.errors:<7} {task.duration_ms:<10.0f} {note}"
+            )
 
     print("=" * 70)
-    print(f"  Total: {total_pass} passed, {total_fail} failed out of {total_pass + total_fail} tasks")
+    print(
+        f"  Total: {total_pass} passed, {total_fail} failed "
+        f"out of {total_pass + total_fail} tasks"
+    )
     print("=" * 70)
 
 

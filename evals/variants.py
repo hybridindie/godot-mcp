@@ -23,7 +23,10 @@ CONCISE: dict[str, str] = {
     "continue_execution": "Resume GDScript execution after a breakpoint.",
     "get_stack_frames": "Get the paused GDScript call stack. Returns ``{frames[]}``.",
     "evaluate_expression": "Evaluate a GDScript expression at ``frame`` (0 = top).",
-    "get_frame_variables": "Get locals/members/globals for ``frame``. Returns ``{locals, members, globals}``.",
+    "get_frame_variables": (
+        "Get locals/members/globals for ``frame``. "
+        "Returns ``{locals, members, globals}``."
+    ),
 }
 
 
@@ -40,7 +43,8 @@ EXAMPLE: set_breakpoint("res://player.gd", 42)""",
 
 WHEN TO USE: After the game hits a breakpoint or force_break to inspect the call chain.
 RETURNS: ``{frames: [{file, line, func}, ...]}``.
-NOTE: Returns cached data; the first call after a break may be empty until the async reply arrives.""",
+NOTE: Returns cached data; the first call after a break may be empty until the async reply arrives.
+""",
 
     "evaluate_expression": """Evaluate a GDScript expression in the context of a paused frame.
 
@@ -54,23 +58,66 @@ NOTE: The evaluator requires a valid script instance at the target frame.""",
 WHEN TO USE: To inspect all scoped variables at a given frame without writing expressions.
 PARAMS: ``frame`` (0 = top of stack).
 RETURNS: ``{frame, locals: [{name, value}], members: [...], globals: [...]}``.
-NOTE: Accumulated from multiple debugger protocol messages; may need a brief wait after requesting.""",
+NOTE: Accumulated from multiple debugger protocol messages;
+may need a brief wait after requesting.""",
 }
 
 
 # Agent-optimized variant: includes "call this when..." hints for LLM routing
 AGENT_OPTIMIZED: dict[str, str] = {
-    "set_breakpoint": "Call this BEFORE running a scene to pause at a specific line. Set ``path`` (res:// script) and ``line`` (int). Returns confirmation.",
-    "remove_breakpoint": "Call this to remove a previously set breakpoint. Use the same ``path`` and ``line`` as when you set it.",
-    "clear_breakpoints": "Call this when you want to start fresh — removes ALL breakpoints. Safe to call even if none exist.",
-    "force_break": "Call this when you need to pause the game NOW (e.g. to inspect state during a bug). The game must be running with the MCP runtime probe.",
-    "step_into": "Call this when paused to execute the NEXT line, entering any function calls. If the next line is a function call, you'll step inside it.",
-    "step_over": "Call this when paused to execute the NEXT line, treating function calls as a single step. Use this to skip into library code.",
-    "step_out": "Call this when paused inside a function to return to the CALLER's next line. Use when you've seen enough of the current function.",
-    "continue_execution": "Call this when you're done inspecting and want the game to RESUME running. Opposite of force_break.",
-    "get_stack_frames": "Call this immediately AFTER the game pauses (breakpoint or force_break) to see the call stack. Returns ``{frames: [{file, line, func}]}``. If empty, wait 0.5s and retry.",
-    "evaluate_expression": "Call this when paused to compute a GDScript expression (e.g. ``player.health > 50``). Set ``expression`` and optionally ``frame`` (0 = top). Returns ``{expression, value}``.",
-    "get_frame_variables": "Call this when paused to inspect ALL variables at a frame (locals, members, globals). Easier than writing expressions. Set ``frame`` (0 = top). Returns ``{locals, members, globals}``.",
+    "set_breakpoint": (
+        "Call this BEFORE running a scene to pause at a specific line. "
+        "Set ``path`` (res:// script) and ``line`` (int). Returns confirmation."
+    ),
+    "remove_breakpoint": (
+        "Call this to remove a previously set breakpoint. "
+        "Use the same ``path`` and ``line`` as when you set it."
+    ),
+    "clear_breakpoints": (
+        "Call this when you want to start fresh — removes ALL breakpoints. "
+        "Safe to call even if none exist."
+    ),
+    "force_break": (
+        "Call this when you need to pause the game NOW "
+        "(e.g. to inspect state during a bug). "
+        "The game must be running with the MCP runtime probe."
+    ),
+    "step_into": (
+        "Call this when paused to execute the NEXT line, "
+        "entering any function calls. "
+        "If the next line is a function call, you'll step inside it."
+    ),
+    "step_over": (
+        "Call this when paused to execute the NEXT line, "
+        "treating function calls as a single step. "
+        "Use this to skip into library code."
+    ),
+    "step_out": (
+        "Call this when paused inside a function to return to "
+        "the CALLER's next line. "
+        "Use when you've seen enough of the current function."
+    ),
+    "continue_execution": (
+        "Call this when you're done inspecting and want the game to "
+        "RESUME running. Opposite of force_break."
+    ),
+    "get_stack_frames": (
+        "Call this immediately AFTER the game pauses (breakpoint or force_break) "
+        "to see the call stack. Returns ``{frames: [{file, line, func}]}``. "
+        "If empty, wait 0.5s and retry."
+    ),
+    "evaluate_expression": (
+        "Call this when paused to compute a GDScript expression "
+        "(e.g. ``player.health > 50``). "
+        "Set ``expression`` and optionally ``frame`` (0 = top). "
+        "Returns ``{expression, value}``."
+    ),
+    "get_frame_variables": (
+        "Call this when paused to inspect ALL variables at a frame "
+        "(locals, members, globals). "
+        "Easier than writing expressions. Set ``frame`` (0 = top). "
+        "Returns ``{locals, members, globals}``."
+    ),
 }
 
 

@@ -16,10 +16,8 @@ from __future__ import annotations
 
 import asyncio
 import json
-from collections.abc import Awaitable, Callable
 
 import websockets
-
 
 BRIDGE_URL = "ws://localhost:9080"
 
@@ -80,7 +78,11 @@ async def _evaluate(ws, expression: str, frame: int = 0) -> None:
     print(f"\n[6] Evaluating expression '{expression}' at frame {frame}...")
     # Poll: first call triggers evaluation; subsequent calls read the cached result.
     for attempt in range(1, 4):
-        resp = await _send(ws, "cmd_evaluate_expression", {"expression": expression, "frame": frame})
+        resp = await _send(
+            ws,
+            "cmd_evaluate_expression",
+            {"expression": expression, "frame": frame},
+        )
         result = resp.get("result", {})
         value = result.get("value")
         if value is not None:
@@ -89,7 +91,7 @@ async def _evaluate(ws, expression: str, frame: int = 0) -> None:
             return
         print(f"    Attempt {attempt}: result not ready, waiting...")
         await asyncio.sleep(0.3)
-    print(f"    No result (expression may be invalid or game not paused).")
+    print("    No result (expression may be invalid or game not paused).")
 
 
 async def _step_into(ws) -> None:

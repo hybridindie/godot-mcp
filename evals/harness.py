@@ -13,22 +13,18 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
 import sys
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Any
 
 # We connect to the MCP server via the local bridge, not stdio
 sys.path.insert(0, "/Users/johnd/Development/godot-mcp")
 
-from mcp_server.bridge import Bridge
-from mcp_server.config import BridgeConfig
-from mcp_server.models.envelope import ResponseEnvelope
-
 from evals.mlflow_tracker import EvalTracker
 from evals.variants import ALL_VARIANTS
+from mcp_server.bridge import Bridge
+from mcp_server.config import BridgeConfig
 
 
 @dataclass
@@ -218,7 +214,10 @@ async def _task_debugger_basic(bridge: BridgeConnector) -> TaskResult:
 
     result.success = True
     result.duration_ms = (time.perf_counter() - start) * 1000
-    result.notes = f"All tools callable. Frames={frame_count}, eval_value={r.get('result', {}).get('value')}"
+    result.notes = (
+        f"All tools callable. Frames={frame_count}, "
+        f"eval_value={r.get('result', {}).get('value')}"
+    )
 
     # Cleanup: stop scene
     await bridge.call("cmd_stop_scene", {})
@@ -320,7 +319,11 @@ async def run_variant(variant: str, task_names: list[str]) -> VariantResult:
             task_result = await task_fn(bridge)
             result.tasks.append(task_result)
             status = "✅ PASS" if task_result.success else "❌ FAIL"
-            print(f"    {status} | steps={task_result.steps} | errors={task_result.errors} | duration={task_result.duration_ms:.0f}ms")
+            print(
+                f"    {status} | steps={task_result.steps} | "
+                f"errors={task_result.errors} | "
+                f"duration={task_result.duration_ms:.0f}ms"
+            )
             if task_result.notes:
                 print(f"    Notes: {task_result.notes}")
         except Exception as e:
@@ -360,7 +363,11 @@ def print_summary(results: list[VariantResult]) -> None:
     print("\n" + "=" * 80)
     print("  Evaluation Summary")
     print("=" * 80)
-    print(f"  {'Variant':<18} {'Completion':<12} {'Mean Steps':<12} {'Mean Errors':<14} {'Mean ms':<10} {'Tok/Step':<10}")
+    header = (
+        f"  {'Variant':<18} {'Completion':<12} {'Mean Steps':<12} "
+        f"{'Mean Errors':<14} {'Mean ms':<10} {'Tok/Step':<10}"
+    )
+    print(header)
     print("  " + "-" * 76)
     for r in results:
         print(

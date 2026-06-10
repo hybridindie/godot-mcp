@@ -22,7 +22,6 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-
 MLFLOW_BASE = "https://mlflow.johndstudios.net/api/2.0/mlflow"
 
 
@@ -46,8 +45,10 @@ def _curl(method: str, endpoint: str, payload: dict | None = None) -> dict:
         return {}
     try:
         return json.loads(result.stdout)
-    except json.JSONDecodeError:
-        raise RuntimeError(f"Invalid JSON from MLFlow: {result.stdout[:200]}")
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            f"Invalid JSON from MLFlow: {result.stdout[:200]}"
+        ) from exc
 
 
 def _curl_get(endpoint: str, query: dict) -> dict:
@@ -63,8 +64,10 @@ def _curl_get(endpoint: str, query: dict) -> dict:
         return {}
     try:
         return json.loads(result.stdout)
-    except json.JSONDecodeError:
-        raise RuntimeError(f"Invalid JSON from MLFlow: {result.stdout[:200]}")
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            f"Invalid JSON from MLFlow: {result.stdout[:200]}"
+        ) from exc
 
 
 @dataclass
@@ -133,7 +136,11 @@ class EvalTracker:
         """Log a string parameter for the current run."""
         if self._run is None:
             raise RuntimeError("No active run. Call start_run() first.")
-        _curl("POST", "runs/log-parameter", {"run_id": self._run.run_id, "key": key, "value": value})
+        _curl(
+            "POST",
+            "runs/log-parameter",
+            {"run_id": self._run.run_id, "key": key, "value": value},
+        )
         self._run.params[key] = value
 
     def log_artifact_text(self, filename: str, content: str) -> None:
