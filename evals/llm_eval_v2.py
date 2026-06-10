@@ -181,8 +181,9 @@ TASK_PROMPTS: dict[str, str] = {
         "Get the full scene tree and find all Sprite2D nodes. Report how many Sprite2D nodes exist."
     ),
     "inspect_node_properties": (
-        "Get the scene tree, then get the properties of the first CharacterBody2D node. "
-        "Report its position and type."
+        "Get the properties of the Background node. "
+        "Call get_node_properties with node_path='Background'. "
+        "Report its position."
     ),
     "inspect_property_list": (
         "List all valid properties for the Player node, then set its position to (200, 200)."
@@ -195,7 +196,9 @@ TASK_PROMPTS: dict[str, str] = {
     "mutate_delete_with_confirm": (
         "Delete the node named 'MutTest'. You MUST confirm the deletion."
     ),
-    "mutate_rename": ("Rename the Player node to 'Hero'."),
+    "mutate_rename": (
+        "Create a Node2D named 'RenameMe', then rename it to 'RenamedNode'."
+    ),
     "mutate_save_scene": ("Save the current scene."),
     "mutate_attach_script": ("Attach the script at res://scripts/player.gd to the Player node."),
     # === SCRIPTS (4 tasks) ===
@@ -276,7 +279,7 @@ EXPECTED_FIRST_TOOLS: dict[str, str] = {
     # Mutation
     "mutate_create_and_property": "create_node",
     "mutate_delete_with_confirm": "delete_node",
-    "mutate_rename": "rename_node",
+    "mutate_rename": "create_node",
     "mutate_save_scene": "save_scene",
     "mutate_attach_script": "attach_script",
     # Scripts
@@ -374,7 +377,13 @@ TASK_TOOL_FILTER: dict[str, list[str]] = {
         "done",
     ],
     "mutate_delete_with_confirm": ["delete_node", "get_scene_tree", "done"],
-    "mutate_rename": ["rename_node", "get_scene_tree", "done"],
+    "mutate_rename": [
+        "create_node",
+        "rename_node",
+        "delete_node",
+        "get_scene_tree",
+        "done",
+    ],
     "mutate_save_scene": ["save_scene", "done"],
     "mutate_attach_script": ["attach_script", "get_scene_tree", "done"],
     # Scripts
