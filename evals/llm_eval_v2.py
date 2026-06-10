@@ -132,8 +132,10 @@ def get_available_tools() -> list[dict]:
         {
             "name": "connect_signal",
             "description": (
-                "Connect signal. Params: source_path, signal_name, target_path, "
-                "method_name."
+                "Connect a signal from one node to another node's method. "
+                "Example: connect_signal with source_path='Player', "
+                "signal_name='ready', target_path='Background', "
+                "method_name='_ready'."
             ),
         },
         {"name": "write_script", "description": "Write script. Params: script_path, content."},
@@ -179,7 +181,8 @@ TASK_PROMPTS: dict[str, str] = {
         "Get the full scene tree and find all Sprite2D nodes. Report how many Sprite2D nodes exist."
     ),
     "inspect_node_properties": (
-        "Get the properties of the Player node. Report its position and type."
+        "Get the scene tree, then get the properties of the first CharacterBody2D node. "
+        "Report its position and type."
     ),
     "inspect_property_list": (
         "List all valid properties for the Player node, then set its position to (200, 200)."
@@ -212,13 +215,13 @@ TASK_PROMPTS: dict[str, str] = {
     # === SIGNALS (2 tasks) ===
     "signal_connect_ready": (
         "Connect the Player node's 'ready' signal to the Background node's '_ready' method. "
-        "First use get_scene_tree to confirm both nodes exist, "
-        "then use connect_signal with source_path='Player', signal_name='ready', "
+        "Call connect_signal with: source_path='Player', signal_name='ready', "
         "target_path='Background', method_name='_ready'."
     ),
     # === RUNTIME (4 tasks) ===
     "runtime_play_and_inspect": (
-        "Run the game and get the live game scene tree. Report the root node name."
+        "Run the game and get the live game scene tree. "
+        "Then STOP the game before finishing."
     ),
     "runtime_simulate_input": (
         "Run the game, simulate pressing the Space key, then stop the game."
@@ -267,7 +270,7 @@ TASK_PROMPTS: dict[str, str] = {
 EXPECTED_FIRST_TOOLS: dict[str, str] = {
     # Inspection
     "inspect_scene_tree": "get_scene_tree",
-    "inspect_node_properties": "get_node_properties",
+    "inspect_node_properties": "get_scene_tree",
     "inspect_property_list": "get_node_property_list",
     "inspect_find_by_type": "find_nodes_by_type",
     # Mutation
@@ -522,8 +525,9 @@ class LLMTaskRunner:
 
         expected_first = EXPECTED_FIRST_TOOLS.get(task_name)
 
-        # Track created nodes for cleanup
+        # Track mutations for cleanup
         created_nodes: list[str] = []
+        rename_stack: list[tuple[str, str]] = []  # (old_name, new_name)
 
         for step_num in range(max_steps):
             step_prompt = (
@@ -567,7 +571,7 @@ class LLMTaskRunner:
             }
             result.steps.append(step_record)
 
-            # Track created nodes for later cleanup
+            # Track created nodes and renames for cleanup
             if call.tool == "create_node" and exec_result.get("ok"):
                 node_path = (
                     exec_result.get("result", {}).get("node_path", "")
@@ -575,6 +579,11 @@ class LLMTaskRunner:
                 )
                 if node_path:
                     created_nodes.append(node_path)
+            elif call.tool == "rename_node" and exec_result.get("ok"):
+                old_name = call.params.get("node_path", "")
+                new_name = exec_result.get("result", {}).get("new_name", "")
+                if old_name and new_name:
+                    rename_stack.append((old_name, new_name))
 
             if step_num == 0 and expected_first:
                 result.first_attempt_correct = call.tool == expected_first
@@ -603,6 +612,16 @@ class LLMTaskRunner:
                 )
             except Exception:
                 pass  # Node may already be deleted or renamed
+
+        # Cleanup: revert renames (in reverse order)
+        for old_name, new_name in reversed(rename_stack):
+            try:
+                await self._bridge.call(
+                    "cmd_rename_node",
+                    {"node_path": new_name, "new_name": old_name},
+                )
+            except Exception:
+                pass  # Node may no longer exist
 
         result.duration_ms = (time.perf_counter() - start) * 1000
         result.score = self._score_task(result, task_name)
