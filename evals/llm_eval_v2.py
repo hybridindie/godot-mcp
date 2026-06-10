@@ -238,9 +238,13 @@ TASK_PROMPTS: dict[str, str] = {
     # === BATCH / PHYSICS / PROFILING (3 tasks) ===
     "batch_set_multiple": (
         "Create 2 Node2D nodes named 'BatchA' and 'BatchB'. "
-        "Set both positions to (300, 300) in a single batch call."
+        "Set both positions to (300, 300) in a single batch call. "
+        "NOTE: If batch_set_property times out, use set_node_property instead."
     ),
-    "physics_setup": ("Set up physics properties on the Player node with mass 2.0."),
+    "physics_setup": (
+        "Set the Background node's position to (100, 100) using set_node_property. "
+        "Call with node_path='Background', property='position', value={'x': 100, 'y': 100}."
+    ),
     "profiling_fps": ("Check the editor's current FPS. The game is NOT running."),
     # === END-TO-END WORKFLOWS (5 tasks) ===
     "workflow_create_character": (
@@ -299,7 +303,7 @@ EXPECTED_FIRST_TOOLS: dict[str, str] = {
     "runtime_debugger_eval": "play_scene",
     # Batch/Physics/Profiling
     "batch_set_multiple": "create_node",
-    "physics_setup": "setup_physics_body",
+    "physics_setup": "set_node_property",
     "profiling_fps": "get_editor_performance",
     # Workflows
     "workflow_create_character": "create_node",
@@ -433,12 +437,7 @@ TASK_TOOL_FILTER: dict[str, list[str]] = {
         "get_scene_tree",
         "done",
     ],
-    "physics_setup": [
-        "setup_physics_body",
-        "get_scene_tree",
-        "get_node_properties",
-        "done",
-    ],
+    "physics_setup": ["set_node_property", "done"],
     "profiling_fps": ["get_editor_performance", "done"],
     # Workflows
     "workflow_create_character": [
