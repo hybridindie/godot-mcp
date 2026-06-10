@@ -54,6 +54,11 @@ def register_input_sim(mcp: FastMCP, bridge: Bridge) -> None:
         WHEN NOT TO USE: You need a timed sequence of many inputs — use
         play_input_sequence(events=[...], delay_ms=...) instead. That replays a
         whole macro with configurable delays between events.
+
+        IF THIS FAILS with "No play session":
+          → Call play_scene(scene_path) first, then retry.
+        IF THIS FAILS with "probe not connected":
+          → Register MCPRuntimeProbe as autoload (get_project_info() to check).
         """
         params = {
             "key": key,
@@ -77,6 +82,11 @@ def register_input_sim(mcp: FastMCP, bridge: Bridge) -> None:
         """Send a mouse event at viewport position (``x``, ``y``). With ``button`` empty,
         sends motion (with optional ``relative_x``/``relative_y``); with ``button`` =
         left/right/middle/wheel_up/wheel_down, sends a button press/release (``pressed``).
+
+        IF THIS FAILS with "No play session":
+          → Call play_scene(scene_path) first, then retry.
+        IF THIS FAILS with "probe not connected":
+          → Register MCPRuntimeProbe as autoload (get_project_info() to check).
         """
         params = {
             "x": x,
@@ -95,6 +105,14 @@ def register_input_sim(mcp: FastMCP, bridge: Bridge) -> None:
         """Press or release an input-map action (e.g. "ui_accept", "jump") on the running
         game. ``strength`` (0..1) applies to a press. The action must exist in the
         project's Input Map.
+
+        IF THIS FAILS with "No play session":
+          → Call play_scene(scene_path) first, then retry.
+        IF THIS FAILS with "probe not connected":
+          → Register MCPRuntimeProbe as autoload (get_project_info() to check).
+        IF THIS FAILS with "unknown action":
+          → The action is not in the project's Input Map. Add it via
+            ProjectSettings → InputMap or use simulate_key() with the raw key name.
         """
         params = {"action": action, "pressed": pressed, "strength": strength}
         return SimInputResult(**await route(bridge, "cmd_simulate_action", params))

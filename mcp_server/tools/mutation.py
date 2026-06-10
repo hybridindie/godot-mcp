@@ -102,6 +102,11 @@ def register_mutation(mcp: FastMCP, bridge: Bridge) -> None:
     ) -> CreateNodeResult:
         """Create a node of ``node_type`` named ``node_name`` under ``parent_path``
         (scene-relative; "." is the root). Reversible via the editor's undo.
+
+        IF THIS FAILS with "active_scene":
+          -> No scene is open. Call open_scene(path) or create_scene(path) first.
+        IF THIS FAILS with "parent not found":
+          -> parent_path is wrong. Use get_scene_tree() to see actual node paths.
         """
         await require_active_scene(bridge)
         await require_node_exists(bridge, parent_path)
@@ -135,6 +140,12 @@ def register_mutation(mcp: FastMCP, bridge: Bridge) -> None:
         """Set ``property`` on the node at ``node_path`` to ``value``. Godot types
         (Vector2/3, Color, Rect2 as objects; NodePath as string) are coerced by the
         addon to match the property's declared type.
+
+        IF THIS FAILS with "Node not found":
+          -> node_path is wrong. Use get_scene_tree() to see actual paths.
+        IF THIS FAILS with "has no property":
+          -> The property name is wrong. Use get_node_property_list(node_path) to
+             see valid property names for that node type.
         """
         await require_node_exists(bridge, node_path)
         params = {"node_path": node_path, "property": property, "value": value}

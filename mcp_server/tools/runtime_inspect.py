@@ -40,6 +40,14 @@ def register_runtime_inspect(mcp: FastMCP, bridge: Bridge) -> None:
         absolute path from ``get_game_scene_tree``, e.g. "/root/Main/Player"). The probe
         captures ``samples`` readings, one per frame; collect them with
         ``get_property_samples``. Requires a play session + runtime probe.
+
+        IF THIS FAILS with "No play session":
+          -> Call play_scene(scene_path) first.
+        IF THIS FAILS with "probe not connected":
+          -> Register MCPRuntimeProbe as autoload (get_project_info() to check).
+        IF THIS FAILS with "node not found":
+          -> The node_path is wrong for the LIVE tree. Use get_game_scene_tree()
+             (not get_scene_tree()) to see running node paths.
         """
         params = {"node_path": node_path, "property": property, "samples": samples}
         return MonitorResult(**await route(bridge, "cmd_monitor_property", params))

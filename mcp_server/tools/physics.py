@@ -41,6 +41,10 @@ def register_physics(mcp: FastMCP, bridge: Bridge) -> None:
     ) -> SetupBodyResult:
         """Set physics properties (e.g. mass, gravity_scale) on the body/area at
         ``node_path`` in one call. The node must be a CollisionObject2D/3D.
+
+        IF THIS FAILS with "Node not found":
+          -> The node_path is wrong. Use get_scene_tree() to see the actual
+             node names and paths in the current scene.
         """
         await require_node_exists(bridge, node_path)
         params = {"node_path": node_path, "properties": properties}
@@ -61,6 +65,9 @@ def register_physics(mcp: FastMCP, bridge: Bridge) -> None:
         """Add a collision shape under the body/area at ``node_path``: creates a
         ``collision_node_type`` (CollisionShape2D/3D) holding a ``shape_type`` shape
         (e.g. RectangleShape2D) with ``properties`` (size/radius/…).
+
+        IF THIS FAILS with "Node not found":
+          -> The node_path is wrong. Use get_scene_tree() to verify the path.
         """
         await require_node_exists(bridge, node_path)
         params = {

@@ -34,6 +34,13 @@ def register_runtime_session(mcp: FastMCP, bridge: Bridge) -> None:
         WHEN NOT TO USE: Headless CI/automation without an editor — use
         run_and_capture() instead. That runs Godot in a subprocess and returns
         logs without an editor session.
+
+        IF THIS FAILS with "scene not found":
+          -> The scene_path is wrong. Use get_project_info() to find the main scene,
+             or get_scene_tree() to see available scenes.
+        IF THIS FAILS with "editor not connected":
+          -> The Godot editor is not running or the addon is disabled. Check
+             get_server_info() for bridge state and follow the troubleshoot prompt.
         """
         params = {"scene_path": scene_path}
         return PlayResult(**await route(bridge, "cmd_play_scene", params))

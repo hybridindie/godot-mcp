@@ -1,0 +1,5 @@
+# E2E scratch files
+tmp_e2e_*
+session_*.tscn
+e2e_scratch.tscn
+default_bus_layout.tres
