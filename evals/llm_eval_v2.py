@@ -131,7 +131,10 @@ def get_available_tools() -> list[dict]:
         {"name": "attach_script", "description": "Attach script. Params: node_path, script_path."},
         {
             "name": "connect_signal",
-            "description": "Connect signal. Params: source, signal, target, method.",
+            "description": (
+                "Connect signal. Params: source_path, signal_name, target_path, "
+                "method_name."
+            ),
         },
         {"name": "write_script", "description": "Write script. Params: script_path, content."},
         {"name": "read_script", "description": "Read script. Params: script_path."},
@@ -208,7 +211,10 @@ TASK_PROMPTS: dict[str, str] = {
     "scene_select_nodes": ("Select the Player node in the editor."),
     # === SIGNALS (2 tasks) ===
     "signal_connect_ready": (
-        "Connect the Player node's 'ready' signal to the Background node's '_ready' method."
+        "Connect the Player node's 'ready' signal to the Background node's '_ready' method. "
+        "First use get_scene_tree to confirm both nodes exist, "
+        "then use connect_signal with source_path='Player', signal_name='ready', "
+        "target_path='Background', method_name='_ready'."
     ),
     # === RUNTIME (4 tasks) ===
     "runtime_play_and_inspect": (
@@ -343,6 +349,126 @@ OPTIMAL_STEPS: dict[str, int] = {
 
 
 # ---------------------------------------------------------------------------
+# Tool filtering per task: only expose relevant tools to reduce exploration
+# ---------------------------------------------------------------------------
+
+TASK_TOOL_FILTER: dict[str, list[str]] = {
+    # Inspection
+    "inspect_scene_tree": ["get_scene_tree", "find_nodes_by_type", "done"],
+    "inspect_node_properties": ["get_node_properties", "get_scene_tree", "done"],
+    "inspect_property_list": [
+        "get_node_property_list",
+        "set_node_property",
+        "get_scene_tree",
+        "done",
+    ],
+    "inspect_find_by_type": ["find_nodes_by_type", "get_scene_tree", "done"],
+    # Mutation
+    "mutate_create_and_property": [
+        "create_node",
+        "set_node_property",
+        "get_scene_tree",
+        "done",
+    ],
+    "mutate_delete_with_confirm": ["delete_node", "get_scene_tree", "done"],
+    "mutate_rename": ["rename_node", "get_scene_tree", "done"],
+    "mutate_save_scene": ["save_scene", "done"],
+    "mutate_attach_script": ["attach_script", "get_scene_tree", "done"],
+    # Scripts
+    "script_write_and_read": ["write_script", "read_script", "done"],
+    "script_patch": ["read_script", "patch_script", "done"],
+    "script_list": ["list_scripts", "done"],
+    "script_get_for_node": ["get_script_for_node", "get_scene_tree", "done"],
+    # Scene
+    "scene_list_and_open": [
+        "list_open_scenes",
+        "open_scene",
+        "save_all_scenes",
+        "done",
+    ],
+    "scene_select_nodes": ["select_nodes", "get_scene_tree", "done"],
+    # Signals
+    "signal_connect_ready": ["connect_signal", "get_scene_tree", "done"],
+    # Runtime
+    "runtime_play_and_inspect": [
+        "play_scene",
+        "get_game_scene_tree",
+        "stop_scene",
+        "done",
+    ],
+    "runtime_simulate_input": [
+        "play_scene",
+        "simulate_key",
+        "stop_scene",
+        "done",
+    ],
+    "runtime_performance": [
+        "play_scene",
+        "get_performance_monitors",
+        "stop_scene",
+        "done",
+    ],
+    "runtime_debugger_eval": [
+        "play_scene",
+        "evaluate_expression",
+        "stop_scene",
+        "done",
+    ],
+    # Batch / Physics / Profiling
+    "batch_set_multiple": [
+        "create_node",
+        "batch_set_property",
+        "get_scene_tree",
+        "done",
+    ],
+    "physics_setup": [
+        "setup_physics_body",
+        "get_scene_tree",
+        "get_node_properties",
+        "done",
+    ],
+    "profiling_fps": ["get_editor_performance", "done"],
+    # Workflows
+    "workflow_create_character": [
+        "create_node",
+        "write_script",
+        "attach_script",
+        "set_node_property",
+        "save_scene",
+        "done",
+    ],
+    "workflow_script_and_play": [
+        "write_script",
+        "attach_script",
+        "save_scene",
+        "play_scene",
+        "stop_scene",
+        "done",
+    ],
+    "workflow_scene_hierarchy": [
+        "get_scene_tree",
+        "find_nodes_by_type",
+        "get_node_properties",
+        "done",
+    ],
+    "workflow_signal_and_test": [
+        "connect_signal",
+        "save_scene",
+        "play_scene",
+        "stop_scene",
+        "done",
+    ],
+    "workflow_batch_mutation": [
+        "create_node",
+        "find_nodes_by_type",
+        "batch_set_property",
+        "get_scene_tree",
+        "done",
+    ],
+}
+
+
+# ---------------------------------------------------------------------------
 # LLM task execution
 # ---------------------------------------------------------------------------
 
@@ -386,10 +512,18 @@ class LLMTaskRunner:
         )
         tools = get_available_tools()
 
+        # Filter tools to only those relevant for this task
+        allowed_names = set(TASK_TOOL_FILTER.get(task_name, []))
+        allowed_names.add("done")  # Always allow done
+        tools = [t for t in tools if t["name"] in allowed_names]
+
         self._agent = OllamaAgent(self._bridge._bridge, model=self._model)
         self._agent._history = []
 
         expected_first = EXPECTED_FIRST_TOOLS.get(task_name)
+
+        # Track created nodes for cleanup
+        created_nodes: list[str] = []
 
         for step_num in range(max_steps):
             step_prompt = (
@@ -433,6 +567,15 @@ class LLMTaskRunner:
             }
             result.steps.append(step_record)
 
+            # Track created nodes for later cleanup
+            if call.tool == "create_node" and exec_result.get("ok"):
+                node_path = (
+                    exec_result.get("result", {}).get("node_path", "")
+                    or call.params.get("name", "")
+                )
+                if node_path:
+                    created_nodes.append(node_path)
+
             if step_num == 0 and expected_first:
                 result.first_attempt_correct = call.tool == expected_first
 
@@ -450,6 +593,16 @@ class LLMTaskRunner:
             if result.errors >= 4:
                 result.notes = "Stopped: too many errors"
                 break
+
+        # Cleanup: delete created test nodes
+        for node_path in created_nodes:
+            try:
+                await self._bridge.call(
+                    "cmd_delete_node",
+                    {"node_path": node_path, "confirm": True},
+                )
+            except Exception:
+                pass  # Node may already be deleted or renamed
 
         result.duration_ms = (time.perf_counter() - start) * 1000
         result.score = self._score_task(result, task_name)

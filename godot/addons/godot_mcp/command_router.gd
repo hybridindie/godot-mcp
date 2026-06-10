@@ -344,6 +344,8 @@ func _resolve(raw_path: Variant) -> Dictionary:
 	var path_str := str(raw_path)
 	if path_str.begins_with("/"):
 		path_str = path_str.substr(1)
+	if path_str.is_empty():
+		path_str = "."
 	var node: Node = root.get_node_or_null(NodePath(path_str))
 	if node == null:
 		return _fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(raw_path))

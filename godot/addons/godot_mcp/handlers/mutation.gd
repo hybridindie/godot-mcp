@@ -39,6 +39,8 @@ func _cmd_create_node(params: Dictionary) -> Dictionary:
 	var parent_path := str(params.get("parent_path", "."))
 	if parent_path.begins_with("/"):
 		parent_path = parent_path.substr(1)
+	if parent_path.is_empty():
+		parent_path = "."
 	var parent: Node = root.get_node_or_null(NodePath(parent_path))
 	if parent == null:
 		return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(params.get("parent_path")))

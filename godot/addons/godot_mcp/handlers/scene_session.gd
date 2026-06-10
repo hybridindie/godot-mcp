@@ -96,6 +96,8 @@ func _cmd_select_nodes(params: Dictionary) -> Dictionary:
 		var path_str := str(raw_path)
 		if path_str.begins_with("/"):
 			path_str = path_str.substr(1)
+		if path_str.is_empty():
+			path_str = "."
 		var node := root.get_node_or_null(NodePath(path_str))
 		if node == null:
 			return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % path_str)
@@ -113,6 +115,8 @@ func _cmd_instance_scene(params: Dictionary) -> Dictionary:
 	var parent_path := str(params.get("parent_path", "."))
 	if parent_path.begins_with("/"):
 		parent_path = parent_path.substr(1)
+	if parent_path.is_empty():
+		parent_path = "."
 	var parent: Node = root.get_node_or_null(NodePath(parent_path))
 	if parent == null:
 		return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(params.get("parent_path")))

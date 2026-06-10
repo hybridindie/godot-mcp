@@ -57,6 +57,8 @@ func _cmd_get_node_properties(params: Dictionary) -> Dictionary:
 	var node_path := str(params["node_path"])
 	if node_path.begins_with("/"):
 		node_path = node_path.substr(1)
+	if node_path.is_empty():
+		node_path = "."
 	var node: Node = root.get_node_or_null(NodePath(node_path))
 	if node == null:
 		return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(params["node_path"]))
@@ -72,6 +74,8 @@ func _cmd_get_node_property_list(params: Dictionary) -> Dictionary:
 	var node_path := str(params["node_path"])
 	if node_path.begins_with("/"):
 		node_path = node_path.substr(1)
+	if node_path.is_empty():
+		node_path = "."
 	var node: Node = root.get_node_or_null(NodePath(node_path))
 	if node == null:
 		return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(params["node_path"]))

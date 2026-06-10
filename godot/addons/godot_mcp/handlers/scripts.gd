@@ -60,6 +60,8 @@ func _cmd_get_script_for_node(params: Dictionary) -> Dictionary:
 			return _router._fail("PRECONDITION_FAILED", "No scene is open.", "active_scene")
 		if raw.begins_with("/"):
 			raw = raw.substr(1)
+		if raw.is_empty():
+			raw = "."
 		node = root.get_node_or_null(NodePath(raw))
 		if node == null:
 			return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(params.get("node_path", "")))
