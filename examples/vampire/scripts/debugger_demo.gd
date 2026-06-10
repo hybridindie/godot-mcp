@@ -19,9 +19,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	# Check for MCP force_break request
-	if MCPRuntimeProbe.force_break_pending:
-		MCPRuntimeProbe.force_break_pending = false
-		breakpoint
+	MCPRuntimeProbe.check_force_break()
 	
 	if not demo_enabled:
 		return

@@ -35,11 +35,9 @@ func _draw() -> void:
 
 func _physics_process(delta: float) -> void:
 	# MCP debugger: check for force_break request
-	if MCPRuntimeProbe.force_break_pending:
-		MCPRuntimeProbe.force_break_pending = false
-		breakpoint
+	MCPRuntimeProbe.check_force_break()
 	
-i 	if not alive:
+	if not alive:
 		return
 	
 	# WASD / arrow key movement

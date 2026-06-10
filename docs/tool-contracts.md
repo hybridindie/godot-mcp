@@ -702,7 +702,7 @@ Control breakpoints, step execution, and inspect the paused call stack in a runn
 | `clear_breakpoints` | — | `ClearBreakpointsResult { breakpoints_cleared }` |
 | `force_break` | — | `ForceBreakResult { force_break_sent }` |
 
-`set_breakpoint` uses `EditorDebuggerSession.set_breakpoint(path, line, true)`; `remove_breakpoint` uses `set_breakpoint(path, line, false)`. `clear_breakpoints` clears on the game side via the probe (when connected) and removes any individually tracked breakpoints on the editor side. `force_break` sends `EngineDebugger.debug(true, false)` through the probe to trigger an immediate break.
+`set_breakpoint` uses `EditorDebuggerSession.set_breakpoint(path, line, true)`; `remove_breakpoint` uses `set_breakpoint(path, line, false)`. `clear_breakpoints` clears on the game side via the probe (when connected) and removes any individually tracked breakpoints on the editor side. `force_break` sets `force_break_pending = true` in the probe; the game must call `MCPRuntimeProbe.check_force_break()` in its main loop (see `docs/debugger_feasibility.md` § Limitations).
 
 **Tier 2 — step control & stack inspection (issue #110 follow-up):**
 

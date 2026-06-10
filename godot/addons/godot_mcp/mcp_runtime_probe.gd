@@ -15,6 +15,18 @@ const MAX_DEPTH := 32
 var force_break_pending: bool = false  ## Set true by the editor via force_break message.
 
 
+## Check if the editor has requested a force_break and trigger ``breakpoint`` if so.
+## Call this from the game's ``_process`` or ``_physics_process`` loop. Returns
+## ``true`` if a break was triggered, ``false`` otherwise.
+func check_force_break() -> bool:
+	if force_break_pending:
+		force_break_pending = false
+		breakpoint
+		return true
+	return false
+
+
+
 func _ready() -> void:
 	if EngineDebugger.is_active():
 		EngineDebugger.register_message_capture("godot_mcp", _capture)

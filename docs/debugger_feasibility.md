@@ -19,7 +19,7 @@ A Tier 2 debugger toolset (`step_*`, `continue`, `get_stack_frames`, `evaluate_e
 | `set_breakpoint` | `session.set_breakpoint(path, line, true)` | `EditorDebuggerSession.set_breakpoint` (direct API) |
 | `remove_breakpoint` | `session.set_breakpoint(path, line, false)` | Direct API |
 | `clear_breakpoints` | `session.set_breakpoint(..., false)` per tracked + probe message | Iterative + probe message |
-| `force_break` | `debugger.send_to_probe("godot_mcp:force_break", [])` | `EngineDebugger.debug(true)` in probe |
+| `force_break` | `debugger.send_to_probe("godot_mcp:force_break", [])` | Flag-based (`check_force_break()`) in probe — see **Limitations** below |
 
 ### Key signals
 
@@ -137,6 +137,22 @@ The evaluator in the game requires a **valid script instance** at the target fra
 {"ok": false, "error": "EVALUATION_ERROR",
  "hint": "Expression could not be evaluated. The frame may be static or the instance freed."}
 ```
+
+---
+
+## Limitations
+
+### `force_break` deadlock (issue #131)
+
+Calling `EngineDebugger.debug(true, false)` from inside `MCPRuntimeProbe._capture()`
+deadlocks: `debug()` blocks until the editor replies with `continue`/`step`, but the
+editor can't send anything because `_capture()` never returns (it is waiting for
+`debug()` to return).
+
+**Workaround**: `force_break` sets `force_break_pending = true` inside `_capture()`;
+the game checks the flag in its `_process` / `_physics_process` loop via
+`MCPRuntimeProbe.check_force_break()` and calls `breakpoint` when true. This
+requires the consuming game to poll the flag — a documented limitation.
 
 ---
 
