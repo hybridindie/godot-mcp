@@ -57,6 +57,9 @@ func _cmd_get_node_properties(params: Dictionary) -> Dictionary:
 	var node_path := str(params["node_path"])
 	if node_path.begins_with("/"):
 		node_path = node_path.substr(1)
+	# Also strip "root/" prefix commonly hallucinated by LLMs
+	if node_path.begins_with("root/"):
+		node_path = node_path.substr(5)
 	if node_path.is_empty():
 		node_path = "."
 	var node: Node = root.get_node_or_null(NodePath(node_path))
@@ -74,6 +77,9 @@ func _cmd_get_node_property_list(params: Dictionary) -> Dictionary:
 	var node_path := str(params["node_path"])
 	if node_path.begins_with("/"):
 		node_path = node_path.substr(1)
+	# Also strip "root/" prefix commonly hallucinated by LLMs
+	if node_path.begins_with("root/"):
+		node_path = node_path.substr(5)
 	if node_path.is_empty():
 		node_path = "."
 	var node: Node = root.get_node_or_null(NodePath(node_path))
