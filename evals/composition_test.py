@@ -111,7 +111,7 @@ COMPOSITION_CHAINS: dict[str, list[dict]] = {
                 "script_path": "res://test_chain_player.gd",
             },
             "extract": {
-                "script_path": "result.script_path",
+                "script_path": "script_path",
                 "description": "Script path for later read",
             },
             "validate": lambda result, ctx=None: result.get("ok", False),
@@ -158,7 +158,7 @@ COMPOSITION_CHAINS: dict[str, list[dict]] = {
                 "script_path": "res://test_script_roundtrip.gd",
             },
             "extract": {
-                "script_path": "result.script_path",
+                "script_path": "script_path",
             },
         },
         {
@@ -179,7 +179,7 @@ COMPOSITION_CHAINS: dict[str, list[dict]] = {
             "tool": "get_script_for_node",
             "params": {"node_path": "{node_path}"},
             "extract": {
-                "read_path": "result.script_path",
+                "read_path": "script_path",
                 "description": "Verify script path round-trips",
             },
             "validate": lambda result, ctx=None: result.get("ok", False),
