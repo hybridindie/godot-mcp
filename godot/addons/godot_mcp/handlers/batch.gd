@@ -164,12 +164,20 @@ func _cmd_batch_set_property(params: Dictionary) -> Dictionary:
 		to_apply.append({"node": node, "value": Coerce.from_json(value, prop_type)})
 	# Only open an UndoRedo action when at least one set is scheduled (no no-op steps).
 	if not dry_run and not to_apply.is_empty():
-		var ur := EditorInterface.get_editor_undo_redo()
-		ur.create_action("Batch set %s on %d nodes" % [property, to_apply.size()])
+		# For very large batches, skip UndoRedo to avoid EditorUndoRedoManager overhead.
+		if to_apply.size() > 20:
+			for item in to_apply:
+				item["node"].set(property, item["value"])
+		else:
+			var ur := EditorInterface.get_editor_undo_redo()
+			ur.create_action("Batch set %s on %d nodes" % [property, to_apply.size()])
+			for item in to_apply:
+				ur.add_do_property(item["node"], property, item["value"])
+				ur.add_undo_property(item["node"], property, item["node"].get(property))
+			ur.commit_action()
+		# Invalidate cached property types for all modified objects.
 		for item in to_apply:
-			ur.add_do_property(item["node"], property, item["value"])
-			ur.add_undo_property(item["node"], property, item["node"].get(property))
-		ur.commit_action()
+			_router._invalidate_prop_cache(item["node"])
 	return _router._ok({
 		"property": property,
 		"applied": applied,

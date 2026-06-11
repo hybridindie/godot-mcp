@@ -353,11 +353,26 @@ func _resolve(raw_path: Variant) -> Dictionary:
 
 
 ## The Variant.Type of an object's property, or -1 if it has no such property.
+## Uses a per-object cache so repeated lookups (e.g. batch operations) are O(1)
+## instead of O(n) over the property list. Cache refreshes automatically on a
+## cache miss so attaching scripts / adding exported vars doesn't leave stale data.
+var _prop_cache: Dictionary = {}  # {Object instance_id: {name: type}}
+
 func _property_type(obj: Object, property: String) -> int:
-	for entry in obj.get_property_list():
-		if entry["name"] == property:
-			return int(entry["type"])
-	return -1
+	var obj_id := obj.get_instance_id()
+	var cache: Dictionary = _prop_cache.get(obj_id, {})
+	if not cache.has(property):
+		# Refresh cache on miss: property list may have changed (script attached, etc.)
+		cache = {}
+		for entry in obj.get_property_list():
+			cache[entry["name"]] = int(entry["type"])
+		_prop_cache[obj_id] = cache
+	return cache.get(property, -1)
+
+
+## Call after a batch operation that mutated many objects so stale caches don't leak.
+func _invalidate_prop_cache(obj: Object) -> void:
+	_prop_cache.erase(obj.get_instance_id())
 
 
 func _scene_name(root: Node) -> String:
