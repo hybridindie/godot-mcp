@@ -8,19 +8,16 @@ Measures the friction when an agent switches between toolsets:
 
 Usage:
     python -m evals.transition_test --model qwen3-coder:30b
-    python -m evals.transition_test --all-models
+    python -m evals.transition_test --max-steps 15
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
-import json
 import sys
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any
 
 # Eval imports
 from evals.agent_suite_v2 import BridgeConnector
@@ -160,7 +157,7 @@ async def run_transition(
 
         agent._add_result(exec_result)
 
-        if exec_result.get("ok", False):
+        if exec_result.get("ok", False) and call.tool != "done":
             result.steps_to_first_success = step_num + 1
             result.first_tool_correct = step_num == 0
             break
@@ -196,6 +193,7 @@ def _get_tools_for_toolset(toolset: str) -> list[dict[str, str]]:
 
 async def run_suite(
     model: str = "qwen3-coder:30b",
+    max_steps: int = 10,
 ) -> TransitionSuiteResult:
     bridge = BridgeConnector()
     if not await bridge.connect():
@@ -205,7 +203,9 @@ async def run_suite(
     suite = TransitionSuiteResult()
     for from_t, to_t, prompt in TRANSITION_SCENARIOS:
         print(f"\n  Testing {from_t} → {to_t}...")
-        result = await run_transition(bridge, from_t, to_t, prompt, model=model)
+        result = await run_transition(
+            bridge, from_t, to_t, prompt, model=model, max_steps=max_steps
+        )
         suite.transitions.append(result)
         status = "✅" if result.enable_ok else "❌"
         print(
@@ -215,6 +215,7 @@ async def run_suite(
         )
 
     await bridge.cleanup()
+    await bridge.close()
     return suite
 
 
@@ -246,10 +247,7 @@ def print_report(result: TransitionSuiteResult, model: str) -> None:
 
 async def log_to_mlflow(result: TransitionSuiteResult, model: str) -> None:
     tracker = EvalTracker()
-    tracker.start_run(
-        experiment_name="godot-mcp-eval",
-        run_name=f"transition-cost-{model}",
-    )
+    tracker.start_run(run_name=f"transition-cost-{model}")
     tracker.log_param("eval_type", "transition_cost")
     tracker.log_param("model", model)
     tracker.log_metric("success_rate", result.success_rate)
@@ -278,7 +276,7 @@ async def main() -> int:
     parser.add_argument("--log", action="store_true", help="Log to MLFlow")
     args = parser.parse_args()
 
-    result = await run_suite(model=args.model)
+    result = await run_suite(model=args.model, max_steps=args.max_steps)
     print_report(result, args.model)
 
     if args.log:

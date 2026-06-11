@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """Instruction Staleness Verifier (Gap Analysis #9).
 
-Detects drift between tool descriptions and implementations:
-1. **Static analysis**: Extract @mcp.tool() definitions from Python server files
-   and handlers["cmd_*"] registrations from GDScript addon files, then compare
-   coverage.
-2. **Runtime verification**: Call ping on each registered tool through the bridge
-   to verify it responds (catches renamed handlers, removed tools, signature drift).
-3. **Docstring drift**: Compare tool description text with the actual handler
-   docstring in the addon.
+Detects drift between server-side bridge command usage and addon-side handler registrations:
+1. **Static analysis**: Regex-scan Python server files for `cmd_*` string literals used in
+    `bridge.send()` and `route()` calls, and GDScript files for `handlers["cmd_*"]` registrations.
+2. **Runtime verification**: Call each shared `cmd_*` through the bridge to verify the handler
+    responds (catches renamed handlers, removed tools, signature drift).
+3. **Description drift**: Compare tool description text from Python file context with the actual
+    handler docstring in the addon.
 
 Usage:
     python -m evals.instruction_staleness --static
@@ -19,7 +18,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import ast
 import asyncio
 import re
 import sys
@@ -186,14 +184,19 @@ async def runtime_verify(
     bridge_url: str = "ws://localhost:9080",
     request_timeout: float = 5.0,
 ) -> dict[str, Any]:
-    """Call ping on each tool registered in the Python server to verify it exists on the addon side."""
+    """Call each shared bridge command to verify the handler exists on the addon side."""
     bridge = Bridge(BridgeConfig(url=bridge_url, request_timeout=request_timeout))
     try:
         await bridge.connect()
-        # Test connection with a ping
-        ping = await bridge.send("ping", {})
-        if ping.error == "UNKNOWN_COMMAND":
-            return {"error": "Godot addon bridge not responding correctly (ping returned UNKNOWN_COMMAND)"}
+        # Test connection with a ping (cmd_ping is the registered handler name)
+        ping = await bridge.send("cmd_ping", {})
+        if ping.error == "VALIDATION_ERROR" and "Unknown command" in (ping.hint or ""):
+            return {
+                "error": (
+                    "Godot addon bridge not responding correctly "
+                    "(ping returned unknown command)"
+                )
+            }
     except Exception as exc:
         return {"error": f"Could not connect to Godot addon bridge: {exc}"}
 
@@ -208,13 +211,19 @@ async def runtime_verify(
     for cmd in shared:
         try:
             resp = await bridge.send(cmd, {})
-            if resp.error == "UNKNOWN_COMMAND":
-                results.append({"command": cmd, "status": "MISSING_HANDLER", "hint": resp.hint})
+            if resp.error == "VALIDATION_ERROR" and "Unknown command" in (resp.hint or ""):
+                results.append(
+                    {"command": cmd, "status": "MISSING_HANDLER", "hint": resp.hint}
+                )
             else:
                 # Validation or precondition errors are expected for empty params
-                results.append({"command": cmd, "status": "OK", "error": resp.error, "hint": resp.hint})
+                results.append(
+                    {"command": cmd, "status": "OK", "error": resp.error, "hint": resp.hint}
+                )
         except Exception as exc:
-            results.append({"command": cmd, "status": f"ERROR: {type(exc).__name__}", "hint": str(exc)})
+            results.append(
+                {"command": cmd, "status": f"ERROR: {type(exc).__name__}", "hint": str(exc)}
+            )
 
     await bridge.close()
 
@@ -272,7 +281,11 @@ def print_report(static: dict[str, Any], runtime: dict[str, Any] | None = None) 
         if "error" in runtime:
             print(f"  ❌ {runtime['error']}")
         else:
-            print(f"  Tested: {runtime['total_tested']} | OK: {runtime['ok']} | Missing: {runtime['missing_handler']} | Errors: {runtime['errors']}")
+            print(
+                f"  Tested: {runtime['total_tested']} | OK: {runtime['ok']} | "
+                f"Missing: {runtime['missing_handler']} | "
+                f"Errors: {runtime['errors']}"
+            )
             if runtime["details"]:
                 for item in runtime["details"]:
                     print(f"    ❌ {item['command']}: {item['status']}")
@@ -299,12 +312,15 @@ def main() -> int:
 
     print_report(static, runtime)
 
-    # Exit non-zero if staleness found
+    # Exit non-zero if staleness found (static mismatch, missing handlers,
+    # connection failure, or runtime execution errors)
     has_issues = (
         static["only_python"]
         or static["only_gdscript"]
         or static["drift"]
         or (runtime and runtime.get("missing_handler", 0) > 0)
+        or (runtime and "error" in runtime)
+        or (runtime and runtime.get("errors", 0) > 0)
     )
     return 1 if has_issues else 0
 

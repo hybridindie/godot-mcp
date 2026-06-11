@@ -36,7 +36,11 @@ def test_static_analysis() -> None:
     assert result["python_total"] == len(py_names)
     assert result["gdscript_total"] == len(gd_names)
 
-    print(f"  Static analysis: {result['python_total']} Python, {result['gdscript_total']} GDScript, {result['shared']} shared")
+    msg = (
+        f"  Static analysis: {result['python_total']} Python, "
+        f"{result['gdscript_total']} GDScript, {result['shared']} shared"
+    )
+    print(msg)
 
 
 def test_transition_scenarios() -> None:
