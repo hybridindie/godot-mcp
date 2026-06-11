@@ -2,7 +2,7 @@
 
 **Date**: 2026-06-10  
 **Model**: qwen3-coder:30b (30.5B, Q4_K_M)  
-**Suite**: evals/llm_eval_v2.py — 33 tasks, max 8 steps each  
+**Suite**: evals/llm_eval_v2.py — **28 tasks**, max 8 steps each  
 **Godot**: 4.4+ with vampire example project (MCPRuntimeProbe autoload enabled)  
 **MLFlow**: https://mlflow.johndstudios.net/#/experiments/55
 
@@ -10,13 +10,13 @@
 
 ## Summary
 
-The expanded suite covers **all 32 available bridge tools** across 8 categories, including end-to-end multi-tool workflows. This is the most comprehensive real-LLM evaluation of the godot-mcp addon to date.
+The expanded suite covers **all 28 defined tasks** across 8 categories, including end-to-end multi-tool workflows. This is the most comprehensive real-LLM evaluation of the godot-mcp addon to date.
 
 ### Sample Results (7-task subset)
 
 | Metric | Value |
 |--------|-------|
-| Tasks evaluated | **7** (of 33 total) |
+| Tasks evaluated | **7** (of 28 total) |
 | Mean overall score | **0.72 / 1.0** |
 | Compliance rate (≥ 0.7) | **29%** |
 | First-attempt correct | **29%** |
@@ -39,7 +39,7 @@ Tests: `get_scene_tree`, `get_node_properties`, `get_node_property_list`, `find_
 | inspect_property_list | — | — | List properties, then set position |
 | inspect_find_by_type | PARTIAL | 0.60 | LLM used `/` as parent_path |
 
-**Finding**: `find_nodes_by_type` with `parent_path: "/"` fails because stripping `/` leaves empty string, not root. Needs fix: empty string → `.`
+**Finding**: `find_nodes_by_type` with `parent_path: "/"` previously failed because stripping `/` left an empty string. **Fixed in this PR**: `_resolve()` now maps empty string → `"."` (root), and `_cmd_find_nodes_by_type` normalizes paths before resolution.
 
 ### ✅ MUTATION (5 tasks)
 Tests: `create_node`, `delete_node`, `rename_node`, `save_scene`, `attach_script`
@@ -197,7 +197,7 @@ Complex tasks with multiple preconditions score lower due to exploration overhea
 
 ### High Impact, Medium Effort
 
-4. **Run full 33-task suite** (estimated: 3-4 hours with qwen3-coder:30b)
+4. **Run full 28-task suite** (estimated: 3-4 hours with qwen3-coder:30b)
 5. **Add baseline variant** (revert descriptions, compare scores)
 6. **Implement per-tool latency tracking** (measure actual execution time)
 
@@ -211,7 +211,7 @@ Complex tasks with multiple preconditions score lower due to exploration overhea
 
 ## Files Added/Modified
 
-- `evals/llm_eval_v2.py` — NEW: 33-task expanded suite
+- `evals/llm_eval_v2.py` — NEW: 28-task expanded suite
 - `evals/llm_eval.py` — Modified: token tracking, user-role prompts
 - `evals/ollama_agent.py` — Modified: enhanced tool descriptions
 - `evals/results/real_llm_eval_report_2026-06-10.md` — Previous report

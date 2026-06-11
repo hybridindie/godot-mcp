@@ -119,7 +119,7 @@ func _cmd_instance_scene(params: Dictionary) -> Dictionary:
 		parent_path = "."
 	var parent: Node = root.get_node_or_null(NodePath(parent_path))
 	if parent == null:
-		return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(params.get("parent_path")))
+		return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % parent_path)
 
 	var scene_path := str(params.get("scene_path", ""))
 	if not FileAccess.file_exists(scene_path):

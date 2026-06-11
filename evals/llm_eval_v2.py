@@ -9,7 +9,7 @@ Tests 30+ tasks covering all available bridge tools, including:
 
 Usage:
     python -m evals.llm_eval_v2
-    python -m evals.llm_eval_v2 --tasks node_inspection script_workflow
+    python -m evals.llm_eval_v2 --tasks inspect_scene_tree script_write_and_read
     python -m evals.llm_eval_v2 --max-steps 12 --variant post-pr-v2
 """
 
@@ -21,8 +21,10 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 
-sys.path.insert(0, "/Users/johnd/Development/godot-mcp")
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_REPO_ROOT))
 
 from evals.agent_suite_v2 import (
     BridgeConnector,
@@ -100,7 +102,7 @@ def get_git_sha() -> str:
             ["git", "rev-parse", "HEAD"],
             capture_output=True,
             text=True,
-            cwd="/Users/johnd/Development/godot-mcp",
+            cwd=str(_REPO_ROOT),
         )
         return result.stdout.strip()[:8] if result.returncode == 0 else "unknown"
     except Exception:
@@ -277,7 +279,7 @@ TASK_PROMPTS: dict[str, str] = {
 EXPECTED_FIRST_TOOLS: dict[str, str] = {
     # Inspection
     "inspect_scene_tree": "get_scene_tree",
-    "inspect_node_properties": "get_scene_tree",
+    "inspect_node_properties": "get_node_properties",
     "inspect_property_list": "get_node_property_list",
     "inspect_find_by_type": "find_nodes_by_type",
     # Mutation
@@ -588,10 +590,11 @@ class LLMTaskRunner:
                 if node_path:
                     created_nodes.append(node_path)
             elif call.tool == "rename_node" and exec_result.get("ok"):
-                old_name = call.params.get("node_path", "")
-                new_name = exec_result.get("result", {}).get("new_name", "")
-                if old_name and new_name:
-                    rename_stack.append((old_name, new_name))
+                # Store (path_after_rename, original_name) for revert
+                renamed_path = exec_result.get("result", {}).get("node_path", "")
+                original_name = exec_result.get("result", {}).get("old_name", "")
+                if renamed_path and original_name:
+                    rename_stack.append((renamed_path, original_name))
 
             if step_num == 0 and expected_first:
                 result.first_attempt_correct = call.tool == expected_first
@@ -622,11 +625,11 @@ class LLMTaskRunner:
                 pass  # Node may already be deleted or renamed
 
         # Cleanup: revert renames (in reverse order)
-        for old_name, new_name in reversed(rename_stack):
+        for renamed_path, original_name in reversed(rename_stack):
             try:
                 await self._bridge.call(
                     "cmd_rename_node",
-                    {"node_path": new_name, "new_name": old_name},
+                    {"node_path": renamed_path, "new_name": original_name},
                 )
             except Exception:
                 pass  # Node may no longer exist

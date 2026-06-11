@@ -15,11 +15,13 @@ from __future__ import annotations
 import json
 import sys
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 import requests
 
-sys.path.insert(0, "/Users/johnd/Development/godot-mcp")
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_REPO_ROOT))
 
 from mcp_server.bridge import Bridge
 from mcp_server.config import BridgeConfig
