@@ -96,6 +96,9 @@ func _cmd_select_nodes(params: Dictionary) -> Dictionary:
 		var path_str := str(raw_path)
 		if path_str.begins_with("/"):
 			path_str = path_str.substr(1)
+		# Also strip "root/" prefix commonly hallucinated by LLMs
+		if path_str.begins_with("root/"):
+			path_str = path_str.substr(5)
 		if path_str.is_empty():
 			path_str = "."
 		var node := root.get_node_or_null(NodePath(path_str))

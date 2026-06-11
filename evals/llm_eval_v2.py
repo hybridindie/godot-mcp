@@ -189,21 +189,25 @@ TASK_PROMPTS: dict[str, str] = {
         "Report its position."
     ),
     "inspect_property_list": (
-        "List all valid properties for the Player node, then set its position to (200, 200)."
+        "Get all valid properties for the Player node using get_node_property_list, "
+        "then set its position to (200, 200) using set_node_property."
     ),
-    "inspect_find_by_type": ("Find all nodes of type CollisionShape2D under the root scene."),
+    "inspect_find_by_type": (
+        "Call find_nodes_by_type to find all nodes of type CollisionShape2D. "
+        "Report the full paths found."
+    ),
     # === MUTATION (5 tasks) ===
     "mutate_create_and_property": (
         "Create a Node2D named 'MutTest' and set its position to (50, 50)."
     ),
     "mutate_delete_with_confirm": (
-        "Delete the node named 'MutTest'. You MUST confirm the deletion."
+        "Create a Node2D named 'MutTest', then delete it. You MUST confirm the deletion."
     ),
     "mutate_rename": (
         "Create a Node2D named 'RenameMe', then rename it to 'RenamedNode'."
     ),
     "mutate_save_scene": ("Save the current scene."),
-    "mutate_attach_script": ("Attach the script at res://scripts/player.gd to the Player node."),
+    "mutate_attach_script": ("Attach the script at res://scripts/debugger_demo.gd to the Background node."),
     # === SCRIPTS (4 tasks) ===
     "script_write_and_read": (
         "Write a GDScript to res://scripts/eval_test_v2.gd that extends Node "
@@ -214,7 +218,11 @@ TASK_PROMPTS: dict[str, str] = {
         "Then read the file to confirm the patch."
     ),
     "script_list": ("List all scripts in the project. Report the count."),
-    "script_get_for_node": ("Get the script attached to the Player node."),
+    "script_get_for_node": (
+        "Get the script attached to the Background node. "
+        "Call get_script_for_node with node_path='Background'. "
+        "If the node has no script attached, the result will show script_path=null."
+    ),
     # === SCENE SESSION (3 tasks) ===
     "scene_list_and_open": ("List all open scenes, then save all open scenes."),
     "scene_select_nodes": ("Select the Player node in the editor."),
