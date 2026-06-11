@@ -1,0 +1,142 @@
+
+============================================================
+  Task: node_inspection
+============================================================
+
+  Variant: baseline
+    Run 1/3... PARTIAL score=0.15 steps=4
+    Run 2/3... PARTIAL score=0.15 steps=4
+    Run 3/3... PARTIAL score=0.15 steps=4
+    Summary: completion=0% mean=0.15 steps=4.0 first=0% tokens=1523
+
+  Variant: agent_optimized
+    Run 1/3... PARTIAL score=0.15 steps=4
+    Run 2/3... PARTIAL score=0.15 steps=4
+    Run 3/3... PARTIAL score=0.15 steps=4
+    Summary: completion=0% mean=0.15 steps=4.0 first=0% tokens=1562
+
+  🏆 Winner for node_inspection: baseline
+
+============================================================
+  Task: script_read_workflow
+============================================================
+
+  Variant: baseline
+    Run 1/3... PARTIAL score=0.15 steps=4
+    Run 2/3... PASS score=0.70 steps=5
+    Run 3/3... PARTIAL score=0.15 steps=3
+    Summary: completion=33% mean=0.33 steps=4.0 first=0% tokens=1563
+
+  Variant: agent_optimized
+    Run 1/3... PARTIAL score=0.15 steps=4
+    Run 2/3... PARTIAL score=0.15 steps=3
+    Run 3/3... PARTIAL score=0.15 steps=4
+    Summary: completion=0% mean=0.15 steps=3.7 first=0% tokens=1361
+
+  🏆 Winner for script_read_workflow: baseline
+
+============================================================
+  Task: mutate_create_and_property
+============================================================
+
+  Variant: baseline
+    Run 1/3... PASS score=0.92 steps=5
+    Run 2/3... PASS score=0.92 steps=5
+    Run 3/3... PASS score=0.92 steps=5
+    Summary: completion=100% mean=0.92 steps=5.0 first=100% tokens=2465
+
+  Variant: agent_optimized
+    Run 1/3... PASS score=1.00 steps=3
+    Run 2/3... PASS score=1.00 steps=3
+    Run 3/3... PASS score=1.00 steps=3
+    Summary: completion=100% mean=1.00 steps=3.0 first=100% tokens=1309
+
+  🏆 Winner for mutate_create_and_property: agent_optimized
+
+============================================================
+  Task: signal_connect_ready
+============================================================
+
+  Variant: baseline
+    Run 1/3... PASS score=0.85 steps=5
+    Run 2/3... PASS score=0.85 steps=4
+    Run 3/3... PASS score=0.85 steps=4
+    Summary: completion=100% mean=0.85 steps=4.3 first=100% tokens=2150
+
+  Variant: agent_optimized
+    Run 1/3... PASS score=0.85 steps=4
+    Run 2/3... PASS score=0.85 steps=6
+    Run 3/3... PASS score=0.85 steps=5
+    Summary: completion=100% mean=0.85 steps=5.0 first=100% tokens=2732
+
+  🏆 Winner for signal_connect_ready: baseline
+
+============================================================
+  Task: play_scene
+============================================================
+
+  Variant: baseline
+    Run 1/3... PASS score=0.75 steps=4
+    Run 2/3... PASS score=0.75 steps=4
+    Run 3/3... PASS score=0.75 steps=4
+    Summary: completion=100% mean=0.75 steps=4.0 first=0% tokens=1519
+
+  Variant: agent_optimized
+    Run 1/3... PASS score=0.75 steps=4
+    Run 2/3... PASS score=0.75 steps=4
+    Run 3/3... PASS score=0.75 steps=4
+    Summary: completion=100% mean=0.75 steps=4.0 first=0% tokens=1538
+
+  🏆 Winner for play_scene: baseline
+
+================================================================================
+  A/B Test Comparison
+================================================================================
+
+  Task: node_inspection
+  Variant            Completion   Mean Score   Steps    First-Att  Tokens    
+  ----------------------------------------------------------------------
+  baseline           0%           0.15         4.0      0%         1523       🏆
+  agent_optimized    0%           0.15         4.0      0%         1562      
+
+  Deltas vs baseline:
+    agent_optimized  completion=+0% score=+0.00 steps=+0.0 first=+0% tokens=+39
+
+  Task: script_read_workflow
+  Variant            Completion   Mean Score   Steps    First-Att  Tokens    
+  ----------------------------------------------------------------------
+  baseline           33%          0.33         4.0      0%         1563       🏆
+  agent_optimized    0%           0.15         3.7      0%         1361      
+
+  Deltas vs baseline:
+    agent_optimized  completion=-33% score=-0.18 steps=-0.3 first=+0% tokens=-202
+
+  Task: mutate_create_and_property
+  Variant            Completion   Mean Score   Steps    First-Att  Tokens    
+  ----------------------------------------------------------------------
+  baseline           100%         0.92         5.0      100%       2465      
+  agent_optimized    100%         1.00         3.0      100%       1309       🏆
+
+  Deltas vs baseline:
+    agent_optimized  completion=+0% score=+0.08 steps=-2.0 first=+0% tokens=-1156
+
+  Task: signal_connect_ready
+  Variant            Completion   Mean Score   Steps    First-Att  Tokens    
+  ----------------------------------------------------------------------
+  baseline           100%         0.85         4.3      100%       2150       🏆
+  agent_optimized    100%         0.85         5.0      100%       2732      
+
+  Deltas vs baseline:
+    agent_optimized  completion=+0% score=+0.00 steps=+0.7 first=+0% tokens=+582
+
+  Task: play_scene
+  Variant            Completion   Mean Score   Steps    First-Att  Tokens    
+  ----------------------------------------------------------------------
+  baseline           100%         0.75         4.0      0%         1519       🏆
+  agent_optimized    100%         0.75         4.0      0%         1538      
+
+  Deltas vs baseline:
+    agent_optimized  completion=+0% score=+0.00 steps=+0.0 first=+0% tokens=+19
+================================================================================
+
+📊 Logged to MLFlow: https://mlflow.johndstudios.net/#/experiments/55

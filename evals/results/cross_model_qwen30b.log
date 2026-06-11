@@ -1,0 +1,84 @@
+
+======================================================================
+  Expanded Real LLM Eval Suite v2 — qwen3-coder:30b
+  Tasks: 5 | Max steps: 8
+======================================================================
+
+  [node_inspection]
+    FAIL | overall=0.15 | choice=0.0 prereq=0.0 recovery=0.0 eff=1.0 | steps=4 errors=3
+    First attempt: ❌
+    Error categories: agent
+      ❌ 1. enable_toolset({"toolset": "node_inspection"})
+      ❌ 2. enable_toolset({"toolset": "godot"})
+      ❌ 3. list_scenes({})
+      ✅ 4. done({})
+
+  [script_read_workflow]
+    FAIL | overall=0.12 | choice=0.0 prereq=0.0 recovery=0.0 eff=0.8 | steps=4 errors=4
+    First attempt: ❌
+    Error categories: unknown, agent
+    Notes: Stopped: too many errors
+      ❌ 1. enable_toolset({"toolset": "script_read_workflow"})
+      ❌ 2. enable_toolset({"toolset": "godot"})
+      ❌ 3. read_script({"path": "res://main_menu.gd"})
+      ❌ 4. read_script({"path": "res://main.gd"})
+
+  [mutate_create_and_property]
+    PASS | overall=0.92 | choice=1.0 prereq=1.0 recovery=1.0 eff=0.5 | steps=5 errors=0
+    First attempt: ✅
+      ✅ 1. create_node({"parent_path": ".", "node_type": "Node2D", "name": "MutTest"})
+      ✅ 2. set_node_property({"node_path": "/MutTest", "property": "position", "value": [100, 100]})
+      ✅ 3. create_node({"parent_path": "/MutTest", "node_type": "Sprite2D", "name": "PlayerSprite"})
+      ✅ 4. set_node_property({"node_path": "/MutTest/PlayerSprite", "property": "texture", "value": "res://icon.png"})
+      ✅ 5. done({})
+
+  [signal_connect_ready]
+    PASS | overall=0.85 | choice=1.0 prereq=1.0 recovery=1.0 eff=0.0 | steps=4 errors=2
+    First attempt: ✅
+    Error categories: unknown
+      ❌ 1. connect_signal({"source_path": "Player", "signal_name": "ready", "target_path": "Background", "method_name": "_ready"})
+      ✅ 2. get_scene_tree({})
+      ❌ 3. connect_signal({"source_path": "Player", "signal_name": "ready", "target_path": "Background", "method_name": "_ready"})
+      ✅ 4. done({})
+
+  [play_scene]
+    PASS | overall=0.75 | choice=1.0 prereq=0.0 recovery=1.0 eff=1.0 | steps=4 errors=2
+    First attempt: ❌
+    Error categories: agent
+      ❌ 1. enable_toolset({"toolset": "godot"})
+      ❌ 2. enable_toolset({"toolset": "godot"})
+      ✅ 3. play_scene({})
+      ✅ 4. done({})
+
+======================================================================
+  Expanded LLM Eval Summary v2
+======================================================================
+  Tasks evaluated: 5
+  Mean overall score: 0.56
+  Compliance rate: 60%
+  First-attempt correct: 40%
+  Total errors: 11
+  Mean steps per task: 4.2
+  Total prompt tokens: 7747
+  Total completion tokens: 1227
+  Mean tokens per task: 1795
+
+  Error taxonomy:
+    agent: 7
+    unknown: 4
+
+  Latency profile (per tool, aggregated across tasks):
+    connect_signal: n=2, mean=54.53ms, max=100.57ms, errors=1.0
+    create_node: n=2, mean=61.41ms, max=92.57ms, errors=0.0
+    enable_toolset: n=6, mean=43.52ms, max=100.68ms, errors=1.0
+    get_scene_tree: n=1, mean=67.5ms, max=67.5ms, errors=0.0
+    list_scenes: n=1, mean=1.35ms, max=1.35ms, errors=1.0
+    play_scene: n=1, mean=805.35ms, max=805.35ms, errors=0.0
+    read_script: n=2, mean=49.15ms, max=69.29ms, errors=1.0
+    set_node_property: n=2, mean=55.39ms, max=99.98ms, errors=0.0
+  Overall: 17 calls, mean=92.72ms
+
+  Breakdown: 3 pass, 0 partial, 2 fail
+======================================================================
+
+📊 Logged to MLFlow: https://mlflow.johndstudios.net/#/experiments/55

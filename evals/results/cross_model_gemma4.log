@@ -1,0 +1,65 @@
+
+======================================================================
+  Expanded Real LLM Eval Suite v2 — gemma4:12b-mlx
+  Tasks: 5 | Max steps: 8
+======================================================================
+
+  [node_inspection]
+    FAIL | overall=0.15 | choice=0.0 prereq=0.0 recovery=0.0 eff=1.0 | steps=2 errors=1
+    First attempt: ❌
+    Error categories: agent
+      ❌ 1. enable_toolset({})
+      ✅ 2. done({})
+
+  [script_read_workflow]
+    PARTIAL | overall=0.40 | choice=0.0 prereq=0.0 recovery=1.0 eff=1.0 | steps=1 errors=0
+    First attempt: ❌
+      ✅ 1. done({})
+
+  [mutate_create_and_property]
+    PASS | overall=1.00 | choice=1.0 prereq=1.0 recovery=1.0 eff=1.0 | steps=3 errors=1
+    First attempt: ✅
+    Error categories: precondition
+      ❌ 1. create_node({"parent_path": "/root", "node_type": "Node2D", "name": "MutTest"})
+      ✅ 2. get_scene_tree({})
+      ✅ 3. done({})
+
+  [signal_connect_ready]
+    PARTIAL | overall=0.40 | choice=0.0 prereq=0.0 recovery=1.0 eff=1.0 | steps=1 errors=0
+    First attempt: ❌
+      ✅ 1. done({})
+
+  [play_scene]
+    FAIL | overall=0.15 | choice=0.0 prereq=0.0 recovery=0.0 eff=1.0 | steps=2 errors=1
+    First attempt: ❌
+    Error categories: agent
+      ❌ 1. enable_toolset({})
+      ✅ 2. done({})
+
+======================================================================
+  Expanded LLM Eval Summary v2
+======================================================================
+  Tasks evaluated: 5
+  Mean overall score: 0.42
+  Compliance rate: 20%
+  First-attempt correct: 20%
+  Total errors: 3
+  Mean steps per task: 1.8
+  Total prompt tokens: 2735
+  Total completion tokens: 3769
+  Mean tokens per task: 1301
+
+  Error taxonomy:
+    agent: 2
+    precondition: 1
+
+  Latency profile (per tool, aggregated across tasks):
+    create_node: n=1, mean=7.82ms, max=7.82ms, errors=1.0
+    enable_toolset: n=2, mean=5.25ms, max=6.75ms, errors=1.0
+    get_scene_tree: n=1, mean=8.75ms, max=8.75ms, errors=0.0
+  Overall: 4 calls, mean=6.77ms
+
+  Breakdown: 1 pass, 2 partial, 2 fail
+======================================================================
+
+📊 Logged to MLFlow: https://mlflow.johndstudios.net/#/experiments/55
