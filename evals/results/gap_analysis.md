@@ -243,10 +243,10 @@ Error Category:
 6. **Regression tracking** — Add git_sha + nightly CI integration
 
 ### Phase 3 (Medium Impact, High Effort)
-7. **Cross-tool composition** — Chained task tests
-8. **Performance profiling** — Per-tool latency breakdown
-9. **Instruction staleness** — Static + runtime docstring verification
-10. **Toolset transition costs** — Context-switch measurements
+7. **Cross-tool composition** — Chained task tests ✅ (`evals/composition_test.py`)
+8. **Performance profiling** — Per-tool latency breakdown ✅ (`evals/profiler.py`)
+9. **Instruction staleness** — Static + runtime docstring verification ✅ (`evals/instruction_staleness.py`)
+10. **Toolset transition costs** — Context-switch measurements ✅ (`evals/transition_test.py`)
 
 ---
 
