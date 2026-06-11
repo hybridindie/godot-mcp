@@ -111,7 +111,7 @@ godot/addons/godot_mcp/handlers/visual_shader.gd # Godot 4.6 type cast fix
 evals/llm_eval_v2.py                              # Task prompt strengthening
 evals/ollama_agent.py                            # Agent base rules 8+9
 scripts/reset_godot_project.py                   # Reset tool
-evals/reset_vampire_example.py                   # Reset tool
+scripts/reset_vampire_example.py                   # Reset tool
 examples/vampire/scenes/main.tscn                # Clean scene without eval artifacts
 ```
 

@@ -361,6 +361,11 @@ func _resolve(raw_path: Variant) -> Dictionary:
 ## instead of O(n) over the property list. Cache refreshes automatically on a
 ## cache miss so attaching scripts / adding exported vars doesn't leave stale data.
 var _prop_cache: Dictionary = {}  # {Object instance_id: {name: type}}
+const MAX_PROP_CACHE_SIZE := 256
+
+func _prune_prop_cache() -> void:
+	if _prop_cache.size() > MAX_PROP_CACHE_SIZE:
+		_prop_cache.clear()
 
 func _property_type(obj: Object, property: String) -> int:
 	var obj_id := obj.get_instance_id()
@@ -371,6 +376,7 @@ func _property_type(obj: Object, property: String) -> int:
 		for entry in obj.get_property_list():
 			cache[entry["name"]] = int(entry["type"])
 		_prop_cache[obj_id] = cache
+		_prune_prop_cache()
 	return cache.get(property, -1)
 
 

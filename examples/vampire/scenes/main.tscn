@@ -175,7 +175,6 @@ horizontal_alignment = 1
 [node name="UpgradeMenu" type="CanvasLayer" parent="."]
 visible = false
 script = ExtResource("9_upgrade")
-script = ExtResource("9_upgrade")
 
 [node name="Panel" type="Panel" parent="UpgradeMenu"]
 anchors_preset = 8

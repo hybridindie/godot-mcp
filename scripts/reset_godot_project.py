@@ -7,7 +7,6 @@ files from git, and clears the .godot cache so the editor starts fresh.
 
 from __future__ import annotations
 
-import os
 import shutil
 import subprocess
 import sys
@@ -44,7 +43,10 @@ def remove_artifacts() -> int:
         for pattern in PATTERNS:
             for path in directory.glob(pattern):
                 try:
-                    path.unlink()
+                    if path.is_dir():
+                        shutil.rmtree(path)
+                    else:
+                        path.unlink()
                     removed += 1
                     print(f"  Removed: {path.relative_to(REPO_ROOT)}")
                 except OSError as exc:
