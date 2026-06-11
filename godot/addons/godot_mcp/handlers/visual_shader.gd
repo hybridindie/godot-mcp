@@ -104,7 +104,7 @@ func _cmd_add_shader_node(params: Dictionary) -> Dictionary:
 		return _router._fail("VALIDATION_ERROR", "'%s' is not a VisualShaderNode." % node_type)
 	var node: VisualShaderNode = instance
 
-	var mode := shader.get_mode()
+	var mode: int = int(shader.get_mode())
 	if shader.has_node(mode, node_id):
 		return _router._fail("VALIDATION_ERROR", "Node id %d already exists." % node_id)
 
@@ -136,7 +136,7 @@ func _cmd_connect_shader_nodes(params: Dictionary) -> Dictionary:
 	if shader == null:
 		return _router._fail("INTERNAL_ERROR", "Failed to load shader '%s'." % path)
 
-	var mode := shader.get_mode()
+	var mode: int = int(shader.get_mode())
 
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Connect shader nodes")
@@ -166,7 +166,7 @@ func _cmd_set_shader_node_param(params: Dictionary) -> Dictionary:
 	if shader == null:
 		return _router._fail("INTERNAL_ERROR", "Failed to load shader '%s'." % path)
 
-	var mode := shader.get_mode()
+	var mode: int = int(shader.get_mode())
 	if not shader.has_node(mode, node_id):
 		return _router._fail("VALIDATION_ERROR", "No node with id %d in shader." % node_id)
 	var node: VisualShaderNode = shader.get_node(mode, node_id)
