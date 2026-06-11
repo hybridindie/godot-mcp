@@ -78,7 +78,9 @@ class OllamaAgent:
             f"   {{\"tool\": \"...\", \"params\": {{...}}, \"reasoning\": \"...\"}}\n"
             f"5. Use empty params {{}} if the tool takes no arguments.\n"
             f"6. You MUST take at least one action to make progress on the task.\n"
-            f"7. Only return {{\"tool\": \"done\"}} AFTER you have completed the task."
+            f"7. Only return {{\"tool\": \"done\"}} AFTER you have completed the task.\n"
+            f"8. Do NOT take extra actions once the task is complete. Call done immediately.\n"
+            f"9. If the TASK gives explicit steps, follow them exactly and do NOT deviate."
         )
 
     def _ask(self, task: str, available_tools: list[dict]) -> LLMCall:

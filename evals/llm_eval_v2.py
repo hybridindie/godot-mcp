@@ -184,9 +184,11 @@ TASK_PROMPTS: dict[str, str] = {
         "Get the full scene tree and find all Sprite2D nodes. Report how many Sprite2D nodes exist."
     ),
     "inspect_node_properties": (
-        "Get the properties of the Background node. "
-        "Call get_node_properties with node_path='Background'. "
-        "Report its position."
+        "Task: Get the properties of the Background node.\n"
+        "Step 1: Call get_node_properties with node_path='Background'.\n"
+        "Step 2: Report the value of the 'position' property.\n"
+        "Do NOT call get_scene_tree. Do NOT explore child nodes. "
+        "Call get_node_properties once and then done."
     ),
     "inspect_property_list": (
         "Get all valid properties for the Player node using get_node_property_list, "
@@ -201,17 +203,22 @@ TASK_PROMPTS: dict[str, str] = {
         "Create a Node2D named 'MutTest' and set its position to (50, 50)."
     ),
     "mutate_delete_with_confirm": (
-        "Create a Node2D named 'MutTest', then delete it. You MUST confirm the deletion."
+        "Task: Create a Node2D named 'MutTest', then delete it.\n"
+        "Step 1: Call create_node with parent_path='.', node_type='Node2D', name='MutTest'.\n"
+        "Step 2: Call delete_node with node_path='MutTest' and confirm=true.\n"
+        "You MUST call BOTH create_node AND delete_node before calling done."
     ),
     "mutate_rename": (
         "Create a Node2D named 'RenameMe', then rename it to 'RenamedNode'."
     ),
     "mutate_save_scene": ("Save the current scene."),
     "mutate_attach_script": (
-        "Attach the script at res://scripts/debugger_demo.gd to the Background node. "
-        "Step 1: Call get_script_for_node with node_path='Background' to verify it has no script. "
-        "Step 2: Call attach_script with node_path='Background' and script_path='res://scripts/debugger_demo.gd'. "
-        "Step 3: Call get_script_for_node again to confirm."
+        "Task: Attach the script at res://scripts/debugger_demo.gd to the Background node.\n"
+        "Step 1: Call get_script_for_node with node_path='Background' to verify it has no script.\n"
+        "Step 2: Call attach_script with node_path='Background' and script_path='res://scripts/debugger_demo.gd'.\n"
+        "Step 3: Call get_script_for_node again to confirm.\n"
+        "IMPORTANT: The script path is exactly res://scripts/debugger_demo.gd (lowercase). "
+        "Do NOT use background.gd."
     ),
     # === SCRIPTS (4 tasks) ===
     "script_write_and_read": (
@@ -224,13 +231,18 @@ TASK_PROMPTS: dict[str, str] = {
     ),
     "script_list": ("List all scripts in the project. Report the count."),
     "script_get_for_node": (
-        "Get the script attached to the Background node. "
-        "Call get_script_for_node with node_path='Background'. "
-        "If the node has no script attached, the result will show script_path=null."
+        "Task: Check if the Background node has a script attached.\n"
+        "Step 1: Call get_script_for_node with node_path='Background'.\n"
+        "Step 2: Report the script_path from the result (or report 'no script' if null).\n"
+        "Do NOT query any other nodes. Call get_script_for_node once and then done."
     ),
     # === SCENE SESSION (3 tasks) ===
     "scene_list_and_open": ("List all open scenes, then save all open scenes."),
-    "scene_select_nodes": ("Select the Player node in the editor."),
+    "scene_select_nodes": (
+        "Task: Select the Player node in the editor.\n"
+        "Step 1: Call select_nodes with node_paths=['Player'].\n"
+        "Do NOT call get_scene_tree first. Call select_nodes once and then done."
+    ),
     # === SIGNALS (2 tasks) ===
     "signal_connect_ready": (
         "Connect the Player node's 'ready' signal to the Background node's '_ready' method. "
