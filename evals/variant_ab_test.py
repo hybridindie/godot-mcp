@@ -8,8 +8,8 @@ Swaps tool descriptions at runtime and measures impact on:
 - Token efficiency
 
 Usage:
-    python -m evals.variant_ab_test --variant baseline --runs 5
-    python -m evals.variant_ab_test --variant all --runs 3 --tasks batch_set_multiple
+    python -m evals.variant_ab_test --variants baseline --runs 5
+    python -m evals.variant_ab_test --variants baseline concise --runs 3 --tasks batch_set_multiple
 """
 
 from __future__ import annotations
@@ -18,8 +18,10 @@ import asyncio
 import sys
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 
-sys.path.insert(0, "/Users/johnd/Development/godot-mcp")
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_REPO_ROOT))
 
 from evals.llm_eval_v2 import (
     BridgeConnector,

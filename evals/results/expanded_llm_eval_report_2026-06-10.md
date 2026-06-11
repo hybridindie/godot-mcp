@@ -127,7 +127,7 @@ The leading-slash fix from the PR is working:
 - ❌ `find_nodes_by_type("/")` → fails (stripped `/` = empty string)
 - ❌ `create_node(parent_path="/Player")` → fails (same issue)
 
-**Fix needed**: Treat empty string after stripping slash as `"."` (root).
+**Fixed in this PR**: `_resolve()` in `command_router.gd` now maps empty string → `"."` (root), and `_cmd_find_nodes_by_type` normalizes `parent_path` before resolution. The `find_nodes_by_type` tool now correctly handles `"/"` as root.
 
 ### 2. State Leakage Between Tasks
 

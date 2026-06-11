@@ -323,7 +323,7 @@ EXPECTED_FIRST_TOOLS: dict[str, str] = {
 
 OPTIMAL_STEPS: dict[str, int] = {
     # Inspection
-    "inspect_scene_tree": 2,
+    "inspect_scene_tree": 1,
     "inspect_node_properties": 1,
     "inspect_property_list": 2,
     "inspect_find_by_type": 1,

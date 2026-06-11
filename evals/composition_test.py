@@ -21,8 +21,10 @@ import asyncio
 import sys
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 
-sys.path.insert(0, "/Users/johnd/Development/godot-mcp")
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_REPO_ROOT))
 
 from evals.agent_suite_v2 import BridgeConnector
 from evals.mlflow_tracker import EvalTracker
@@ -100,8 +102,16 @@ COMPOSITION_CHAINS: dict[str, list[dict]] = {
             },
             "extract": {
                 "node_path": "node_path",
-                "description": "Path of created node",
             },
+        },
+        {
+            "tool": "write_script",
+            "params": {
+                "script_path": "res://test_chain_player.gd",
+                "content": "extends Node2D\nfunc _ready():\n    print('hello from chain')\n",
+            },
+            "extract": {},
+            "validate": lambda result, ctx=None: result.get("ok", False),
         },
         {
             "tool": "attach_script",
@@ -112,17 +122,7 @@ COMPOSITION_CHAINS: dict[str, list[dict]] = {
             },
             "extract": {
                 "script_path": "script_path",
-                "description": "Script path for later read",
             },
-            "validate": lambda result, ctx=None: result.get("ok", False),
-        },
-        {
-            "tool": "write_script",
-            "params": {
-                "path": "{script_path}",
-                "content": "extends Node2D\nfunc _ready():\n    print('hello from chain')\n",
-            },
-            "extract": {},
             "validate": lambda result, ctx=None: result.get("ok", False),
         },
         {
@@ -151,20 +151,9 @@ COMPOSITION_CHAINS: dict[str, list[dict]] = {
             },
         },
         {
-            "tool": "attach_script",
-            "params": {
-                "node_path": "{node_path}",
-                "template": "extends Node\nfunc _ready(): pass",
-                "script_path": "res://test_script_roundtrip.gd",
-            },
-            "extract": {
-                "script_path": "script_path",
-            },
-        },
-        {
             "tool": "write_script",
             "params": {
-                "path": "{script_path}",
+                "script_path": "res://test_script_roundtrip.gd",
                 "content": (
                     "extends Node\n"
                     "var health = 100\n"
@@ -176,39 +165,49 @@ COMPOSITION_CHAINS: dict[str, list[dict]] = {
             "validate": lambda result, ctx=None: result.get("ok", False),
         },
         {
+            "tool": "attach_script",
+            "params": {
+                "node_path": "{node_path}",
+                "template": "extends Node\nfunc _ready(): pass",
+                "script_path": "res://test_script_roundtrip.gd",
+            },
+            "extract": {
+                "script_path": "script_path",
+            },
+        },
+        {
             "tool": "get_script_for_node",
             "params": {"node_path": "{node_path}"},
             "extract": {
                 "read_path": "script_path",
-                "description": "Verify script path round-trips",
             },
             "validate": lambda result, ctx=None: result.get("ok", False),
         },
         {
             "tool": "read_script",
-            "params": {"path": "{read_path}"},
+            "params": {"script_path": "{read_path}"},
             "extract": {
-                "original_content": "result.content",
+                "original_content": "content",
             },
             "validate": lambda result, ctx=None: result.get("ok", False),
         },
         {
             "tool": "patch_script",
             "params": {
-                "path": "{script_path}",
-                "old_text": "var health = 100",
-                "new_text": "var health = 200",
+                "script_path": "{script_path}",
+                "find": "var health = 100",
+                "replace": "var health = 200",
             },
             "extract": {},
             "validate": lambda result, ctx=None: result.get("ok", False),
         },
         {
             "tool": "read_script",
-            "params": {"path": "{script_path}"},
+            "params": {"script_path": "{script_path}"},
             "extract": {
-                "patched_content": "result.content",
+                "patched_content": "content",
             },
-            "validate": lambda result, original=None: (
+            "validate": lambda result, ctx=None: (
                 result.get("ok", False)
                 and "health = 200" in result.get("result", {}).get("content", "")
             ),

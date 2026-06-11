@@ -4,9 +4,9 @@
 Tests the agent's resilience to:
 1. Delete without confirm → should fail (safety gate)
 2. Set property on non-existent node → should fail gracefully
-3. Set property with wrong type → should fail with clear hint
+3. Set property with wrong type → should not crash
 4. Create node with invalid type → should fail
-5. Rename to duplicate name → should fail
+5. Rename to duplicate name → Godot may accept; we verify it does not crash
 
 Usage:
     python -m evals.negative_test
@@ -19,8 +19,10 @@ import asyncio
 import sys
 import time
 from dataclasses import dataclass
+from pathlib import Path
 
-sys.path.insert(0, "/Users/johnd/Development/godot-mcp")
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_REPO_ROOT))
 
 from evals.agent_suite_v2 import BridgeConnector
 from evals.mlflow_tracker import EvalTracker
@@ -208,18 +210,17 @@ async def run_negative_test(
         result.passed = True
         result.notes = f"Completed without crash. ok={resp.get('ok')}, error={resp.get('error')}"
     else:
-        # We expect an error containing the expected string
-        if result.test_error and expect_error.lower() in result.test_error.lower():
+        # We expect an error containing the expected string in either error code or hint
+        combined = f"{result.test_error} {result.test_hint}".lower()
+        if expect_error.lower() in combined:
             result.passed = True
-            result.notes = f"Expected error occurred: {result.test_error}"
-        elif not resp.get("ok", False):
-            result.passed = True
-            result.notes = f"Failed as expected (generic): {result.test_error}"
+            result.notes = f"Expected error occurred: {result.test_error} | {result.test_hint}"
         else:
             result.passed = False
             result.notes = (
-                f"UNEXPECTED SUCCESS: expected error containing '{expect_error}', "
-                f"but got ok=True. This may indicate a missing safety check."
+                f"UNEXPECTED: expected error containing '{expect_error}', "
+                f"but got error='{result.test_error}' hint='{result.test_hint}'. "
+                f"This may indicate a missing safety check or wrong failure reason."
             )
 
     result.duration_ms = round((time.perf_counter() - start) * 1000, 2)

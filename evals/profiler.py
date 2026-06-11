@@ -13,6 +13,7 @@ Usage:
 
 from __future__ import annotations
 
+import math
 import statistics
 from dataclasses import dataclass, field
 from typing import Any
@@ -43,9 +44,8 @@ class ToolProfiler:
                 "error_rate": round(errors / len(entries), 3),
             }
             if len(latencies) >= 2:
-                out[tool]["p95_ms"] = round(
-                    sorted(latencies)[int(len(latencies) * 0.95)], 2
-                )
+                idx = max(0, math.ceil(len(latencies) * 0.95) - 1)
+                out[tool]["p95_ms"] = round(sorted(latencies)[idx], 2)
         return out
 
     def overall(self) -> dict[str, float | int]:
