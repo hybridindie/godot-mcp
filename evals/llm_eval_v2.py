@@ -26,13 +26,14 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 
-from evals.agent_suite_v2 import (
+from evals.agent_suite_v2 import (  # noqa: E402
     BridgeConnector,
     TaskScore,
 )
-from evals.mlflow_tracker import EvalTracker
-from evals.ollama_agent import OllamaAgent
-from evals.profiler import ToolProfiler
+from evals.cloud_client import CloudAgent  # noqa: E402
+from evals.mlflow_tracker import EvalTracker  # noqa: E402
+from evals.ollama_agent import OllamaAgent  # noqa: E402
+from evals.profiler import ToolProfiler  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Token tracking
@@ -532,10 +533,16 @@ class LLMTaskResult:
 
 
 class LLMTaskRunner:
-    def __init__(self, bridge: BridgeConnector, model: str = "qwen3-coder:30b") -> None:
+    def __init__(
+        self,
+        bridge: BridgeConnector,
+        model: str = "qwen3-coder:30b",
+        provider: str = "ollama",
+    ) -> None:
         self._bridge = bridge
         self._model = model
-        self._agent: OllamaAgent | None = None
+        self._provider = provider
+        self._agent: OllamaAgent | CloudAgent | None = None
         self._profiler = ToolProfiler()
 
     async def run_task(self, task_name: str, max_steps: int = 12) -> LLMTaskResult:
@@ -560,7 +567,15 @@ class LLMTaskRunner:
         allowed_names.add("done")  # Always allow done
         tools = [t for t in tools if t["name"] in allowed_names]
 
-        self._agent = OllamaAgent(self._bridge._bridge, model=self._model)
+        # Create agent based on provider
+        if self._provider == "ollama":
+            self._agent = OllamaAgent(self._bridge._bridge, model=self._model)
+        else:
+            self._agent = CloudAgent(
+                self._bridge._bridge,
+                provider=self._provider,
+                model=self._model,
+            )
         self._agent._history = []
 
         expected_first = EXPECTED_FIRST_TOOLS.get(task_name)
@@ -716,6 +731,7 @@ ALL_TASK_NAMES: list[str] = list(TASK_PROMPTS.keys())
 async def run_llm_suite(
     tasks: list[str] | None = None,
     model: str = "qwen3-coder:30b",
+    provider: str = "ollama",
     max_steps: int = 12,
 ) -> list[LLMTaskResult]:
     bridge = BridgeConnector()
@@ -724,12 +740,12 @@ async def run_llm_suite(
         print("❌ Could not connect to Godot addon bridge. Is Godot running?")
         return []
 
-    runner = LLMTaskRunner(bridge, model=model)
+    runner = LLMTaskRunner(bridge, model=model, provider=provider)
     task_list = tasks or ALL_TASK_NAMES
     results: list[LLMTaskResult] = []
 
     print(f"\n{'=' * 70}")
-    print(f"  Expanded Real LLM Eval Suite v2 — {model}")
+    print(f"  Expanded Real LLM Eval Suite v2 — {provider}:{model}")
     print(f"  Tasks: {len(task_list)} | Max steps: {max_steps}")
     print(f"{'=' * 70}")
 
@@ -859,6 +875,7 @@ def log_results(
     results: list[LLMTaskResult],
     variant: str = "expanded-v2",
     model: str = "qwen3-coder:30b",
+    provider: str = "ollama",
 ) -> None:
     tracker = EvalTracker()
     git_sha = get_git_sha()
@@ -868,6 +885,7 @@ def log_results(
         variant=variant,
     )
 
+    tracker.log_param("provider", provider)
     tracker.log_param("model", model)
     tracker.log_param("git_sha", git_sha)
     tracker.log_param("variant", variant)
@@ -954,7 +972,12 @@ async def main() -> None:
 
     parser = argparse.ArgumentParser(description="Expanded real LLM eval for godot-mcp")
     parser.add_argument("--tasks", nargs="+", help="Specific tasks to run")
-    parser.add_argument("--model", default="qwen3-coder:30b", help="Ollama model")
+    parser.add_argument("--model", default="qwen3-coder:30b", help="Model name (provider-specific)")
+    parser.add_argument(
+        "--provider",
+        default="ollama",
+        help="LLM provider: ollama, anthropic, openai, google",
+    )
     parser.add_argument("--max-steps", type=int, default=12, help="Max steps per task")
     parser.add_argument("--variant", default="expanded-v2", help="Variant tag for MLFlow")
     args = parser.parse_args()
@@ -962,11 +985,17 @@ async def main() -> None:
     results = await run_llm_suite(
         tasks=args.tasks,
         model=args.model,
+        provider=args.provider,
         max_steps=args.max_steps,
     )
     print_summary(results)
     if results:
-        log_results(results, variant=args.variant, model=args.model)
+        log_results(
+            results,
+            variant=args.variant,
+            model=args.model,
+            provider=args.provider,
+        )
 
 
 if __name__ == "__main__":
