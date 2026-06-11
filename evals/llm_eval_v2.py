@@ -207,7 +207,12 @@ TASK_PROMPTS: dict[str, str] = {
         "Create a Node2D named 'RenameMe', then rename it to 'RenamedNode'."
     ),
     "mutate_save_scene": ("Save the current scene."),
-    "mutate_attach_script": ("Attach the script at res://scripts/debugger_demo.gd to the Background node."),
+    "mutate_attach_script": (
+        "Attach the script at res://scripts/debugger_demo.gd to the Background node. "
+        "Step 1: Call get_script_for_node with node_path='Background' to verify it has no script. "
+        "Step 2: Call attach_script with node_path='Background' and script_path='res://scripts/debugger_demo.gd'. "
+        "Step 3: Call get_script_for_node again to confirm."
+    ),
     # === SCRIPTS (4 tasks) ===
     "script_write_and_read": (
         "Write a GDScript to res://scripts/eval_test_v2.gd that extends Node "
@@ -391,7 +396,7 @@ TASK_TOOL_FILTER: dict[str, list[str]] = {
         "get_scene_tree",
         "done",
     ],
-    "mutate_delete_with_confirm": ["delete_node", "get_scene_tree", "done"],
+    "mutate_delete_with_confirm": ["create_node", "delete_node", "get_scene_tree", "done"],
     "mutate_rename": [
         "create_node",
         "rename_node",
