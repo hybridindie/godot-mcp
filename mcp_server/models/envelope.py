@@ -25,6 +25,7 @@ class ErrorCode(StrEnum):
     BRIDGE_DISCONNECTED = "BRIDGE_DISCONNECTED"
     TIMEOUT = "TIMEOUT"
     INTERNAL_ERROR = "INTERNAL_ERROR"
+    APPROVAL_DENIED = "APPROVAL_DENIED"  # human-in-the-loop gate (issue #153)
 
 
 class CommandEnvelope(BaseModel):

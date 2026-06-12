@@ -13,7 +13,9 @@ from fastmcp import Client, FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.config import ServerConfig
+from mcp_server.models.approval import ApprovalRequest, ApprovalResponse
 from mcp_server.models.envelope import CommandEnvelope, ResponseEnvelope
+from mcp_server.safety import ApprovalGate
 from mcp_server.server import create_server
 from tests.fakes import FakeAddonConnection, connector_for
 
@@ -267,6 +269,42 @@ async def test_set_node_property_no_suggestions_when_list_empty() -> None:
     assert "has no property 'bad'" in text
     # No suggestions bracket when the list is empty.
     assert "suggestions=" not in text
+
+
+async def test_delete_node_blocked_when_approval_denied() -> None:
+    # With an approval webhook configured and the verdict "deny", a confirmed
+    # delete must be blocked BEFORE reaching the bridge (issue #153).
+    async def deny(url: str, request: ApprovalRequest, timeout: float) -> ApprovalResponse:
+        return ApprovalResponse(approved=False, reason="blocked by reviewer")
+
+    conn = FakeAddonConnection(responder=_responder)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    gate = ApprovalGate(webhook_url="http://hook", poster=deny)
+    server = create_server(ServerConfig(), bridge=bridge, approval=gate)
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        result = await client.call_tool(
+            "delete_node", {"node_path": "Player", "confirm": True}, raise_on_error=False
+        )
+    assert result.is_error
+    assert "APPROVAL_DENIED" in str(result.content)
+    assert "blocked by reviewer" in str(result.content)
+    assert "cmd_delete_node" not in _commands(conn)  # never reached the addon
+
+
+async def test_delete_node_proceeds_when_approval_granted() -> None:
+    async def approve(url: str, request: ApprovalRequest, timeout: float) -> ApprovalResponse:
+        return ApprovalResponse(approved=True)
+
+    conn = FakeAddonConnection(responder=_responder)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    gate = ApprovalGate(webhook_url="http://hook", poster=approve)
+    server = create_server(ServerConfig(), bridge=bridge, approval=gate)
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        result = await client.call_tool("delete_node", {"node_path": "Player", "confirm": True})
+    assert result.structured_content["deleted"] is True
+    assert "cmd_delete_node" in _commands(conn)
 
 
 async def test_delete_without_confirm_is_blocked() -> None:

@@ -66,6 +66,12 @@ class ServerConfig(BaseModel):
     # the connected editor's project.
     godot_bin: str | None = None
     godot_project_dir: str | None = None
+    # Human-in-the-loop approval (issue #14/#153). Opt-in: with no webhook,
+    # destructive tools run as before (so evals/headless are never blocked).
+    # ``fail_open`` decides whether an unreachable webhook approves or denies.
+    approval_webhook: str | None = None
+    approval_timeout: float = 30.0
+    approval_fail_open: bool = True
 
     @classmethod
     def from_env(cls) -> ServerConfig:
@@ -79,4 +85,8 @@ class ServerConfig(BaseModel):
             permission_mode=os.environ.get("GODOT_MCP_PERMISSION_MODE", "ask"),
             godot_bin=os.environ.get("GODOT_MCP_GODOT_BIN"),
             godot_project_dir=os.environ.get("GODOT_MCP_PROJECT_DIR"),
+            approval_webhook=os.environ.get("GODOT_MCP_APPROVAL_WEBHOOK"),
+            approval_timeout=float(os.environ.get("GODOT_MCP_APPROVAL_TIMEOUT", 30.0)),
+            approval_fail_open=os.environ.get("GODOT_MCP_APPROVAL_FAIL_OPEN", "true").lower()
+            != "false",
         )

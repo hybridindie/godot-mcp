@@ -52,6 +52,34 @@ Every tool is tagged with exactly one:
 - `list_tools_by_safety_class()` is a `read_only` tool returning `{ class: [tool names] }`
   for agent introspection.
 
+### Human-in-the-loop approval (issue #153)
+
+An optional webhook gates `destructive` tools behind a human decision. It is **opt-in**:
+with no webhook configured the gate auto-approves, so evals and headless runs are never
+blocked. Configure via environment:
+
+| Env var | Default | Meaning |
+|---------|---------|---------|
+| `GODOT_MCP_APPROVAL_WEBHOOK` | unset | Approval endpoint URL. Unset → auto-approve (current behavior). |
+| `GODOT_MCP_APPROVAL_TIMEOUT` | `30.0` | Per-request timeout, seconds. |
+| `GODOT_MCP_APPROVAL_FAIL_OPEN` | `true` | On an unreachable/slow webhook: `true` approves, `false` denies. |
+
+When a webhook is set, the server `POST`s an **`ApprovalRequest`** before the action runs
+and expects an **`ApprovalResponse`**:
+
+```jsonc
+// Request →
+{ "action": "delete_node", "safety_class": "destructive",
+  "params": { "node_path": "Enemy" }, "task_context": null, "timestamp": 1739000000.0 }
+// Response ←
+{ "approved": false, "reason": "blocked by reviewer" }   // approved defaults to false if absent
+```
+
+A denial (or a fail-closed unreachable webhook) raises the structured error
+`APPROVAL_DENIED` (`required: "human_approval"`) **before** any command reaches the addon.
+Every decision is logged. Gated tools today: `delete_node`, `reload_scene`,
+`scaffold_project`, `remove_input_action`, `clear_input_action_events`.
+
 #### Version gating (per-toolset)
 
 Some toolsets depend on Godot editor APIs that are only reliable from a specific

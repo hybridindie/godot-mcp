@@ -12,17 +12,27 @@ actionable message instead of a stack trace.
 
 from __future__ import annotations
 
+import logging
+import time
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
 from enum import StrEnum
 from functools import wraps
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+import httpx
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import CORE_TAG
+from mcp_server.models.approval import ApprovalRequest, ApprovalResponse
 from mcp_server.models.envelope import ErrorCode, ResponseEnvelope
+
+if TYPE_CHECKING:
+    from mcp_server.config import ServerConfig
+
+logger = logging.getLogger(__name__)
 
 
 class SafetyClass(StrEnum):
@@ -113,6 +123,97 @@ def require_confirmation(confirm: bool, action: str) -> None:
         raise PreconditionError(
             f"'{action}' is destructive and may be irreversible. Pass confirm=true to proceed.",
             required="confirm",
+        )
+
+
+# --- human-in-the-loop approval (issue #153) -------------------------------
+
+# A poster takes (url, request, timeout) and returns the webhook's verdict.
+# Injected so the gate is unit-testable without a network.
+ApprovalPoster = Callable[[str, ApprovalRequest, float], Awaitable[ApprovalResponse]]
+
+
+async def post_approval(
+    url: str, request: ApprovalRequest, timeout: float
+) -> ApprovalResponse:
+    """Default poster: POST the request as JSON and parse the verdict."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(url, json=request.model_dump(), timeout=timeout)
+        resp.raise_for_status()
+        return ApprovalResponse.model_validate(resp.json())
+
+
+@dataclass
+class ApprovalGate:
+    """Optional human approval for destructive (and, if wired, mutating/runtime)
+    tools (issue #153).
+
+    Opt-in: with ``webhook_url`` unset the gate auto-approves, so evals and
+    headless runs are never blocked. When set, :meth:`require` POSTs an
+    :class:`ApprovalRequest` and raises ``PreconditionError(APPROVAL_DENIED)`` on
+    a denial. An unreachable/slow webhook approves when ``fail_open`` (default)
+    or denies when not. Every decision is logged.
+    """
+
+    webhook_url: str | None = None
+    timeout: float = 30.0
+    fail_open: bool = True
+    poster: ApprovalPoster = field(default=post_approval)
+    clock: Callable[[], float] = field(default=time.time)
+
+    @classmethod
+    def from_config(cls, config: ServerConfig) -> ApprovalGate:
+        return cls(
+            webhook_url=config.approval_webhook,
+            timeout=config.approval_timeout,
+            fail_open=config.approval_fail_open,
+        )
+
+    async def require(
+        self,
+        action: str,
+        safety_class: str,
+        params: dict[str, Any],
+        task_context: str | None = None,
+    ) -> None:
+        """Block ``action`` unless the webhook approves it. No-op without a webhook."""
+        if not self.webhook_url:
+            return  # opt-in: no webhook configured → auto-approve
+
+        request = ApprovalRequest(
+            action=action,
+            safety_class=safety_class,
+            params=params,
+            task_context=task_context,
+            timestamp=self.clock(),
+        )
+        try:
+            response = await self.poster(self.webhook_url, request, self.timeout)
+        except Exception:
+            logger.warning(
+                "approval webhook unreachable; failing %s",
+                "open" if self.fail_open else "closed",
+                extra={"action": action, "safety_class": safety_class},
+                exc_info=True,
+            )
+            if self.fail_open:
+                return
+            raise PreconditionError(
+                f"Approval webhook is unreachable; failing closed for '{action}'.",
+                required="human_approval",
+                error=ErrorCode.APPROVAL_DENIED,
+            ) from None
+
+        if response.approved:
+            logger.info("approval granted", extra={"action": action})
+            return
+        logger.info(
+            "approval denied", extra={"action": action, "reason": response.reason}
+        )
+        raise PreconditionError(
+            response.reason or f"'{action}' was denied by the human approver.",
+            required="human_approval",
+            error=ErrorCode.APPROVAL_DENIED,
         )
 
 

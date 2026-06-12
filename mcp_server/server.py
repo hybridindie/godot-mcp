@@ -23,7 +23,7 @@ from mcp_server.diagnostics import register_diagnostics
 from mcp_server.prompts import register_prompts
 from mcp_server.resources.context import register_resources
 from mcp_server.runtime import GodotRunner, Runner
-from mcp_server.safety import register_safety_tools
+from mcp_server.safety import ApprovalGate, register_safety_tools
 from mcp_server.tools.analysis import register_analysis
 from mcp_server.tools.animation import register_animation
 from mcp_server.tools.audio import register_audio
@@ -68,11 +68,14 @@ def create_server(
     config: ServerConfig | None = None,
     bridge: Bridge | None = None,
     runner: Runner | None = None,
+    approval: ApprovalGate | None = None,
 ) -> FastMCP:
     """Create the FastMCP server, wiring the bridge and registering tools."""
     config = config or ServerConfig()
     bridge = bridge or Bridge(config.bridge)
     runner = runner or GodotRunner(config)
+    # Human-in-the-loop approval gate (issue #153); no-op unless a webhook is set.
+    approval = approval or ApprovalGate.from_config(config)
 
     @asynccontextmanager
     async def lifespan(_server: FastMCP) -> AsyncIterator[None]:
@@ -179,8 +182,8 @@ def create_server(
     )
     register_health(mcp, bridge, config)
     register_inspection(mcp, bridge)
-    register_mutation(mcp, bridge)
-    register_scene_session(mcp, bridge)
+    register_mutation(mcp, bridge, approval)
+    register_scene_session(mcp, bridge, approval)
     register_node_ops(mcp, bridge)
     register_resource_files(mcp, bridge)
     register_project_fs(mcp, bridge)
@@ -201,7 +204,7 @@ def create_server(
     register_runtime_inspect(mcp, bridge)
     register_import_asset(mcp, bridge)
     register_input_sim(mcp, bridge)
-    register_input_map(mcp, bridge)
+    register_input_map(mcp, bridge, approval)
     register_testing(mcp, bridge)
     register_profiling(mcp, bridge)
     register_batch(mcp, bridge)
@@ -210,7 +213,7 @@ def create_server(
     register_export(mcp, bridge, config, runner)
     register_scripts(mcp, bridge, config, runner)
     register_debug_workflow(mcp, bridge, config, runner)
-    register_project_scaffold(mcp, bridge)
+    register_project_scaffold(mcp, bridge, approval)
     register_safety_tools(mcp)
 
     # Gate the tool surface by category, then apply the default exposure (core +
