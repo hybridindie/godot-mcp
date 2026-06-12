@@ -14,13 +14,12 @@ from __future__ import annotations
 import asyncio
 import sys
 import time
-
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 
-from evals.agent_suite_v2 import BridgeConnector
+from evals.agent_suite_v2 import BridgeConnector  # noqa: E402
 
 
 async def test_batch_performance() -> dict:
@@ -54,7 +53,10 @@ async def test_batch_performance() -> dict:
             },
         )
         dur_ms = round((time.perf_counter() - t0) * 1000, 2)
-        print(f"  result: ok={r.get('ok')}, dur={dur_ms}ms, applied={r.get('result', {}).get('count')}")
+        print(
+            f"  result: ok={r.get('ok')}, dur={dur_ms}ms, "
+            f"applied={r.get('result', {}).get('count')}"
+        )
         results["batch_5_nodes_ms"] = dur_ms
 
         # Test find_nodes_by_type
@@ -65,7 +67,10 @@ async def test_batch_performance() -> dict:
             {"parent_path": ".", "type": "Node2D", "recursive": True},
         )
         dur_ms = round((time.perf_counter() - t0) * 1000, 2)
-        print(f"  result: ok={r.get('ok')}, dur={dur_ms}ms, count={r.get('result', {}).get('count')}")
+        print(
+            f"  result: ok={r.get('ok')}, dur={dur_ms}ms, "
+            f"count={r.get('result', {}).get('count')}"
+        )
         results["find_nodes_by_type_ms"] = dur_ms
 
         # Cleanup

@@ -20,8 +20,10 @@ import json
 import subprocess
 import sys
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
@@ -126,7 +128,10 @@ def get_available_tools() -> list[dict]:
         },
         {
             "name": "get_project_info",
-            "description": "Get project info (name, Godot version, main scene, autoloads). No parameters.",
+            "description": (
+                "Get project info (name, Godot version, main scene, autoloads). "
+                "No parameters."
+            ),
             "parameters": {},
         },
         {
@@ -135,7 +140,10 @@ def get_available_tools() -> list[dict]:
             "parameters": {
                 "max_depth": {
                     "type": "integer",
-                    "description": "How many levels of children to return. -1 = unlimited, 0 = root only.",
+                    "description": (
+                        "How many levels of children to return. "
+                        "-1 = unlimited, 0 = root only."
+                    ),
                     "default": -1,
                 }
             },
@@ -146,14 +154,20 @@ def get_available_tools() -> list[dict]:
             "parameters": {
                 "node_path": {
                     "type": "string",
-                    "description": "Scene-relative path to the node. Do NOT prefix with /root/. Use 'Player', 'UI/ScoreLabel'.",
+                    "description": (
+                        "Scene-relative path to the node. Do NOT prefix with /root/. "
+                        "Use 'Player', 'UI/ScoreLabel'."
+                    ),
                     "required": True,
                 }
             },
         },
         {
             "name": "get_node_property_list",
-            "description": "Get the list of valid property names for a node. Use before set_node_property.",
+            "description": (
+                "Get the list of valid property names for a node. "
+                "Use before set_node_property."
+            ),
             "parameters": {
                 "node_path": {
                     "type": "string",
@@ -168,12 +182,18 @@ def get_available_tools() -> list[dict]:
             "parameters": {
                 "parent_path": {
                     "type": "string",
-                    "description": "Path to the parent node. Use '.' for scene root. Do NOT use /root/.",
+                    "description": (
+                        "Path to the parent node. Use '.' for scene root. "
+                        "Do NOT use /root/."
+                    ),
                     "required": True,
                 },
                 "node_type": {
                     "type": "string",
-                    "description": "Godot class name, e.g. 'Node2D', 'Sprite2D', 'CharacterBody2D'.",
+                    "description": (
+                        "Godot class name, e.g. 'Node2D', 'Sprite2D', "
+                        "'CharacterBody2D'."
+                    ),
                     "required": True,
                 },
                 "name": {
@@ -194,12 +214,18 @@ def get_available_tools() -> list[dict]:
                 },
                 "property": {
                     "type": "string",
-                    "description": "Property name to set. Use get_node_property_list to discover valid names.",
+                    "description": (
+                        "Property name to set. "
+                        "Use get_node_property_list to discover valid names."
+                    ),
                     "required": True,
                 },
                 "value": {
                     "type": "any",
-                    "description": "New value. For Vector2 use {'x': 100, 'y': 100}. For Color use [1, 0, 0, 1].",
+                    "description": (
+                        "New value. For Vector2 use {'x': 100, 'y': 100}. "
+                        "For Color use [1, 0, 0, 1]."
+                    ),
                     "required": True,
                 },
             },
@@ -252,7 +278,10 @@ def get_available_tools() -> list[dict]:
                 },
                 "script_path": {
                     "type": "string",
-                    "description": "EXACT res:// path to the script file. Must already exist. Example: 'res://scripts/player.gd'.",
+                    "description": (
+                        "EXACT res:// path to the script file. Must already exist. "
+                        "Example: 'res://scripts/player.gd'."
+                    ),
                     "required": True,
                 },
             },
@@ -374,7 +403,10 @@ def get_available_tools() -> list[dict]:
             "parameters": {
                 "node_paths": {
                     "type": "array",
-                    "description": "List of scene-relative paths. Example: ['Player', 'Background'].",
+                    "description": (
+                        "List of scene-relative paths. "
+                        "Example: ['Player', 'Background']."
+                    ),
                     "required": True,
                 }
             },
@@ -411,7 +443,10 @@ def get_available_tools() -> list[dict]:
             "parameters": {
                 "node_paths": {
                     "type": "array",
-                    "description": "List of scene-relative paths. Do NOT prefix with /root/. Example: ['BatchA', 'BatchB'].",
+                    "description": (
+                        "List of scene-relative paths. Do NOT prefix with /root/. "
+                        "Example: ['BatchA', 'BatchB']."
+                    ),
                     "required": True,
                 },
                 "property": {
@@ -432,12 +467,18 @@ def get_available_tools() -> list[dict]:
             "parameters": {
                 "parent_path": {
                     "type": "string",
-                    "description": "Parent to search under. Use '/' for entire scene or '.' for root.",
+                    "description": (
+                        "Parent to search under. "
+                        "Use '/' for entire scene or '.' for root."
+                    ),
                     "required": True,
                 },
                 "type": {
                     "type": "string",
-                    "description": "Godot class name to search for. Example: 'Sprite2D', 'CollisionShape2D'.",
+                    "description": (
+                        "Godot class name to search for. "
+                        "Example: 'Sprite2D', 'CollisionShape2D'."
+                    ),
                     "required": True,
                 },
             },
@@ -479,7 +520,10 @@ def get_available_tools() -> list[dict]:
             "parameters": {
                 "expression": {
                     "type": "string",
-                    "description": "Expression to evaluate. Example: '2+2', 'get_node(\"/root/Main\").get_child_count()'.",
+                    "description": (
+                        "Expression to evaluate. "
+                        "Example: '2+2', 'get_node(\"/root/Main\").get_child_count()'."
+                    ),
                     "required": True,
                 }
             },
@@ -632,7 +676,8 @@ TASK_PROMPTS: dict[str, str] = {
         "Step 2: Call attach_script with node_path='Background' and script_path='res://scripts/debugger_demo.gd'.\n"
         "Step 3: Call get_script_for_node again to confirm.\n"
         "CRITICAL: You MUST use the EXACT script path res://scripts/debugger_demo.gd.\n"
-        "Do NOT change, shorten, or substitute this path. Do NOT use Background.gd or background.gd."
+        "Do NOT change, shorten, or substitute this path. "
+        "Do NOT use Background.gd or background.gd."
     ),
     # === SCRIPTS (4 tasks) ===
     "script_write_and_read": (
@@ -1137,7 +1182,12 @@ class LLMTaskRunner:
         result.overall_latency = self._profiler.overall()
         return result
 
-    def _score_task(self, result: LLMTaskResult, task_name: str, validation_passed: bool | None = None) -> TaskScore:
+    def _score_task(
+        self,
+        result: LLMTaskResult,
+        task_name: str,
+        validation_passed: bool | None = None,
+    ) -> TaskScore:
         score = TaskScore()
         real_steps = [s for s in result.steps if s["tool"] != "done"]
 

@@ -26,9 +26,9 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 
-from evals.agent_suite_v2 import BridgeConnector
-from evals.mlflow_tracker import EvalTracker
-from evals.profiler import ToolProfiler
+from evals.agent_suite_v2 import BridgeConnector  # noqa: E402
+from evals.mlflow_tracker import EvalTracker  # noqa: E402
+from evals.profiler import ToolProfiler  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Composition chain definitions

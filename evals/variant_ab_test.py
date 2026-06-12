@@ -23,15 +23,15 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 
-from evals.llm_eval_v2 import (
+from evals.llm_eval_v2 import (  # noqa: E402
     BridgeConnector,
     LLMTaskResult,
     LLMTaskRunner,
 )
-from evals.llm_eval_v2 import (
+from evals.llm_eval_v2 import (  # noqa: E402
     get_available_tools as _get_base_tools,
 )
-from evals.mlflow_tracker import EvalTracker
+from evals.mlflow_tracker import EvalTracker  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Description variants

@@ -22,6 +22,13 @@ from dataclasses import dataclass, field
 
 sys.path.insert(0, "/Users/johnd/Development/godot-mcp")
 
+from evals.suite import (
+    BridgeConnector as InfraBridge,
+)
+from evals.suite import (
+    ToolsetResult as InfraToolsetResult,
+)
+
 from evals.agent_suite_v2 import (
     AgentTaskResult,
 )
@@ -29,12 +36,6 @@ from evals.agent_suite_v2 import (
     BridgeConnector as AgentBridge,
 )
 from evals.mlflow_tracker import EvalTracker
-from evals.suite import (
-    BridgeConnector as InfraBridge,
-)
-from evals.suite import (
-    ToolsetResult as InfraToolsetResult,
-)
 
 
 @dataclass

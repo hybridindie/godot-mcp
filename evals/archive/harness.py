@@ -21,8 +21,9 @@ from dataclasses import dataclass, field
 # We connect to the MCP server via the local bridge, not stdio
 sys.path.insert(0, "/Users/johnd/Development/godot-mcp")
 
-from evals.mlflow_tracker import EvalTracker
 from evals.variants import ALL_VARIANTS
+
+from evals.mlflow_tracker import EvalTracker
 from mcp_server.bridge import Bridge
 from mcp_server.config import BridgeConfig
 

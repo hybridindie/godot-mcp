@@ -24,8 +24,8 @@ import requests
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 
-from mcp_server.bridge import Bridge
-from mcp_server.config import BridgeConfig
+from mcp_server.bridge import Bridge  # noqa: E402
+from mcp_server.config import BridgeConfig  # noqa: E402
 
 OLLAMA_URL = "http://localhost:11434/api/chat"
 MODEL = "qwen3-coder:30b"
