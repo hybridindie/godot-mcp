@@ -76,9 +76,12 @@ and expects an **`ApprovalResponse`**:
 ```
 
 A denial (or a fail-closed unreachable webhook) raises the structured error
-`APPROVAL_DENIED` (`required: "human_approval"`) **before** any command reaches the addon.
-Every decision is logged. Gated tools today: `delete_node`, `reload_scene`,
-`scaffold_project`, `remove_input_action`, `clear_input_action_events`.
+`APPROVAL_DENIED` (`required: "human_approval"`) **before the destructive command
+executes** — after `confirm` is checked but before the mutation is sent (a read-only
+existence precondition such as `require_node_exists` may run first). A malformed webhook
+reply fails safe to *denied*, never auto-approved. Every decision is logged. Gated tools
+today: `delete_node`, `reload_scene`, `scaffold_project`, `remove_input_action`,
+`clear_input_action_events`.
 
 #### Version gating (per-toolset)
 

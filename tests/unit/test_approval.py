@@ -12,7 +12,12 @@ import pytest
 
 from mcp_server.config import ServerConfig
 from mcp_server.models.approval import ApprovalRequest, ApprovalResponse
-from mcp_server.safety import ApprovalGate, ApprovalPoster, PreconditionError
+from mcp_server.safety import (
+    ApprovalGate,
+    ApprovalPoster,
+    PreconditionError,
+    parse_approval_response,
+)
 
 pytestmark = pytest.mark.asyncio
 
@@ -99,3 +104,27 @@ async def test_from_config_without_webhook_is_noop() -> None:
     gate = ApprovalGate.from_config(ServerConfig())
     assert gate.webhook_url is None
     await gate.require(action="delete_node", safety_class="destructive", params={})
+
+
+async def test_well_formed_response_parses() -> None:
+    assert parse_approval_response({"approved": True}).approved is True
+    # Missing field defaults to NOT approved (fail safe).
+    assert parse_approval_response({"reason": "x"}).approved is False
+
+
+async def test_malformed_response_fails_safe_to_denied() -> None:
+    # Non-dict / wrong-shape bodies must deny, not raise or approve.
+    for bad in ("approved", ["yes"], 42):
+        assert parse_approval_response(bad).approved is False
+
+
+async def test_malformed_response_denies_even_when_fail_open() -> None:
+    # A *received* but unparseable verdict must not auto-approve even with
+    # fail_open=True (that's only for unreachable webhooks).
+    async def malformed(url: str, request: ApprovalRequest, timeout: float) -> ApprovalResponse:
+        return parse_approval_response("garbage")
+
+    gate = ApprovalGate(webhook_url="http://hook", poster=malformed, fail_open=True)
+    with pytest.raises(PreconditionError) as exc:
+        await gate.require(action="delete_node", safety_class="destructive", params={})
+    assert exc.value.error == "APPROVAL_DENIED"

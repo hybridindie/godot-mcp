@@ -12,6 +12,7 @@ actionable message instead of a stack trace.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from collections.abc import Awaitable, Callable
@@ -23,6 +24,7 @@ from typing import TYPE_CHECKING, Any
 import httpx
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
+from pydantic import ValidationError
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import CORE_TAG
@@ -133,14 +135,34 @@ def require_confirmation(confirm: bool, action: str) -> None:
 ApprovalPoster = Callable[[str, ApprovalRequest, float], Awaitable[ApprovalResponse]]
 
 
+def parse_approval_response(payload: Any) -> ApprovalResponse:
+    """Parse a webhook body into a verdict. A reply we cannot parse fails *safe*
+    (denied) rather than raising — a malformed response must never auto-approve a
+    destructive action, even with ``fail_open=True``.
+    """
+    try:
+        return ApprovalResponse.model_validate(payload)
+    except ValidationError:
+        return ApprovalResponse(approved=False, reason="malformed approval response")
+
+
 async def post_approval(
     url: str, request: ApprovalRequest, timeout: float
 ) -> ApprovalResponse:
-    """Default poster: POST the request as JSON and parse the verdict."""
+    """Default poster: POST the request as JSON and parse the verdict.
+
+    Only transport-level failures (timeout, connection) propagate — those are the
+    "webhook unreachable" case the gate's fail-open/closed policy handles. A reply
+    with an unparseable body is a *received* verdict that fails safe to denied.
+    """
     async with httpx.AsyncClient() as client:
         resp = await client.post(url, json=request.model_dump(), timeout=timeout)
         resp.raise_for_status()
-        return ApprovalResponse.model_validate(resp.json())
+        try:
+            payload = resp.json()
+        except ValueError:
+            return ApprovalResponse(approved=False, reason="non-JSON approval response")
+        return parse_approval_response(payload)
 
 
 @dataclass
@@ -189,6 +211,8 @@ class ApprovalGate:
         )
         try:
             response = await self.poster(self.webhook_url, request, self.timeout)
+        except asyncio.CancelledError:
+            raise  # never treat cancellation as a webhook failure
         except Exception:
             logger.warning(
                 "approval webhook unreachable; failing %s",
