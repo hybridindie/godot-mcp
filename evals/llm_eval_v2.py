@@ -638,6 +638,53 @@ TASK_VALIDATORS: dict[str, Callable[[BridgeConnector], Awaitable[bool]]] = {
 }
 
 
+# Required tool calls a task must complete *before* done() counts. Complements
+# TASK_VALIDATORS: validators check the end state, milestones check step
+# coverage — together they catch agents that do half a task then call done().
+# Names are the agent-facing (bare) tool names recorded in result.steps["tool"],
+# and a milestone is met only when that tool was called with ok=True (a failed
+# call hasn't achieved the sub-goal). Single-tool tasks are omitted — there the
+# tool_choice score already covers it.
+TASK_MILESTONES: dict[str, list[str]] = {
+    # Mutation
+    "mutate_create_and_property": ["create_node", "set_node_property"],
+    "mutate_delete_with_confirm": ["create_node", "delete_node"],
+    "mutate_rename": ["create_node", "rename_node"],
+    "mutate_attach_script": ["attach_script"],
+    # Scripts
+    "script_write_and_read": ["write_script", "read_script"],
+    "script_patch": ["patch_script", "read_script"],
+    # Scene session
+    "scene_list_and_open": ["list_open_scenes", "save_all_scenes"],
+    # Signals
+    "signal_connect_ready": ["connect_signal"],
+    # Runtime (each needs a play session bracketed by stop)
+    "runtime_play_and_inspect": ["play_scene", "get_game_scene_tree", "stop_scene"],
+    "runtime_simulate_input": ["play_scene", "simulate_key", "stop_scene"],
+    "runtime_performance": ["play_scene", "get_performance_monitors", "stop_scene"],
+    "runtime_debugger_eval": ["play_scene", "evaluate_expression", "stop_scene"],
+    # End-to-end workflows
+    "workflow_create_character": [
+        "create_node",
+        "attach_script",
+        "set_node_property",
+        "save_scene",
+    ],
+    "workflow_script_and_play": ["write_script", "attach_script", "save_scene", "play_scene"],
+    "workflow_signal_and_test": ["connect_signal", "save_scene", "play_scene"],
+    "workflow_batch_mutation": ["create_node", "find_nodes_by_type", "batch_set_property"],
+}
+
+
+def _unmet_milestones(result: LLMTaskResult, task_name: str) -> list[str]:
+    """Return milestone tools the task required but never *successfully* called."""
+    required = TASK_MILESTONES.get(task_name)
+    if not required:
+        return []
+    succeeded = {s["tool"] for s in result.steps if s.get("ok")}
+    return [tool for tool in required if tool not in succeeded]
+
+
 TASK_PROMPTS: dict[str, str] = {
     # === INSPECTION (4 tasks) ===
     "inspect_scene_tree": (
@@ -1213,11 +1260,24 @@ class LLMTaskRunner:
             ratio = (real_step_count - optimal) / optimal
             score.efficiency = max(0.0, 1.0 - ratio * 0.5)
 
+        # --- MILESTONE CAP ---
+        # If the task defines required sub-steps and any was never successfully
+        # called, the agent finished half the task — cap each component to 0.3
+        # (so overall <= 0.3) regardless of how clean the steps it did run were.
+        unmet = _unmet_milestones(result, task_name)
+        if unmet:
+            score.notes = f"MILESTONE_UNMET: missing {', '.join(unmet)}"
+            score.tool_choice = min(score.tool_choice, 0.3)
+            score.prerequisites = min(score.prerequisites, 0.3)
+            score.recovery = min(score.recovery, 0.3)
+            score.efficiency = min(score.efficiency, 0.3)
+
         # --- VALIDATOR CAP ---
         # If a validator exists and failed, cap the overall score regardless
         # of other metrics. This prevents false-positive passes.
         if validation_passed is False:
-            score.notes = "VALIDATION_FAILED: Task goal not achieved"
+            existing = f"{score.notes}; " if score.notes else ""
+            score.notes = f"{existing}VALIDATION_FAILED: Task goal not achieved"
             # Cap individual scores to signal failure
             score.tool_choice = min(score.tool_choice, 0.5)
             score.prerequisites = min(score.prerequisites, 0.5)
