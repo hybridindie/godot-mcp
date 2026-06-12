@@ -25,6 +25,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 
 from evals.correction import format_correction  # noqa: E402
+from evals.history import COMPRESSION_THRESHOLD, char_len, compress_history  # noqa: E402
 from mcp_server.bridge import Bridge  # noqa: E402
 from mcp_server.config import BridgeConfig  # noqa: E402
 
@@ -64,6 +65,22 @@ class OllamaAgent:
         # correction in the next user message (issue #149).
         self._last_tool: str = ""
         self._last_params: dict[str, Any] = {}
+        # History compression (issue #148): keep raw history, send a summarized
+        # view past the threshold. _last_compression lets the runner record it.
+        self._compression_threshold: int = COMPRESSION_THRESHOLD
+        self._last_compression: dict[str, int] | None = None
+
+    def _history_view(self) -> list[dict]:
+        """Return the history to send: compressed past the step threshold."""
+        view = compress_history(self._history, self._compression_threshold)
+        if len(view) < len(self._history):
+            self._last_compression = {
+                "before_chars": char_len(self._history),
+                "after_chars": char_len(view),
+            }
+        else:
+            self._last_compression = None
+        return view
 
     def _system_prompt(self, task: str, available_tools: list[dict]) -> str:
         """Build the system prompt with structured tool descriptions."""
@@ -101,7 +118,7 @@ class OllamaAgent:
         """Ask the LLM to choose the next tool."""
         system = self._system_prompt(task, available_tools)
         # qwen3-coder:30b on Ollama ignores system role; prepend to first user message
-        messages = self._history.copy()
+        messages = self._history_view().copy()
         if not messages:
             messages = [{"role": "user", "content": system}]
         else:

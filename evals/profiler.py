@@ -24,10 +24,24 @@ class ToolProfiler:
     """Aggregate timing and outcome stats per tool."""
 
     _calls: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    _compressions: list[dict[str, int]] = field(default_factory=list)
 
     def record(self, tool: str, latency_ms: float, ok: bool = True) -> None:
         """Log a single tool invocation."""
         self._calls.setdefault(tool, []).append({"latency_ms": latency_ms, "ok": ok})
+
+    def record_compression(self, before_chars: int, after_chars: int) -> None:
+        """Log a history-compression event (issue #148)."""
+        self._compressions.append({"before_chars": before_chars, "after_chars": after_chars})
+
+    def compression_savings(self) -> dict[str, int]:
+        """Chars saved by history compression (≈4 chars/token estimate)."""
+        saved = sum(c["before_chars"] - c["after_chars"] for c in self._compressions)
+        return {
+            "compressions": len(self._compressions),
+            "chars_saved": saved,
+            "est_tokens_saved": saved // 4,
+        }
 
     def summary(self) -> dict[str, dict[str, float | int]]:
         """Return per-tool summary: count, mean, median, p95, min, max, error_rate."""
@@ -76,3 +90,4 @@ class ToolProfiler:
     def reset(self) -> None:
         """Clear all recorded data."""
         self._calls.clear()
+        self._compressions.clear()

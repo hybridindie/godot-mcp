@@ -1109,6 +1109,11 @@ class LLMTaskRunner:
                 result.error_categories.append("infrastructure")
                 break
 
+            # Record any history compression the agent applied this step (#148).
+            comp = getattr(self._agent, "_last_compression", None)
+            if comp:
+                self._profiler.record_compression(comp["before_chars"], comp["after_chars"])
+
             result.token_usage.prompt_tokens += call.prompt_tokens
             result.token_usage.completion_tokens += call.completion_tokens
             result.token_usage.total_tokens += call.prompt_tokens + call.completion_tokens
