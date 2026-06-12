@@ -573,6 +573,28 @@ Action (when not dry-run):
 All changes are persisted via `ProjectSettings.save()`.  The tool is `destructive`
 because there is no clean UndoRedo path for broad project mutations.
 
+#### Composite / macro (issue #154) — category: `composite` (gated off by default)
+
+Macro tools that collapse a multi-step scene edit into **one** bridge round-trip the
+addon runs as a **single `UndoRedo` action** — fewer LLM turns, less latency, one atomic
+undo. Opt-in; the individual `scene_edit` tools still work unchanged. All `mutating`, all
+support `dry_run`; `save=True` also saves the scene (a file write after the undo action).
+
+| Tool | Params | Returns | Class |
+|------|--------|---------|-------|
+| `compose_node` | `parent_path, node_type, node_name, properties?, script_path?, children?, save=False, dry_run=False` | `ComposeNodeResult { node_path, created, children[], script_attached, properties_set[], saved }` | `mutating` |
+| `batch_create_nodes` | `parent_path, node_type, names[], properties?, save=False, dry_run=False` | `BatchCreateNodesResult { created[], count, saved }` | `mutating` |
+| `apply_node_edits` | `edits[] ({node_path, properties}), save=False, dry_run=False` | `ApplyNodeEditsResult { edited[], skipped[], count, saved }` | `mutating` |
+
+- `compose_node` replaces create_node + set_node_property(s) + attach_script + child
+  creation; `children` is a list of `{node_type, node_name, properties?}` parented under
+  the new node. The node, its config, and its children commit as one action.
+- `batch_create_nodes` creates many same-typed nodes (each with the same `properties`).
+- `apply_node_edits` sets many properties across many existing nodes; a node missing a
+  property is reported under `skipped` (the rest still apply).
+- These are game-agnostic, generic Godot operations — no game vocabulary (see the
+  game-agnostic scope rule in `CLAUDE.md`).
+
 #### Runtime (issue #13) — `runtime` (category: `runtime`, gated off by default)
 
 | Tool | Params | Returns |

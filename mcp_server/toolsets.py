@@ -26,6 +26,7 @@ from mcp_server.categories import (
     ASSET_IMPORT_TAG,
     AUDIO_TAG,
     BATCH_TAG,
+    COMPOSITE_TAG,
     CORE_TAG,
     DEBUGGER_TAG,
     EDITOR_TAG,
@@ -99,6 +100,9 @@ TOOLSETS: dict[str, str] = {
     "nodes, wire connections, and set node parameters.",
     PROJECT_SCAFFOLD_TAG: "Generate a project skeleton (directories, settings, autoloads, "
     "root scene) for common game types so agents start from a known structure.",
+    COMPOSITE_TAG: "Macro tools that collapse multi-step scene edits into one atomic, "
+    "single-undo round-trip (compose a node with script/children, batch-create nodes, "
+    "apply many edits at once). Individual scene_edit tools still work.",
 }
 
 # Minimum Godot version (major, minor) per toolset. Categories omitted here work

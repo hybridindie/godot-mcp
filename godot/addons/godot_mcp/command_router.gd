@@ -35,6 +35,7 @@ const MCPRuntimeInspectHandlers := preload("res://addons/godot_mcp/handlers/runt
 const MCPInputRecordingHandlers := preload("res://addons/godot_mcp/handlers/input_recording.gd")
 const MCPProfilingHandlers := preload("res://addons/godot_mcp/handlers/profiling.gd")
 const MCPBatchHandlers := preload("res://addons/godot_mcp/handlers/batch.gd")
+const MCPCompositeHandlers := preload("res://addons/godot_mcp/handlers/composite.gd")
 const MCPExportHandlers := preload("res://addons/godot_mcp/handlers/export.gd")
 const MCPEditorHandlers := preload("res://addons/godot_mcp/handlers/editor.gd")
 const MCPProjectFSHandlers := preload("res://addons/godot_mcp/handlers/project_fs.gd")
@@ -71,6 +72,7 @@ var _runtime_inspect: MCPRuntimeInspectHandlers = null
 var _input_recording: MCPInputRecordingHandlers = null
 var _profiling: MCPProfilingHandlers = null
 var _batch: MCPBatchHandlers = null
+var _composite: MCPCompositeHandlers = null
 var _export: MCPExportHandlers = null
 var _editor: MCPEditorHandlers = null
 var _project_fs: MCPProjectFSHandlers = null
@@ -135,6 +137,8 @@ func _init() -> void:
 	_profiling.register(_handlers)
 	_batch = MCPBatchHandlers.new(self)
 	_batch.register(_handlers)
+	_composite = MCPCompositeHandlers.new(self)
+	_composite.register(_handlers)
 	_export = MCPExportHandlers.new(self)
 	_export.register(_handlers)
 	_editor = MCPEditorHandlers.new(self)
