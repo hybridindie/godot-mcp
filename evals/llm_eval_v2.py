@@ -689,6 +689,29 @@ def _unmet_milestones(result: LLMTaskResult, task_name: str) -> list[str]:
     return [tool for tool in required if tool not in succeeded]
 
 
+# Reject a premature done() at most this many times before accepting it, so a
+# stuck model can't burn the whole step budget bouncing off the gate.
+MAX_DONE_REJECTIONS = 2
+
+
+def _should_reject_done(
+    result: LLMTaskResult,
+    task_name: str,
+    rejections: int,
+    step_num: int,
+    max_steps: int,
+) -> bool:
+    """True when the agent called done() but a milestone is still unmet and we can
+    still nudge it (rejection budget left, steps remaining). The dominant 30b
+    failure mode is calling done() early; a corrective nudge recovers many tasks.
+    """
+    if rejections >= MAX_DONE_REJECTIONS:
+        return False
+    if step_num >= max_steps - 1:
+        return False
+    return bool(_unmet_milestones(result, task_name))
+
+
 TASK_PROMPTS: dict[str, str] = {
     # === INSPECTION (4 tasks) ===
     "inspect_scene_tree": (
@@ -1098,6 +1121,7 @@ class LLMTaskRunner:
         # Track mutations for cleanup
         created_nodes: list[str] = []
         rename_stack: list[tuple[str, str]] = []  # (old_name, new_name)
+        done_rejections = 0
 
         for step_num in range(max_steps):
             step_prompt = (
@@ -1182,11 +1206,34 @@ class LLMTaskRunner:
                 result.error_categories.append(category)
 
             if call.tool == "done" or exec_result.get("done"):
+                # Reject a premature done(): nudge the agent with the unmet
+                # milestones and keep going instead of accepting a half-done task.
+                if _should_reject_done(result, task_name, done_rejections, step_num, max_steps):
+                    done_rejections += 1
+                    unmet = _unmet_milestones(result, task_name)
+                    self._agent._history.append({
+                        "role": "user",
+                        "content": (
+                            "You called done() but the task is INCOMPLETE. You still "
+                            f"must successfully call: {', '.join(unmet)}. "
+                            "Do NOT call done() again until you have. Continue now."
+                        ),
+                    })
+                    continue
                 break
 
             if result.errors >= 4:
                 result.notes = "Stopped: too many errors"
                 break
+
+        # Always stop any play session the task started. A runtime task that
+        # forgets stop_scene leaves an orphaned game that blocks the editor
+        # bridge for every later task (and can crash the editor) — this keeps the
+        # suite robust regardless of how the agent finished.
+        try:
+            await self._bridge.call("cmd_stop_scene", {})
+        except Exception:
+            pass
 
         # Cleanup: delete created test nodes
         for node_path in created_nodes:
@@ -1306,6 +1353,9 @@ class LLMTaskRunner:
 
 ALL_TASK_NAMES: list[str] = list(TASK_PROMPTS.keys())
 
+# The demo scene the tasks are written against (vampire example project).
+DEMO_SCENE = "res://scenes/main.tscn"
+
 
 async def run_llm_suite(
     tasks: list[str] | None = None,
@@ -1319,6 +1369,14 @@ async def run_llm_suite(
     if not await bridge.connect():
         print("❌ Could not connect to Godot addon bridge. Is Godot running?")
         return []
+
+    # The tasks assume the vampire demo nodes (Background, Player, Sprite2D, …).
+    # Open it explicitly so the suite never runs against whatever stale scene the
+    # editor happened to have open (a leftover temp scene fails every node task).
+    open_resp = await bridge.call("cmd_open_scene", {"scene_path": DEMO_SCENE})
+    if not open_resp.get("ok"):
+        print(f"⚠️  Could not open {DEMO_SCENE}: {open_resp.get('error')}. "
+              "Node-dependent tasks may fail.")
 
     runner = LLMTaskRunner(bridge, model=model, provider=provider, variant=variant)
     task_list = tasks or ALL_TASK_NAMES

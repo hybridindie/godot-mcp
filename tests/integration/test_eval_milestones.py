@@ -17,9 +17,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from evals.llm_eval_v2 import (  # noqa: E402
+    MAX_DONE_REJECTIONS,
     TASK_MILESTONES,
     LLMTaskResult,
     LLMTaskRunner,
+    _should_reject_done,
 )
 
 
@@ -81,3 +83,29 @@ def test_task_without_milestones_is_unaffected() -> None:
     score = runner._score_task(result, "profiling_fps")
     assert score.overall > 0.3
     assert "MILESTONE" not in score.notes
+
+
+def test_premature_done_is_rejected_when_milestone_unmet() -> None:
+    # Created MutTest, calling done() early — delete_node/get_scene_tree unmet.
+    result = _result("mutate_delete_with_confirm", [("create_node", True)])
+    assert _should_reject_done(result, "mutate_delete_with_confirm", 0, 1, 12) is True
+
+
+def test_done_accepted_once_milestones_met() -> None:
+    result = _result(
+        "mutate_delete_with_confirm",
+        [("create_node", True), ("delete_node", True), ("get_scene_tree", True)],
+    )
+    assert _should_reject_done(result, "mutate_delete_with_confirm", 0, 3, 12) is False
+
+
+def test_done_accepted_after_rejection_budget_spent() -> None:
+    result = _result("mutate_delete_with_confirm", [("create_node", True)])
+    spent = MAX_DONE_REJECTIONS
+    assert _should_reject_done(result, "mutate_delete_with_confirm", spent, 3, 12) is False
+
+
+def test_done_accepted_on_last_step() -> None:
+    result = _result("mutate_delete_with_confirm", [("create_node", True)])
+    # step_num == max_steps - 1: no room to continue, so accept done().
+    assert _should_reject_done(result, "mutate_delete_with_confirm", 0, 11, 12) is False
