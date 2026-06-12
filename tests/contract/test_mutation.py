@@ -61,7 +61,12 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                 {"node_path": p["node_path"], "script_path": p["script_path"], "attached": True},
             )
         case "cmd_connect_signal":
-            return ResponseEnvelope.success(cmd.id, {**p, "connected": True})
+            # Mimic the addon: a connection already saved in the scene file is
+            # reported as an idempotent success, not a failure (issue #152).
+            already = p.get("signal_name") == "ready"
+            return ResponseEnvelope.success(
+                cmd.id, {**p, "connected": True, "already_connected": already}
+            )
         case "cmd_save_scene":
             return ResponseEnvelope.success(cmd.id, {"path": "res://m.tscn", "saved": True})
         case "cmd_create_scene":
@@ -127,6 +132,42 @@ async def test_create_node_dry_run_sends_no_mutation() -> None:
     # Preview path mirrors the addon: a root child is "Player", not "./Player".
     assert result.structured_content["node_path"] == "Player"
     assert "cmd_create_node" not in _commands(conn)  # nothing was actually created
+
+
+async def test_connect_signal_reports_already_connected() -> None:
+    # Re-connecting a signal that's already saved in the scene must surface as an
+    # idempotent success (connected + already_connected), not a false failure.
+    server, _ = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        result = await client.call_tool(
+            "connect_signal",
+            {
+                "source_path": "Player",
+                "signal_name": "ready",
+                "target_path": "Background",
+                "method_name": "_ready",
+            },
+        )
+    assert result.structured_content["connected"] is True
+    assert result.structured_content["already_connected"] is True
+
+
+async def test_connect_signal_fresh_connection_not_marked_already() -> None:
+    server, _ = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        result = await client.call_tool(
+            "connect_signal",
+            {
+                "source_path": "Button",
+                "signal_name": "pressed",
+                "target_path": "Player",
+                "method_name": "_on_pressed",
+            },
+        )
+    assert result.structured_content["connected"] is True
+    assert result.structured_content["already_connected"] is False
 
 
 async def test_set_property_maps_value_and_flag() -> None:

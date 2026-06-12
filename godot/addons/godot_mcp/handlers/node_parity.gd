@@ -168,11 +168,15 @@ func _cmd_disconnect_signal(params: Dictionary) -> Dictionary:
 	var method_name := str(params.get("method_name", ""))
 	if not source.has_signal(signal_name):
 		return _router._fail("VALIDATION_ERROR", "Source has no signal '%s'." % signal_name)
-	if not target.has_method(method_name):
-		return _router._fail("VALIDATION_ERROR", "Target has no method '%s'." % method_name)
+	# is_connected is the authoritative gate here: a missing/garbage method
+	# simply isn't connected, so we skip a separate has_method pre-check (which
+	# could false-fail on virtual targets) and report the connection state.
 	var callable := Callable(target, method_name)
 	if not source.is_connected(signal_name, callable):
-		return _router._fail("VALIDATION_ERROR", "Signal '%s' is not connected to that method." % signal_name)
+		return _router._fail(
+			"VALIDATION_ERROR",
+			"Signal '%s' is not connected from '%s' to '%s.%s'." % [signal_name, source.name, target.name, method_name]
+		)
 
 	# Capture the original flags so undo restores the connection faithfully.
 	var flags := 0

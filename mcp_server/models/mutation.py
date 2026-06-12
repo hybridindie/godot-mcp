@@ -51,6 +51,9 @@ class ConnectSignalResult(BaseModel):
     target_path: str
     method_name: str
     connected: bool
+    # True when the connection already existed (e.g. saved in the scene file);
+    # the addon treats that as an idempotent success rather than a failure (#152).
+    already_connected: bool = False
     dry_run: bool = False
 
 

@@ -164,12 +164,30 @@ func _cmd_connect_signal(params: Dictionary) -> Dictionary:
 	var signal_name := str(params.get("signal_name", ""))
 	var method_name := str(params.get("method_name", ""))
 	if not source.has_signal(signal_name):
-		return _router._fail("VALIDATION_ERROR", "Source has no signal '%s'." % signal_name)
-	if not target.has_method(method_name):
-		return _router._fail("VALIDATION_ERROR", "Target has no method '%s'." % method_name)
+		return _router._fail(
+			"VALIDATION_ERROR",
+			"Source '%s' has no signal '%s'. Available: %s." % [source.name, signal_name, _signal_names_hint(source)]
+		)
+	# has_method() already resolves script methods and built-in virtuals (e.g.
+	# _ready); the script method-list is a fallback for tool-script methods that
+	# aren't yet registered on the instance.
+	if not _has_callable_method(target, method_name):
+		return _router._fail(
+			"VALIDATION_ERROR",
+			"Target '%s' has no method '%s'. Attach a script defining it, or choose an existing method." % [target.name, method_name]
+		)
 	var callable := Callable(target, method_name)
+	# Idempotent: a connection already present (often persisted in the scene
+	# file) is success, not failure — re-running the same connect is a no-op.
 	if source.is_connected(signal_name, callable):
-		return _router._fail("VALIDATION_ERROR", "Signal '%s' is already connected to that method." % signal_name)
+		return _router._ok({
+			"source_path": str(params.get("source_path")),
+			"signal_name": signal_name,
+			"target_path": str(params.get("target_path")),
+			"method_name": method_name,
+			"connected": true,
+			"already_connected": true,
+		})
 
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Connect %s" % signal_name)
@@ -183,7 +201,28 @@ func _cmd_connect_signal(params: Dictionary) -> Dictionary:
 		"target_path": str(params.get("target_path")),
 		"method_name": method_name,
 		"connected": true,
+		"already_connected": false,
 	})
+
+
+func _has_callable_method(node: Node, method_name: String) -> bool:
+	if node.has_method(method_name):
+		return true
+	var script: Script = node.get_script()
+	if script != null:
+		for m in script.get_script_method_list():
+			if str(m.get("name", "")) == method_name:
+				return true
+	return false
+
+
+func _signal_names_hint(node: Node) -> String:
+	var names: PackedStringArray = []
+	for s in node.get_signal_list():
+		names.append(str(s.get("name", "")))
+		if names.size() >= 8:
+			break
+	return ", ".join(names)
 
 
 
