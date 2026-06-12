@@ -14,12 +14,8 @@ on:
 
 jobs:
   variants:
-    name: validate ${{ matrix.variant }}
+    name: validate variant machinery
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        variant: [baseline, concise, structured, agent_opt]
     steps:
       - uses: actions/checkout@v4
 
