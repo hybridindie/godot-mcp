@@ -95,3 +95,18 @@ def test_agent_history_view_noop_when_short() -> None:
     view = agent._history_view()
     assert view == agent._history
     assert agent._last_compression is None
+
+
+def test_compress_history_handles_zero_keep_recent() -> None:
+    # keep_recent_steps=0 must not IndexError (it can become configurable).
+    h = _history(COMPRESSION_THRESHOLD + 3)
+    out = compress_history(h, COMPRESSION_THRESHOLD, keep_recent_steps=0)
+    assert "Progress summary" in out[0]["content"]
+    assert len(out) >= 1
+
+
+def test_profiler_never_reports_negative_savings() -> None:
+    p = ToolProfiler()
+    # A "compression" that grew the prompt must not produce negative savings.
+    p.record_compression(before_chars=100, after_chars=180)
+    assert p.compression_savings()["chars_saved"] == 0

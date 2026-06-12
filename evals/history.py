@@ -90,7 +90,10 @@ def compress_history(
     assistant_idx = [i for i, m in enumerate(history) if m.get("role") == "assistant"]
     if len(assistant_idx) <= threshold:
         return history
-    cut = assistant_idx[len(assistant_idx) - keep_recent_steps]
+    # Keep at least one recent step and always leave something to summarize,
+    # so the slice index is valid regardless of how keep_recent_steps is set.
+    keep = max(1, min(keep_recent_steps, len(assistant_idx) - 1))
+    cut = assistant_idx[len(assistant_idx) - keep]
     older, recent = history[:cut], history[cut:]
     summary = {"role": "user", "content": summarize_history(older)}
     return [summary, *recent]

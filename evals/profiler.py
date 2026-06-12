@@ -36,7 +36,7 @@ class ToolProfiler:
 
     def compression_savings(self) -> dict[str, int]:
         """Chars saved by history compression (≈4 chars/token estimate)."""
-        saved = sum(c["before_chars"] - c["after_chars"] for c in self._compressions)
+        saved = sum(max(0, c["before_chars"] - c["after_chars"]) for c in self._compressions)
         return {
             "compressions": len(self._compressions),
             "chars_saved": saved,

@@ -71,16 +71,20 @@ class OllamaAgent:
         self._last_compression: dict[str, int] | None = None
 
     def _history_view(self) -> list[dict]:
-        """Return the history to send: compressed past the step threshold."""
+        """Return the history to send: compressed past the step threshold.
+
+        Compression is judged by character count, not message count — a shorter
+        message list can still be larger in chars. Only send (and record) the
+        compressed view when it actually shrinks the prompt.
+        """
         view = compress_history(self._history, self._compression_threshold)
-        if len(view) < len(self._history):
-            self._last_compression = {
-                "before_chars": char_len(self._history),
-                "after_chars": char_len(view),
-            }
-        else:
-            self._last_compression = None
-        return view
+        if view is not self._history:
+            before, after = char_len(self._history), char_len(view)
+            if after < before:
+                self._last_compression = {"before_chars": before, "after_chars": after}
+                return view
+        self._last_compression = None
+        return self._history
 
     def _system_prompt(self, task: str, available_tools: list[dict]) -> str:
         """Build the system prompt with structured tool descriptions."""
