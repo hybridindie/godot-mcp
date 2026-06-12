@@ -35,6 +35,7 @@ from evals.cloud_client import CloudAgent  # noqa: E402
 from evals.mlflow_tracker import EvalTracker  # noqa: E402
 from evals.ollama_agent import OllamaAgent  # noqa: E402
 from evals.profiler import ToolProfiler  # noqa: E402
+from evals.variants import VARIANTS, apply_variant  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Token tracking
@@ -1048,10 +1049,13 @@ class LLMTaskRunner:
         bridge: BridgeConnector,
         model: str = "qwen3-coder:30b",
         provider: str = "ollama",
+        variant: str = "baseline",
     ) -> None:
         self._bridge = bridge
         self._model = model
         self._provider = provider
+        # Tool-description A/B variant (issue #151); baseline = unchanged.
+        self._variant = variant
         self._agent: OllamaAgent | CloudAgent | None = None
         self._profiler = ToolProfiler()
 
@@ -1070,7 +1074,8 @@ class LLMTaskRunner:
             "Return ONLY a JSON object with the tool to call. "
             'When the task is COMPLETELY finished, return {"tool": "done"}.'
         )
-        tools = get_available_tools()
+        # Apply the A/B description variant before filtering (issue #151).
+        tools = apply_variant(get_available_tools(), self._variant)
 
         # Filter tools to only those relevant for this task
         allowed_names = set(TASK_TOOL_FILTER.get(task_name, []))
@@ -1307,6 +1312,7 @@ async def run_llm_suite(
     model: str = "qwen3-coder:30b",
     provider: str = "ollama",
     max_steps: int = 12,
+    variant: str = "baseline",
 ) -> list[LLMTaskResult]:
     bridge = BridgeConnector()
 
@@ -1314,13 +1320,13 @@ async def run_llm_suite(
         print("❌ Could not connect to Godot addon bridge. Is Godot running?")
         return []
 
-    runner = LLMTaskRunner(bridge, model=model, provider=provider)
+    runner = LLMTaskRunner(bridge, model=model, provider=provider, variant=variant)
     task_list = tasks or ALL_TASK_NAMES
     results: list[LLMTaskResult] = []
 
     print(f"\n{'=' * 70}")
     print(f"  Expanded Real LLM Eval Suite v2 — {provider}:{model}")
-    print(f"  Tasks: {len(task_list)} | Max steps: {max_steps}")
+    print(f"  Tasks: {len(task_list)} | Max steps: {max_steps} | Variant: {variant}")
     print(f"{'=' * 70}")
 
     for task_name in task_list:
@@ -1553,7 +1559,12 @@ async def main() -> None:
         help="LLM provider: ollama, anthropic, openai, google",
     )
     parser.add_argument("--max-steps", type=int, default=12, help="Max steps per task")
-    parser.add_argument("--variant", default="expanded-v2", help="Variant tag for MLFlow")
+    parser.add_argument(
+        "--variant",
+        default="baseline",
+        choices=list(VARIANTS),
+        help="Tool-description A/B variant (also the MLFlow run tag)",
+    )
     args = parser.parse_args()
 
     results = await run_llm_suite(
@@ -1561,6 +1572,7 @@ async def main() -> None:
         model=args.model,
         provider=args.provider,
         max_steps=args.max_steps,
+        variant=args.variant,
     )
     print_summary(results)
     if results:

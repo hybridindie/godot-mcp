@@ -1,0 +1,67 @@
+# Nightly tool-description A/B variant eval (issue #151).
+#
+# The FULL LLM eval needs a live Godot editor + an LLM backend (Ollama/cloud)
+# + an MLFlow server — none of which GitHub-hosted runners provide. So this
+# scheduled workflow validates the variant machinery across every variant
+# nightly (guards regressions), and the live A/B run is wired below for a
+# self-hosted runner that has that infrastructure.
+name: eval-variants
+
+on:
+  schedule:
+    - cron: "0 7 * * *" # 07:00 UTC nightly
+  workflow_dispatch:
+
+jobs:
+  variants:
+    name: validate ${{ matrix.variant }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [baseline, concise, structured, agent_opt]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Sync dependencies
+        run: uv sync --frozen
+
+      - name: Validate variant transforms the tool catalog
+        run: uv run python -m evals.variants
+
+      - name: Eval unit tests (variants, milestones, corrections, history)
+        run: >-
+          uv run pytest -q
+          tests/integration/test_eval_variants.py
+          tests/integration/test_eval_milestones.py
+          tests/integration/test_eval_corrections.py
+          tests/integration/test_eval_history.py
+
+  # Live A/B eval — runs each variant against a task subset and logs to MLFlow
+  # under the same git SHA. Requires a self-hosted runner with Godot + Ollama +
+  # MLFlow. Enable by registering a runner labeled `godot-eval`, setting the
+  # MLFLOW_TRACKING_URI secret, and uncommenting this job.
+  #
+  # live-eval:
+  #   name: live eval ${{ matrix.variant }}
+  #   runs-on: [self-hosted, godot-eval]
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       variant: [baseline, concise, structured, agent_opt]
+  #   env:
+  #     MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - run: uv sync --frozen
+  #     - run: >-
+  #         uv run python -m evals.llm_eval_v2 --variant ${{ matrix.variant }}
+  #         --tasks mutate_attach_script signal_connect_ready workflow_signal_and_test
