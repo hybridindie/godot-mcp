@@ -528,6 +528,73 @@ def get_available_tools() -> list[dict]:
                 }
             },
         },
+        # --- Composite / macro tools (issue #154): collapse a multi-step edit
+        # into ONE atomic call. Prefer these when a task needs several edits.
+        {
+            "name": "compose_node",
+            "description": (
+                "Create a node with properties + script + children in ONE call "
+                "(one undo). Prefer over create_node+set_node_property+attach_script."
+            ),
+            "parameters": {
+                "parent_path": {
+                    "type": "string",
+                    "description": "Parent path. Use '.' for scene root.",
+                    "required": True,
+                },
+                "node_type": {
+                    "type": "string",
+                    "description": "Godot class, e.g. 'Sprite2D', 'CharacterBody2D'.",
+                    "required": True,
+                },
+                "node_name": {"type": "string", "description": "Name.", "required": True},
+                "properties": {
+                    "type": "object",
+                    "description": "Property map, e.g. {'position': {'x':100,'y':100}}.",
+                },
+                "script_path": {
+                    "type": "string",
+                    "description": "EXACT res:// script to attach (optional).",
+                },
+                "save": {"type": "boolean", "description": "Also save the scene."},
+            },
+        },
+        {
+            "name": "batch_create_nodes",
+            "description": (
+                "Create MANY same-typed nodes under one parent in ONE call (one "
+                "undo). Prefer over repeated create_node."
+            ),
+            "parameters": {
+                "parent_path": {"type": "string", "required": True},
+                "node_type": {"type": "string", "required": True},
+                "names": {
+                    "type": "array",
+                    "description": "Node names, e.g. ['A','B','C'].",
+                    "required": True,
+                },
+                "properties": {
+                    "type": "object",
+                    "description": "Shared property map applied to each node.",
+                },
+                "save": {"type": "boolean"},
+            },
+        },
+        {
+            "name": "apply_node_edits",
+            "description": (
+                "Set MANY properties across MANY existing nodes in ONE call "
+                "(one undo). Each edit is {node_path, properties}."
+            ),
+            "parameters": {
+                "edits": {
+                    "type": "array",
+                    "description": "List of {node_path, properties}.",
+                    "required": True,
+                },
+                "save": {"type": "boolean"},
+            },
+        },
         {
             "name": "done",
             "description": "Signal that the task is complete. Call LAST.",
@@ -621,6 +688,14 @@ async def _validate_signal_connected(
         return False
 
 
+async def _validate_nodes_exist(bridge: BridgeConnector, node_paths: list[str]) -> bool:
+    """Return True only if every path in ``node_paths`` resolves."""
+    for path in node_paths:
+        if not await _validate_node_exists(bridge, path):
+            return False
+    return True
+
+
 TASK_VALIDATORS: dict[str, Callable[[BridgeConnector], Awaitable[bool]]] = {
     # Mutation
     "mutate_delete_with_confirm": lambda b: _validate_node_not_exists(b, "MutTest"),
@@ -636,6 +711,11 @@ TASK_VALIDATORS: dict[str, Callable[[BridgeConnector], Awaitable[bool]]] = {
     "workflow_signal_and_test": lambda b: _validate_signal_connected(
         b, "Player", "tree_entered", "Background", "_ready"
     ),
+    # Composite / macro: same end-state checks as the equivalent workflow tasks.
+    "composite_create_character": lambda b: _validate_script_attached(
+        b, "Hero", "res://scripts/debugger_demo.gd"
+    ),
+    "composite_batch_sprites": lambda b: _validate_nodes_exist(b, ["S1", "S2", "S3"]),
 }
 
 
@@ -677,6 +757,9 @@ TASK_MILESTONES: dict[str, list[str]] = {
     "workflow_script_and_play": ["write_script", "attach_script", "save_scene", "play_scene"],
     "workflow_signal_and_test": ["connect_signal", "save_scene", "play_scene"],
     "workflow_batch_mutation": ["create_node", "find_nodes_by_type", "batch_set_property"],
+    # Composite tasks must actually use the macro tool (that's the point).
+    "composite_create_character": ["compose_node"],
+    "composite_batch_sprites": ["batch_create_nodes"],
 }
 
 
@@ -830,6 +913,19 @@ TASK_PROMPTS: dict[str, str] = {
         "Create 3 Sprite2D nodes, find them by type, then batch-set "
         "all their modulate colors to red (Color(1,0,0,1))."
     ),
+    # === COMPOSITE / MACRO (issue #154) — same goals as the workflow_* tasks,
+    # but a composite tool can finish them in ONE call. Measures whether macro
+    # tools improve discovery + completion vs the multi-step path.
+    "composite_create_character": (
+        "Create a CharacterBody2D named 'Hero' under the root with position "
+        "(100, 100) and the script res://scripts/debugger_demo.gd attached, then "
+        "save. Do it in ONE call using compose_node (properties, script_path, save=true)."
+    ),
+    "composite_batch_sprites": (
+        "Create 3 Sprite2D nodes named 'S1', 'S2', 'S3' under the root, each with "
+        "modulate = red ([1, 0, 0, 1]). Do it in ONE call using batch_create_nodes "
+        "(names + properties)."
+    ),
 }
 
 
@@ -874,6 +970,8 @@ EXPECTED_FIRST_TOOLS: dict[str, str] = {
     "workflow_scene_hierarchy": "get_scene_tree",
     "workflow_signal_and_test": "connect_signal",
     "workflow_batch_mutation": "create_node",
+    "composite_create_character": "compose_node",
+    "composite_batch_sprites": "batch_create_nodes",
 }
 
 
@@ -918,6 +1016,9 @@ OPTIMAL_STEPS: dict[str, int] = {
     "workflow_scene_hierarchy": 2,
     "workflow_signal_and_test": 4,
     "workflow_batch_mutation": 4,
+    # One composite call does it; allow a couple for any read/verify.
+    "composite_create_character": 1,
+    "composite_batch_sprites": 1,
 }
 
 
@@ -1037,6 +1138,23 @@ TASK_TOOL_FILTER: dict[str, list[str]] = {
         "find_nodes_by_type",
         "batch_set_property",
         "get_scene_tree",
+        "done",
+    ],
+    # Composite tasks expose BOTH the macro tool and the manual path, so a model
+    # that ignores the macro can still (inefficiently) complete the goal.
+    "composite_create_character": [
+        "compose_node",
+        "create_node",
+        "set_node_property",
+        "attach_script",
+        "save_scene",
+        "done",
+    ],
+    "composite_batch_sprites": [
+        "batch_create_nodes",
+        "create_node",
+        "set_node_property",
+        "batch_set_property",
         "done",
     ],
 }
@@ -1187,6 +1305,12 @@ class LLMTaskRunner:
                 )
                 if node_path:
                     created_nodes.append(node_path)
+            elif call.tool == "compose_node" and exec_result.get("ok"):
+                node_path = exec_result.get("result", {}).get("node_path", "")
+                if node_path:
+                    created_nodes.append(node_path)
+            elif call.tool == "batch_create_nodes" and exec_result.get("ok"):
+                created_nodes.extend(exec_result.get("result", {}).get("created", []))
             elif call.tool == "rename_node" and exec_result.get("ok"):
                 # Store (path_after_rename, original_name) for revert
                 renamed_path = exec_result.get("result", {}).get("node_path", "")

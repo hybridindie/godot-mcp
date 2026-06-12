@@ -17,11 +17,17 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from evals.llm_eval_v2 import (  # noqa: E402
+    EXPECTED_FIRST_TOOLS,
     MAX_DONE_REJECTIONS,
+    OPTIMAL_STEPS,
     TASK_MILESTONES,
+    TASK_PROMPTS,
+    TASK_TOOL_FILTER,
+    TASK_VALIDATORS,
     LLMTaskResult,
     LLMTaskRunner,
     _should_reject_done,
+    get_available_tools,
 )
 
 
@@ -109,3 +115,23 @@ def test_done_accepted_on_last_step() -> None:
     result = _result("mutate_delete_with_confirm", [("create_node", True)])
     # step_num == max_steps - 1: no room to continue, so accept done().
     assert _should_reject_done(result, "mutate_delete_with_confirm", 0, 11, 12) is False
+
+
+def test_composite_tools_exposed_to_agent() -> None:
+    names = {t["name"] for t in get_available_tools()}
+    assert {"compose_node", "batch_create_nodes", "apply_node_edits"} <= names
+
+
+def test_composite_tasks_wired_consistently() -> None:
+    # Each composite task must appear in every table the runner consults, and its
+    # milestone must require the macro tool (that's what the task tests).
+    for task, macro in (
+        ("composite_create_character", "compose_node"),
+        ("composite_batch_sprites", "batch_create_nodes"),
+    ):
+        assert task in TASK_PROMPTS
+        assert task in TASK_VALIDATORS
+        assert task in OPTIMAL_STEPS
+        assert TASK_MILESTONES[task] == [macro]
+        assert EXPECTED_FIRST_TOOLS[task] == macro
+        assert macro in TASK_TOOL_FILTER[task]
