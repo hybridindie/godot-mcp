@@ -61,26 +61,35 @@ class OllamaAgent:
         self._history: list[dict] = []
 
     def _system_prompt(self, task: str, available_tools: list[dict]) -> str:
-        """Build the system prompt with tool descriptions."""
-        tools_desc = "\n".join(
-            f"- {t['name']}: {t.get('description', 'No description')[:200]}"
-            for t in available_tools
-        )
+        """Build the system prompt with structured tool descriptions."""
+        lines: list[str] = []
+        for t in available_tools:
+            lines.append(f"- {t['name']}: {t.get('description', 'No description')}")
+            params = t.get("parameters", {})
+            if params:
+                lines.append("  Parameters:")
+                for pname, pspec in params.items():
+                    req = " (required)" if pspec.get("required") else ""
+                    default = f" [default: {pspec.get('default')}]" if "default" in pspec else ""
+                    lines.append(f"    - {pname}: {pspec.get('type', 'any')}{req}{default}")
+                    if "description" in pspec:
+                        lines.append(f"      {pspec['description']}")
+        tools_desc = "\n".join(lines)
+
         return (
             f"You are an AI agent controlling a Godot game engine via MCP tools.\n\n"
             f"TASK: {task}\n\n"
             f"AVAILABLE TOOLS:\n{tools_desc}\n\n"
             f"RULES:\n"
             f"1. Only call tools that are listed above.\n"
-            f"2. Follow the MANDATORY PROTOCOL: enable_toolset first, then use tools.\n"
-            f"3. If a tool fails, read the error hint and choose a recovery action.\n"
-            f"4. Respond ONLY with a JSON object:\n"
-            f"   {{\"tool\": \"...\", \"params\": {{...}}, \"reasoning\": \"...\"}}\n"
-            f"5. Use empty params {{}} if the tool takes no arguments.\n"
-            f"6. You MUST take at least one action to make progress on the task.\n"
-            f"7. Only return {{\"tool\": \"done\"}} AFTER you have completed the task.\n"
-            f"8. Do NOT take extra actions once the task is complete. Call done immediately.\n"
-            f"9. If the TASK gives explicit steps, follow them exactly and do NOT deviate."
+            f"2. If a tool fails, read the error hint and choose a recovery action.\n"
+            f"3. Respond ONLY with a JSON object:\n"
+            f'   {{"tool": "...", "params": {{...}}, "reasoning": "..."}}\n'
+            f"4. Use empty params {{}} if the tool takes no arguments.\n"
+            f"5. You MUST take at least one action to make progress on the task.\n"
+            f"6. Only return {{\"tool\": \"done\"}} AFTER you have completed the task.\n"
+            f"7. Do NOT take extra actions once the task is complete. Call done immediately.\n"
+            f"8. If the TASK gives explicit steps, follow them exactly and do NOT deviate."
         )
 
     def _ask(self, task: str, available_tools: list[dict]) -> LLMCall:

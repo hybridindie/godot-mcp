@@ -117,67 +117,480 @@ def get_git_sha() -> str:
 
 
 def get_available_tools() -> list[dict]:
-    """Return ALL tools available through the Godot addon bridge."""
+    """Return ALL tools available through the Godot addon bridge as structured schemas."""
     return [
-        {"name": "ping", "description": "Check connection health."},
-        {"name": "get_project_info", "description": "Get project info."},
-        {"name": "get_scene_tree", "description": "Get scene hierarchy."},
-        {"name": "get_node_properties", "description": "Get node properties."},
-        {"name": "get_node_property_list", "description": "Get property names."},
-        {"name": "create_node", "description": "Add node. Params: parent_path, node_type, name."},
+        {
+            "name": "ping",
+            "description": "Check connection health. No parameters.",
+            "parameters": {},
+        },
+        {
+            "name": "get_project_info",
+            "description": "Get project info (name, Godot version, main scene, autoloads). No parameters.",
+            "parameters": {},
+        },
+        {
+            "name": "get_scene_tree",
+            "description": "Get the full scene hierarchy as a tree of {name, type, children}.",
+            "parameters": {
+                "max_depth": {
+                    "type": "integer",
+                    "description": "How many levels of children to return. -1 = unlimited, 0 = root only.",
+                    "default": -1,
+                }
+            },
+        },
+        {
+            "name": "get_node_properties",
+            "description": "Get a node's properties, type, script, and children.",
+            "parameters": {
+                "node_path": {
+                    "type": "string",
+                    "description": "Scene-relative path to the node. Do NOT prefix with /root/. Use 'Player', 'UI/ScoreLabel'.",
+                    "required": True,
+                }
+            },
+        },
+        {
+            "name": "get_node_property_list",
+            "description": "Get the list of valid property names for a node. Use before set_node_property.",
+            "parameters": {
+                "node_path": {
+                    "type": "string",
+                    "description": "Scene-relative path. Do NOT prefix with /root/.",
+                    "required": True,
+                }
+            },
+        },
+        {
+            "name": "create_node",
+            "description": "Add a new node to the scene.",
+            "parameters": {
+                "parent_path": {
+                    "type": "string",
+                    "description": "Path to the parent node. Use '.' for scene root. Do NOT use /root/.",
+                    "required": True,
+                },
+                "node_type": {
+                    "type": "string",
+                    "description": "Godot class name, e.g. 'Node2D', 'Sprite2D', 'CharacterBody2D'.",
+                    "required": True,
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Name for the new node.",
+                    "required": True,
+                },
+            },
+        },
         {
             "name": "set_node_property",
-            "description": "Set property. Params: node_path, property, value.",
+            "description": "Set a single property on a node.",
+            "parameters": {
+                "node_path": {
+                    "type": "string",
+                    "description": "Scene-relative path. Do NOT prefix with /root/.",
+                    "required": True,
+                },
+                "property": {
+                    "type": "string",
+                    "description": "Property name to set. Use get_node_property_list to discover valid names.",
+                    "required": True,
+                },
+                "value": {
+                    "type": "any",
+                    "description": "New value. For Vector2 use {'x': 100, 'y': 100}. For Color use [1, 0, 0, 1].",
+                    "required": True,
+                },
+            },
         },
-        {"name": "delete_node", "description": "Delete node. Needs confirm=true."},
-        {"name": "rename_node", "description": "Rename node. Params: node_path, new_name."},
-        {"name": "save_scene", "description": "Save open scene."},
-        {"name": "attach_script", "description": "Attach script. Params: node_path, script_path."},
+        {
+            "name": "delete_node",
+            "description": "Delete a node from the scene. DESTRUCTIVE — requires confirm=true.",
+            "parameters": {
+                "node_path": {
+                    "type": "string",
+                    "description": "Scene-relative path to the node to delete.",
+                    "required": True,
+                },
+                "confirm": {
+                    "type": "boolean",
+                    "description": "Must be true to confirm deletion.",
+                    "required": True,
+                },
+            },
+        },
+        {
+            "name": "rename_node",
+            "description": "Rename a node.",
+            "parameters": {
+                "node_path": {
+                    "type": "string",
+                    "description": "Scene-relative path to the node.",
+                    "required": True,
+                },
+                "new_name": {
+                    "type": "string",
+                    "description": "New name for the node.",
+                    "required": True,
+                },
+            },
+        },
+        {
+            "name": "save_scene",
+            "description": "Save the currently open scene. No parameters.",
+            "parameters": {},
+        },
+        {
+            "name": "attach_script",
+            "description": "Attach an existing script file to a node.",
+            "parameters": {
+                "node_path": {
+                    "type": "string",
+                    "description": "Scene-relative path to the node.",
+                    "required": True,
+                },
+                "script_path": {
+                    "type": "string",
+                    "description": "EXACT res:// path to the script file. Must already exist. Example: 'res://scripts/player.gd'.",
+                    "required": True,
+                },
+            },
+        },
         {
             "name": "connect_signal",
-            "description": (
-                "Connect a signal from one node to another node's method. "
-                "Example: connect_signal with source_path='Player', "
-                "signal_name='ready', target_path='Background', "
-                "method_name='_ready'."
-            ),
+            "description": "Connect a signal from one node to another node's method.",
+            "parameters": {
+                "source_path": {
+                    "type": "string",
+                    "description": "Scene-relative path to the source node.",
+                    "required": True,
+                },
+                "signal_name": {
+                    "type": "string",
+                    "description": "Name of the signal on the source node.",
+                    "required": True,
+                },
+                "target_path": {
+                    "type": "string",
+                    "description": "Scene-relative path to the target node.",
+                    "required": True,
+                },
+                "method_name": {
+                    "type": "string",
+                    "description": "Method name on the target node to connect to.",
+                    "required": True,
+                },
+            },
         },
-        {"name": "write_script", "description": "Write script. Params: script_path, content."},
-        {"name": "read_script", "description": "Read script. Params: script_path."},
-        {"name": "list_scripts", "description": "List all scripts."},
+        {
+            "name": "write_script",
+            "description": "Write a GDScript file to disk.",
+            "parameters": {
+                "script_path": {
+                    "type": "string",
+                    "description": "EXACT res:// path for the script. Example: 'res://scripts/foo.gd'.",
+                    "required": True,
+                },
+                "content": {
+                    "type": "string",
+                    "description": "Full script text.",
+                    "required": True,
+                },
+            },
+        },
+        {
+            "name": "read_script",
+            "description": "Read the contents of a script file.",
+            "parameters": {
+                "script_path": {
+                    "type": "string",
+                    "description": "EXACT res:// path. Example: 'res://scripts/foo.gd'.",
+                    "required": True,
+                }
+            },
+        },
+        {
+            "name": "list_scripts",
+            "description": "List all script files in the project. No parameters.",
+            "parameters": {},
+        },
         {
             "name": "patch_script",
-            "description": "Patch script. Params: script_path, find, replace.",
+            "description": "Replace text in a script file.",
+            "parameters": {
+                "script_path": {
+                    "type": "string",
+                    "description": "EXACT res:// path.",
+                    "required": True,
+                },
+                "find": {
+                    "type": "string",
+                    "description": "Text to find.",
+                    "required": True,
+                },
+                "replace": {
+                    "type": "string",
+                    "description": "Text to replace with.",
+                    "required": True,
+                },
+            },
         },
-        {"name": "get_script_for_node", "description": "Get node's script. Params: node_path."},
-        {"name": "list_open_scenes", "description": "List open scenes."},
-        {"name": "open_scene", "description": "Open scene. Params: scene_path."},
-        {"name": "save_all_scenes", "description": "Save all scenes."},
-        {"name": "select_nodes", "description": "Select nodes. Params: node_paths."},
-        {"name": "play_scene", "description": "Run game. Call before runtime tools."},
-        {"name": "stop_scene", "description": "Stop game."},
-        {"name": "get_game_scene_tree", "description": "Get live tree. Needs play session."},
-        {"name": "simulate_key", "description": "Simulate key. Needs play session."},
+        {
+            "name": "get_script_for_node",
+            "description": "Get the script path attached to a node.",
+            "parameters": {
+                "node_path": {
+                    "type": "string",
+                    "description": "Scene-relative path. Do NOT prefix with /root/.",
+                    "required": True,
+                }
+            },
+        },
+        {
+            "name": "list_open_scenes",
+            "description": "List all open scenes. No parameters.",
+            "parameters": {},
+        },
+        {
+            "name": "open_scene",
+            "description": "Open a scene file.",
+            "parameters": {
+                "scene_path": {
+                    "type": "string",
+                    "description": "EXACT res:// path. Example: 'res://scenes/main.tscn'.",
+                    "required": True,
+                }
+            },
+        },
+        {
+            "name": "save_all_scenes",
+            "description": "Save all open scenes. No parameters.",
+            "parameters": {},
+        },
+        {
+            "name": "select_nodes",
+            "description": "Select nodes in the editor.",
+            "parameters": {
+                "node_paths": {
+                    "type": "array",
+                    "description": "List of scene-relative paths. Example: ['Player', 'Background'].",
+                    "required": True,
+                }
+            },
+        },
+        {
+            "name": "play_scene",
+            "description": "Run the game. Call before using runtime tools. No parameters.",
+            "parameters": {},
+        },
+        {
+            "name": "stop_scene",
+            "description": "Stop the running game. No parameters.",
+            "parameters": {},
+        },
+        {
+            "name": "get_game_scene_tree",
+            "description": "Get the live game scene tree while running. Needs play session.",
+            "parameters": {},
+        },
+        {
+            "name": "simulate_key",
+            "description": "Send a key press to the running game.",
+            "parameters": {
+                "key": {
+                    "type": "string",
+                    "description": "Key name. Example: 'space', 'ui_accept', 'ui_left'.",
+                    "required": True,
+                }
+            },
+        },
         {
             "name": "batch_set_property",
-            "description": "Batch set property. Params: node_paths, property, value.",
+            "description": "Set a property on multiple nodes at once.",
+            "parameters": {
+                "node_paths": {
+                    "type": "array",
+                    "description": "List of scene-relative paths. Do NOT prefix with /root/. Example: ['BatchA', 'BatchB'].",
+                    "required": True,
+                },
+                "property": {
+                    "type": "string",
+                    "description": "Property name.",
+                    "required": True,
+                },
+                "value": {
+                    "type": "any",
+                    "description": "New value.",
+                    "required": True,
+                },
+            },
         },
-        {"name": "find_nodes_by_type", "description": "Find by type. Params: parent_path, type."},
+        {
+            "name": "find_nodes_by_type",
+            "description": "Find all nodes of a given type under a parent.",
+            "parameters": {
+                "parent_path": {
+                    "type": "string",
+                    "description": "Parent to search under. Use '/' for entire scene or '.' for root.",
+                    "required": True,
+                },
+                "type": {
+                    "type": "string",
+                    "description": "Godot class name to search for. Example: 'Sprite2D', 'CollisionShape2D'.",
+                    "required": True,
+                },
+            },
+        },
         {
             "name": "setup_physics_body",
-            "description": "Setup physics. Params: node_path, properties.",
+            "description": "Configure physics properties on a physics body.",
+            "parameters": {
+                "node_path": {
+                    "type": "string",
+                    "description": "Scene-relative path to the physics body.",
+                    "required": True,
+                },
+                "properties": {
+                    "type": "object",
+                    "description": "Physics properties to set.",
+                    "required": True,
+                },
+            },
         },
-        {"name": "get_editor_performance", "description": "Get editor FPS."},
-        {"name": "get_performance_monitors", "description": "Get monitors. Needs play session."},
-        {"name": "get_stack_frames", "description": "Get stack. Needs play session."},
-        {"name": "evaluate_expression", "description": "Eval expression. Needs play session."},
-        {"name": "done", "description": "Task done. Call last."},
+        {
+            "name": "get_editor_performance",
+            "description": "Get editor FPS. Game is NOT running.",
+            "parameters": {},
+        },
+        {
+            "name": "get_performance_monitors",
+            "description": "Get runtime performance monitors. Needs play session.",
+            "parameters": {},
+        },
+        {
+            "name": "get_stack_frames",
+            "description": "Get debugger stack frames. Needs play session.",
+            "parameters": {},
+        },
+        {
+            "name": "evaluate_expression",
+            "description": "Evaluate an expression in the debugger. Needs play session.",
+            "parameters": {
+                "expression": {
+                    "type": "string",
+                    "description": "Expression to evaluate. Example: '2+2', 'get_node(\"/root/Main\").get_child_count()'.",
+                    "required": True,
+                }
+            },
+        },
+        {
+            "name": "done",
+            "description": "Signal that the task is complete. Call LAST.",
+            "parameters": {},
+        },
     ]
+
 
 
 # ---------------------------------------------------------------------------
 # Task prompts — expanded coverage
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Task completion validators — verify actual goal state, not just "no errors"
+# ---------------------------------------------------------------------------
+
+async def _validate_node_not_exists(bridge: BridgeConnector, node_path: str) -> bool:
+    """Return True if node does NOT exist in the current scene."""
+    try:
+        resp = await bridge.call("cmd_get_node_properties", {"node_path": node_path})
+        return not resp.get("ok", False)
+    except Exception:
+        return True  # Node doesn't exist if query fails
+
+
+async def _validate_node_exists(bridge: BridgeConnector, node_path: str) -> bool:
+    """Return True if node exists in the current scene."""
+    try:
+        resp = await bridge.call("cmd_get_node_properties", {"node_path": node_path})
+        return resp.get("ok", False)
+    except Exception:
+        return False
+
+
+async def _validate_script_attached(
+    bridge: BridgeConnector, node_path: str, expected_script: str
+) -> bool:
+    """Return True if the exact script_path is attached to the node."""
+    try:
+        resp = await bridge.call("cmd_get_script_for_node", {"node_path": node_path})
+        if not resp.get("ok", False):
+            return False
+        actual = resp.get("result", {}).get("script_path", "")
+        return actual == expected_script
+    except Exception:
+        return False
+
+
+async def _validate_property_set(
+    bridge: BridgeConnector, node_path: str, property: str, expected_value: Any
+) -> bool:
+    """Return True if node's property equals expected value."""
+    try:
+        resp = await bridge.call("cmd_get_node_properties", {"node_path": node_path})
+        if not resp.get("ok", False):
+            return False
+        actual = resp.get("result", {}).get("properties", {}).get(property)
+        return actual == expected_value
+    except Exception:
+        return False
+
+
+async def _validate_signal_connected(
+    bridge: BridgeConnector, source_path: str, signal_name: str, target_path: str, method_name: str
+) -> bool:
+    """Return True if the signal connection exists in the scene file."""
+    try:
+        resp = await bridge.call("cmd_get_node_properties", {"node_path": source_path})
+        if not resp.get("ok", False):
+            return False
+        # Check connections in the result if available
+        connections = resp.get("result", {}).get("connections", [])
+        for conn in connections:
+            if (
+                conn.get("signal") == signal_name
+                and conn.get("target_path") == target_path
+                and conn.get("method") == method_name
+            ):
+                return True
+        return False
+    except Exception:
+        return False
+
+
+TASK_VALIDATORS: dict[str, Callable[[BridgeConnector], Awaitable[bool]]] = {
+    # Mutation
+    "mutate_delete_with_confirm": lambda b: _validate_node_not_exists(b, "MutTest"),
+    "mutate_rename": lambda b: (
+        _validate_node_exists(b, "RenamedNode") and _validate_node_not_exists(b, "RenameMe")
+    ),
+    "mutate_attach_script": lambda b: _validate_script_attached(
+        b, "Background", "res://scripts/debugger_demo.gd"
+    ),
+    "mutate_create_and_property": lambda b: _validate_property_set(
+        b, "MutTest", "position", {"x": 50.0, "y": 50.0}
+    ),
+    # Signals
+    "signal_connect_ready": lambda b: _validate_signal_connected(
+        b, "Player", "tree_entered", "Background", "_ready"
+    ),
+    # Workflows
+    "workflow_signal_and_test": lambda b: _validate_signal_connected(
+        b, "Player", "tree_entered", "Background", "_ready"
+    ),
+}
+
 
 TASK_PROMPTS: dict[str, str] = {
     # === INSPECTION (4 tasks) ===
@@ -188,7 +601,6 @@ TASK_PROMPTS: dict[str, str] = {
         "Task: Get the properties of the Background node.\n"
         "Step 1: Call get_node_properties with node_path='Background'.\n"
         "Step 2: Report the value of the 'position' property.\n"
-        "Do NOT call get_scene_tree. Do NOT explore child nodes. "
         "Call get_node_properties once and then done."
     ),
     "inspect_property_list": (
@@ -207,7 +619,8 @@ TASK_PROMPTS: dict[str, str] = {
         "Task: Create a Node2D named 'MutTest', then delete it.\n"
         "Step 1: Call create_node with parent_path='.', node_type='Node2D', name='MutTest'.\n"
         "Step 2: Call delete_node with node_path='MutTest' and confirm=true.\n"
-        "You MUST call BOTH create_node AND delete_node before calling done."
+        "Step 3: Call get_scene_tree to verify MutTest no longer exists.\n"
+        "You MUST call create_node AND delete_node AND get_scene_tree before calling done."
     ),
     "mutate_rename": (
         "Create a Node2D named 'RenameMe', then rename it to 'RenamedNode'."
@@ -218,8 +631,8 @@ TASK_PROMPTS: dict[str, str] = {
         "Step 1: Call get_script_for_node with node_path='Background' to verify it has no script.\n"
         "Step 2: Call attach_script with node_path='Background' and script_path='res://scripts/debugger_demo.gd'.\n"
         "Step 3: Call get_script_for_node again to confirm.\n"
-        "IMPORTANT: The script path is exactly res://scripts/debugger_demo.gd (lowercase). "
-        "Do NOT use background.gd."
+        "CRITICAL: You MUST use the EXACT script path res://scripts/debugger_demo.gd.\n"
+        "Do NOT change, shorten, or substitute this path. Do NOT use Background.gd or background.gd."
     ),
     # === SCRIPTS (4 tasks) ===
     "script_write_and_read": (
@@ -235,19 +648,19 @@ TASK_PROMPTS: dict[str, str] = {
         "Task: Check if the Background node has a script attached.\n"
         "Step 1: Call get_script_for_node with node_path='Background'.\n"
         "Step 2: Report the script_path from the result (or report 'no script' if null).\n"
-        "Do NOT query any other nodes. Call get_script_for_node once and then done."
+        "Call get_script_for_node once and then done."
     ),
     # === SCENE SESSION (3 tasks) ===
     "scene_list_and_open": ("List all open scenes, then save all open scenes."),
     "scene_select_nodes": (
         "Task: Select the Player node in the editor.\n"
         "Step 1: Call select_nodes with node_paths=['Player'].\n"
-        "Do NOT call get_scene_tree first. Call select_nodes once and then done."
+        "Call select_nodes once and then done."
     ),
     # === SIGNALS (2 tasks) ===
     "signal_connect_ready": (
-        "Connect the Player node's 'ready' signal to the Background node's '_ready' method. "
-        "Call connect_signal with: source_path='Player', signal_name='ready', "
+        "Connect the Player node's 'tree_entered' signal to the Background node's '_ready' method. "
+        "Call connect_signal with: source_path='Player', signal_name='tree_entered', "
         "target_path='Background', method_name='_ready'."
     ),
     # === RUNTIME (4 tasks) ===
@@ -289,7 +702,7 @@ TASK_PROMPTS: dict[str, str] = {
         "Get the scene tree, find all nodes with CollisionShape2D, and report their parent nodes."
     ),
     "workflow_signal_and_test": (
-        "Connect Player's 'ready' signal to Background's '_ready', "
+        "Connect Player's 'tree_entered' signal to Background's '_ready', "
         "save the scene, and run the game."
     ),
     "workflow_batch_mutation": (
@@ -311,7 +724,7 @@ EXPECTED_FIRST_TOOLS: dict[str, str] = {
     "inspect_find_by_type": "find_nodes_by_type",
     # Mutation
     "mutate_create_and_property": "create_node",
-    "mutate_delete_with_confirm": "delete_node",
+    "mutate_delete_with_confirm": "create_node",
     "mutate_rename": "create_node",
     "mutate_save_scene": "save_scene",
     "mutate_attach_script": "attach_script",
@@ -355,7 +768,7 @@ OPTIMAL_STEPS: dict[str, int] = {
     "inspect_find_by_type": 1,
     # Mutation
     "mutate_create_and_property": 2,
-    "mutate_delete_with_confirm": 1,
+    "mutate_delete_with_confirm": 3,
     "mutate_rename": 1,
     "mutate_save_scene": 1,
     "mutate_attach_script": 1,
@@ -688,13 +1101,43 @@ class LLMTaskRunner:
             except Exception:
                 pass  # Node may no longer exist
 
+        # Run task completion validator BEFORE cleanup (cleanup removes artifacts)
+        validator = TASK_VALIDATORS.get(task_name)
+        validation_passed: bool | None = None
+        if validator:
+            try:
+                validation_passed = await validator(self._bridge)
+            except Exception as exc:
+                validation_passed = False
+                result.notes = f"Validator error: {exc}"
+
+        # Cleanup: delete created test nodes
+        for node_path in created_nodes:
+            try:
+                await self._bridge.call(
+                    "cmd_delete_node",
+                    {"node_path": node_path, "confirm": True},
+                )
+            except Exception:
+                pass  # Node may already be deleted or renamed
+
+        # Cleanup: revert renames (in reverse order)
+        for renamed_path, original_name in reversed(rename_stack):
+            try:
+                await self._bridge.call(
+                    "cmd_rename_node",
+                    {"node_path": renamed_path, "new_name": original_name},
+                )
+            except Exception:
+                pass  # Node may no longer exist
+
         result.duration_ms = (time.perf_counter() - start) * 1000
-        result.score = self._score_task(result, task_name)
+        result.score = self._score_task(result, task_name, validation_passed)
         result.latency_profile = self._profiler.summary()
         result.overall_latency = self._profiler.overall()
         return result
 
-    def _score_task(self, result: LLMTaskResult, task_name: str) -> TaskScore:
+    def _score_task(self, result: LLMTaskResult, task_name: str, validation_passed: bool | None = None) -> TaskScore:
         score = TaskScore()
         real_steps = [s for s in result.steps if s["tool"] != "done"]
 
@@ -717,6 +1160,17 @@ class LLMTaskRunner:
         else:
             ratio = (real_step_count - optimal) / optimal
             score.efficiency = max(0.0, 1.0 - ratio * 0.5)
+
+        # --- VALIDATOR CAP ---
+        # If a validator exists and failed, cap the overall score regardless
+        # of other metrics. This prevents false-positive passes.
+        if validation_passed is False:
+            score.notes = "VALIDATION_FAILED: Task goal not achieved"
+            # Cap individual scores to signal failure
+            score.tool_choice = min(score.tool_choice, 0.5)
+            score.prerequisites = min(score.prerequisites, 0.5)
+            score.recovery = min(score.recovery, 0.5)
+            score.efficiency = min(score.efficiency, 0.5)
 
         return score
 
