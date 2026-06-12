@@ -533,7 +533,7 @@ def get_available_tools() -> list[dict]:
         {
             "name": "compose_node",
             "description": (
-                "Create a node with properties + script + children in ONE call "
+                "Create a node with properties + an attached script in ONE call "
                 "(one undo). Prefer over create_node+set_node_property+attach_script."
             ),
             "parameters": {
@@ -547,7 +547,9 @@ def get_available_tools() -> list[dict]:
                     "description": "Godot class, e.g. 'Sprite2D', 'CharacterBody2D'.",
                     "required": True,
                 },
-                "node_name": {"type": "string", "description": "Name.", "required": True},
+                # Addon cmd_compose_node reads the node name from "name" (as
+                # cmd_create_node does), so the schema must use that exact key.
+                "name": {"type": "string", "description": "Node name.", "required": True},
                 "properties": {
                     "type": "object",
                     "description": "Property map, e.g. {'position': {'x':100,'y':100}}.",
@@ -913,9 +915,10 @@ TASK_PROMPTS: dict[str, str] = {
         "Create 3 Sprite2D nodes, find them by type, then batch-set "
         "all their modulate colors to red (Color(1,0,0,1))."
     ),
-    # === COMPOSITE / MACRO (issue #154) — same goals as the workflow_* tasks,
-    # but a composite tool can finish them in ONE call. Measures whether macro
-    # tools improve discovery + completion vs the multi-step path.
+    # === COMPOSITE / MACRO (issue #154) — analogous to the workflow_* tasks
+    # (create-a-configured-node / mass-create), finishable in ONE macro call.
+    # Not byte-identical: compose_node attaches an EXISTING script rather than
+    # writing one, so these measure the macro path, not a strict A/B replica.
     "composite_create_character": (
         "Create a CharacterBody2D named 'Hero' under the root with position "
         "(100, 100) and the script res://scripts/debugger_demo.gd attached, then "
@@ -1016,7 +1019,7 @@ OPTIMAL_STEPS: dict[str, int] = {
     "workflow_scene_hierarchy": 2,
     "workflow_signal_and_test": 4,
     "workflow_batch_mutation": 4,
-    # One composite call does it; allow a couple for any read/verify.
+    # Optimal is a single macro call (done is not counted as a real step).
     "composite_create_character": 1,
     "composite_batch_sprites": 1,
 }
@@ -1140,8 +1143,9 @@ TASK_TOOL_FILTER: dict[str, list[str]] = {
         "get_scene_tree",
         "done",
     ],
-    # Composite tasks expose BOTH the macro tool and the manual path, so a model
-    # that ignores the macro can still (inefficiently) complete the goal.
+    # The macro tool is required (TASK_MILESTONES caps a manual-only run); the
+    # individual tools are listed so the agent can read/verify or recover, not
+    # as an alternative completion path.
     "composite_create_character": [
         "compose_node",
         "create_node",
