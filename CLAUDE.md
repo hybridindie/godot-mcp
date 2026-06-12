@@ -86,3 +86,8 @@ The scaffold (issue #1) is in place: `uv`-managed Python package, the addon unde
 - Server entrypoint: `uv run godot-mcp` (stdio). It currently exits with a "not yet bootstrapped" message; the FastMCP server and the `health_check` tool (server version + bridge connection state) land in issue #4.
 - The addon is enabled via Godot's *Project Settings → Plugins* (open the `godot/` folder as a project); the bridge defaults to `ws://localhost:9080` (configurable). No auth in v1 (localhost-only).
 - Clients register the server as a local stdio MCP command: Claude Code via `.mcp.json` / `claude mcp add`, OpenCode via `opencode.json`. Document concrete examples for both once the entrypoint is bootstrapped (issue #4).
+
+## Output and Responses
+- For implementation tasks: output code blocks only, no prose
+- For process tasks (branching, PRs, test results, summaries): use bullet points, no prose paragraphs.
+- For mandatory reports (e.g. missing tooling, deferred phase scope): append a bullet list after any code output.
