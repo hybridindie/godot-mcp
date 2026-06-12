@@ -31,12 +31,15 @@ def format_correction(
     Names the failed ``tool(params)`` plus the ``error``/``hint`` and instructs
     the model not to repeat the same parameters.
     """
-    params_str = json.dumps(params, separators=(",", ":")) if params else "{}"
     err = (error or "ERROR").strip()
     hint_str = (hint or "").strip()
-    detail = f"{err}: {hint_str}" if hint_str else err
-    msg = (
-        f"CORRECTION: last call {tool}({params_str}) FAILED — {detail}. "
-        "Do NOT repeat the same parameters; apply the hint."
-    )
-    return msg[:limit]
+    # Keep the call signature from crowding out the instruction: a large
+    # payload (e.g. write_script `content`) is reduced to a short snippet.
+    params_str = json.dumps(params, separators=(",", ":")) if params else "{}"
+    if len(params_str) > 60:
+        params_str = params_str[:57] + "..."
+    # Lead with the error+hint (the actual fix) so it survives the cap even
+    # when the call signature that follows is long.
+    lead = f"CORRECTION ({err}): {hint_str}".rstrip()
+    tail = f" Your last call was {tool}({params_str}); do NOT repeat the same parameters."
+    return (lead + tail)[:limit]
