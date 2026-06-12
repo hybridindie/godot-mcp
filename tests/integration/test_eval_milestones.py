@@ -36,7 +36,12 @@ def _result(task: str, steps: list[tuple[str, bool]]) -> LLMTaskResult:
 
 
 def test_milestones_defined_for_known_multistep_tasks() -> None:
-    assert TASK_MILESTONES["mutate_delete_with_confirm"] == ["create_node", "delete_node"]
+    # Mirrors the prompt: create_node AND delete_node AND get_scene_tree.
+    assert TASK_MILESTONES["mutate_delete_with_confirm"] == [
+        "create_node",
+        "delete_node",
+        "get_scene_tree",
+    ]
     assert "connect_signal" in TASK_MILESTONES["workflow_signal_and_test"]
 
 
@@ -53,7 +58,7 @@ def test_all_milestones_met_is_not_capped() -> None:
     runner = _runner()
     result = _result(
         "mutate_delete_with_confirm",
-        [("create_node", True), ("delete_node", True), ("done", True)],
+        [("create_node", True), ("delete_node", True), ("get_scene_tree", True), ("done", True)],
     )
     score = runner._score_task(result, "mutate_delete_with_confirm")
     assert score.overall > 0.3, f"completed task wrongly milestone-capped: {score.overall}"

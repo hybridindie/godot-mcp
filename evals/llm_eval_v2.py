@@ -643,12 +643,15 @@ TASK_VALIDATORS: dict[str, Callable[[BridgeConnector], Awaitable[bool]]] = {
 # coverage — together they catch agents that do half a task then call done().
 # Names are the agent-facing (bare) tool names recorded in result.steps["tool"],
 # and a milestone is met only when that tool was called with ok=True (a failed
-# call hasn't achieved the sub-goal). Single-tool tasks are omitted — there the
-# tool_choice score already covers it.
+# call hasn't achieved the sub-goal). The required tools mirror what each task's
+# prompt mandates. Some tasks list a single milestone: there the one meaningful
+# action (e.g. attach_script) can be skipped while unrelated setup/verification
+# calls still succeed — which would otherwise score tool_choice=1.0 falsely.
 TASK_MILESTONES: dict[str, list[str]] = {
     # Mutation
     "mutate_create_and_property": ["create_node", "set_node_property"],
-    "mutate_delete_with_confirm": ["create_node", "delete_node"],
+    # The prompt mandates create_node AND delete_node AND get_scene_tree.
+    "mutate_delete_with_confirm": ["create_node", "delete_node", "get_scene_tree"],
     "mutate_rename": ["create_node", "rename_node"],
     "mutate_attach_script": ["attach_script"],
     # Scripts
