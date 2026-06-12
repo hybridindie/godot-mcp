@@ -586,6 +586,8 @@ support `dry_run`; `save=True` also saves the scene (a file write after the undo
 | `batch_create_nodes` | `parent_path, node_type, names[], properties?, save=False, dry_run=False` | `BatchCreateNodesResult { created[], count, saved }` | `mutating` |
 | `apply_node_edits` | `edits[] ({node_path, properties}), save=False, dry_run=False` | `ApplyNodeEditsResult { edited[], skipped[], count, saved }` | `mutating` |
 
+Every result model also carries `dry_run` (true on a preview), as for all `dry_run`-aware tools.
+
 - `compose_node` replaces create_node + set_node_property(s) + attach_script + child
   creation; `children` is a list of `{node_type, node_name, properties?}` parented under
   the new node. The node, its config, and its children commit as one action.

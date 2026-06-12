@@ -75,11 +75,15 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 
 
 async def test_composite_tools_are_gated_mutating() -> None:
+    names = ("compose_node", "batch_create_nodes", "apply_node_edits")
     server, _ = _build()
     async with Client(server) as client:
+        # Gated off by default: absent until the toolset is enabled.
+        before = {t.name for t in await client.list_tools()}
+        assert before.isdisjoint(names), "composite tools must be gated off by default"
         await client.call_tool("enable_toolset", {"category": "composite"})
         tools = {t.name: t for t in await client.list_tools()}
-    for name in ("compose_node", "batch_create_nodes", "apply_node_edits"):
+    for name in names:
         assert tools[name].meta["safety_class"] == "mutating"
 
 

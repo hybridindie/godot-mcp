@@ -40,6 +40,10 @@ MUTATION_COMMANDS: set[str] = {
     "cmd_write_script",
     "cmd_patch_script",
     "cmd_batch_set_property",
+    # Composite/macro mutations (issue #154) must also invalidate the cache.
+    "cmd_compose_node",
+    "cmd_batch_create_nodes",
+    "cmd_apply_node_edits",
 }
 
 

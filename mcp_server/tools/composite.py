@@ -34,9 +34,14 @@ COMPOSITE = {COMPOSITE_TAG}
 
 
 def _child_to_addon(child: dict[str, Any]) -> dict[str, Any]:
-    """Map a caller child spec to the addon's shape (``node_name`` -> ``name``)."""
+    """Map a caller child spec to the addon's shape (``node_name`` -> ``name``).
+
+    Uses ``.get`` for every key: a missing ``node_type`` passes "" through to the
+    addon, which returns a structured ``VALIDATION_ERROR`` rather than a KeyError
+    surfacing as an opaque internal failure.
+    """
     return {
-        "node_type": child["node_type"],
+        "node_type": child.get("node_type", ""),
         "name": child.get("node_name") or child.get("name", ""),
         "properties": child.get("properties", {}),
     }
