@@ -78,7 +78,11 @@ async def _preflight_validate(
         # Skip create_node (target node doesn't exist yet — that's the point).
         try:
             resp = await bridge.send("cmd_get_node_properties", {"node_path": node_path})
-            if not resp.ok:
+            # Only a genuine "missing node" should fail preflight. Other errors
+            # (e.g. PRECONDITION_FAILED for no active scene) must pass through so
+            # the addon returns its own structured envelope instead of a
+            # misleading "node not found".
+            if not resp.ok and resp.error == "RESOURCE_NOT_FOUND":
                 _preflight_cache[cache_key] = False
                 return {
                     "ok": False,
@@ -92,15 +96,15 @@ async def _preflight_validate(
         except Exception:
             pass  # Bridge error; fall through to addon validation
 
-    # --- script_path validation ---
-    _SCRIPT_COMMANDS = {
+    # --- script_path validation (mutations only; cmd_read_script is read-only
+    # and must reach the addon for its own envelope) ---
+    _SCRIPT_MUTATIONS = {
         "cmd_attach_script",
-        "cmd_read_script",
         "cmd_write_script",
         "cmd_patch_script",
     }
     script_path = params.get("script_path", "")
-    if script_path and command in _SCRIPT_COMMANDS:
+    if script_path and command in _SCRIPT_MUTATIONS:
         if not script_path.startswith("res://"):
             _preflight_cache[cache_key] = False
             return {

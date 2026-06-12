@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import requests
+import httpx
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
@@ -102,7 +102,7 @@ class OllamaAgent:
         else:
             messages.insert(0, {"role": "user", "content": system})
 
-        resp = requests.post(
+        resp = httpx.post(
             OLLAMA_URL,
             json={
                 "model": self._model,

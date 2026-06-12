@@ -23,7 +23,6 @@ import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
@@ -577,29 +576,37 @@ async def _validate_script_attached(
         return False
 
 
-async def _validate_property_set(
-    bridge: BridgeConnector, node_path: str, property: str, expected_value: Any
-) -> bool:
-    """Return True if node's property equals expected value."""
-    try:
-        resp = await bridge.call("cmd_get_node_properties", {"node_path": node_path})
-        if not resp.get("ok", False):
-            return False
-        actual = resp.get("result", {}).get("properties", {}).get(property)
-        return actual == expected_value
-    except Exception:
-        return False
+async def _validate_rename(bridge: BridgeConnector) -> bool:
+    """Return True only if the node was renamed: new name exists, old name gone.
+
+    A dedicated coroutine (not a lambda) so BOTH checks are awaited — composing
+    two `async def` calls with `and` inside a lambda evaluates coroutine objects
+    for truthiness and silently drops the first one.
+    """
+    return await _validate_node_exists(bridge, "RenamedNode") and await _validate_node_not_exists(
+        bridge, "RenameMe"
+    )
+
+
+# NOTE: there is intentionally no built-in-property validator. The editor
+# inspection API (cmd_get_node_properties) only serializes script-declared
+# variables, not built-in fields like `position`, so a value like (50, 50)
+# cannot be read back to confirm it. A property-name-present check would
+# false-PASS (the field exists whether or not the agent set it), which defeats
+# the purpose, so `mutate_create_and_property` has no validator until the addon
+# exposes built-in property values.
 
 
 async def _validate_signal_connected(
     bridge: BridgeConnector, source_path: str, signal_name: str, target_path: str, method_name: str
 ) -> bool:
-    """Return True if the signal connection exists in the scene file."""
+    """Return True if the signal connection exists on the source node."""
     try:
-        resp = await bridge.call("cmd_get_node_properties", {"node_path": source_path})
+        # Connections live under list_signal_connections, not get_node_properties
+        # (which only serializes script-declared variables).
+        resp = await bridge.call("cmd_list_signal_connections", {"node_path": source_path})
         if not resp.get("ok", False):
             return False
-        # Check connections in the result if available
         connections = resp.get("result", {}).get("connections", [])
         for conn in connections:
             if (
@@ -616,14 +623,9 @@ async def _validate_signal_connected(
 TASK_VALIDATORS: dict[str, Callable[[BridgeConnector], Awaitable[bool]]] = {
     # Mutation
     "mutate_delete_with_confirm": lambda b: _validate_node_not_exists(b, "MutTest"),
-    "mutate_rename": lambda b: (
-        _validate_node_exists(b, "RenamedNode") and _validate_node_not_exists(b, "RenameMe")
-    ),
+    "mutate_rename": _validate_rename,
     "mutate_attach_script": lambda b: _validate_script_attached(
         b, "Background", "res://scripts/debugger_demo.gd"
-    ),
-    "mutate_create_and_property": lambda b: _validate_property_set(
-        b, "MutTest", "position", {"x": 50.0, "y": 50.0}
     ),
     # Signals
     "signal_connect_ready": lambda b: _validate_signal_connected(

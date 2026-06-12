@@ -21,7 +21,7 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-import requests
+import httpx
 
 
 @dataclass
@@ -71,7 +71,7 @@ def _anthropic_call(
     }
 
     t0 = time.perf_counter()
-    resp = requests.post(
+    resp = httpx.post(
         "https://api.anthropic.com/v1/messages",
         headers=headers,
         json=payload,
@@ -124,7 +124,7 @@ def _openai_call(
     }
 
     t0 = time.perf_counter()
-    resp = requests.post(
+    resp = httpx.post(
         "https://api.openai.com/v1/chat/completions",
         headers=headers,
         json=payload,
@@ -178,7 +178,7 @@ def _google_call(
     }
 
     t0 = time.perf_counter()
-    resp = requests.post(
+    resp = httpx.post(
         f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}",
         json=payload,
         timeout=timeout,
