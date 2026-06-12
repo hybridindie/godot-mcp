@@ -24,6 +24,7 @@ import httpx
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 
+from evals.correction import format_correction  # noqa: E402
 from mcp_server.bridge import Bridge  # noqa: E402
 from mcp_server.config import BridgeConfig  # noqa: E402
 
@@ -59,6 +60,10 @@ class OllamaAgent:
         self._bridge = bridge
         self._model = model
         self._history: list[dict] = []
+        # Track the most recent call so a failure can be quoted back as a
+        # correction in the next user message (issue #149).
+        self._last_tool: str = ""
+        self._last_params: dict[str, Any] = {}
 
     def _system_prompt(self, task: str, available_tools: list[dict]) -> str:
         """Build the system prompt with structured tool descriptions."""
@@ -149,9 +154,11 @@ class OllamaAgent:
                 }
 
         self._history.append({"role": "assistant", "content": json.dumps(parsed)})
+        self._last_tool = parsed.get("tool", "done")
+        self._last_params = parsed.get("params", {})
         return LLMCall(
-            tool=parsed.get("tool", "done"),
-            params=parsed.get("params", {}),
+            tool=self._last_tool,
+            params=self._last_params,
             reasoning=parsed.get("reasoning", ""),
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
@@ -179,14 +186,23 @@ class OllamaAgent:
             return {"ok": False, "error": str(e), "hint": "Bridge execution failed", "done": False}
 
     def _add_result(self, result: dict) -> None:
-        """Add the tool result to history for the LLM."""
+        """Add the tool result to history for the LLM.
+
+        On failure, append a dynamic correction (issue #149) that quotes the
+        failed call and its hint, so the model adapts instead of repeating it.
+        """
         summary = json.dumps({
             "ok": result["ok"],
             "error": result.get("error"),
             "hint": result.get("hint"),
             "result_keys": list(result.get("result", {}).keys()),
         })
-        self._history.append({"role": "user", "content": f"Tool result: {summary}"})
+        content = f"Tool result: {summary}"
+        if not result.get("ok", True):
+            content += "\n" + format_correction(
+                self._last_tool, self._last_params, result.get("error"), result.get("hint")
+            )
+        self._history.append({"role": "user", "content": content})
 
     async def run_task(
         self,

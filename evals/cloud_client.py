@@ -23,6 +23,8 @@ from typing import Any
 
 import httpx
 
+from evals.correction import format_correction
+
 
 @dataclass
 class CloudCall:
@@ -259,6 +261,10 @@ class CloudAgent:
         self._model = model or self.DEFAULT_MODELS[provider]
         self._api_key = api_key
         self._history: list[dict] = []
+        # Track the most recent call so a failure can be quoted back as a
+        # correction in the next user message (issue #149).
+        self._last_tool: str = ""
+        self._last_params: dict[str, Any] = {}
 
     def _system_prompt(self, task: str, available_tools: list[dict]) -> str:
         """Build the system prompt with structured tool descriptions."""
@@ -309,6 +315,8 @@ class CloudAgent:
             "params": cloud_call.params,
             "reasoning": cloud_call.reasoning,
         })})
+        self._last_tool = cloud_call.tool
+        self._last_params = cloud_call.params
         return cloud_call
 
     async def _execute(self, call: CloudCall) -> dict:
@@ -333,14 +341,23 @@ class CloudAgent:
             return {"ok": False, "error": str(e), "hint": "Bridge execution failed", "done": False}
 
     def _add_result(self, result: dict) -> None:
-        """Add the tool result to history for the LLM."""
+        """Add the tool result to history for the LLM.
+
+        On failure, append a dynamic correction (issue #149) that quotes the
+        failed call and its hint, so the model adapts instead of repeating it.
+        """
         summary = json.dumps({
             "ok": result["ok"],
             "error": result.get("error"),
             "hint": result.get("hint"),
             "result_keys": list(result.get("result", {}).keys()),
         })
-        self._history.append({"role": "user", "content": f"Tool result: {summary}"})
+        content = f"Tool result: {summary}"
+        if not result.get("ok", True):
+            content += "\n" + format_correction(
+                self._last_tool, self._last_params, result.get("error"), result.get("hint")
+            )
+        self._history.append({"role": "user", "content": content})
 
     async def run_task(
         self,
