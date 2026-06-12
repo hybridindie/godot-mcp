@@ -168,17 +168,11 @@ func _cmd_connect_signal(params: Dictionary) -> Dictionary:
 			"VALIDATION_ERROR",
 			"Source '%s' has no signal '%s'. Available: %s." % [source.name, signal_name, _signal_names_hint(source)]
 		)
-	# has_method() already resolves script methods and built-in virtuals (e.g.
-	# _ready); the script method-list is a fallback for tool-script methods that
-	# aren't yet registered on the instance.
-	if not _has_callable_method(target, method_name):
-		return _router._fail(
-			"VALIDATION_ERROR",
-			"Target '%s' has no method '%s'. Attach a script defining it, or choose an existing method." % [target.name, method_name]
-		)
 	var callable := Callable(target, method_name)
-	# Idempotent: a connection already present (often persisted in the scene
-	# file) is success, not failure — re-running the same connect is a no-op.
+	# Check the idempotent path FIRST: a connection already present (often
+	# persisted in the scene file) is success, not failure — and short-circuiting
+	# here means a method-resolution quirk can never turn an existing connection
+	# into a false failure (the original bug class in #152).
 	if source.is_connected(signal_name, callable):
 		return _router._ok({
 			"source_path": str(params.get("source_path")),
@@ -188,6 +182,14 @@ func _cmd_connect_signal(params: Dictionary) -> Dictionary:
 			"connected": true,
 			"already_connected": true,
 		})
+	# For a *fresh* connect, the method must resolve. has_method() already covers
+	# script methods and built-in virtuals (e.g. _ready); the script method-list
+	# is a fallback for tool-script methods not yet registered on the instance.
+	if not _has_callable_method(target, method_name):
+		return _router._fail(
+			"VALIDATION_ERROR",
+			"Target '%s' has no method '%s'. Attach a script defining it, or choose an existing method." % [target.name, method_name]
+		)
 
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Connect %s" % signal_name)
@@ -217,7 +219,7 @@ func _has_callable_method(node: Node, method_name: String) -> bool:
 
 
 func _signal_names_hint(node: Node) -> String:
-	var names: PackedStringArray = []
+	var names := PackedStringArray()
 	for s in node.get_signal_list():
 		names.append(str(s.get("name", "")))
 		if names.size() >= 8:
