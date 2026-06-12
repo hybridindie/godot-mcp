@@ -1235,27 +1235,9 @@ class LLMTaskRunner:
         except Exception:
             pass
 
-        # Cleanup: delete created test nodes
-        for node_path in created_nodes:
-            try:
-                await self._bridge.call(
-                    "cmd_delete_node",
-                    {"node_path": node_path, "confirm": True},
-                )
-            except Exception:
-                pass  # Node may already be deleted or renamed
-
-        # Cleanup: revert renames (in reverse order)
-        for renamed_path, original_name in reversed(rename_stack):
-            try:
-                await self._bridge.call(
-                    "cmd_rename_node",
-                    {"node_path": renamed_path, "new_name": original_name},
-                )
-            except Exception:
-                pass  # Node may no longer exist
-
-        # Run task completion validator BEFORE cleanup (cleanup removes artifacts)
+        # Run the task completion validator on the REAL post-task state, BEFORE
+        # any node cleanup — cleanup deletes created nodes and reverts renames,
+        # which would make e.g. _validate_rename see RenamedNode already gone.
         validator = TASK_VALIDATORS.get(task_name)
         validation_passed: bool | None = None
         if validator:
