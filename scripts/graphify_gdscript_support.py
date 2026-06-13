@@ -165,7 +165,10 @@ def main() -> None:
     _write_shim(site_dir)
     _patch_detect(gdir / "detect.py")
     _patch_extract(gdir / "extract.py")
-    print("\nDone. Verify with: python -c \"from graphify.extract import _DISPATCH; print('.gd' in _DISPATCH)\"")
+    print(
+        "\nDone. Verify with:\n"
+        "  python -c \"from graphify.extract import _DISPATCH; print('.gd' in _DISPATCH)\""
+    )
 
 
 if __name__ == "__main__":
