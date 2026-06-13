@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# graphify graph auto-refresh on commit (issue #174). See _graphify_refresh.sh.
+exec "$(git rev-parse --show-toplevel)/scripts/hooks/_graphify_refresh.sh"

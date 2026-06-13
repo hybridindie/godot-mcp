@@ -22,6 +22,7 @@ The constitutional rules live in `.claude/rules/` and are the source of truth fo
 | `testing.md` | III | TDD; contract→integration→unit; suite health (zero skips) |
 | `workflow.md` | — | Issue → red test → green → preflight → PR → merge pipeline |
 | `enforcement.md` | IX | Gates, PR checklist, CalVer |
+| `graphify.md` | — | Graphify LLM-extraction policy: always run graphify via `scripts/graphify.sh` so the repo `.env` (local ollama backend/model) is observed |
 
 Adapted from the [hybridindie/instructions-and-rules](https://github.com/hybridindie/instructions-and-rules) harness, pared to this project: no frontend/database/Copilot-mirror rules (none apply), with an addon rule added for the GDScript half.
 
