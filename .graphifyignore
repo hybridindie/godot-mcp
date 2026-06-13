@@ -1,0 +1,38 @@
+# .graphifyignore — focus the knowledge graph on the MCP *itself*:
+#   - mcp_server/   the Python FastMCP server (the AI-facing product)
+#   - docs/         its architecture/contract docs
+#
+# NOTE: graphify has no GDScript parser, so the Godot addon
+# (godot/addons/godot_mcp/, the .gd half of the MCP) is invisible to it either
+# way — this graph is the Python server + docs, not the addon.
+#
+# Everything below is a SEPARATE project, a harness/consumer, or a generated/
+# meta artifact that otherwise dominates the graph (e.g. FakeAddonConnection,
+# EvalTracker, OllamaAgent, and the whole vampire demo game ranked as hubs).
+# gitignore syntax; last match wins. Flip a line to a leading "!" to re-include.
+
+# The demo game — a SEPARATE project (godot-mcp is deliberately game-agnostic),
+# not the MCP. Biggest source of unrelated nodes (Player, Enemy, weapons, …).
+examples/
+
+# Eval harness — a CONSUMER of the MCP over the bridge, not the MCP. Pulls in
+# OllamaAgent / CloudAgent / EvalTracker / variant + history machinery.
+evals/
+
+# Test scaffolding — fakes and fixtures (FakeAddonConnection, connector_for, …)
+# otherwise outrank the real abstractions in the god-node list.
+tests/
+
+# Godot project tree — nothing here is graphable (no .gd parser); excluded for
+# clarity so the corpus is unambiguously "the Python MCP + docs".
+godot/
+
+# Generated graph output + its extraction cache.
+graphify-out/
+
+# CI / harness / agent meta — not the product.
+.github/
+.claude/
+
+# Generated dependency lock (huge, not architecturally meaningful).
+uv.lock

@@ -20,3 +20,6 @@ examples/**/.godot/
 # OS / editor
 .DS_Store
 .env
+
+# graphify generated knowledge graph (regenerable output + cache)
+graphify-out/
