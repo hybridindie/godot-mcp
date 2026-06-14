@@ -46,102 +46,125 @@ MUTATION_COMMANDS: set[str] = {
     "cmd_apply_node_edits",
 }
 
+# Script-writing mutations; read-only cmd_read_script is excluded so it reaches
+# the addon for its own envelope.
+_SCRIPT_MUTATIONS: set[str] = {
+    "cmd_attach_script",
+    "cmd_write_script",
+    "cmd_patch_script",
+}
+
+# Returned on a cache hit for a previously-failed signature.
+_CACHED_FAILURE: dict[str, Any] = {
+    "ok": False,
+    "error": "PARAM_ERROR",
+    "hint": "Parameter validation failed (cached).",
+}
+
 
 def _invalidate_preflight_cache() -> None:
     """Clear the pre-flight cache after any mutation."""
     _preflight_cache.clear()
 
 
+async def _validate_node_path(
+    bridge: Bridge, command: str, params: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Fail a *mutation* targeting a node that doesn't exist.
+
+    Read-only inspection commands (e.g. cmd_get_node_properties) and runtime
+    commands (e.g. cmd_monitor, cmd_assert_node_state) are skipped so the addon
+    returns its own RESOURCE_NOT_FOUND/assertion envelope — pre-empting them here
+    both masks those structured errors and (for get_node_properties) recurses on
+    itself. cmd_create_node is skipped too (the target doesn't exist yet).
+    """
+    node_path = params.get("node_path", "")
+    if not (node_path and command in MUTATION_COMMANDS and command != "cmd_create_node"):
+        return None
+    try:
+        resp = await bridge.send("cmd_get_node_properties", {"node_path": node_path})
+    except Exception:
+        return None  # Bridge error; fall through to addon validation
+    # Only a genuine "missing node" fails preflight. Other errors (e.g.
+    # PRECONDITION_FAILED for no active scene) pass through so the addon returns
+    # its own structured envelope instead of a misleading "node not found".
+    if not resp.ok and resp.error == "RESOURCE_NOT_FOUND":
+        return {
+            "ok": False,
+            "error": "PARAM_ERROR",
+            "hint": (
+                f"Node '{node_path}' not found in scene. "
+                "Use get_scene_tree to discover valid paths."
+            ),
+            "required": "node_path",
+        }
+    return None
+
+
+async def _validate_script_path(
+    bridge: Bridge, command: str, params: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Fail a script mutation whose path isn't a ``res://`` path.
+
+    File existence isn't reliably checkable server-side (project root may differ);
+    the addon returns its own RESOURCE_NOT_FOUND if the file is missing.
+    """
+    script_path = params.get("script_path", "")
+    if script_path and command in _SCRIPT_MUTATIONS and not script_path.startswith("res://"):
+        return {
+            "ok": False,
+            "error": "PARAM_ERROR",
+            "hint": f"script_path must start with 'res://'. Got: '{script_path}'",
+            "required": "script_path",
+        }
+    return None
+
+
+async def _validate_parent_path(
+    bridge: Bridge, command: str, params: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Fail cmd_create_node when its parent node doesn't exist."""
+    parent_path = params.get("parent_path", "")
+    if not (parent_path and command == "cmd_create_node" and parent_path not in {".", "/", ""}):
+        return None
+    try:
+        resp = await bridge.send("cmd_get_node_properties", {"node_path": parent_path})
+    except Exception:
+        return None
+    if not resp.ok:
+        return {
+            "ok": False,
+            "error": "PARAM_ERROR",
+            "hint": f"Parent '{parent_path}' not found. Use '.' for scene root.",
+            "required": "parent_path",
+        }
+    return None
+
+
+# Each validator returns a PARAM_ERROR dict on failure, else None. Property
+# names are deliberately not validated server-side — the addon has better context.
+_VALIDATORS = (_validate_node_path, _validate_script_path, _validate_parent_path)
+
+
 async def _preflight_validate(
     bridge: Bridge, command: str, params: dict[str, Any]
 ) -> dict[str, Any]:
-    """Validate parameters before sending to Godot.
+    """Validate parameters before sending to Godot, running each rule in turn.
 
     Returns {"ok": True} if validation passes or no rules apply.
-    Returns {"ok": False, "error": "...", "hint": "...", "required": "..."} on failure.
+    Returns {"ok": False, "error": "...", "hint": "...", "required": "..."} on the
+    first failure. Results are cached by command + sorted params.
     """
-    # Build a cache key from command + sorted params
     cache_key = f"{command}:{sorted(params.items())}"
-    if cache_key in _preflight_cache:
-        if not _preflight_cache[cache_key]:
-            return {
-                "ok": False,
-                "error": "PARAM_ERROR",
-                "hint": "Parameter validation failed (cached).",
-            }
-        return {"ok": True}
+    cached = _preflight_cache.get(cache_key)
+    if cached is not None:
+        return {"ok": True} if cached else dict(_CACHED_FAILURE)
 
-    # --- node_path validation ---
-    # Only pre-validate existence for *mutations*. Read-only inspection commands
-    # (e.g. cmd_get_node_properties) and runtime commands (e.g. cmd_monitor,
-    # cmd_assert_node_state) must reach the addon so it can return its own
-    # RESOURCE_NOT_FOUND/assertion envelope — pre-empting them here both masks
-    # those structured errors and (for get_node_properties) recurses on itself.
-    node_path = params.get("node_path", "")
-    if node_path and command in MUTATION_COMMANDS and command != "cmd_create_node":
-        # Skip create_node (target node doesn't exist yet — that's the point).
-        try:
-            resp = await bridge.send("cmd_get_node_properties", {"node_path": node_path})
-            # Only a genuine "missing node" should fail preflight. Other errors
-            # (e.g. PRECONDITION_FAILED for no active scene) must pass through so
-            # the addon returns its own structured envelope instead of a
-            # misleading "node not found".
-            if not resp.ok and resp.error == "RESOURCE_NOT_FOUND":
-                _preflight_cache[cache_key] = False
-                return {
-                    "ok": False,
-                    "error": "PARAM_ERROR",
-                    "hint": (
-                        f"Node '{node_path}' not found in scene. "
-                        "Use get_scene_tree to discover valid paths."
-                    ),
-                    "required": "node_path",
-                }
-        except Exception:
-            pass  # Bridge error; fall through to addon validation
-
-    # --- script_path validation (mutations only; cmd_read_script is read-only
-    # and must reach the addon for its own envelope) ---
-    _SCRIPT_MUTATIONS = {
-        "cmd_attach_script",
-        "cmd_write_script",
-        "cmd_patch_script",
-    }
-    script_path = params.get("script_path", "")
-    if script_path and command in _SCRIPT_MUTATIONS:
-        if not script_path.startswith("res://"):
+    for validate in _VALIDATORS:
+        failure = await validate(bridge, command, params)
+        if failure is not None:
             _preflight_cache[cache_key] = False
-            return {
-                "ok": False,
-                "error": "PARAM_ERROR",
-                "hint": f"script_path must start with 'res://'. Got: '{script_path}'",
-                "required": "script_path",
-            }
-        # File existence isn't reliably checkable server-side (project root may
-        # differ); let the addon return its own RESOURCE_NOT_FOUND if missing.
-
-    # --- parent_path validation ---
-    parent_path = params.get("parent_path", "")
-    if parent_path and command == "cmd_create_node":
-        if parent_path not in {".", "/", ""}:
-            try:
-                resp = await bridge.send("cmd_get_node_properties", {"node_path": parent_path})
-                if not resp.ok:
-                    _preflight_cache[cache_key] = False
-                    return {
-                        "ok": False,
-                        "error": "PARAM_ERROR",
-                        "hint": f"Parent '{parent_path}' not found. Use '.' for scene root.",
-                        "required": "parent_path",
-                    }
-            except Exception:
-                pass
-
-    # --- property validation (lightweight) ---
-    prop = params.get("property", "")
-    if prop and command in {"cmd_set_node_property", "cmd_batch_set_property"}:
-        # We skip expensive property list checks; addon has better context
-        pass
+            return failure
 
     _preflight_cache[cache_key] = True
     return {"ok": True}
