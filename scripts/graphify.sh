@@ -21,12 +21,16 @@ if [ -f "$ROOT/.env" ]; then
 fi
 
 # 2. Use the interpreter graphify was installed into (pinned by the skill),
-#    falling back to python3 on PATH.
+#    falling back to python3 on PATH. Read it into an argv array so a pin like
+#    "/usr/bin/env python3" (interpreter + arg) execs correctly — a single quoted
+#    "$PYTHON" would be treated as one command name and fail.
 PIN="$ROOT/graphify-out/.graphify_python"
-if [ -f "$PIN" ] && "$(cat "$PIN")" -c "import graphify" 2>/dev/null; then
-    PYTHON="$(cat "$PIN")"
-else
-    PYTHON="python3"
+py_cmd=(python3)
+if [ -f "$PIN" ]; then
+    read -r -a _pinned < "$PIN" || true
+    if [ "${#_pinned[@]}" -gt 0 ] && "${_pinned[@]}" -c "import graphify" 2>/dev/null; then
+        py_cmd=("${_pinned[@]}")
+    fi
 fi
 
-exec "$PYTHON" -m graphify "$@"
+exec "${py_cmd[@]}" -m graphify "$@"

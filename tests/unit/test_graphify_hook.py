@@ -45,8 +45,10 @@ def _init_repo(tmp_path: Path) -> Path:
     return repo
 
 
-def _run_hook(repo: Path) -> None:
-    subprocess.run([str(REFRESH)], cwd=repo, check=False, capture_output=True, env={**os.environ})
+def _run_hook(repo: Path, mode: str = "post-commit") -> None:
+    subprocess.run(
+        [str(REFRESH), mode], cwd=repo, check=False, capture_output=True, env={**os.environ}
+    )
 
 
 def _commit(repo: Path, rel: str) -> None:
@@ -55,6 +57,13 @@ def _commit(repo: Path, rel: str) -> None:
     target.write_text("x\n")
     _git(repo, "add", "-A")
     _git(repo, "commit", "-qm", f"touch {rel}")
+
+
+def _head(repo: Path) -> str:
+    out = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True, check=True
+    )
+    return out.stdout.strip()
 
 
 @pytest.mark.parametrize(
@@ -84,3 +93,25 @@ def test_hook_noops_when_graphify_not_setup(tmp_path: Path) -> None:
     _commit(repo, "mcp_server/tools/health.py")
     _run_hook(repo)
     assert not (repo / "ran.log").exists()
+
+
+def test_post_merge_detects_relevant_change_in_non_tip_commit(tmp_path: Path) -> None:
+    """Fast-forward pulls integrate many commits at once; a relevant change in a
+    non-tip commit must still trigger a refresh in post-merge mode (the tip-only
+    post-commit view would miss it)."""
+    repo = _init_repo(tmp_path)
+    _commit(repo, "README.md")            # base, pre-merge HEAD
+    base = _head(repo)
+    _commit(repo, "mcp_server/core.py")   # relevant change — NOT the tip
+    _commit(repo, "docs/guide.md")        # irrelevant tip commit
+    _git(repo, "update-ref", "ORIG_HEAD", base)  # what a fast-forward merge sets
+
+    # tip-only (post-commit) view sees only the irrelevant tip → no refresh
+    _run_hook(repo, "post-commit")
+    assert not (repo / "ran.log").exists()
+
+    # merged-range (post-merge) view spans ORIG_HEAD..HEAD → catches the change
+    _run_hook(repo, "post-merge")
+    log = repo / "ran.log"
+    assert log.exists()
+    assert "update ." in log.read_text()
