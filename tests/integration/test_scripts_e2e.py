@@ -16,7 +16,7 @@ import pytest
 from mcp_server.bridge import Bridge
 from mcp_server.config import BridgeConfig, ServerConfig
 from mcp_server.runtime import GodotRunner
-from mcp_server.tools.scripts import parse_check_errors
+from mcp_server.scripts_parse import parse_check_errors
 from tests.integration._godot import GODOT_BIN, GODOT_PROJECT
 
 pytestmark = pytest.mark.skipif(GODOT_BIN is None, reason="Godot binary not installed")

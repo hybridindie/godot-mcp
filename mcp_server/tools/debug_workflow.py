@@ -37,8 +37,7 @@ def register_debug_workflow(
         1. Parse errors across all GDScript files
         2. Active scene tree structure (nodes, scripts, properties)
         3. Headless run of the project (or a specific scene) capturing errors/warnings
-        4. Signal connections in the active scene
-        5. Bridge connection state and Godot version
+        4. Bridge connection state and Godot version
 
         ``scene`` — optional res:// path to focus the headless run on a specific scene.
         """

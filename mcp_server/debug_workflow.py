@@ -20,8 +20,8 @@ from mcp_server.models.debug_workflow import DebugWorkflowResult
 from mcp_server.models.runtime import RunCaptureResult
 from mcp_server.models.scripts import ParseError
 from mcp_server.runtime import Runner, resolve_project_dir, summarize_run
+from mcp_server.scripts_parse import parse_check_errors
 from mcp_server.tools._route import route
-from mcp_server.tools.scripts import parse_check_errors
 
 
 async def collect_parse_errors(

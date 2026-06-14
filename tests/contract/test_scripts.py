@@ -11,8 +11,8 @@ from mcp_server.bridge import Bridge
 from mcp_server.config import ServerConfig
 from mcp_server.models.envelope import CommandEnvelope, ResponseEnvelope
 from mcp_server.runtime import RunOutput
+from mcp_server.scripts_parse import parse_check_errors
 from mcp_server.server import create_server
-from mcp_server.tools.scripts import parse_check_errors
 from tests.fakes import FakeAddonConnection, connector_for
 
 # asyncio_mode=auto runs the async tests; no module-wide mark (it would warn on the

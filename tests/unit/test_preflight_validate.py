@@ -8,6 +8,7 @@ short-circuit behavior.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
@@ -43,7 +44,11 @@ async def _bridge(responder: Responder = ping_responder) -> Bridge:
 
 
 @pytest.fixture(autouse=True)
-def _clear_cache() -> None:
+def _clear_cache() -> Iterator[None]:
+    # Clear before AND after: _preflight_cache is global, so leftover entries
+    # would make other test modules order-dependent (cache hits skip validation).
+    _invalidate_preflight_cache()
+    yield
     _invalidate_preflight_cache()
 
 
