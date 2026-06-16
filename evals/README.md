@@ -102,13 +102,13 @@ python -m evals.transition_test --model qwen3-coder:30b
 ## MLFlow Instance
 
 Tracking URI: `https://mlflow.johndstudios.net`
-Experiment: `godot-mcp-tool-desc-eval`
+Experiment: `Godot AI` (the unified experiment shared with the godot-agents project; consolidated 2026-06-16)
 
 ## Current Limitations
 
 1. **Debugger evals require manual pause**: The harness can't reliably pause the running game via `force_break` or `set_breakpoint` in headless mode. For accurate debugger tool evals, pause the game manually (via editor breakpoint or the DebuggerDemo's `breakpoint` keyword) before running the harness.
 
-2. **Python socket timeout**: Direct Python HTTP connections to `192.168.0.20:443` fail with `Errno 65 No route to host`. The MLFlow tracker works around this by delegating to `curl` via subprocess.
+2. **Python socket timeout (resolved 2026-06-16)**: Direct Python HTTP connections to `192.168.0.20:443` previously failed with `Errno 65 No route to host`, so the MLFlow tracker delegates to `curl` via subprocess. As of 2026-06-16 the socket connects directly (verified via `socket.create_connection` + the MLflow SDK), so this workaround is obsolete and the tracker is slated to migrate to the MLflow SDK in Phase 2 (enabling tracing/datasets/judges).
 
 3. **Cloud model costs**: Running the full 28-task suite against Claude/GPT costs ~$2-5 in API tokens. Use `--tasks` to run a subset for quick validation.
 

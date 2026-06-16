@@ -1,9 +1,20 @@
 #!/usr/bin/env python3
-"""MLFlow tracking client wrapper for godot-mcp evals.
+"""MLflow tracking client wrapper for godot-mcp evals.
 
-Works around a local networking issue where Python's socket.connect()
-fails to reach 192.168.0.20:443 (Errno 65) but curl succeeds.
-All API calls delegate to curl via subprocess.
+Thin wrapper over the MLflow Python SDK (``MlflowClient``) that records eval
+runs to the unified **"Godot AI"** experiment shared with the godot-agents
+project.
+
+Routing:
+    The tracking server is taken from ``MLFLOW_TRACKING_URI`` when set,
+    otherwise it falls back to the shared instance below. Tests point it at a
+    local ``sqlite:///`` store so the suite stays fully offline.
+
+History:
+    Earlier revisions delegated every call to ``curl`` via ``subprocess`` to
+    work around a local socket failure to ``192.168.0.20:443``. That networking
+    issue is resolved (2026-06-16), so this now uses the SDK directly, which
+    also unlocks MLflow 3.x GenAI features (tracing, datasets, judges).
 
 Usage:
     from evals.mlflow_tracker import EvalTracker
@@ -16,58 +27,17 @@ Usage:
 
 from __future__ import annotations
 
-import json
-import subprocess
+import logging
+import os
 import time
 from dataclasses import dataclass, field
-from typing import Any
 
-MLFLOW_BASE = "https://mlflow.johndstudios.net/api/2.0/mlflow"
+from mlflow import MlflowClient
 
+logger = logging.getLogger(__name__)
 
-def _curl(method: str, endpoint: str, payload: dict | None = None) -> dict:
-    """Call the MLFlow REST API via curl."""
-    url = f"{MLFLOW_BASE}/{endpoint}"
-    args = [
-        "curl", "-s", "--max-time", "15",
-        "-X", method,
-        "-H", "Content-Type: application/json",
-    ]
-    if payload is not None:
-        args += ["-d", json.dumps(payload)]
-    args.append(url)
-
-    result = subprocess.run(args, capture_output=True, text=True, timeout=20)
-    if result.returncode != 0:
-        raise RuntimeError(f"curl failed: {result.stderr}")
-    # Some endpoints return empty body on success (e.g. log-metric)
-    if not result.stdout.strip():
-        return {}
-    try:
-        return json.loads(result.stdout)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(
-            f"Invalid JSON from MLFlow: {result.stdout[:200]}"
-        ) from exc
-
-
-def _curl_get(endpoint: str, query: dict) -> dict:
-    """Call a GET endpoint with query params via curl."""
-    qs = "&".join(f"{k}={v}" for k, v in query.items())
-    url = f"{MLFLOW_BASE}/{endpoint}?{qs}"
-    args = ["curl", "-s", "--max-time", "15", "-X", "GET", url]
-
-    result = subprocess.run(args, capture_output=True, text=True, timeout=20)
-    if result.returncode != 0:
-        raise RuntimeError(f"curl failed: {result.stderr}")
-    if not result.stdout.strip():
-        return {}
-    try:
-        return json.loads(result.stdout)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(
-            f"Invalid JSON from MLFlow: {result.stdout[:200]}"
-        ) from exc
+# Shared instance used when MLFLOW_TRACKING_URI is unset.
+DEFAULT_TRACKING_URI = "https://mlflow.johndstudios.net"
 
 
 @dataclass
@@ -82,37 +52,37 @@ class EvalRun:
 
 
 class EvalTracker:
-    """Track godot-mcp tool description evaluation experiments in MLFlow."""
+    """Track godot-mcp eval runs in the unified "Godot AI" MLflow experiment."""
 
-    def __init__(self, experiment_name: str = "godot-mcp-tool-desc-eval") -> None:
+    def __init__(self, experiment_name: str = "Godot AI") -> None:
         self._experiment_name = experiment_name
+        self._tracking_uri = os.environ.get("MLFLOW_TRACKING_URI") or DEFAULT_TRACKING_URI
+        self._client = MlflowClient(tracking_uri=self._tracking_uri)
         self._experiment_id: str | None = None
         self._run: EvalRun | None = None
         self._ensure_experiment()
 
     def _ensure_experiment(self) -> None:
-        """Create the experiment if it doesn't exist."""
-        # Try to create
-        resp = _curl("POST", "experiments/create", {"name": self._experiment_name})
-        if "experiment_id" in resp:
-            self._experiment_id = resp["experiment_id"]
-            return
-        # Already exists — get by name via GET
-        resp = _curl_get("experiments/get-by-name", {"experiment_name": self._experiment_name})
-        self._experiment_id = resp["experiment"]["experiment_id"]
+        """Resolve the experiment id, creating the experiment if it doesn't exist."""
+        exp = self._client.get_experiment_by_name(self._experiment_name)
+        if exp is not None:
+            self._experiment_id = exp.experiment_id
+        else:
+            self._experiment_id = self._client.create_experiment(self._experiment_name)
 
     def start_run(self, run_name: str | None = None, variant: str = "baseline") -> EvalRun:
         """Start a new evaluation run."""
         if self._experiment_id is None:
             raise RuntimeError("Experiment not initialized")
         run_name = run_name or f"eval-{int(time.time())}"
-        resp = _curl(
-            "POST",
-            "runs/create",
-            {"experiment_id": self._experiment_id, "run_name": run_name},
+        run = self._client.create_run(
+            experiment_id=self._experiment_id, run_name=run_name
         )
-        run_id = resp["run"]["info"]["run_id"]
-        self._run = EvalRun(run_id=run_id, experiment_id=self._experiment_id, variant=variant)
+        self._run = EvalRun(
+            run_id=run.info.run_id,
+            experiment_id=self._experiment_id,
+            variant=variant,
+        )
         self.log_param("variant", variant)
         self.log_param("experiment_name", self._experiment_name)
         return self._run
@@ -121,42 +91,49 @@ class EvalTracker:
         """Log a numeric metric for the current run."""
         if self._run is None:
             raise RuntimeError("No active run. Call start_run() first.")
-        payload: dict[str, Any] = {
-            "run_id": self._run.run_id,
-            "key": key,
-            "value": value,
-            "timestamp": int(time.time() * 1000),
-        }
-        if step is not None:
-            payload["step"] = step
-        _curl("POST", "runs/log-metric", payload)
+        self._client.log_metric(
+            self._run.run_id,
+            key,
+            value,
+            timestamp=int(time.time() * 1000),
+            step=step or 0,
+        )
         self._run.metrics[key] = value
 
     def log_param(self, key: str, value: str) -> None:
         """Log a string parameter for the current run."""
         if self._run is None:
             raise RuntimeError("No active run. Call start_run() first.")
-        _curl(
-            "POST",
-            "runs/log-parameter",
-            {"run_id": self._run.run_id, "key": key, "value": value},
-        )
+        self._client.log_param(self._run.run_id, key, value)
         self._run.params[key] = value
 
     def log_artifact_text(self, filename: str, content: str) -> None:
-        """Log a text artifact for the current run."""
-        # MLFlow artifact logging requires multipart upload; for now we log the
-        # content as a param (truncated to 250 chars to stay within limits).
+        """Log ``content`` as a real text artifact for the current run.
+
+        Artifact upload depends on the server's artifact store. The shared
+        instance uses S3 (``s3://mlflow/...``), which needs ``boto3`` plus AWS
+        credentials in the environment. If the upload fails (e.g. no creds), we
+        warn and continue rather than abort the eval run — metrics/params are
+        already recorded and matter most.
+        """
         if self._run is None:
             raise RuntimeError("No active run. Call start_run() first.")
-        truncated = content[:250] if len(content) > 250 else content
-        self.log_param(f"artifact_{filename}", truncated)
+        try:
+            self._client.log_text(self._run.run_id, content, filename)
+        except Exception as exc:  # pragma: no cover - depends on artifact store/creds
+            logger.warning(
+                "MLflow artifact upload failed for %r (run %s); continuing. "
+                "S3 artifact stores need boto3 + AWS credentials. Error: %s",
+                filename,
+                self._run.run_id,
+                exc,
+            )
 
     def end_run(self, status: str = "FINISHED") -> EvalRun:
         """End the current run."""
         if self._run is None:
             raise RuntimeError("No active run. Call start_run() first.")
-        _curl("POST", "runs/update", {"run_id": self._run.run_id, "status": status})
+        self._client.set_terminated(self._run.run_id, status)
         run = self._run
         self._run = None
         return run
@@ -166,6 +143,6 @@ class EvalTracker:
         return self._run
 
     def get_experiment_url(self) -> str:
-        """Return the MLFlow UI URL for the experiment."""
-        base = MLFLOW_BASE.replace("/api/2.0/mlflow", "")
+        """Return the MLflow UI URL for the experiment."""
+        base = self._tracking_uri.rstrip("/")
         return f"{base}/#/experiments/{self._experiment_id}"
