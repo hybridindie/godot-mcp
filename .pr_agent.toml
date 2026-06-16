@@ -41,3 +41,11 @@ Focus on real correctness bugs, security, and missing regression tests.
 # /improve is manual-only (cluster-side). When invoked, keep it tight + high-confidence.
 suggestions_score_threshold = 7
 extra_instructions = "Only high-impact correctness/security fixes; skip style and CI-enforced nits."
+
+[ignore]
+# Drop lock/generated/data files from the diff before review — cuts noise + token
+# cost, and keeps lockfile churn from pushing a PR over Qodo's size limit
+# (this is what was silently skipping the mlflow-SDK PR). Matched via re.match
+# (anchored at path start); globs translate to regex.
+glob = ["*.lock", "*.uid", "*.import"]
+regex = ['graphify-out/.*']
