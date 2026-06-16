@@ -8,9 +8,9 @@
 # Open-source models on Ollama Cloud only — mirrors the cluster's default
 # hierarchy. Coder models fit code review. Tags must match the cluster's
 # working litellm "ollama/" strings.
-model = "ollama/qwen3-coder-next"             # primary
-fallback_models = ["ollama/qwen3-coder:30b"]  # used only if the primary fails
-model_reasoning = "ollama/qwen3-coder-next"   # self-reflection; same as primary
+model = "ollama/qwen3-coder:30b"              # primary (qwen3-coder-next was too slow / blocking)
+fallback_models = ["ollama/qwen3-coder-next"] # last-resort only (rare; ok if slow)
+model_reasoning = "ollama/qwen3-coder:30b"    # self-reflection; same as primary (kept fast)
 model_weak = "ollama/gemma4:12b"              # cheap model for easy subtasks
 
 [pr_reviewer]
