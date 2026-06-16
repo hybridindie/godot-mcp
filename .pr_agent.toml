@@ -1,0 +1,42 @@
+# Repo config for the self-hosted PR reviewer (The-PR-Agent / k3s-qodo-pr-agent).
+# https://github.com/The-PR-Agent/pr-agent
+#
+# Cluster-side (NOT here): OLLAMA_API_BASE / OLLAMA_API_KEY secrets, and the
+# /improve = manual-only toggle (pr_commands runs /describe + /review on open).
+
+[config]
+# Open-source models on Ollama Cloud only — no proprietary models. Cost-tiered
+# for high PR volume: a small/fast coder model as primary (code review benefits
+# from a code-tuned model), a larger one only on fallback failure.
+# ⚠ CONFIRM the exact Ollama Cloud tags against the account before relying on this.
+model = "ollama/qwen3-coder:30b"
+fallback_models = ["ollama/minimax-m2"]
+
+[pr_reviewer]
+# The diff-only "ticket compliance analysis" mis-fired (marked implemented
+# criteria non-compliant), so disable just that section.
+require_ticket_analysis_review = false
+num_max_findings = 3
+extra_instructions = """
+godot-mcp is a game-agnostic Godot MCP server.
+
+Do NOT raise these (intentional, or already enforced elsewhere — they only add noise/cost):
+- Anything CI already gates: ruff lint+format, mypy (strict on mcp_server + tests), pytest,
+  the zero-skip test gate, coverage. Don't restyle or duplicate CI-enforced findings.
+- CI / tooling / generated files: .github/**, *.lock, *.uid, *.import, graphify-out/**.
+- evals/ is dev tooling, not shipped server code; fail-fast there is intentional.
+
+Conventions to respect:
+- TDD: a behavior change should come with a test; failures return the {ok,error,hint}
+  envelope, never raw traces; safety classes + dry_run/confirm live in the MCP layer,
+  not the addon.
+- Server-side MLflow registration (datasets/scorers) happens out-of-band, so code that
+  only *defines* such objects is complete — don't flag it as missing wiring.
+
+Focus on real correctness bugs, security, and missing regression tests.
+"""
+
+[pr_code_suggestions]
+# /improve is manual-only (cluster-side). When invoked, keep it tight + high-confidence.
+suggestions_score_threshold = 7
+extra_instructions = "Only high-impact correctness/security fixes; skip style and CI-enforced nits."

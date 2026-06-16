@@ -28,8 +28,8 @@ Each step gates the next.
 3. **Green code.** Minimum to pass. Refactor in a separate step once green is locked.
 4. **Preflight clean.** Server touched: `pytest` (contract + unit at least), type check, lint, zero-skip scan. Addon touched: load the plugin in Godot 4.4+ and confirm it enables/disables without errors.
 5. **PR opened.** Title `<type>(<scope>): <summary> (closes #N)`; body has a summary, the issue's acceptance criteria as a checklist, and a Test plan.
-6. **Comments addressed.** Every comment gets a code change or a written reply. A separate concern → a follow-up issue, linked.
-7. **Merge.** CI green, preflight green, comments resolved. Squash; delete branch.
+6. **Comments addressed.** The automated reviewer is the **Qodo / The-PR-Agent** bot (`k3s-qodo-pr-agent`, configured in `.pr_agent.toml`, running open-source models on Ollama Cloud). It auto-runs `/describe` + `/review` on open; `/improve` is manual. **Wait for its review to land before addressing anything** — don't pre-emptively self-review. Treat findings as **advisory**: fix real issues, reply to misreads. Every comment gets a code change or a written reply; a separate concern → a follow-up issue, linked.
+7. **Merge.** CI green, preflight green, Qodo review addressed. Squash; delete branch.
 
 ## Anti-patterns
 
