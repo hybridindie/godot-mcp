@@ -5,12 +5,13 @@
 # /improve = manual-only toggle (pr_commands runs /describe + /review on open).
 
 [config]
-# Open-source models on Ollama Cloud only — no proprietary models. Cost-tiered
-# for high PR volume: a small/fast coder model as primary (code review benefits
-# from a code-tuned model), a larger one only on fallback failure.
-# ⚠ CONFIRM the exact Ollama Cloud tags against the account before relying on this.
+# Open-source models on Ollama Cloud only — no proprietary models.
+# Primary: qwen3-coder:30b — already the cluster's default code-review model
+# (a code-tuned model fits code review). Fallback: qwen3-coder-next (same family,
+# slightly lower performance), used only if the primary call fails.
+# The litellm "ollama/" prefix must match the cluster's working model string.
 model = "ollama/qwen3-coder:30b"
-fallback_models = ["ollama/minimax-m2"]
+fallback_models = ["ollama/qwen3-coder-next"]
 
 [pr_reviewer]
 # The diff-only "ticket compliance analysis" mis-fired (marked implemented
