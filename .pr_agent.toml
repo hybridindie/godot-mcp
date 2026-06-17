@@ -10,7 +10,7 @@
 # the fast/cheap qwen3-coder:30b as fallback — if the kimi tag is wrong the
 # primary just fails over to :30b, so reviews never hard-break.
 # Tags must match the cluster/cloud's working litellm "ollama/" strings.
-model = "ollama/kimi-k2.7-coder"             # primary (A/B trial — larger, coding-focused)
+model = "ollama/kimi-k27-code:cloud"         # primary (A/B trial — larger, coding-focused)
 fallback_models = ["ollama/qwen3-coder:30b"] # fast/cheap fallback (also the safety net)
 model_reasoning = "ollama/qwen3-coder:30b"   # self-reflection kept on the fast model (cost/latency)
 model_weak = "ollama/gemma4:12b"             # cheap model for easy subtasks
