@@ -30,10 +30,16 @@ class ActiveScene(BaseModel):
 
 
 class SceneNode(BaseModel):
-    """A node in the recursive scene-tree serialization."""
+    """A node in the recursive scene-tree serialization.
+
+    ``path`` is the scene-relative path (``"."`` for the root, e.g. ``Player/Weapon``
+    below it), accepted verbatim by the path-taking tools (#180) — clients never have
+    to reconstruct paths by walking the tree.
+    """
 
     name: str
     type: str
+    path: str = ""
     script: str | None = None
     children: list[SceneNode] = Field(default_factory=list)
 

@@ -40,7 +40,23 @@ def _populated(cmd: CommandEnvelope) -> ResponseEnvelope | None:
         case "cmd_get_scene_tree":
             return ResponseEnvelope.success(
                 cmd.id,
-                {"tree": {"name": "Main", "type": "Node2D", "script": None, "children": []}},
+                {
+                    "tree": {
+                        "name": "Main",
+                        "type": "Node2D",
+                        "path": ".",
+                        "script": None,
+                        "children": [
+                            {
+                                "name": "Player",
+                                "type": "CharacterBody2D",
+                                "path": "Player",
+                                "script": None,
+                                "children": [],
+                            }
+                        ],
+                    }
+                },
             )
         case "cmd_get_selected_node":
             return ResponseEnvelope.success(
@@ -112,6 +128,21 @@ async def test_get_scene_tree_passes_max_depth() -> None:
         result = await client.call_tool("get_scene_tree", {"max_depth": 2})
     assert result.structured_content["tree"]["name"] == "Main"
     assert conn.last_command().params["max_depth"] == 2
+
+
+async def test_scene_tree_carries_path_round_trips_into_tool() -> None:
+    # #180: every node carries a scene-relative `path`; that exact string is accepted
+    # verbatim by a path-taking tool (here get_node_properties) with no reconstruction.
+    conn = FakeAddonConnection(responder=_populated)
+    async with Client(_build(conn)) as client:
+        tree = await client.call_tool("get_scene_tree", {})
+        root = tree.structured_content["tree"]
+        assert root["path"] == "."
+        child_path = root["children"][0]["path"]
+        assert child_path == "Player"
+        # Feed the discovered path straight into a path-taking tool — no walking.
+        info = await client.call_tool("get_node_properties", {"node_path": child_path})
+    assert info.structured_content["node_path"] == "Player"
 
 
 async def test_get_scene_tree_lightweight_passes_flag() -> None:

@@ -10,14 +10,23 @@ extends RefCounted
 const Coerce := preload("res://addons/godot_mcp/type_coerce.gd")
 
 
-## Recursive { name, type, script, children } for a subtree.
+## Recursive { name, type, path, script, children } for a subtree.
 ## max_depth < 0 is unlimited; max_depth == 0 returns the node with no children.
+## Every node carries an explicit scene-relative `path` (#180) — "." for the scene
+## root, e.g. "Player/Weapon" below it — in exactly the form the path-taking tools
+## accept, so clients never have to reconstruct paths by walking the tree.
 ## lightweight (#168) drops the `script` field (skips the per-node get_script call)
-## for a smaller discovery payload — { name, type, children } only.
-static func serialize_tree(node: Node, max_depth: int = -1, lightweight: bool = false) -> Dictionary:
+## for a smaller discovery payload — { name, type, path, children } only.
+## scene_root threads the root down the recursion; it defaults to `node` (the top
+## call passes the root), so existing 1-3 arg callers keep working.
+static func serialize_tree(
+	node: Node, max_depth: int = -1, lightweight: bool = false, scene_root: Node = null
+) -> Dictionary:
+	var root: Node = scene_root if scene_root != null else node
 	var data: Dictionary = {
 		"name": String(node.name),
 		"type": node.get_class(),
+		"path": relative_path(node, root),
 	}
 	if not lightweight:
 		data["script"] = script_path(node)
@@ -25,7 +34,7 @@ static func serialize_tree(node: Node, max_depth: int = -1, lightweight: bool = 
 	if max_depth != 0:
 		var child_depth: int = (max_depth - 1) if max_depth > 0 else -1
 		for child in node.get_children():
-			children.append(serialize_tree(child, child_depth, lightweight))
+			children.append(serialize_tree(child, child_depth, lightweight, root))
 	data["children"] = children
 	return data
 

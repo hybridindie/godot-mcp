@@ -166,9 +166,12 @@ states return an empty model (`is_open=False` / `tree=None` / `selected=None`), 
 | `get_node_properties` | `node_path: str` | `NodeInfo { node_path, type, script?, properties, children }` | `cmd_get_node_properties` |
 | `get_node_property_list` | `node_path: str` | `NodePropertyList { node_path, type, properties[] }` | `cmd_get_node_property_list` |
 
-`SceneNode = { name, type, script?, children: [SceneNode] }`. `lightweight=True` (#168) drops
-`script` → `{ name, type, children }` for a smaller discovery payload (pair with `max_depth`).
-`get_node_properties` errors
+`SceneNode = { name, type, path, script?, children: [SceneNode] }`. Each node's `path` (#180)
+is scene-relative (`"."` for the root, e.g. `Player/Weapon` below it) and is accepted verbatim
+by the path-taking tools (`set_node_property`, `create_node` parent, `attach_script`,
+`get_node_properties`) — clients must not reconstruct paths by walking the tree.
+`lightweight=True` (#168) drops `script` → `{ name, type, path, children }` for a smaller
+discovery payload (pair with `max_depth`). `get_node_properties` errors
 with `RESOURCE_NOT_FOUND` (bad path) or `PRECONDITION_FAILED` (no scene open).
 `get_node_property_list` returns every valid property name for a node (useful before calling
 `set_node_property`).

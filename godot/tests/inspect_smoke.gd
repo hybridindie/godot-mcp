@@ -96,11 +96,17 @@ func _test_serialize_tree(failures: Array[String]) -> void:
 	_eq(failures, "tree.name", full.get("name"), "World")
 	_eq(failures, "tree.type", full.get("type"), "Node2D")
 	_eq(failures, "tree.script", full.get("script"), null)
+	# Every node carries an explicit scene-relative path (#180): "." at the root,
+	# and nested paths below it ("Sprite", "Sprite/Deep") in path-taking-tool form.
+	_eq(failures, "tree.path", full.get("path"), ".")
 	var children: Array = full.get("children")
 	if children.size() != 1 or children[0].get("name") != "Sprite":
 		failures.append("tree children wrong: %s" % str(children))
 	elif children[0].get("children")[0].get("name") != "Deep":
 		failures.append("tree grandchild wrong")
+	else:
+		_eq(failures, "tree.child.path", children[0].get("path"), "Sprite")
+		_eq(failures, "tree.grandchild.path", children[0].get("children")[0].get("path"), "Sprite/Deep")
 
 	# max_depth=1 ⇒ root + immediate children, but their children truncated.
 	var shallow: Dictionary = Inspect.serialize_tree(world, 1)
@@ -113,6 +119,7 @@ func _test_serialize_tree(failures: Array[String]) -> void:
 	_eq(failures, "light.name", light.get("name"), "World")
 	_eq(failures, "light.type", light.get("type"), "Node2D")
 	_eq(failures, "light.no_script", light.has("script"), false)
+	_eq(failures, "light.path", light.get("path"), ".")  # path stays even when lightweight (#180)
 	var light_children: Array = light.get("children")
 	_eq(failures, "light.child", light_children[0].get("name"), "Sprite")
 	_eq(failures, "light.child_no_script", light_children[0].has("script"), false)

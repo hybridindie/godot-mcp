@@ -44,7 +44,12 @@ def register_inspection(mcp: FastMCP, bridge: Bridge) -> None:
 
     @mcp.tool(meta=READ_ONLY, tags=INSPECTION)
     async def get_scene_tree(max_depth: int = -1, lightweight: bool = False) -> SceneTree:
-        """Get the open scene as a recursive tree of {name, type, script, children}.
+        """Get the open scene as a recursive tree of {name, type, path, script, children}.
+
+        Each node carries an explicit scene-relative ``path`` ("." for the root,
+        e.g. "Player/Weapon" below it) — pass it verbatim to set_node_property,
+        create_node (as parent_path), attach_script, or get_node_properties; do not
+        reconstruct paths by hand.
 
         ``max_depth`` limits how many child levels are returned (-1 = unlimited,
         0 = root only); use it to avoid huge payloads on deep scenes. ``tree`` is
