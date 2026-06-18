@@ -26,25 +26,14 @@ T = TypeVar("T", bound=BaseModel)
 # ---------------------------------------------------------------------------
 # Pre-flight validation
 # ---------------------------------------------------------------------------
-
-# Cache: {command_signature -> is_valid}
-_preflight_cache: dict[str, bool] = {}
-
-MUTATION_COMMANDS: set[str] = {
-    "cmd_create_node",
-    "cmd_set_node_property",
-    "cmd_delete_node",
-    "cmd_rename_node",
-    "cmd_attach_script",
-    "cmd_connect_signal",
-    "cmd_write_script",
-    "cmd_patch_script",
-    "cmd_batch_set_property",
-    # Composite/macro mutations (issue #154) must also invalidate the cache.
-    "cmd_compose_node",
-    "cmd_batch_create_nodes",
-    "cmd_apply_node_edits",
-}
+#
+# Pre-flight does **pure-string** parameter checks only. It deliberately does NOT
+# round-trip the bridge to confirm a node/parent exists (#166): every mutating MCP
+# tool already enforces that via require_node_exists / require_active_scene
+# (mcp_server/safety.py), and the LLM eval bypasses route() entirely — so a
+# preflight existence probe was a wasted ~70ms round-trip per mutation with no
+# unique value. Likewise there is no module-level cache (the old one was global
+# mutable state that bled across sessions and self-cleared on every mutation).
 
 # Script-writing mutations; read-only cmd_read_script is excluded so it reaches
 # the addon for its own envelope.
@@ -53,52 +42,6 @@ _SCRIPT_MUTATIONS: set[str] = {
     "cmd_write_script",
     "cmd_patch_script",
 }
-
-# Returned on a cache hit for a previously-failed signature.
-_CACHED_FAILURE: dict[str, Any] = {
-    "ok": False,
-    "error": "PARAM_ERROR",
-    "hint": "Parameter validation failed (cached).",
-}
-
-
-def _invalidate_preflight_cache() -> None:
-    """Clear the pre-flight cache after any mutation."""
-    _preflight_cache.clear()
-
-
-async def _validate_node_path(
-    bridge: Bridge, command: str, params: dict[str, Any]
-) -> dict[str, Any] | None:
-    """Fail a *mutation* targeting a node that doesn't exist.
-
-    Read-only inspection commands (e.g. cmd_get_node_properties) and runtime
-    commands (e.g. cmd_monitor, cmd_assert_node_state) are skipped so the addon
-    returns its own RESOURCE_NOT_FOUND/assertion envelope — pre-empting them here
-    both masks those structured errors and (for get_node_properties) recurses on
-    itself. cmd_create_node is skipped too (the target doesn't exist yet).
-    """
-    node_path = params.get("node_path", "")
-    if not (node_path and command in MUTATION_COMMANDS and command != "cmd_create_node"):
-        return None
-    try:
-        resp = await bridge.send("cmd_get_node_properties", {"node_path": node_path})
-    except Exception:
-        return None  # Bridge error; fall through to addon validation
-    # Only a genuine "missing node" fails preflight. Other errors (e.g.
-    # PRECONDITION_FAILED for no active scene) pass through so the addon returns
-    # its own structured envelope instead of a misleading "node not found".
-    if not resp.ok and resp.error == "RESOURCE_NOT_FOUND":
-        return {
-            "ok": False,
-            "error": "PARAM_ERROR",
-            "hint": (
-                f"Node '{node_path}' not found in scene. "
-                "Use get_scene_tree to discover valid paths."
-            ),
-            "required": "node_path",
-        }
-    return None
 
 
 async def _validate_script_path(
@@ -120,30 +63,9 @@ async def _validate_script_path(
     return None
 
 
-async def _validate_parent_path(
-    bridge: Bridge, command: str, params: dict[str, Any]
-) -> dict[str, Any] | None:
-    """Fail cmd_create_node when its parent node doesn't exist."""
-    parent_path = params.get("parent_path", "")
-    if not (parent_path and command == "cmd_create_node" and parent_path not in {".", "/", ""}):
-        return None
-    try:
-        resp = await bridge.send("cmd_get_node_properties", {"node_path": parent_path})
-    except Exception:
-        return None
-    if not resp.ok:
-        return {
-            "ok": False,
-            "error": "PARAM_ERROR",
-            "hint": f"Parent '{parent_path}' not found. Use '.' for scene root.",
-            "required": "parent_path",
-        }
-    return None
-
-
 # Each validator returns a PARAM_ERROR dict on failure, else None. Property
 # names are deliberately not validated server-side — the addon has better context.
-_VALIDATORS = (_validate_node_path, _validate_script_path, _validate_parent_path)
+_VALIDATORS = (_validate_script_path,)
 
 
 async def _preflight_validate(
@@ -153,20 +75,12 @@ async def _preflight_validate(
 
     Returns {"ok": True} if validation passes or no rules apply.
     Returns {"ok": False, "error": "...", "hint": "...", "required": "..."} on the
-    first failure. Results are cached by command + sorted params.
+    first failure. Pure-string checks only — no bridge round-trips, no cache (#166).
     """
-    cache_key = f"{command}:{sorted(params.items())}"
-    cached = _preflight_cache.get(cache_key)
-    if cached is not None:
-        return {"ok": True} if cached else dict(_CACHED_FAILURE)
-
     for validate in _VALIDATORS:
         failure = await validate(bridge, command, params)
         if failure is not None:
-            _preflight_cache[cache_key] = False
             return failure
-
-    _preflight_cache[cache_key] = True
     return {"ok": True}
 
 
@@ -209,10 +123,6 @@ async def route(
         raise ToolError(detail)
 
     response = await bridge.send(command, params or {})
-
-    # Invalidate cache on mutations (scene state may have changed)
-    if command in MUTATION_COMMANDS:
-        _invalidate_preflight_cache()
 
     if not response.ok:
         detail = f"{response.error}: {response.hint}" if response.hint else str(response.error)
