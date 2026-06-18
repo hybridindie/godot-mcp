@@ -12,6 +12,7 @@ import asyncio
 from typing import Any
 
 import pytest
+from fastmcp.exceptions import ToolError
 
 from mcp_server.bridge import Bridge
 from mcp_server.config import BridgeConfig
@@ -79,6 +80,32 @@ def test_gather_reads_rejects_mutation() -> None:
         bridge = await _bridge()
         with pytest.raises(ValueError, match="read-only"):
             await gather_reads(bridge, [("cmd_set_node_property", {"node_path": "A"})])
+        await bridge.close()
+
+    asyncio.run(go())
+
+
+def test_gather_reads_propagates_read_error() -> None:
+    """A failing read surfaces its ToolError rather than being swallowed — pins the
+    documented no-return_exceptions behavior against a future refactor (#169 review)."""
+
+    def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_get_scene_tree":
+            return ResponseEnvelope.success(cmd.id, {"tree": None})
+        if cmd.command == "cmd_get_node_properties":
+            return ResponseEnvelope.failure(cmd.id, "RESOURCE_NOT_FOUND", "No node at 'Ghost'.")
+        return ping_responder(cmd)
+
+    async def go() -> None:
+        bridge = await _bridge(responder)
+        with pytest.raises(ToolError, match="RESOURCE_NOT_FOUND"):
+            await gather_reads(
+                bridge,
+                [
+                    ("cmd_get_scene_tree", {}),
+                    ("cmd_get_node_properties", {"node_path": "Ghost"}),
+                ],
+            )
         await bridge.close()
 
     asyncio.run(go())
