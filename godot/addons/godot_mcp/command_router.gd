@@ -95,6 +95,9 @@ func _init() -> void:
 	# tool drops the cmd_ prefix); see docs/architecture.md.
 	_handlers["cmd_ping"] = _cmd_ping
 	_handlers["cmd_get_project_info"] = _cmd_get_project_info
+	# Meta-command: execute a batch of sub-commands in one frame (issue #167).
+	# Lives on the router (not a domain handler) because it re-dispatches via _route.
+	_handlers["cmd_run_commands"] = _cmd_run_commands
 	# Instances are promoted to member variables so RefCounted objects survive
 	# beyond _init(); see discussion in git history.
 	_scene_inspect = MCPSceneInspectHandlers.new(self)
@@ -187,6 +190,36 @@ func _route(envelope: Dictionary) -> Dictionary:
 
 func _cmd_ping(_params: Dictionary) -> Dictionary:
 	return _ok({"pong": true})
+
+
+## Execute a batch of sub-commands in a single frame and return one response body
+## per command (issue #167). The editor drains commands serially (~one frame each),
+## so collapsing N round-trips into one is the main throughput lever for scripted
+## harnesses. Each sub-command re-enters _route, so its own handler still registers
+## UndoRedo. With stop_on_error (default true) the batch halts at the first failure.
+## The outer envelope is always ok:true (the batch ran); inspect per-command "ok".
+func _cmd_run_commands(params: Dictionary) -> Dictionary:
+	var raw: Variant = params.get("commands", [])
+	if typeof(raw) != TYPE_ARRAY:
+		return _fail("VALIDATION_ERROR", "'commands' must be an array of {command, params}.")
+	var stop_on_error := bool(params.get("stop_on_error", true))
+	var results: Array = []
+	var ok_all := true
+	for entry in (raw as Array):
+		if typeof(entry) != TYPE_DICTIONARY:
+			results.append(_fail("VALIDATION_ERROR", "Each command must be a {command, params} object."))
+			ok_all = false
+			if stop_on_error:
+				break
+			continue
+		var sub: Dictionary = _route(entry as Dictionary)
+		sub["command"] = str((entry as Dictionary).get("command", ""))
+		results.append(sub)
+		if not bool(sub.get("ok", false)):
+			ok_all = false
+			if stop_on_error:
+				break
+	return _ok({"results": results, "ok_all": ok_all, "count": results.size()})
 
 
 func _cmd_get_project_info(_params: Dictionary) -> Dictionary:

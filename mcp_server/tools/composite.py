@@ -22,15 +22,23 @@ from mcp_server.models.composite import (
     BatchCreateNodesResult,
     ComposeNodeResult,
 )
+from mcp_server.models.run_commands import RunCommandsResult
 from mcp_server.safety import (
     MUTATING,
     enforce_preconditions,
     require_active_scene,
+    require_bridge_connected,
     require_node_exists,
 )
 from mcp_server.tools._route import run_or_preview
 
 COMPOSITE = {COMPOSITE_TAG}
+
+
+def _normalize_command(command: str) -> str:
+    """Accept either the addon command (``cmd_set_node_property``) or the bare
+    tool name (``set_node_property``); the addon dispatches on the ``cmd_`` form."""
+    return command if command.startswith("cmd_") else f"cmd_{command}"
 
 
 def _child_to_addon(child: dict[str, Any]) -> dict[str, Any]:
@@ -137,4 +145,44 @@ def register_composite(mcp: FastMCP, bridge: Bridge) -> None:
         preview = {"edited": [], "skipped": [], "count": 0, "saved": False}
         return await run_or_preview(
             dry_run, ApplyNodeEditsResult, preview, bridge, "cmd_apply_node_edits", params
+        )
+
+    @mcp.tool(meta=MUTATING, tags=COMPOSITE)
+    @enforce_preconditions
+    async def run_commands(
+        commands: list[dict[str, Any]],
+        stop_on_error: bool = True,
+        dry_run: bool = False,
+    ) -> RunCommandsResult:
+        """Execute a sequence of bridge commands in ONE round-trip (the addon runs
+        them in a single editor frame). The editor drains commands serially —
+        ~one frame of latency each — so batching N independent commands here is
+        the main throughput lever for scripted harnesses.
+
+        ``commands`` is a list of ``{command, params}``; ``command`` may be the
+        bare tool name (``set_node_property``) or the addon form
+        (``cmd_set_node_property``). Each sub-mutation still wraps its own
+        UndoRedo action. Returns one envelope per command under ``results``;
+        ``ok_all`` is True only if every command succeeded. With
+        ``stop_on_error=True`` (default) the batch halts at the first failure;
+        set it False to run them all. Read-only and mutating commands may be
+        mixed, but order is preserved — do not rely on it for unordered writes.
+        """
+        require_bridge_connected(bridge)
+        normalized = [
+            {
+                "command": _normalize_command(str(c.get("command", ""))),
+                "params": c.get("params", {}),
+            }
+            for c in commands
+        ]
+        params: dict[str, Any] = {"commands": normalized, "stop_on_error": stop_on_error}
+        preview = {
+            "results": [],
+            "ok_all": True,
+            "count": len(normalized),
+            "planned": [c["command"] for c in normalized],
+        }
+        return await run_or_preview(
+            dry_run, RunCommandsResult, preview, bridge, "cmd_run_commands", params
         )

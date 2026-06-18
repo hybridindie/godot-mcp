@@ -585,6 +585,7 @@ support `dry_run`; `save=True` also saves the scene (a file write after the undo
 | `compose_node` | `parent_path, node_type, node_name, properties?, script_path?, children?, save=False, dry_run=False` | `ComposeNodeResult { node_path, created, children[], script_attached, properties_set[], saved }` | `mutating` |
 | `batch_create_nodes` | `parent_path, node_type, names[], properties?, save=False, dry_run=False` | `BatchCreateNodesResult { created[], count, saved }` | `mutating` |
 | `apply_node_edits` | `edits[] ({node_path, properties}), save=False, dry_run=False` | `ApplyNodeEditsResult { edited[], skipped[], count, saved }` | `mutating` |
+| `run_commands` | `commands[] ({command, params}), stop_on_error=True, dry_run=False` | `RunCommandsResult { results[] ({command, ok, result?, error?, hint?}), ok_all, count, planned[], dry_run }` | `mutating` |
 
 Every result model also carries `dry_run` (true on a preview), as for all `dry_run`-aware tools.
 
@@ -594,6 +595,14 @@ Every result model also carries `dry_run` (true on a preview), as for all `dry_r
 - `batch_create_nodes` creates many same-typed nodes (each with the same `properties`).
 - `apply_node_edits` sets many properties across many existing nodes; a node missing a
   property is reported under `skipped` (the rest still apply).
+- `run_commands` (issue #167) is a **generic** batch envelope: it runs an arbitrary
+  sequence of bridge commands in **one** round-trip (the addon executes them in a single
+  `_process` frame), the main throughput lever for scripted harnesses since the editor
+  drains commands serially. `command` may be the bare tool name (`set_node_property`) or
+  the addon form (`cmd_set_node_property`). Each sub-mutation still wraps its own
+  `UndoRedo` action; order is preserved. `ok_all` is true only if every sub-command
+  succeeded — the batch envelope itself is a success (it ran); inspect `results[].ok`.
+  `stop_on_error=True` (default) halts at the first failure; `False` runs them all.
 - These are game-agnostic, generic Godot operations — no game vocabulary (see the
   game-agnostic scope rule in `CLAUDE.md`).
 
