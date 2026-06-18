@@ -57,3 +57,28 @@ for the allowed set.
 > `run_commands` is one tool call (good when going through the MCP tool surface);
 > `gather_reads` is a direct-bridge helper (good for a harness that already holds a
 > `Bridge`, e.g. the eval runner). Pick whichever your call path already uses.
+
+## 3. Cache stable reads — `ReadCache` (#170)
+
+Scene structure and node-property lists don't change *between* mutations, yet harnesses
+often re-fetch them every step. `mcp_server.harness.ReadCache` memoizes read-only results
+per session and drops them on a write, so repeated identical reads cost one round-trip
+instead of many — and don't re-enter the agent's context as fresh tokens.
+
+```python
+from mcp_server.harness import ReadCache
+
+cache = ReadCache(bridge)          # one instance per session
+tree = await cache.read("cmd_get_scene_tree", {"max_depth": 2})
+tree_again = await cache.read("cmd_get_scene_tree", {"max_depth": 2})  # cache hit, no round-trip
+
+# Route mutations through write(), which invalidates the cache so no stale read survives:
+await cache.write("cmd_set_node_property", {"node_path": "Player", "property": "visible", "value": False})
+fresh = await cache.read("cmd_get_scene_tree", {"max_depth": 2})       # re-fetched
+```
+
+The cache is **per session** (one `ReadCache` per session) — unlike the old server-side
+preflight cache, which was a process-global cleared on every mutation and could bleed
+across sessions (removed in #166). If a mutation is issued *outside* the cache (not via
+`write`), call `cache.invalidate()` so the next read is fresh. `read` accepts only
+read-only commands (see `READ_ONLY_COMMANDS`); a mutation raises `ValueError`.

@@ -16,6 +16,7 @@ the editor is a single writer, so writes must stay ordered — batch those with 
 from __future__ import annotations
 
 import asyncio
+import json
 from typing import Any
 
 from mcp_server.bridge import Bridge
@@ -59,3 +60,55 @@ async def gather_reads(
                 "Mutations must stay ordered — batch them with the run_commands tool."
             )
     return list(await asyncio.gather(*(route(bridge, c, p) for c, p in reads)))
+
+
+class ReadCache:
+    """Per-session client-side cache for read-only bridge results (issue #170).
+
+    Scene structure and node-property lists are stable *between* mutations, so a
+    harness that re-reads them repeatedly wastes round-trips and re-spends tokens.
+    ``read`` memoizes a result keyed by ``(command, params)``; any mutation
+    invalidates the whole cache (call ``invalidate``, or use ``write`` which does it
+    for you). It is correctly scoped **per session** — one instance per session —
+    unlike the removed server-side global cache that bled across sessions (#166).
+
+    Runs in the client/harness process (not an MCP tool) and is not thread-safe;
+    use one instance per session, driven from a single task.
+    """
+
+    def __init__(self, bridge: Bridge) -> None:
+        self._bridge = bridge
+        self._cache: dict[str, dict[str, Any]] = {}
+
+    @staticmethod
+    def _key(command: str, params: dict[str, Any]) -> str:
+        return f"{command}:{json.dumps(params, sort_keys=True, default=str)}"
+
+    async def read(self, command: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Return a cached read result, or fetch it over the bridge and cache it.
+
+        Only read-only commands are cacheable; anything else raises ``ValueError``
+        (a mutation must not be served from a cache). The cache holds until the next
+        ``invalidate``/``write``.
+        """
+        params = params or {}
+        if command not in READ_ONLY_COMMANDS:
+            raise ValueError(
+                f"ReadCache only caches read-only commands; '{command}' is not one. "
+                "Route mutations through write() (which invalidates the cache)."
+            )
+        key = self._key(command, params)
+        if key not in self._cache:
+            self._cache[key] = await route(self._bridge, command, params)
+        return self._cache[key]
+
+    def invalidate(self) -> None:
+        """Drop all cached reads. Call after any mutating command issued elsewhere."""
+        self._cache.clear()
+
+    async def write(self, command: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Route a (mutating) command, then invalidate the cache so stale reads can't
+        survive the write. Use for any command that changes editor state."""
+        result = await route(self._bridge, command, params or {})
+        self.invalidate()
+        return result
