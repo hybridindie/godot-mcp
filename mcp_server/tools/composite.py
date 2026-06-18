@@ -14,6 +14,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import COMPOSITE_TAG
@@ -176,6 +177,13 @@ def register_composite(mcp: FastMCP, bridge: Bridge) -> None:
             }
             for c in commands
         ]
+        # Reject nesting up front: a run_commands inside run_commands would recurse
+        # the editor's dispatch and crash it (the addon rejects it too, defensively).
+        if any(c["command"] == "cmd_run_commands" for c in normalized):
+            raise ToolError(
+                "PARAM_ERROR: run_commands cannot be nested inside run_commands. "
+                "[required=commands]"
+            )
         params: dict[str, Any] = {"commands": normalized, "stop_on_error": stop_on_error}
         preview = {
             "results": [],

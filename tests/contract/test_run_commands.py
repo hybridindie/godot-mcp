@@ -149,3 +149,19 @@ async def test_run_commands_dry_run_sends_nothing() -> None:
     assert data["planned"] == ["cmd_create_node"]
     assert data["count"] == 1
     assert "cmd_run_commands" not in _commands(conn)
+
+
+async def test_run_commands_rejects_nesting() -> None:
+    # #167 review: a nested run_commands would recurse the editor dispatch and crash
+    # it. The server rejects the batch up front (either bare or cmd_ form), sending nothing.
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "composite"})
+        result = await client.call_tool(
+            "run_commands",
+            {"commands": [{"command": "run_commands", "params": {"commands": []}}]},
+            raise_on_error=False,
+        )
+    assert result.is_error
+    assert "nested" in str(result.content).lower()
+    assert "cmd_run_commands" not in _commands(conn)  # nothing sent

@@ -207,13 +207,25 @@ func _cmd_run_commands(params: Dictionary) -> Dictionary:
 	var ok_all := true
 	for entry in (raw as Array):
 		if typeof(entry) != TYPE_DICTIONARY:
-			results.append(_fail("VALIDATION_ERROR", "Each command must be a {command, params} object."))
+			# Every sub-result carries a "command" key so the server's SubCommandResult
+			# (which requires it) validates even for a malformed entry.
+			var bad := _fail("VALIDATION_ERROR", "Each command must be a {command, params} object.")
+			bad["command"] = ""
+			results.append(bad)
 			ok_all = false
 			if stop_on_error:
 				break
 			continue
-		var sub: Dictionary = _route(entry as Dictionary)
-		sub["command"] = str((entry as Dictionary).get("command", ""))
+		var entry_dict := entry as Dictionary
+		var sub_command := str(entry_dict.get("command", ""))
+		# Refuse to nest run_commands in itself: re-dispatching it would recurse
+		# _cmd_run_commands -> _route -> _cmd_run_commands and crash the editor.
+		var sub: Dictionary
+		if sub_command == "cmd_run_commands" or sub_command == "run_commands":
+			sub = _fail("VALIDATION_ERROR", "run_commands cannot be nested inside run_commands.")
+		else:
+			sub = _route(entry_dict)
+		sub["command"] = sub_command
 		results.append(sub)
 		if not bool(sub.get("ok", false)):
 			ok_all = false
