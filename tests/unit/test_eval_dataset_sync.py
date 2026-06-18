@@ -6,6 +6,7 @@ sqlite-backed and fully offline — no calls to the live MLflow server.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import mlflow
 import pytest
@@ -53,6 +54,38 @@ def test_sync_registers_dataset(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
         expected_first_tools=_EXPECTED,
     )
     assert ds is not None
+
+    from mlflow.genai.datasets import search_datasets
+
+    mlflow.set_tracking_uri(uri)
+    exp = mlflow.get_experiment_by_name("td-exp")
+    assert exp is not None
+    found = [
+        d
+        for d in search_datasets(experiment_ids=[exp.experiment_id])
+        if getattr(d, "name", "") == "godot-mcp-tool-desc"
+    ]
+    assert len(found) == 1
+
+
+def test_sync_is_idempotent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Re-running sync reuses the existing dataset rather than creating a duplicate."""
+    uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
+
+    def _sync() -> Any:
+        return sync_dataset(
+            "godot-mcp-tool-desc",
+            experiment="td-exp",
+            tracking_uri=uri,
+            task_prompts=_PROMPTS,
+            expected_first_tools=_EXPECTED,
+        )
+
+    first = _sync()
+    second = _sync()
+    assert first is not None and second is not None
+    # The second run resolved the existing dataset, not a freshly created one.
+    assert second.dataset_id == first.dataset_id
 
     from mlflow.genai.datasets import search_datasets
 
