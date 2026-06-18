@@ -12,17 +12,20 @@ const Coerce := preload("res://addons/godot_mcp/type_coerce.gd")
 
 ## Recursive { name, type, script, children } for a subtree.
 ## max_depth < 0 is unlimited; max_depth == 0 returns the node with no children.
-static func serialize_tree(node: Node, max_depth: int = -1) -> Dictionary:
+## lightweight (#168) drops the `script` field (skips the per-node get_script call)
+## for a smaller discovery payload — { name, type, children } only.
+static func serialize_tree(node: Node, max_depth: int = -1, lightweight: bool = false) -> Dictionary:
 	var data: Dictionary = {
 		"name": String(node.name),
 		"type": node.get_class(),
-		"script": script_path(node),
 	}
+	if not lightweight:
+		data["script"] = script_path(node)
 	var children: Array = []
 	if max_depth != 0:
 		var child_depth: int = (max_depth - 1) if max_depth > 0 else -1
 		for child in node.get_children():
-			children.append(serialize_tree(child, child_depth))
+			children.append(serialize_tree(child, child_depth, lightweight))
 	data["children"] = children
 	return data
 

@@ -37,7 +37,8 @@ func _cmd_get_scene_tree(params: Dictionary) -> Dictionary:
 	if root == null:
 		return _router._ok({"tree": null})
 	var max_depth := int(params.get("max_depth", -1))
-	return _router._ok({"tree": Inspect.serialize_tree(root, max_depth)})
+	var lightweight := bool(params.get("lightweight", false))
+	return _router._ok({"tree": Inspect.serialize_tree(root, max_depth, lightweight)})
 
 
 func _cmd_get_selected_node(_params: Dictionary) -> Dictionary:

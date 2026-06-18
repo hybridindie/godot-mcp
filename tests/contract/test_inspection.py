@@ -114,6 +114,23 @@ async def test_get_scene_tree_passes_max_depth() -> None:
     assert conn.last_command().params["max_depth"] == 2
 
 
+async def test_get_scene_tree_lightweight_passes_flag() -> None:
+    # #168: lightweight=True forwards to the addon so it can skip script serialization.
+    conn = FakeAddonConnection(responder=_populated)
+    async with Client(_build(conn)) as client:
+        result = await client.call_tool("get_scene_tree", {"lightweight": True})
+    assert result.structured_content["tree"]["name"] == "Main"
+    assert conn.last_command().params["lightweight"] is True
+
+
+async def test_get_scene_tree_defaults_to_full() -> None:
+    # Default stays full (lightweight=False) for back-compat.
+    conn = FakeAddonConnection(responder=_populated)
+    async with Client(_build(conn)) as client:
+        await client.call_tool("get_scene_tree", {})
+    assert conn.last_command().params["lightweight"] is False
+
+
 async def test_get_selected_node() -> None:
     async with Client(_build(FakeAddonConnection(responder=_populated))) as client:
         result = await client.call_tool("get_selected_node", {})

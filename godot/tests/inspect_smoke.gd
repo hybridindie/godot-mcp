@@ -108,6 +108,15 @@ func _test_serialize_tree(failures: Array[String]) -> void:
 	_eq(failures, "depth1.child", shallow_children[0].get("name"), "Sprite")
 	_eq(failures, "depth1.truncated", shallow_children[0].get("children"), [])
 
+	# lightweight=true ⇒ {name, type, children} only, no script serialization (#168).
+	var light: Dictionary = Inspect.serialize_tree(world, -1, true)
+	_eq(failures, "light.name", light.get("name"), "World")
+	_eq(failures, "light.type", light.get("type"), "Node2D")
+	_eq(failures, "light.no_script", light.has("script"), false)
+	var light_children: Array = light.get("children")
+	_eq(failures, "light.child", light_children[0].get("name"), "Sprite")
+	_eq(failures, "light.child_no_script", light_children[0].has("script"), false)
+
 	# Output must be JSON-safe (stringify must not error).
 	if JSON.stringify(full) == "":
 		failures.append("serialized tree is not JSON-safe")
