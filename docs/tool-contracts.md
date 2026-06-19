@@ -852,12 +852,28 @@ result. The `rect` pairs with `simulate_mouse` to click located UI.
 
 | Tool | Params | Returns | Notes |
 |------|--------|---------|-------|
-| `get_server_info` | — | `ServerDiagnostics { server, version, transport, toolsets[], prompts[], resources[], bridge{}, active_scene?, common_errors[], next_steps[] }` | capability snapshot — call first |
+| `get_server_info` | — | `ServerDiagnostics { server, version, contract_version, min_compatible_contract, transport, toolsets[], prompts[], resources[], bridge{}, active_scene?, common_errors[], next_steps[] }` | capability snapshot — call first |
 | `debug_workflow` | `scene="", timeout_seconds=5.0` | `DebugWorkflowResult { bridge{}, scene_tree?, run?, parse{ok, errors[], skipped_reason}, findings[], suggestions[] }` | one-call comprehensive check |
 
 `get_server_info` returns the full server surface so an agent can discover everything in one call: toolset summaries with counts, registered prompt names, resource URIs, bridge state, active scene, common errors with fixes, and suggested next steps.
 
 `debug_workflow` aggregates multiple read-only checks — parse errors across all `.gd` files, active scene tree, headless run capture, and bridge state — into a unified report with actionable findings and suggestions.
+
+#### Contract / compatibility versioning (issue #196)
+
+`get_server_info` carries two integers — `contract_version` and `min_compatible_contract` — that let a consuming client (e.g. [godot-agents](https://github.com/hybridindie/godot-agents)) negotiate compatibility against the **tool/envelope contract**, independent of the model layer.
+
+- **`version`** is CalVer (`YYYY.MM.DD[-N]`) — the *build*. It moves on every release, including additive and internal changes, so it cannot tell a client whether a change was breaking.
+- **`contract_version`** is a monotonic integer — the *contract*. It is bumped **only on a breaking change** to the surface clients depend on: a removed or renamed tool, a changed/removed required parameter, a changed result-model field, or a bridge-envelope shape change. **Additive, backward-compatible changes do not bump it** (new tools, new toolsets, new *optional* fields, new error codes).
+- **`min_compatible_contract`** is the oldest client contract this server still serves.
+
+A client carries the `contract_version` it was built against and is compatible when:
+
+```
+min_compatible_contract  ≤  client_contract  ≤  contract_version
+```
+
+Below the floor, the client is too new for an old server (it may rely on contract behavior the server lacks); above the ceiling cannot occur for a faithful client. CalVer remains a usable coarse signal (and is what godot-agents pins today), but `contract_version` is the stable thing to gate on as the surface evolves. Bumping `CONTRACT_VERSION` (in `mcp_server/__init__.py`) is a deliberate, documented act — record the breaking change in the PR and, when the floor moves, `MIN_COMPATIBLE_CONTRACT` too.
 
 #### Safety introspection (issue #14) — `read_only`
 

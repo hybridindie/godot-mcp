@@ -12,7 +12,7 @@ from __future__ import annotations
 from fastmcp import FastMCP
 from pydantic import BaseModel
 
-from mcp_server import __version__
+from mcp_server import CONTRACT_VERSION, MIN_COMPATIBLE_CONTRACT, __version__
 from mcp_server.bridge import Bridge
 from mcp_server.categories import CORE_TAG
 from mcp_server.config import ServerConfig
@@ -50,6 +50,11 @@ class ServerDiagnostics(BaseModel):
 
     server: str
     version: str
+    # Contract/compat negotiation surface (#196), distinct from the CalVer
+    # `version`. A client is compatible when
+    # ``min_compatible_contract <= client_contract <= contract_version``.
+    contract_version: int
+    min_compatible_contract: int
     transport: str
     toolsets: list[ToolsetSummary]
     prompts: list[str]
@@ -251,6 +256,8 @@ def register_diagnostics(
         return ServerDiagnostics(
             server="godot-mcp",
             version=__version__,
+            contract_version=CONTRACT_VERSION,
+            min_compatible_contract=MIN_COMPATIBLE_CONTRACT,
             transport=config.transport,
             toolsets=_build_toolset_summaries(mcp, manager),
             prompts=_list_prompts(mcp),

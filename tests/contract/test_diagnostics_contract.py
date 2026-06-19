@@ -73,3 +73,25 @@ def test_diagnostics_contains_next_steps(server: FastMCP) -> None:
     """The response suggests next actions based on bridge/scene state."""
     result_text = asyncio.run(_call_tool(server, "get_server_info"))
     assert "next_steps" in result_text
+
+
+def test_diagnostics_exposes_contract_version(server: FastMCP) -> None:
+    """The response carries a machine-readable contract/compat surface (#196).
+
+    A monotonic integer contract version distinct from the CalVer build version,
+    plus the oldest client contract the server still serves, so clients can
+    negotiate against contract drift rather than guessing from CalVer.
+    """
+    import json
+
+    from mcp_server import CONTRACT_VERSION, MIN_COMPATIBLE_CONTRACT
+
+    result_text = asyncio.run(_call_tool(server, "get_server_info"))
+    payload = json.loads(result_text)
+
+    assert payload["contract_version"] == CONTRACT_VERSION
+    assert payload["min_compatible_contract"] == MIN_COMPATIBLE_CONTRACT
+    # Negotiation range is well-formed and distinct from the CalVer build version.
+    assert isinstance(payload["contract_version"], int)
+    assert payload["min_compatible_contract"] <= payload["contract_version"]
+    assert payload["contract_version"] >= 1
