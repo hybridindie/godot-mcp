@@ -35,6 +35,10 @@ from evals.cloud_client import CloudAgent  # noqa: E402
 from evals.mlflow_tracker import EvalTracker  # noqa: E402
 from evals.ollama_agent import OllamaAgent  # noqa: E402
 from evals.profiler import ToolProfiler  # noqa: E402
+from evals.representativeness import (  # noqa: E402
+    REPRESENTATIVENESS_BANNER,
+    representativeness_params,
+)
 from evals.variants import VARIANTS, apply_variant  # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -1624,8 +1628,9 @@ def log_results(
     variant: str = "expanded-v2",
     model: str = "qwen3-coder:30b",
     provider: str = "ollama",
+    tracker: EvalTracker | None = None,
 ) -> None:
-    tracker = EvalTracker()
+    tracker = tracker or EvalTracker()
     git_sha = get_git_sha()
 
     tracker.start_run(
@@ -1638,6 +1643,13 @@ def log_results(
     tracker.log_param("git_sha", git_sha)
     tracker.log_param("variant", variant)
     tracker.log_param("task_count", len(results))
+
+    # Label this run addon-direct / non-representative: the eval agents send
+    # cmd_* straight to the addon bridge, bypassing the server's safety layer,
+    # so results don't reflect a server-mediated client (#197).
+    for key, value in representativeness_params().items():
+        tracker.log_param(key, value)
+    print(REPRESENTATIVENESS_BANNER)
 
     if results:
         mean_score = sum(r.score.overall for r in results) / len(results)
