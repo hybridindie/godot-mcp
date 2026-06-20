@@ -31,6 +31,13 @@ from mcp_server.tools._route import route, run_or_preview
 SCRIPTS = {SCRIPTS_TAG}
 
 
+async def _script_exists(bridge: Bridge, script_path: str) -> bool:
+    """Read-only existence probe for a script (for write_script's dry_run overwrite
+    signal). Reads the file; a successful read means it exists (#205)."""
+    response = await bridge.send("cmd_read_script", {"script_path": script_path})
+    return bool(response.ok)
+
+
 def register_scripts(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner: Runner) -> None:
     """Register the script read/patch tools."""
 
@@ -57,13 +64,17 @@ def register_scripts(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
         script_path: str, content: str, dry_run: bool = False
     ) -> WriteScriptResult:
         """Create or overwrite the GDScript at ``script_path`` with ``content``.
-        Reversible via the editor's undo. ``dry_run=True`` writes nothing.
+        Reversible via the editor's undo. ``dry_run=True`` writes nothing and reports
+        ``would_overwrite`` so the agent knows whether it is about to replace an
+        existing script.
         """
         params = {"script_path": script_path, "content": content}
-        preview = {"script_path": script_path, "created": False}
-        return await run_or_preview(
-            dry_run, WriteScriptResult, preview, bridge, "cmd_write_script", params
-        )
+        if dry_run:
+            exists = await _script_exists(bridge, script_path)
+            return WriteScriptResult(
+                script_path=script_path, created=not exists, would_overwrite=exists, dry_run=True
+            )
+        return WriteScriptResult(**await route(bridge, "cmd_write_script", params))
 
     @mcp.tool(meta=MUTATING, tags=SCRIPTS)
     async def patch_script(

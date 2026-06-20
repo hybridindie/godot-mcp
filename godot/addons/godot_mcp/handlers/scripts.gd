@@ -80,8 +80,10 @@ func _cmd_get_script_for_node(params: Dictionary) -> Dictionary:
 
 func _cmd_write_script(params: Dictionary) -> Dictionary:
 	var path := str(params.get("script_path", ""))
-	if not path.ends_with(".gd"):
-		return _router._fail("VALIDATION_ERROR", "script_path must end with .gd.")
+	# Require a res:// .gd path (parity with the shader handler). Containment
+	# against res:// escape is enforced server-side; this is defense-in-depth.
+	if not path.begins_with("res://") or not path.ends_with(".gd"):
+		return _router._fail("VALIDATION_ERROR", "script_path must be a res:// .gd file.")
 	var content := str(params.get("content", ""))
 	var existed := FileAccess.file_exists(path)
 	var old := FileAccess.get_file_as_string(path) if existed else ""
@@ -91,9 +93,11 @@ func _cmd_write_script(params: Dictionary) -> Dictionary:
 	if existed:
 		ur.add_undo_method(_router, "_write_file_text", path, old)
 	else:
-		ur.add_undo_method(_router, "_remove_file", path)
+		# Undo a freshly-created script: remove the file and its Godot 4.4+ .uid
+		# sidecar so nothing is left orphaned (parity with the shader handler).
+		ur.add_undo_method(_router, "_remove_file_with_uid", path)
 	ur.commit_action()
-	return _router._ok({"script_path": path, "created": not existed})
+	return _router._ok({"script_path": path, "created": not existed, "would_overwrite": existed})
 
 
 

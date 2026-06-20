@@ -24,6 +24,10 @@ class NodeScript(BaseModel):
 class WriteScriptResult(BaseModel):
     script_path: str
     created: bool = False
+    # True when the write replaced an existing script (so the agent isn't blind to
+    # clobbering hand-written code). In dry_run this is determined by an existence
+    # probe; the change stays reversible via the editor's undo (#205).
+    would_overwrite: bool = False
     dry_run: bool = False
 
 

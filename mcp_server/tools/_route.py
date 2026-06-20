@@ -11,6 +11,7 @@ the calling tool is decorated with ``@enforce_preconditions`` (read-only tools a
 from __future__ import annotations
 
 import asyncio
+import posixpath
 from typing import Any, TypeVar
 
 from fastmcp.exceptions import ToolError
@@ -44,20 +45,40 @@ _SCRIPT_MUTATIONS: set[str] = {
 }
 
 
+def _escapes_res_root(script_path: str) -> bool:
+    """True when a ``res://`` path escapes the project root (path traversal).
+
+    Strips the scheme and normalizes: a result that climbs above root (``..``) or
+    is absolute (``res:///etc/...``) escapes. ``res://a/../b.gd`` stays inside and
+    is fine. Containment is enforced here (the safety layer), not in the addon.
+    """
+    norm = posixpath.normpath(script_path[len("res://") :])
+    return norm == ".." or norm.startswith("../") or posixpath.isabs(norm)
+
+
 async def _validate_script_path(
     bridge: Bridge, command: str, params: dict[str, Any]
 ) -> dict[str, Any] | None:
-    """Fail a script mutation whose path isn't a ``res://`` path.
+    """Fail a script mutation whose path isn't a contained ``res://`` path.
 
     File existence isn't reliably checkable server-side (project root may differ);
     the addon returns its own RESOURCE_NOT_FOUND if the file is missing.
     """
     script_path = params.get("script_path", "")
-    if script_path and command in _SCRIPT_MUTATIONS and not script_path.startswith("res://"):
+    if not (script_path and command in _SCRIPT_MUTATIONS):
+        return None
+    if not script_path.startswith("res://"):
         return {
             "ok": False,
             "error": "PARAM_ERROR",
             "hint": f"script_path must start with 'res://'. Got: '{script_path}'",
+            "required": "script_path",
+        }
+    if _escapes_res_root(script_path):
+        return {
+            "ok": False,
+            "error": "PARAM_ERROR",
+            "hint": f"script_path escapes the project root (res://). Got: '{script_path}'",
             "required": "script_path",
         }
     return None

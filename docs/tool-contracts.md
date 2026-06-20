@@ -248,12 +248,19 @@ writes, and writes register `UndoRedo`). `get_parse_errors` shells out to
 | `read_script` | `script_path` | `ScriptContent { script_path, content }` | `read_only` |
 | `list_scripts` | `directory = "res://"` | `ScriptList { directory, scripts[] }` (recursive) | `read_only` |
 | `get_script_for_node` | `node_path = ""` (else selected) | `NodeScript { node_path, script_path?, content? }` | `read_only` |
-| `write_script` | `script_path, content, dry_run=False` | `WriteScriptResult { script_path, created, dry_run }` | `mutating` |
+| `write_script` | `script_path, content, dry_run=False` | `WriteScriptResult { script_path, created, would_overwrite, dry_run }` | `mutating` |
 | `patch_script` | `script_path, find, replace, dry_run=False` | `PatchScriptResult { script_path, replacements, dry_run }` | `mutating` |
 | `get_parse_errors` | `script_path` | `ParseCheckResult { script_path, ok, errors: [ParseError{message, source?, line?}] }` | `read_only` |
 
 Non-`.gd` paths, missing files, and a `find` string that isn't present return structured
-errors. `write_script`/`patch_script` are reversible via the editor's undo.
+errors. A `script_path` that isn't a `res://` path **or that escapes the project root**
+(`res://../…`, `res:///abs`) is rejected with `PARAM_ERROR` before reaching the addon
+(path-traversal containment, server-side). `write_script` reports `would_overwrite` (in
+`dry_run`, determined by a read-only existence probe) so the agent isn't blind to
+replacing hand-written code; it stays `mutating` because the change is reversible via the
+editor's undo (the prior content is restored, and undoing a *created* script also removes
+its `.uid` sidecar). The agent composes `get_parse_errors` to validate after a write —
+`write_script` does not auto-validate.
 
 #### Resource files & autoloads (issue #34) — category: `resources_edit` (gated off by default)
 

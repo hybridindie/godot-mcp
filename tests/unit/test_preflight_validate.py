@@ -60,6 +60,24 @@ def test_preflight_rejects_bad_script_path() -> None:
     asyncio.run(go())
 
 
+def test_script_path_rejects_res_root_escape() -> None:
+    """A res:// path that escapes the project root via `..` is rejected (#205)."""
+
+    async def go() -> None:
+        bridge = await _bridge()
+        for bad in ("res://../../etc/foo.gd", "res://..", "res://a/../../b.gd", "res:///etc/x.gd"):
+            fail = await _validate_script_path(bridge, "cmd_write_script", {"script_path": bad})
+            assert fail is not None and fail["required"] == "script_path", bad
+        # A normal path that uses `..` but stays inside the project is fine.
+        ok = await _validate_script_path(
+            bridge, "cmd_write_script", {"script_path": "res://a/b/../c.gd"}
+        )
+        assert ok is None
+        await bridge.close()
+
+    asyncio.run(go())
+
+
 def test_preflight_does_not_round_trip_node_existence() -> None:
     """#166: a mutation targeting a node must NOT round-trip cmd_get_node_properties
     in preflight — require_node_exists in the tool layer owns existence checks."""

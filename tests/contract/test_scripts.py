@@ -5,6 +5,7 @@ In-memory client + fake addon peer + injected fake runner (for parse checks).
 
 from __future__ import annotations
 
+import pytest
 from fastmcp import Client, FastMCP
 
 from mcp_server.bridge import Bridge
@@ -120,13 +121,37 @@ async def test_write_script_safety_and_dry_run() -> None:
         await client.call_tool("enable_toolset", {"category": "scripts"})
         tool = next(t for t in await client.list_tools() if t.name == "write_script")
         assert tool.meta is not None and tool.meta.get("safety_class") == "mutating"
+        # Existing target (the fake reads it back) -> would_overwrite, not created.
         dry = await client.call_tool(
             "write_script",
             {"script_path": "res://x.gd", "content": "extends Node", "dry_run": True},
         )
+        # Missing target -> not an overwrite; would be created.
+        dry_new = await client.call_tool(
+            "write_script",
+            {"script_path": "res://missing.gd", "content": "extends Node", "dry_run": True},
+        )
     assert dry.structured_content["dry_run"] is True
+    assert dry.structured_content["would_overwrite"] is True
+    assert dry.structured_content["created"] is False
+    assert dry_new.structured_content["would_overwrite"] is False
+    assert dry_new.structured_content["created"] is True
     sent = [CommandEnvelope.model_validate_json(s).command for s in conn.sent]
     assert "cmd_write_script" not in sent  # dry-run writes nothing
+
+
+async def test_write_script_rejects_res_root_escape() -> None:
+    from fastmcp.exceptions import ToolError
+
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "scripts"})
+        with pytest.raises(ToolError):
+            await client.call_tool(
+                "write_script", {"script_path": "res://../../etc/x.gd", "content": "x"}
+            )
+    sent = [CommandEnvelope.model_validate_json(s).command for s in conn.sent]
+    assert "cmd_write_script" not in sent  # rejected before reaching the addon
 
 
 async def test_patch_script_routes() -> None:
