@@ -433,9 +433,9 @@ def test_plugin_declares_minimum_godot_version() -> None:
     assert "MIN_GODOT_MAJOR := 4" in entry and "MIN_GODOT_MINOR := 4" in entry
     assert "_warn_if_unsupported_version" in entry
     assert "Engine.get_version_info()" in entry
-    # The example project itself targets 4.6 (last opened/saved on it); the addon's
-    # support floor above stays 4.4+. The feature string flags older editor opens.
-    assert '"4.6"' in PROJECT_GODOT.read_text()
+    # The example project itself targets 4.7 (validated on 4.7-stable, #200); the
+    # addon's support floor above stays 4.4+. The feature string flags older editor opens.
+    assert '"4.7"' in PROJECT_GODOT.read_text()
 
 
 def test_mutations_use_undo_redo() -> None:
