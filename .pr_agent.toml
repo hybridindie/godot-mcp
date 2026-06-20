@@ -10,16 +10,15 @@
 # the fast/cheap qwen3-coder:30b as fallback — if the kimi tag is wrong the
 # primary just fails over to :30b, so reviews never hard-break.
 # Tags must match the cluster/cloud's working litellm "ollama/" strings.
-model = "ollama/kimi-k27-code:cloud"         # primary (A/B trial — larger, coding-focused)
-fallback_models = ["ollama/qwen3-coder:30b"] # fast/cheap fallback (also the safety net)
-model_reasoning = "ollama/qwen3-coder:30b"   # self-reflection kept on the fast model (cost/latency)
-model_weak = "ollama/gemma4:12b"             # cheap model for easy subtasks
+model = "openai/kimi-k2.7-code-cloud"         # primary (A/B trial — larger, coding-focused)
+fallback_models = ["openai/qwen3-coder-next-local", "openai/qwen3-coder-30b-local"] # fast/cheap fallback (also the safety net)
+model_reasoning = "openai/qwen3-coder:30b"   # self-reflection kept on the fast model (cost/latency)
+model_weak = "openai/gemma4-12b-local"             # cheap model for easy subtasks
 
 [pr_reviewer]
 # The diff-only "ticket compliance analysis" mis-fired (marked implemented
 # criteria non-compliant), so disable just that section.
-require_ticket_analysis_review = false
-num_max_findings = 3
+num_max_findings = 5
 extra_instructions = """
 godot-mcp is a game-agnostic Godot MCP server.
 
