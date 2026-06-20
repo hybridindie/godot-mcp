@@ -206,7 +206,7 @@ def create_server(
     register_import_asset(mcp, bridge)
     register_input_sim(mcp, bridge)
     register_input_map(mcp, bridge, approval)
-    register_testing(mcp, bridge)
+    register_testing(mcp, bridge, config, runner)
     register_profiling(mcp, bridge)
     register_batch(mcp, bridge)
     register_composite(mcp, bridge)

@@ -26,6 +26,8 @@ DEFAULT_PROBE_POLL_INTERVAL_SECONDS: float = 0.2
 # -- Testing -------------------------------------------------------------------
 DEFAULT_TEST_SETUP_MS: int = 800
 DEFAULT_TEST_SETTLE_MS: int = 300
+# A whole headless test-suite run needs a longer budget than a single scene run.
+DEFAULT_TEST_RUN_TIMEOUT_SECONDS: float = 120.0
 DEFAULT_STRESS_ITERATIONS: int = 100
 DEFAULT_STRESS_DELAY_MS: int = 8
 DEFAULT_STRESS_MAX_WAIT_SECONDS: float = 10.0

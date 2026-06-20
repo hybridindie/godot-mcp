@@ -814,10 +814,13 @@ screenshot diff are `read_only`.
 
 | Tool | Params | Returns |
 |------|--------|---------|
+| `run_tests` | `test_dir="res://test", timeout_seconds=120.0` | `RunTestsResult { ran, framework, framework_absent, passed, failed, total, failures[{test, file, line, message}], timed_out, exit_code, raw_summary }` |
 | `assert_node_state` | `node_path, property, expected, op="==", timeout_ms=1500` | `AssertionResult { …, actual, passed, error }` |
 | `run_test_scenario` | `scene="", events[], assertions[], setup_ms=800, settle_ms=300, stop_after=True` | `ScenarioResult { passed, played, connected, assertions[] }` |
 | `run_stress_test` | `iterations=100, actions[], seed=0, delay_ms=8` | `StressTestResult { survived, iterations, playing_after, seed }` |
 | `compare_screenshots` | `image_a, image_b (base64 PNG), tolerance=0.0` | `ScreenshotDiffResult { same_size, diff_pixels, diff_ratio, mean_abs_diff, match }` |
+
+`run_tests` runs the project's GDScript test suite ([GUT](https://github.com/bitwes/Gut)) headlessly (`godot --headless -s res://addons/gut/gut_cmdln.gd -gdir=<test_dir> -gexit`) and returns structured pass/fail with best-effort per-failure detail — the same out-of-process pattern as `get_parse_errors`. It is a **neutral capability** (execute + report); it encodes no test-first/TDD workflow — the agent composes it. When GUT is not installed (no `res://addons/gut/`), it returns `framework_absent=true` (a normal outcome, not an error) without launching Godot, so the caller can fall back. `runtime` safety class (it executes project code). Counts/overall are reliable; the `failures[]` detail (test name/file/line) is scraped best-effort and may vary by GUT version.
 
 `assert_node_state` reads a live property (one sample via the runtime probe) and compares
 with `op` (==, !=, <, <=, >, >=, contains, approx). `run_test_scenario` plays a scene,

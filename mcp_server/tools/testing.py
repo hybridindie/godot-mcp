@@ -9,6 +9,7 @@ and diff screenshots. Gated `testing` toolset. Scenario/stress control the run
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from typing import Any
 
 from fastmcp import FastMCP
@@ -16,6 +17,7 @@ from fastmcp.exceptions import ToolError
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import TESTING_TAG
+from mcp_server.config import ServerConfig
 from mcp_server.defaults import (
     DEFAULT_ASSERT_NODE_TIMEOUT_MS,
     DEFAULT_PROBE_POLL_INTERVAL_SECONDS,
@@ -24,17 +26,21 @@ from mcp_server.defaults import (
     DEFAULT_STRESS_ITERATIONS,
     DEFAULT_STRESS_MAX_ITERATIONS,
     DEFAULT_STRESS_MAX_WAIT_SECONDS,
+    DEFAULT_TEST_RUN_TIMEOUT_SECONDS,
     DEFAULT_TEST_SETTLE_MS,
     DEFAULT_TEST_SETUP_MS,
 )
+from mcp_server.gut_parse import parse_gut_results
 from mcp_server.models.testing import (
     AssertionResult,
+    RunTestsResult,
     ScenarioResult,
     ScreenshotDiffResult,
     StressTestResult,
 )
 from mcp_server.qa import ImageCompareError, compare_images, evaluate_assertion, random_input_events
-from mcp_server.safety import READ_ONLY, RUNTIME
+from mcp_server.runtime import Runner, resolve_project_dir
+from mcp_server.safety import READ_ONLY, RUNTIME, PreconditionError
 from mcp_server.tools._route import poll_ready, route
 
 TESTING = {TESTING_TAG}
@@ -90,8 +96,47 @@ async def _wait_connected(bridge: Bridge, timeout_ms: int) -> bool:
     return False
 
 
-def register_testing(mcp: FastMCP, bridge: Bridge) -> None:
+def _gut_present(project_dir: str) -> bool:
+    """True when the project has GUT installed (its command-line runner exists)."""
+    return (Path(project_dir) / "addons" / "gut" / "gut_cmdln.gd").is_file()
+
+
+def register_testing(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner: Runner) -> None:
     """Register the testing / QA tools."""
+
+    @mcp.tool(meta=RUNTIME, tags=TESTING)
+    async def run_tests(
+        test_dir: str = "res://test",
+        timeout_seconds: float = DEFAULT_TEST_RUN_TIMEOUT_SECONDS,
+    ) -> RunTestsResult:
+        """Run the project's GDScript test suite (GUT) headlessly and return a
+        structured result: ``passed``/``failed``/``total``, per-failure detail, and
+        the raw summary. A neutral capability — it executes tests and reports; it
+        does not decide a workflow. ``test_dir`` is the GUT test directory.
+
+        Returns ``framework_absent=true`` (not an error) when GUT is not installed
+        (no ``res://addons/gut/``), so the caller can fall back.
+
+        WHEN TO USE: verify behavior against the project's existing tests.
+        WHEN NOT TO USE: there is no test suite — write one first, or use
+        run_and_capture / get_parse_errors for a smoke/parse check.
+        """
+        if runner.binary is None:
+            raise PreconditionError(
+                "Godot binary not found. Set GODOT_MCP_GODOT_BIN to your Godot executable.",
+                required="godot_bin",
+            )
+        project_dir = await resolve_project_dir(bridge, config)
+        if not _gut_present(project_dir):
+            return RunTestsResult(ran=False, framework="gut", framework_absent=True)
+        output = await runner.run_tests(project_dir, test_dir, timeout=float(timeout_seconds))
+        if output.timed_out:
+            return RunTestsResult(
+                ran=True, framework="gut", timed_out=True, raw_summary=output.stdout.strip()[-2000:]
+            )
+        result = parse_gut_results(output.stdout)
+        result.exit_code = output.exit_code
+        return result
 
     @mcp.tool(meta=READ_ONLY, tags=TESTING)
     async def assert_node_state(

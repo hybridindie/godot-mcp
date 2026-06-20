@@ -47,6 +47,9 @@ class FakeRunner:
         self.exports.append((project_dir, preset, output_path, debug))
         return self._output
 
+    async def run_tests(self, project_dir: str, test_dir: str, timeout: float) -> RunOutput:
+        return self._output
+
 
 def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
     match cmd.command:
