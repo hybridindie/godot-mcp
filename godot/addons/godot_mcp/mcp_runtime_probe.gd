@@ -137,6 +137,9 @@ func _inject_key(d: Dictionary) -> void:
 	event.ctrl_pressed = bool(d.get("ctrl", false))
 	event.alt_pressed = bool(d.get("alt", false))
 	event.meta_pressed = bool(d.get("meta", false))
+	# device left at default 0. Verified on Godot 4.7 (GH-116274 made real keyboard
+	# events device=16 / mouse=32) that injected events still reach _input/
+	# _unhandled_input and update InputMap action state — tests/input_inject_smoke.gd.
 	Input.parse_input_event(event)
 	_ack()
 
@@ -144,6 +147,8 @@ func _inject_key(d: Dictionary) -> void:
 func _inject_mouse(d: Dictionary) -> void:
 	var position := Vector2(float(d.get("x", 0.0)), float(d.get("y", 0.0)))
 	var button_name := str(d.get("button", ""))
+	# device left at default 0 on the synthesized events below — injection verified
+	# on Godot 4.7 (GH-116274), see the _inject_key note and input_inject_smoke.gd.
 	if button_name.is_empty():
 		var motion := InputEventMouseMotion.new()
 		motion.position = position
