@@ -124,6 +124,23 @@ async def run_or_preview(
     return result_cls(**await route(bridge, command, params or {}))
 
 
+async def validate_or_raise(
+    bridge: Bridge, command: str, params: dict[str, Any] | None = None
+) -> None:
+    """Run pre-flight validation; raise a structured ``ToolError`` on failure.
+
+    Exposed so callers that *don't* go through ``route`` (e.g. ``write_script``'s
+    dry-run existence probe) still enforce the same param checks — a dry-run must
+    not be a containment bypass (#205).
+    """
+    validation = await _preflight_validate(bridge, command, params or {})
+    if not validation.get("ok"):
+        detail = f"{validation['error']}: {validation['hint']}"
+        if validation.get("required"):
+            detail = f"{detail} [required={validation['required']}]"
+        raise ToolError(detail)
+
+
 async def route(
     bridge: Bridge, command: str, params: dict[str, Any] | None = None
 ) -> dict[str, Any]:
@@ -135,13 +152,7 @@ async def route(
     shape ``PreconditionError.as_tool_error()`` produces — so a precondition surfaced
     by the addon is actionable even from an undecorated read-only tool.
     """
-    # Pre-flight validation
-    validation = await _preflight_validate(bridge, command, params or {})
-    if not validation.get("ok"):
-        detail = f"{validation['error']}: {validation['hint']}"
-        if validation.get("required"):
-            detail = f"{detail} [required={validation['required']}]"
-        raise ToolError(detail)
+    await validate_or_raise(bridge, command, params)
 
     response = await bridge.send(command, params or {})
 

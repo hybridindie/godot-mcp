@@ -26,7 +26,7 @@ from mcp_server.models.scripts import (
 from mcp_server.runtime import Runner, resolve_project_dir
 from mcp_server.safety import MUTATING, READ_ONLY, PreconditionError, enforce_preconditions
 from mcp_server.scripts_parse import parse_check_errors
-from mcp_server.tools._route import route, run_or_preview
+from mcp_server.tools._route import route, run_or_preview, validate_or_raise
 
 SCRIPTS = {SCRIPTS_TAG}
 
@@ -70,6 +70,9 @@ def register_scripts(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
         """
         params = {"script_path": script_path, "content": content}
         if dry_run:
+            # Validate the path BEFORE probing — a dry-run must not bypass the
+            # res:// containment check and read a file outside the project (#205).
+            await validate_or_raise(bridge, "cmd_write_script", params)
             exists = await _script_exists(bridge, script_path)
             return WriteScriptResult(
                 script_path=script_path, created=not exists, would_overwrite=exists, dry_run=True

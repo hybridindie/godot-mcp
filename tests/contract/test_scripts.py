@@ -154,6 +154,37 @@ async def test_write_script_rejects_res_root_escape() -> None:
     assert "cmd_write_script" not in sent  # rejected before reaching the addon
 
 
+async def test_write_script_dry_run_does_not_bypass_containment() -> None:
+    # A dry-run must validate the path BEFORE probing existence, so an escaped path
+    # can't read a file outside the project via cmd_read_script (Qodo #209).
+    from fastmcp.exceptions import ToolError
+
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "scripts"})
+        with pytest.raises(ToolError):
+            await client.call_tool(
+                "write_script",
+                {"script_path": "res://../../etc/passwd", "content": "x", "dry_run": True},
+            )
+    sent = [CommandEnvelope.model_validate_json(s).command for s in conn.sent]
+    assert "cmd_read_script" not in sent  # probe never fired for the escaped path
+
+
+def test_write_script_create_undo_removes_uid_sidecar() -> None:
+    # Undoing a freshly-created script must clean its .uid sidecar — pin the wiring
+    # so it can't silently regress to _remove_file (Qodo #209). The handler needs
+    # EditorInterface/UndoRedo, so the actual undo isn't exercisable headless; this
+    # asserts the create-undo branch wires the uid-aware remover.
+    from pathlib import Path
+
+    src = Path(__file__).resolve().parents[2] / "godot/addons/godot_mcp/handlers/scripts.gd"
+    func = src.read_text(encoding="utf-8").split("func _cmd_write_script", 1)[1]
+    body = func.split("\nfunc ", 1)[0]  # just the _cmd_write_script body
+    assert 'add_undo_method(_router, "_remove_file_with_uid", path)' in body
+    assert 'add_undo_method(_router, "_remove_file", path)' not in body
+
+
 async def test_patch_script_routes() -> None:
     server, _ = _build()
     async with Client(server) as client:
