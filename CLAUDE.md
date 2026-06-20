@@ -78,7 +78,7 @@ godot-mcp deliberately ships **no** game vocabulary — no Tower/Enemy/Wave mode
 
 The scaffold (issue #1) is in place: `uv`-managed Python package, the addon under `godot/`, docs, and CI.
 
-- Godot **4.4+**; Python **3.11+**; **FastMCP** (PrefectHQ/fastmcp) as the MCP framework, managed with **uv**. Always verify Godot APIs against the current docs for the pinned version (via `context7` or `docs.godotengine.org`) rather than from memory — see [[addon]].
+- Godot **4.4+** (floor), **validated on 4.7-stable** (the `godot/` project declares `config/features=PackedStringArray("4.7")`); Python **3.11+**; **FastMCP** (PrefectHQ/fastmcp) as the MCP framework, managed with **uv**. Always verify Godot APIs against the current docs for the pinned version (via `context7` or `docs.godotengine.org`) rather than from memory — see [[addon]].
 - **Dev commands** (run from repo root, mirrored by `.github/workflows/ci.yml`):
   - `uv sync` — create the venv and install runtime + dev deps.
   - `uv run pytest -q` — full suite; single file `uv run pytest tests/unit/test_smoke.py`; single test `uv run pytest tests/unit/test_smoke.py::test_version_is_calver`.

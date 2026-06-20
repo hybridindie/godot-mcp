@@ -15,7 +15,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 [application]
 
 config/name="godot-mcp"
-config/features=PackedStringArray("4.6")
+config/features=PackedStringArray("4.7")
 
 [editor_plugins]
 
