@@ -15,6 +15,7 @@ from fastmcp.exceptions import ToolError
 from mcp_server.bridge import Bridge
 from mcp_server.categories import EXPORT_TAG
 from mcp_server.config import ServerConfig
+from mcp_server.constraints import TimeoutSeconds
 from mcp_server.defaults import (
     DEFAULT_EXPORT_TIMEOUT_SECONDS,
 )
@@ -49,7 +50,7 @@ def register_export(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner: 
         preset: str,
         output_path: str,
         debug: bool = False,
-        timeout_seconds: float = DEFAULT_EXPORT_TIMEOUT_SECONDS,
+        timeout_seconds: TimeoutSeconds = DEFAULT_EXPORT_TIMEOUT_SECONDS,
         *,
         ctx: Context,
     ) -> ExportResult:

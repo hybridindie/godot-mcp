@@ -18,13 +18,13 @@ from fastmcp.exceptions import ToolError
 from mcp_server.bridge import Bridge
 from mcp_server.categories import TESTING_TAG
 from mcp_server.config import ServerConfig
+from mcp_server.constraints import DelayMs, StressIterations, TimeoutMs, TimeoutSeconds
 from mcp_server.defaults import (
     DEFAULT_ASSERT_NODE_TIMEOUT_MS,
     DEFAULT_PROBE_POLL_INTERVAL_SECONDS,
     DEFAULT_STRESS_BUFFER_SECONDS,
     DEFAULT_STRESS_DELAY_MS,
     DEFAULT_STRESS_ITERATIONS,
-    DEFAULT_STRESS_MAX_ITERATIONS,
     DEFAULT_STRESS_MAX_WAIT_SECONDS,
     DEFAULT_TEST_RUN_TIMEOUT_SECONDS,
     DEFAULT_TEST_SETTLE_MS,
@@ -44,9 +44,6 @@ from mcp_server.safety import READ_ONLY, RUNTIME, PreconditionError
 from mcp_server.tools._route import poll_ready, route
 
 TESTING = {TESTING_TAG}
-_MAX_STRESS_ITERATIONS = DEFAULT_STRESS_MAX_ITERATIONS
-
-
 async def _read_live_value(
     bridge: Bridge, node_path: str, prop: str, timeout_ms: int
 ) -> tuple[Any, str]:
@@ -107,7 +104,7 @@ def register_testing(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
     @mcp.tool(meta=RUNTIME, tags=TESTING)
     async def run_tests(
         test_dir: str = "res://test",
-        timeout_seconds: float = DEFAULT_TEST_RUN_TIMEOUT_SECONDS,
+        timeout_seconds: TimeoutSeconds = DEFAULT_TEST_RUN_TIMEOUT_SECONDS,
         *,
         ctx: Context,
     ) -> RunTestsResult:
@@ -151,7 +148,7 @@ def register_testing(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
         property: str,
         expected: Any,
         op: str = "==",
-        timeout_ms: int = DEFAULT_ASSERT_NODE_TIMEOUT_MS,
+        timeout_ms: TimeoutMs = DEFAULT_ASSERT_NODE_TIMEOUT_MS,
     ) -> AssertionResult:
         """Assert that a *running* game node's ``property`` satisfies ``op`` vs ``expected``
         (==, !=, <, <=, >, >=, contains, approx). Reads the live value via the runtime
@@ -168,8 +165,8 @@ def register_testing(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
         scene: str = "",
         events: list[dict[str, Any]] | None = None,
         assertions: list[dict[str, Any]] | None = None,
-        setup_ms: int = DEFAULT_TEST_SETUP_MS,
-        settle_ms: int = DEFAULT_TEST_SETTLE_MS,
+        setup_ms: DelayMs = DEFAULT_TEST_SETUP_MS,
+        settle_ms: DelayMs = DEFAULT_TEST_SETTLE_MS,
         stop_after: bool = True,
     ) -> ScenarioResult:
         """Run a play-test: play ``scene`` (or the main scene), wait ``setup_ms`` for the
@@ -203,18 +200,16 @@ def register_testing(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
 
     @mcp.tool(meta=RUNTIME, tags=TESTING)
     async def run_stress_test(
-        iterations: int = DEFAULT_STRESS_ITERATIONS,
+        iterations: StressIterations = DEFAULT_STRESS_ITERATIONS,
         actions: list[str] | None = None,
         seed: int = 0,
-        delay_ms: int = DEFAULT_STRESS_DELAY_MS,
+        delay_ms: DelayMs = DEFAULT_STRESS_DELAY_MS,
     ) -> StressTestResult:
         """Fuzz the *running* game with ``iterations`` random input events drawn from
         ``actions`` (key names / input-map actions / "click"; a sensible default pool if
         omitted), ``seed`` for reproducibility. Reports whether the game survived (still
         playing afterward). Requires a play session + probe.
         """
-        if iterations < 1 or iterations > _MAX_STRESS_ITERATIONS:
-            raise ToolError(f"iterations must be in 1..{_MAX_STRESS_ITERATIONS}.")
         events = random_input_events(iterations, actions, seed)
         await route(bridge, "cmd_play_input_sequence", {"events": events, "delay_ms": delay_ms})
         # Give the sequence time to play out, then check the game is still alive.

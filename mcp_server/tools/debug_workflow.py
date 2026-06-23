@@ -12,6 +12,7 @@ from fastmcp import FastMCP
 from mcp_server.bridge import Bridge
 from mcp_server.categories import CORE_TAG
 from mcp_server.config import ServerConfig
+from mcp_server.constraints import TimeoutSeconds
 from mcp_server.debug_workflow import run_debug_workflow
 from mcp_server.models.debug_workflow import DebugWorkflowResult
 from mcp_server.runtime import Runner
@@ -26,7 +27,7 @@ def register_debug_workflow(
     @mcp.tool(meta=READ_ONLY, tags={CORE_TAG})
     async def debug_workflow(
         scene: str = "",
-        timeout_seconds: float = 5.0,
+        timeout_seconds: TimeoutSeconds = 5.0,
     ) -> DebugWorkflowResult:
         """Run a comprehensive debug check on the project and return a unified report.
 

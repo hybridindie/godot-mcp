@@ -14,6 +14,7 @@ from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import RUNTIME_TAG
+from mcp_server.constraints import Samples, TimeoutMs
 from mcp_server.defaults import (
     DEFAULT_MONITOR_SAMPLES,
     DEFAULT_RUNTIME_INSPECT_TIMEOUT_MS,
@@ -34,7 +35,7 @@ def register_runtime_inspect(mcp: FastMCP, bridge: Bridge) -> None:
 
     @mcp.tool(meta=READ_ONLY, tags=RUNTIME_SET)
     async def monitor_property(
-        node_path: str, property: str, samples: int = DEFAULT_MONITOR_SAMPLES
+        node_path: str, property: str, samples: Samples = DEFAULT_MONITOR_SAMPLES
     ) -> MonitorResult:
         """Start watching ``property`` on the running game's node at ``node_path`` (an
         absolute path from ``get_game_scene_tree``, e.g. "/root/Main/Player"). The probe
@@ -65,7 +66,7 @@ def register_runtime_inspect(mcp: FastMCP, bridge: Bridge) -> None:
         name_contains: str = "",
         class_filter: str = "",
         visible_only: bool = False,
-        timeout_ms: int = DEFAULT_RUNTIME_INSPECT_TIMEOUT_MS,
+        timeout_ms: TimeoutMs = DEFAULT_RUNTIME_INSPECT_TIMEOUT_MS,
     ) -> UiElementsResult:
         """Locate live UI (Control) nodes in the running game, each with its path, class,
         visibility, global ``rect`` (use it with ``simulate_mouse`` to click), and ``text``

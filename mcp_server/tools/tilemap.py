@@ -13,6 +13,13 @@ from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import TILEMAP_TAG
+from mcp_server.constraints import (
+    TileAlternative,
+    TileLayer,
+    TileLayerOpt,
+    TileSourceId,
+    TileSourceIdOpt,
+)
 from mcp_server.models.tilemap import (
     TileCellResult,
     TileClearResult,
@@ -58,10 +65,10 @@ def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
     async def tilemap_set_cell(
         node_path: str,
         coords: list[int],
-        source_id: int = -1,
+        source_id: TileSourceId = -1,
         atlas_coords: list[int] | None = None,
-        alternative_tile: int = 0,
-        layer: int = 0,
+        alternative_tile: TileAlternative = 0,
+        layer: TileLayer = 0,
         dry_run: bool = False,
     ) -> TileCellResult:
         """Set the tile at grid ``coords`` ``[x, y]`` to ``source_id`` +
@@ -92,10 +99,10 @@ def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
     async def tilemap_fill_rect(
         node_path: str,
         rect: list[int],
-        source_id: int = -1,
+        source_id: TileSourceId = -1,
         atlas_coords: list[int] | None = None,
-        alternative_tile: int = 0,
-        layer: int = 0,
+        alternative_tile: TileAlternative = 0,
+        layer: TileLayer = 0,
         dry_run: bool = False,
     ) -> TileFillResult:
         """Fill the rectangle ``rect`` ``[x, y, w, h]`` of cells with the same tile
@@ -123,7 +130,9 @@ def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
         )
 
     @mcp.tool(meta=READ_ONLY, tags=TILEMAP)
-    async def tilemap_get_cell(node_path: str, coords: list[int], layer: int = 0) -> TileGetResult:
+    async def tilemap_get_cell(
+        node_path: str, coords: list[int], layer: TileLayer = 0
+    ) -> TileGetResult:
         """Read the tile at grid ``coords`` ``[x, y]``: returns ``source_id``,
         ``atlas_coords``, ``alternative_tile``, and ``empty`` (true when no tile).
         ``layer`` applies to multi-layer TileMap only. Errors (RESOURCE_NOT_FOUND /
@@ -135,7 +144,7 @@ def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
     @mcp.tool(meta=MUTATING, tags=TILEMAP)
     @enforce_preconditions
     async def tilemap_clear(
-        node_path: str, layer: int | None = None, dry_run: bool = False
+        node_path: str, layer: TileLayerOpt = None, dry_run: bool = False
     ) -> TileClearResult:
         """Clear a layer's cells: for a multi-layer TileMap the given ``layer`` (default
         0), for a TileMapLayer the whole node. Undoable — the prior cells are restored
@@ -192,7 +201,7 @@ def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
         region_size: list[int],
         node_path: str = "",
         tileset_path: str = "",
-        source_id: int | None = None,
+        source_id: TileSourceIdOpt = None,
         dry_run: bool = False,
     ) -> TileSetSourceResult:
         """Add an atlas source (a texture sliced into a tile grid) to a TileSet, then
@@ -231,7 +240,7 @@ def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
     @mcp.tool(meta=MUTATING, tags=TILEMAP)
     @enforce_preconditions
     async def create_tile(
-        source_id: int,
+        source_id: TileSourceId,
         atlas_coords: list[int],
         node_path: str = "",
         tileset_path: str = "",

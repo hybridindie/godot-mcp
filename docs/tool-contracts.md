@@ -28,6 +28,10 @@ Every `@mcp.tool()`:
 - Validates inputs and checks preconditions **before** any side effect.
 - Is **delegation only** — no domain branching in the handler body.
 - Carries a `safety_class`.
+- **Bounds resource/safety-relevant numeric params** with the `Annotated[...]` aliases in
+  `mcp_server/constraints.py` (timeouts, sample/result counts, depths, delays, TileMap ids),
+  so absurd input is rejected before the bridge round-trip and the bounds show in the schema
+  (issue #221). Pass-through geometry/identifiers (coordinates, node/port ids) stay unbounded.
 - **Bounds large reads** (issue #222): list-shaped tools (`find_nodes_by_type`, `list_scripts`)
   paginate with `offset`/`limit` and report `total`/`returned`/`truncated`/`next_offset`;
   reads that can be huge (the scene tree, `godot://scene/tree`) are capped at

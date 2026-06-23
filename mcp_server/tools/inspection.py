@@ -11,6 +11,7 @@ from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import INSPECTION_TAG
+from mcp_server.constraints import MaxDepth
 from mcp_server.models.inspection import (
     ActiveScene,
     NodeInfo,
@@ -44,7 +45,7 @@ def register_inspection(mcp: FastMCP, bridge: Bridge) -> None:
         return ActiveScene(**await route(bridge, "cmd_get_active_scene"))
 
     @mcp.tool(meta=READ_ONLY, tags=INSPECTION)
-    async def get_scene_tree(max_depth: int = -1, lightweight: bool = False) -> SceneTree:
+    async def get_scene_tree(max_depth: MaxDepth = -1, lightweight: bool = False) -> SceneTree:
         """Get the open scene as a recursive tree of {name, type, path, script, children}.
 
         Each node carries an explicit scene-relative ``path`` ("." for the root,

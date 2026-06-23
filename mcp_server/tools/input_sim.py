@@ -17,6 +17,7 @@ from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import INPUT_TAG
+from mcp_server.constraints import DelayMs, TimeoutMs
 from mcp_server.defaults import (
     DEFAULT_INPUT_RECORDING_TIMEOUT_MS,
     DEFAULT_INPUT_STRENGTH,
@@ -119,7 +120,7 @@ def register_input_sim(mcp: FastMCP, bridge: Bridge) -> None:
 
     @mcp.tool(meta=RUNTIME, tags=INPUT)
     async def play_input_sequence(
-        events: list[dict[str, Any]], delay_ms: int = 0
+        events: list[dict[str, Any]], delay_ms: DelayMs = 0
     ) -> SimInputResult:
         """Play a sequence of input events in order, ``delay_ms`` apart. Each event is a
         dict with ``type`` = "key" | "mouse" | "action" and that type's fields (as for
@@ -153,7 +154,7 @@ def register_input_sim(mcp: FastMCP, bridge: Bridge) -> None:
 
     @mcp.tool(meta=READ_ONLY, tags=INPUT)
     async def stop_recording(
-        timeout_ms: int = DEFAULT_INPUT_RECORDING_TIMEOUT_MS,
+        timeout_ms: TimeoutMs = DEFAULT_INPUT_RECORDING_TIMEOUT_MS,
     ) -> RecordingResult:
         """Stop recording and return the captured ``events`` (in the
         ``play_input_sequence`` format). Polls the addon up to ``timeout_ms`` for the

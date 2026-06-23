@@ -13,6 +13,7 @@ from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import PROJECT_TAG
+from mcp_server.constraints import MaxDepth, MaxResults
 from mcp_server.defaults import (
     DEFAULT_SEARCH_MAX_RESULTS,
 )
@@ -33,7 +34,9 @@ def register_project_fs(mcp: FastMCP, bridge: Bridge) -> None:
     """Register the project & filesystem tools."""
 
     @mcp.tool(meta=READ_ONLY, tags=PROJECT)
-    async def get_filesystem_tree(directory: str = "res://", max_depth: int = -1) -> FilesystemTree:
+    async def get_filesystem_tree(
+        directory: str = "res://", max_depth: MaxDepth = -1
+    ) -> FilesystemTree:
         """Get the project's file tree under ``directory`` ({name, path, type, children}).
         ``max_depth`` limits levels (-1 = unlimited, 0 = the directory only). Hidden
         entries (``.godot``, ``.git``, …) are skipped.
@@ -46,7 +49,7 @@ def register_project_fs(mcp: FastMCP, bridge: Bridge) -> None:
         directory: str = "res://",
         name_glob: str = "",
         content: str = "",
-        max_results: int = DEFAULT_SEARCH_MAX_RESULTS,
+        max_results: MaxResults = DEFAULT_SEARCH_MAX_RESULTS,
     ) -> SearchResult:
         """Search ``directory`` recursively for files matching ``name_glob`` (e.g.
         "*.gd") and/or containing ``content``. ``truncated`` is true if capped at

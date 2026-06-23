@@ -12,6 +12,7 @@ from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import PROFILING_TAG
+from mcp_server.constraints import TimeoutMs
 from mcp_server.defaults import (
     DEFAULT_PERF_MONITORS_TIMEOUT_MS,
 )
@@ -39,7 +40,7 @@ def register_profiling(mcp: FastMCP, bridge: Bridge) -> None:
 
     @mcp.tool(meta=READ_ONLY, tags=PROFILING)
     async def get_performance_monitors(
-        timeout_ms: int = DEFAULT_PERF_MONITORS_TIMEOUT_MS,
+        timeout_ms: TimeoutMs = DEFAULT_PERF_MONITORS_TIMEOUT_MS,
     ) -> GamePerformanceResult:
         """Read the *running* game's Performance monitors (same metrics, live) via the
         runtime probe. Requires a play session; if the probe isn't connected, returns

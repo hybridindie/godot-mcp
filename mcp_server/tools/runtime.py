@@ -12,6 +12,7 @@ from fastmcp import Context, FastMCP
 from mcp_server.bridge import Bridge
 from mcp_server.categories import RUNTIME_TAG
 from mcp_server.config import ServerConfig
+from mcp_server.constraints import TimeoutSeconds
 from mcp_server.defaults import (
     DEFAULT_RUN_TIMEOUT_SECONDS,
 )
@@ -29,7 +30,7 @@ def register_runtime(
     @enforce_preconditions
     async def run_and_capture(
         scene: str | None = None,
-        timeout_seconds: float = DEFAULT_RUN_TIMEOUT_SECONDS,
+        timeout_seconds: TimeoutSeconds = DEFAULT_RUN_TIMEOUT_SECONDS,
         *,
         ctx: Context,
     ) -> RunCaptureResult:
