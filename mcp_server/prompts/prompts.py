@@ -12,6 +12,8 @@ from __future__ import annotations
 from fastmcp import FastMCP
 from fastmcp.prompts import Message
 
+from mcp_server.toolset_protocol import TOOLSET_PROTOCOL
+
 
 def register_prompts(mcp: FastMCP) -> None:
     """Register all workflow prompts on the server."""
@@ -34,66 +36,9 @@ def _register_toolset_discovery(mcp: FastMCP) -> None:
     )
     def toolset_discovery() -> list[Message]:
         """Teach the agent the toolset gating system so it never fails to find tools."""
-        return [
-            Message(
-                role="user",
-                content=(
-                    "You are working with a godot-mcp server that gates its tools into "
-                    "categories called 'toolsets'. Only 'core' (diagnostics, toolset "
-                    "management) and 'inspection' (read-only project/scene/node reading) "
-                    "are enabled by default. Every other capability is hidden until you "
-                    "explicitly enable it.\n\n"
-                    "WARNING: If you skip step 2, EVERY tool call will fail with "
-                    "'ToolError: unknown tool'. There is NO fallback.\n\n"
-                    "MANDATORY PROTOCOL — follow this order exactly:\n"
-                    "1. Call list_toolsets() to see what is available and which are enabled.\n"
-                    "2. Call enable_toolset(category) for EVERY category you plan to use.\n"
-                    "3. Only after enabling can you call the tools in that category.\n\n"
-                    "QUICK DECISION TREE — what do you want to do?\n"
-                    "- Build or edit a scene, add/move/remove nodes, change properties\n"
-                    "  → enable_toolset('scene_edit')\n"
-                    "- Write a GDScript, attach it to a node, fix parse errors\n"
-                    "  → enable_toolset('scripts')\n"
-                    "- Run the game live inside the editor (play, inspect, simulate input)\n"
-                    "  → enable_toolset('runtime') + enable_toolset('input')\n"
-                    "- Pause at a specific line, step through code, inspect stack variables\n"
-                    "  → enable_toolset('debugger') + enable_toolset('runtime')\n"
-                    "- Test that a node property meets an expectation\n"
-                    "  → enable_toolset('testing') + enable_toolset('runtime')\n"
-                    "- Apply changes to many nodes at once\n"
-                    "  → enable_toolset('batch') + enable_toolset('scene_edit')\n"
-                    "- Add physics bodies, collision shapes, tweak gravity/materials\n"
-                    "  → enable_toolset('physics') + enable_toolset('scene_edit')\n"
-                    "- Register autoloads, create custom resources\n"
-                    "  → enable_toolset('resources_edit')\n"
-                    "- Check performance, find bottlenecks\n"
-                    "  → enable_toolset('profiling')\n"
-                    "- Analyze circular dependencies, unused resources, signal flow\n"
-                    "  → enable_toolset('analysis')\n"
-                    "- Export a build for a target platform\n"
-                    "  → enable_toolset('export')\n"
-                    "- Import textures, audio, models\n"
-                    "  → enable_toolset('asset_import')\n\n"
-                    "Common toolsets you will need:\n"
-                    "- scene_edit  → create_node, set_node_property, attach_script, save_scene\n"
-                    "- scripts     → write_script, read_script, get_parse_errors\n"
-                    "- runtime     → run_and_capture (headless), play_scene (editor)\n"
-                    "- input       → simulate_action, simulate_key, play_input_sequence\n"
-                    "- testing     → assert_node_state, run_test_scenario\n"
-                    "- batch       → batch_set_property, find_nodes_by_type\n"
-                    "- physics     → setup_physics_body, setup_collision\n"
-                    "- resources_edit → register_autoload, create_resource\n\n"
-                    "SERVER VS ADDON BOUNDARY — critical to understand:\n"
-                    "- Some tools run in the Python server: list_toolsets, enable_toolset, "
-                    "get_server_info. These never send messages to Godot.\n"
-                    "- Most tools send commands to the Godot addon via a WebSocket bridge.\n"
-                    "- Server-side tools through the bridge = 'unknown tool'.\n"
-                    "- Addon tools before enable_toolset = 'unknown tool'.\n\n"
-                    "If you try to call a tool and get 'ToolError: unknown tool', the toolset "
-                    "is not enabled. Call enable_toolset first."
-                ),
-            ),
-        ]
+        # Single-sourced from mcp_server.toolset_protocol so this prompt and the
+        # server instructions can never drift apart (issue #230).
+        return [Message(role="user", content=TOOLSET_PROTOCOL)]
 
 
 def _register_build_scene(mcp: FastMCP) -> None:

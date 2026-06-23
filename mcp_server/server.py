@@ -58,6 +58,7 @@ from mcp_server.tools.testing import register_testing
 from mcp_server.tools.theme_ui import register_theme_ui
 from mcp_server.tools.tilemap import register_tilemap
 from mcp_server.tools.visual_shader import register_visual_shader
+from mcp_server.toolset_protocol import SERVER_INSTRUCTIONS
 from mcp_server.toolsets import ToolsetManager, register_toolset_tools
 
 logger = logging.getLogger(__name__)
@@ -100,58 +101,7 @@ def create_server(
     mcp = FastMCP(
         SERVER_NAME,
         lifespan=lifespan,
-        instructions=(
-            "WARNING: You MUST follow the steps below or EVERY tool call will fail.\n\n"
-            "You are connected to a godot-mcp server that gates its tools into categories "
-            "called 'toolsets'. Only 'core' (diagnostics, toolset management) and "
-            "'inspection' (read-only project/scene/node reading) are enabled by default. "
-            "Every other capability is hidden until you explicitly enable it.\n\n"
-            "MANDATORY PROTOCOL:\n"
-            "1. Call get_server_info() for a full capability snapshot "
-            "(toolsets, bridge state, troubleshooting).\n"
-            "2. Call list_toolsets() to see what is available and which are enabled.\n"
-            "3. Call enable_toolset(category) for EVERY category you plan to use.\n"
-            "4. Only after enabling can you call the tools in that category.\n\n"
-            "QUICK DECISION TREE:\n"
-            "- Build/edit scenes, nodes, properties → scene_edit\n"
-            "- Write/attach scripts → scripts\n"
-            "- Run the game live (editor play session) → runtime + input\n"
-            "- Debug breakpoints, step, stack → debugger + runtime\n"
-            "- Test/assert node state → testing + runtime\n"
-            "- Batch changes to many nodes → batch + scene_edit\n"
-            "- Physics bodies/collision → physics + scene_edit\n"
-            "- Autoloads/custom resources → resources_edit\n"
-            "- Performance analysis → profiling\n"
-            "- Dependency/signal analysis → analysis\n"
-            "- Export builds → export\n"
-            "- Import assets → asset_import\n\n"
-            "SERVER VS ADDON BOUNDARY:\n"
-            "Some tools run in the Python server (list_toolsets, enable_toolset, "
-            "get_server_info) and never send messages to Godot. "
-            "Most tools send commands to the Godot addon via a WebSocket bridge. "
-            "If you get 'unknown tool', the toolset is not enabled OR you confused "
-            "server-side and addon tools.\n\n"
-            "Common toolsets you will need:\n"
-            "- scene_edit  → create_node, set_node_property, attach_script, save_scene\n"
-            "- scripts     → write_script, read_script, get_parse_errors\n"
-            "- runtime     → run_and_capture (headless), play_scene (editor)\n"
-            "- input       → simulate_action, simulate_key, play_input_sequence\n"
-            "- testing     → assert_node_state, run_test_scenario\n"
-            "- batch       → batch_set_property, find_nodes_by_type\n"
-            "- physics     → setup_physics_body, setup_collision\n"
-            "- resources_edit → register_autoload, create_resource\n"
-            "- asset_import → import_asset, create_material_from_textures\n\n"
-            "DOCUMENTATION:\n"
-            "- Tutorial (prompt-driven walkthrough): https://github.com/hybridindie/godot-mcp/blob/main/TUTORIAL.md\n"
-            "- Tool contracts (per-tool spec): https://github.com/hybridindie/godot-mcp/blob/main/docs/tool-contracts.md\n"
-            "- Architecture (bridge contract): https://github.com/hybridindie/godot-mcp/blob/main/docs/architecture.md\n\n"
-            "If you try to call a tool and get 'ToolError: unknown tool', the toolset "
-            "is not enabled. Call enable_toolset first.\n\n"
-            "This server exposes workflow prompts (toolset_discovery, build_scene, "
-            "play_test, script_edit, debug_scene, troubleshoot) and a diagnostics tool "
-            "(get_server_info) that returns tool counts, bridge state, active scene, "
-            "and common errors with fixes."
-        ),
+        instructions=SERVER_INSTRUCTIONS,
         website_url="https://github.com/hybridindie/godot-mcp",
         experimental_capabilities={
             "godot_mcp": {
