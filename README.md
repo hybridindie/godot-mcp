@@ -2,7 +2,7 @@
 
 A **generic, game-agnostic** [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server for **AI-driven Godot development**. An AI agent (Claude Code, OpenCode, Cursor, or any stdio MCP client) connects to a live Godot 4.4+ editor and controls it programmatically — inspecting scenes, editing nodes, writing scripts, running the game, and exporting builds — all through a typed, structured API with no built-in game vocabulary.
 
-> **Status:** feature-complete across the planned ecosystem. **134 tools** across **23 gated toolsets** (plus always-on `core`). Every capability is documented, tested, and ready for agent use.
+> **Status:** feature-complete across the planned ecosystem. **135 tools** across **23 gated toolsets** (plus always-on `core`). Every capability is documented, tested, and ready for agent use.
 
 ---
 
@@ -486,8 +486,8 @@ The full surface is 121 tools across 23 categories. Below is a summary; the auth
 - `tilemap_set_cell`, `tilemap_fill_rect`, `tilemap_get_cell`, `tilemap_get_used_cells`, `tilemap_clear`, `tilemap_layers`
 - **TileSet authoring:** `create_tileset`, `add_tileset_atlas_source`, `create_tile`
 
-### Theme & UI (gated) — `mutating`
-- `create_theme`, `set_theme_color`, `set_theme_font_size`, `set_theme_stylebox`
+### Theme & UI (gated) — `mutating` / `read_only`
+- `create_theme`, `set_theme_color`, `set_theme_font_size`, `set_theme_stylebox`, `get_node_theme_overrides`
 
 ### Shaders (gated) — `read_only` / `mutating`
 - `create_shader`, `read_shader`, `assign_shader_material`, `set_shader_param`

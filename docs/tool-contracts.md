@@ -556,8 +556,9 @@ not overlapping (`has_room_for_tile`).
 #### Theme & UI (issue #46) — category: `theme_ui` (gated off by default)
 
 Create a Theme for a Control and override theme colors, font sizes, and styleboxes on
-Control nodes. All `mutating` (UndoRedo-wrapped), `dry_run`. Overrides are local to the
-node and take precedence over its assigned theme.
+Control nodes. Writes are `mutating` (UndoRedo-wrapped), `dry_run`;
+`get_node_theme_overrides` is `read_only`. Overrides are local to the node and take
+precedence over its assigned theme.
 
 | Tool | Params | Returns |
 |------|--------|---------|
@@ -565,6 +566,7 @@ node and take precedence over its assigned theme.
 | `set_theme_color` | `node_path, name, color` | `ThemeColorResult { node_path, name }` |
 | `set_theme_font_size` | `node_path, name, size` | `ThemeFontSizeResult { node_path, name, size }` |
 | `set_theme_stylebox` | `node_path, name, stylebox_type="StyleBoxFlat", properties?` | `ThemeStyleboxResult { node_path, name, stylebox_type }` |
+| `get_node_theme_overrides` | `node_path` | `NodeThemeOverrides { node_path, colors{name→rgba}, font_sizes{name→int}, styleboxes[{name, type, properties}] }` (`read_only`) |
 
 `create_theme` makes a Theme and assigns it to the Control (saved to a `res://*.tres`
 when `save_path` is given, else embedded with the scene). `set_theme_color` /
@@ -573,6 +575,10 @@ when `save_path` is given, else embedded with the scene). `set_theme_color` /
 `set_theme_stylebox` builds a `stylebox_type` (StyleBoxFlat/Texture/Empty/Line)
 configured with `properties` (e.g. `bg_color`, `corner_radius_top_left`) and overrides
 the named stylebox. Undo restores the prior override (or removes it).
+`get_node_theme_overrides` is the inverse read — it returns the node's local color,
+font-size, and stylebox overrides (each stylebox with its class + serialized
+`properties`) for rollback. It covers theme items the control's type defines (the same
+set the Inspector exposes — e.g. `font_color` on a Label, the `panel` stylebox on a Panel).
 
 #### Shaders (issue #47) — category: `shader` (gated off by default)
 

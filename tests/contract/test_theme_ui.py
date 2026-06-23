@@ -41,6 +41,22 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                     "stylebox_type": p["stylebox_type"],
                 },
             )
+        case "cmd_get_node_theme_overrides":
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "node_path": p["node_path"],
+                    "colors": {"font_color": {"r": 1.0, "g": 0.0, "b": 0.0, "a": 1.0}},
+                    "font_sizes": {"font_size": 24},
+                    "styleboxes": [
+                        {
+                            "name": "panel",
+                            "type": "StyleBoxFlat",
+                            "properties": {"bg_color": {"r": 0.1, "g": 0.1, "b": 0.1, "a": 1.0}},
+                        }
+                    ],
+                },
+            )
     return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
 
 
@@ -104,3 +120,21 @@ async def test_dry_run_sends_no_mutation() -> None:
         )
     assert result.structured_content["dry_run"] is True
     assert "cmd_set_theme_color" not in _commands(conn)
+
+
+async def test_get_node_theme_overrides_reads_all_kinds() -> None:
+    # #219 G7: read color/font-size/stylebox overrides — inverts the set_theme_* writers.
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "theme_ui"})
+        result = await client.call_tool("get_node_theme_overrides", {"node_path": "Panel"})
+        tools = {t.name: t for t in await client.list_tools()}
+    data = result.structured_content
+    assert data["colors"]["font_color"] == {"r": 1.0, "g": 0.0, "b": 0.0, "a": 1.0}
+    assert data["font_sizes"]["font_size"] == 24
+    sb = data["styleboxes"][0]
+    assert sb["name"] == "panel" and sb["type"] == "StyleBoxFlat"
+    assert sb["properties"]["bg_color"]["r"] == 0.1
+    assert tools["get_node_theme_overrides"].meta["safety_class"] == "read_only"
+    cmds = [CommandEnvelope.model_validate_json(s).command for s in conn.sent]
+    assert "cmd_get_node_theme_overrides" in cmds

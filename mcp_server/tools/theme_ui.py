@@ -18,13 +18,14 @@ from mcp_server.defaults import (
     DEFAULT_STYLEBOX_TYPE,
 )
 from mcp_server.models.theme_ui import (
+    NodeThemeOverrides,
     ThemeColorResult,
     ThemeFontSizeResult,
     ThemeResult,
     ThemeStyleboxResult,
 )
-from mcp_server.safety import MUTATING, enforce_preconditions, require_node_exists
-from mcp_server.tools._route import run_or_preview
+from mcp_server.safety import MUTATING, READ_ONLY, enforce_preconditions, require_node_exists
+from mcp_server.tools._route import route, run_or_preview
 
 THEME_UI = {THEME_UI_TAG}
 
@@ -103,4 +104,18 @@ def register_theme_ui(mcp: FastMCP, bridge: Bridge) -> None:
         preview = {"node_path": node_path, "name": name, "stylebox_type": stylebox_type}
         return await run_or_preview(
             dry_run, ThemeStyleboxResult, preview, bridge, "cmd_set_theme_stylebox", params
+        )
+
+    @mcp.tool(meta=READ_ONLY, tags=THEME_UI)
+    async def get_node_theme_overrides(node_path: str) -> NodeThemeOverrides:
+        """Read the per-node theme overrides on the Control at ``node_path``: ``colors``
+        (name → {r,g,b,a}), ``font_sizes`` (name → int), and ``styleboxes``
+        ({name, type, properties}). The inverse of ``set_theme_color`` /
+        ``set_theme_font_size`` / ``set_theme_stylebox`` — snapshot a node's overrides
+        before editing them for rollback. Covers theme items the control's type defines
+        (the same set Godot's Inspector exposes — e.g. ``font_color`` on a Label, the
+        ``panel`` stylebox on a Panel). Errors if the node isn't a Control.
+        """
+        return NodeThemeOverrides(
+            **await route(bridge, "cmd_get_node_theme_overrides", {"node_path": node_path})
         )

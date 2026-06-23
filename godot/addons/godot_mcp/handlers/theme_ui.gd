@@ -2,6 +2,7 @@
 class_name MCPThemeUIHandlers
 extends RefCounted
 const Coerce := preload("res://addons/godot_mcp/type_coerce.gd")
+const ThemeRead := preload("res://addons/godot_mcp/theme_read.gd")
 ## Domain handler: theme ui.
 ##
 ## Registered by the router on _init().  Each handler receives params dict and
@@ -19,6 +20,7 @@ func register(handlers: Dictionary) -> void:
 	handlers["cmd_set_theme_color"] = _cmd_set_theme_color
 	handlers["cmd_set_theme_font_size"] = _cmd_set_theme_font_size
 	handlers["cmd_set_theme_stylebox"] = _cmd_set_theme_stylebox
+	handlers["cmd_get_node_theme_overrides"] = _cmd_get_node_theme_overrides
 
 
 # -- handlers ----------------------------------------------------------------
@@ -128,6 +130,19 @@ func _cmd_set_theme_stylebox(params: Dictionary) -> Dictionary:
 		"name": name,
 		"stylebox_type": stylebox_type,
 	})
+
+
+## Read a Control's per-node theme overrides — colors / font_sizes / styleboxes (issue
+## #219 G7). The inverse of set_theme_color / set_theme_font_size / set_theme_stylebox;
+## delegates the pure serialization to MCPThemeRead.
+func _cmd_get_node_theme_overrides(params: Dictionary) -> Dictionary:
+	var found := _resolve_control(params.get("node_path", ""))
+	if not found["ok"]:
+		return found
+	var node: Control = found["node"]
+	var data: Dictionary = ThemeRead.overrides(node)
+	data["node_path"] = str(params.get("node_path"))
+	return _router._ok(data)
 
 
 func _resolve_control(raw_path: Variant) -> Dictionary:

@@ -92,6 +92,27 @@ async def _run() -> None:
         )
         assert box["stylebox_type"] == "StyleBoxFlat"
 
+        # G7 (#219): the panel stylebox override reads back on the Panel (its native item).
+        panel_ov = await _ok(bridge, "cmd_get_node_theme_overrides", {"node_path": "Panel"})
+        panel_sb = next(s for s in panel_ov["styleboxes"] if s["name"] == "panel")
+        assert panel_sb["type"] == "StyleBoxFlat"
+        assert panel_sb["properties"]["corner_radius_top_left"] == 8
+        # color + font-size overrides read back on a Label (their native theme items).
+        await _create(bridge, "Label", "Label")
+        await _ok(
+            bridge,
+            "cmd_set_theme_color",
+            {"node_path": "Label", "name": "font_color", "color": "#ff8800"},
+        )
+        await _ok(
+            bridge,
+            "cmd_set_theme_font_size",
+            {"node_path": "Label", "name": "font_size", "size": 18},
+        )
+        label_ov = await _ok(bridge, "cmd_get_node_theme_overrides", {"node_path": "Label"})
+        assert "font_color" in label_ov["colors"]
+        assert label_ov["font_sizes"]["font_size"] == 18
+
         # validation: non-Control target, bad stylebox type, non-positive size, bad save path
         await _create(bridge, "Plain", "Node2D")
         not_control = await bridge.send("cmd_create_theme", {"node_path": "Plain"})
