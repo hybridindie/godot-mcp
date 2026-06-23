@@ -34,6 +34,26 @@ Every `@mcp.tool()`:
 The addon handler is `cmd_<verb>_<noun>`; the matching MCP tool drops the `cmd_` prefix
 (`cmd_create_node` ⇄ `create_node`). All domain/data fields are `snake_case`.
 
+### Value shapes
+
+Polymorphic `value: Any` setters (`set_node_property`, `set_setting`,
+`set_resource_property`, `batch_set_property`, `cross_scene_set_property`,
+`insert_keyframe`, `set_shader_param`, `set_shader_node_param`) accept JSON that the
+addon coerces to the target Godot type (`type_coerce.gd`, the single source of truth).
+The accepted shapes:
+
+| Godot type | Accepted JSON | Example |
+|------------|---------------|---------|
+| `Vector2` / `Vector2i` | `{"x":…,"y":…}` or `[x, y]` or `"Vector2(x, y)"` | `{"x": 100, "y": 64}` |
+| `Vector3` / `Vector3i` | `{"x":…,"y":…,"z":…}` or `[x, y, z]` | `{"x": 1, "y": 2, "z": 3}` |
+| `Color` | `{"r":…,"g":…,"b":…,"a":…}` or hex string | `"#ff0000"` / `{"r":1,"g":0,"b":0,"a":1}` |
+| `Rect2` / `Rect2i` | `{"position":{x,y},"size":{x,y}}` or `"Rect2(x, y, w, h)"` | `{"position":{"x":0,"y":0},"size":{"x":4,"y":5}}` |
+| `NodePath` / `StringName` | string | `"Player/Sprite2D"` |
+| `int` / `float` / `bool` / `String` | the primitive as-is | `42`, `1.5`, `true`, `"hi"` |
+
+The addon coercion is the fallback: a string like `"Vector2(100, 200)"` or a bare array
+also works for vectors. When in doubt, the dict form is the most explicit.
+
 ### Safety classes
 
 Every tool is tagged with exactly one:

@@ -60,6 +60,10 @@ def register_resource_files(mcp: FastMCP, bridge: Bridge) -> None:
     ) -> SetResourcePropertyResult:
         """Set a property on the resource file at ``resource_path`` and re-save it.
         Reversible via the editor's undo.
+        ``value`` accepts JSON for the target Godot type — Vector2/3 as
+        ``{"x":1,"y":2}``/``[1,2]``, Color as ``{"r":1,"g":0,"b":0,"a":1}`` or
+        ``"#ff0000"``, Rect2 as ``{"position":{...},"size":{...}}``, NodePath/StringName
+        as a string, primitives as-is. See docs/tool-contracts.md#value-shapes.
         """
         params = {"resource_path": resource_path, "property": property, "value": value}
         preview = {"resource_path": resource_path, "property": property, "value": value}

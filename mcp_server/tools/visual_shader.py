@@ -129,6 +129,10 @@ def register_visual_shader(mcp: FastMCP, bridge: Bridge) -> None:
         """Set ``property`` on the node identified by ``node_id`` in the
         VisualShader at ``shader_path``.  Values are coerced by the addon to
         the property's declared Godot type.
+        ``value`` accepts JSON for the target Godot type — Vector2/3 as
+        ``{"x":1,"y":2}``/``[1,2]``, Color as ``{"r":1,"g":0,"b":0,"a":1}`` or
+        ``"#ff0000"``, Rect2 as ``{"position":{...},"size":{...}}``, NodePath/StringName
+        as a string, primitives as-is. See docs/tool-contracts.md#value-shapes.
         """
         params: dict[str, Any] = {
             "shader_path": shader_path,

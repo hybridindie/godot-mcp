@@ -57,6 +57,10 @@ def register_batch(mcp: FastMCP, bridge: Bridge) -> None:
         action. Target by explicit ``node_paths`` or by ``node_type`` (all matching nodes).
         Nodes lacking the property are reported in ``skipped``. ``dry_run`` returns the plan
         (applied/skipped) without changing anything.
+        ``value`` accepts JSON for the target Godot type — Vector2/3 as
+        ``{"x":1,"y":2}``/``[1,2]``, Color as ``{"r":1,"g":0,"b":0,"a":1}`` or
+        ``"#ff0000"``, Rect2 as ``{"position":{...},"size":{...}}``, NodePath/StringName
+        as a string, primitives as-is. See docs/tool-contracts.md#value-shapes.
         """
         await require_active_scene(bridge)
         params: dict[str, Any] = {"property": property, "value": value, "dry_run": dry_run}
@@ -79,6 +83,10 @@ def register_batch(mcp: FastMCP, bridge: Bridge) -> None:
         ``scenes`` (``res://*.tscn`` files), editing them on disk and re-scanning. The
         currently-edited scene is skipped (reported as an error). Each scene's result lists
         the ``modified`` count and any ``error``. ``dry_run`` reports counts without saving.
+        ``value`` accepts JSON for the target Godot type — Vector2/3 as
+        ``{"x":1,"y":2}``/``[1,2]``, Color as ``{"r":1,"g":0,"b":0,"a":1}`` or
+        ``"#ff0000"``, Rect2 as ``{"position":{...},"size":{...}}``, NodePath/StringName
+        as a string, primitives as-is. See docs/tool-contracts.md#value-shapes.
         """
         params = {
             "scenes": scenes,

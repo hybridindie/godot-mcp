@@ -80,6 +80,10 @@ def register_shader(mcp: FastMCP, bridge: Bridge) -> None:
         ``param_type`` coerces ``value``: float / int / bool / vector2 / vector3 /
         vector4 / color (omit to infer — number/bool as-is, ``[x,y,z]`` → vector,
         HTML string → color). The node must have a ShaderMaterial assigned.
+        ``value`` accepts JSON for the target Godot type — Vector2/3 as
+        ``{"x":1,"y":2}``/``[1,2]``, Color as ``{"r":1,"g":0,"b":0,"a":1}`` or
+        ``"#ff0000"``, Rect2 as ``{"position":{...},"size":{...}}``, NodePath/StringName
+        as a string, primitives as-is. See docs/tool-contracts.md#value-shapes.
         """
         await require_node_exists(bridge, node_path)
         params = {"node_path": node_path, "name": name, "value": value, "param_type": param_type}

@@ -90,6 +90,10 @@ def register_animation(mcp: FastMCP, bridge: Bridge) -> None:
     ) -> KeyframeResult:
         """Insert a keyframe on ``track`` at ``time`` with ``value`` (Godot string
         forms like "Vector2(10, 20)" are accepted). ``easing`` is the key transition.
+        ``value`` accepts JSON for the target Godot type — Vector2/3 as
+        ``{"x":1,"y":2}``/``[1,2]``, Color as ``{"r":1,"g":0,"b":0,"a":1}`` or
+        ``"#ff0000"``, Rect2 as ``{"position":{...},"size":{...}}``, NodePath/StringName
+        as a string, primitives as-is. See docs/tool-contracts.md#value-shapes.
         """
         await require_node_exists(bridge, node_path)
         params = {

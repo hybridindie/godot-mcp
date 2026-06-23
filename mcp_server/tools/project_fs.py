@@ -71,6 +71,10 @@ def register_project_fs(mcp: FastMCP, bridge: Bridge) -> None:
     async def set_setting(name: str, value: Any, dry_run: bool = False) -> SetSettingResult:
         """Set a project setting and persist it. Coerced to the setting's existing type
         when it already exists. Not undo-tracked (it writes project settings).
+        ``value`` accepts JSON for the target Godot type — Vector2/3 as
+        ``{"x":1,"y":2}``/``[1,2]``, Color as ``{"r":1,"g":0,"b":0,"a":1}`` or
+        ``"#ff0000"``, Rect2 as ``{"position":{...},"size":{...}}``, NodePath/StringName
+        as a string, primitives as-is. See docs/tool-contracts.md#value-shapes.
         """
         params = {"name": name, "value": value}
         preview = {"name": name, "value": value, "set": False}
