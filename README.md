@@ -473,7 +473,7 @@ The full surface is 121 tools across 23 categories. Below is a summary; the auth
 - `add_mesh_instance`, `setup_camera`, `setup_lighting`, `setup_environment`, `gridmap_set_cell`, `gridmap_get_cell`
 - **MeshLibrary authoring:** `create_mesh_library`, `add_mesh_library_item`
 
-### Particles (gated) — `mutating`
+### Particles (gated) — `mutating` / `read_only`
 - `create_particles`, `set_particle_material`, `set_particle_color_gradient`, `apply_particle_preset`, `get_particle_material`
 
 ### Navigation (gated) — `mutating`

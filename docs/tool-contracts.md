@@ -453,7 +453,7 @@ the auto-assigned id.
 #### Particles (issue #42) — category: `particles` (gated off by default)
 
 Create and configure GPU particle systems — generic Godot, pass the node type names.
-All `mutating` (UndoRedo-wrapped), `dry_run`.
+Writes are `mutating` (UndoRedo-wrapped), `dry_run`; `get_particle_material` is `read_only`.
 
 | Tool | Params | Returns |
 |------|--------|---------|
