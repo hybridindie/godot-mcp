@@ -78,6 +78,11 @@ def register_inspection(mcp: FastMCP, bridge: Bridge) -> None:
                 result = SceneTree(**await route(bridge, "cmd_get_scene_tree", light))
             result.truncated = True
             result.hint = TRUNCATION_HINT
+            # Strict cap: a very wide/deep scene can exceed the limit even when
+            # lightweight, so drop the tree entirely rather than return an oversized
+            # payload — parity with the resource path's cap_json (#222).
+            if over_character_limit(result.model_dump_json()):
+                result.tree = None
         return result
 
     @mcp.tool(meta=READ_ONLY, tags=INSPECTION)

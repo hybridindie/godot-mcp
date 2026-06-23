@@ -94,3 +94,25 @@ async def test_get_scene_tree_tool_marks_truncation() -> None:
         result = await client.call_tool("get_scene_tree", {})
     assert result.data.truncated is True
     assert result.data.hint
+
+
+def _always_big_responder(cmd: CommandEnvelope) -> ResponseEnvelope:
+    """A scene so large that even the lightweight view exceeds the character limit."""
+    base = _default_base_responder(cmd)
+    if base is not None:
+        return base
+    if cmd.command == "cmd_get_scene_tree":
+        return ResponseEnvelope.success(cmd.id, {"tree": _big_tree()})
+    return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", f"unknown {cmd.command}")
+
+
+async def test_get_scene_tree_tool_strictly_caps_when_lightweight_still_large() -> None:
+    config = ServerConfig()
+    conn = FakeAddonConnection(_always_big_responder)
+    server = create_server(config, bridge=Bridge(config.bridge, connector=connector_for(conn)))
+    async with Client(server) as client:
+        result = await client.call_tool("get_scene_tree", {})
+    # Even the lightweight fallback is too big → tree dropped, payload bounded.
+    assert result.data.truncated is True
+    assert result.data.tree is None
+    assert len(json.dumps(result.structured_content)) <= CHARACTER_LIMIT
