@@ -86,6 +86,21 @@ static func node_groups(node: Node) -> Array:
 	return out
 
 
+## Normalize an agent-supplied node path before resolving it (issue #244): tolerate a
+## leading "/" and a "root/" prefix (both commonly hallucinated by LLMs), and map an
+## empty path to "." (the scene root). Pure string transform — the single source used
+## by every path-taking handler. "/root/Player" → "Player"; "" → ".".
+static func normalize_node_path(raw: String) -> String:
+	var path := raw
+	if path.begins_with("/"):
+		path = path.substr(1)
+	if path.begins_with("root/"):
+		path = path.substr(5)
+	if path.is_empty():
+		path = "."
+	return path
+
+
 ## A resource's editable+stored properties, JSON-coerced (issue #34). Unlike nodes
 ## (script vars), built-in resource fields are EDITOR|STORAGE, so filter on those and
 ## drop the base Resource bookkeeping fields.

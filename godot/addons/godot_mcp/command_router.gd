@@ -390,15 +390,7 @@ func _resolve(raw_path: Variant) -> Dictionary:
 	var root := EditorInterface.get_edited_scene_root()
 	if root == null:
 		return _fail("PRECONDITION_FAILED", "No scene is open.", "active_scene")
-	var path_str := str(raw_path)
-	# Strip leading slashes ("/Player" -> "Player")
-	if path_str.begins_with("/"):
-		path_str = path_str.substr(1)
-	# Also strip "root/" prefix commonly hallucinated by LLMs ("/root/Player" -> "Player")
-	if path_str.begins_with("root/"):
-		path_str = path_str.substr(5)
-	if path_str.is_empty():
-		path_str = "."
+	var path_str := Inspect.normalize_node_path(str(raw_path))
 	var node: Node = root.get_node_or_null(NodePath(path_str))
 	if node == null:
 		return _fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(raw_path))

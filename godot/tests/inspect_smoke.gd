@@ -21,6 +21,7 @@ func _initialize() -> void:
 	_test_node_properties(failures)
 	_test_read_property(failures)
 	_test_node_groups(failures)
+	_test_normalize_node_path(failures)
 	_test_node_info(failures)
 
 	if failures.is_empty():
@@ -171,6 +172,15 @@ func _test_node_groups(failures: Array[String]) -> void:
 	_eq(failures, "groups.empty", Inspect.node_groups(bare), [])
 	node.free()
 	bare.free()
+
+
+func _test_normalize_node_path(failures: Array[String]) -> void:
+	# Tolerates LLM-hallucinated absolute/`root/` prefixes; empty → "." (#244).
+	_eq(failures, "norm.root_abs", Inspect.normalize_node_path("/root/Player"), "Player")
+	_eq(failures, "norm.root_rel", Inspect.normalize_node_path("root/Player"), "Player")
+	_eq(failures, "norm.abs", Inspect.normalize_node_path("/Player"), "Player")
+	_eq(failures, "norm.empty", Inspect.normalize_node_path(""), ".")
+	_eq(failures, "norm.plain", Inspect.normalize_node_path("Player/Gun"), "Player/Gun")
 
 
 func _test_node_info(failures: Array[String]) -> void:

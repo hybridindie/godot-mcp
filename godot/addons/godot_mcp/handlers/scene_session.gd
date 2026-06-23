@@ -93,14 +93,7 @@ func _cmd_select_nodes(params: Dictionary) -> Dictionary:
 	selection.clear()
 	var selected: Array = []
 	for raw_path in node_paths:
-		var path_str := str(raw_path)
-		if path_str.begins_with("/"):
-			path_str = path_str.substr(1)
-		# Also strip "root/" prefix commonly hallucinated by LLMs
-		if path_str.begins_with("root/"):
-			path_str = path_str.substr(5)
-		if path_str.is_empty():
-			path_str = "."
+		var path_str := Inspect.normalize_node_path(str(raw_path))
 		var node := root.get_node_or_null(NodePath(path_str))
 		if node == null:
 			return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % path_str)
