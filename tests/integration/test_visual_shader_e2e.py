@@ -77,8 +77,20 @@ async def _run() -> None:
         )
         assert connected["connected"] is True
 
+        # G6 (#219): read the graph back — mode, the added node, and the connection.
+        graph = await _ok(bridge, "cmd_read_visual_shader", {"shader_path": SHADER})
+        assert graph["mode"] == "canvas_item"
+        node1 = next(n for n in graph["nodes"] if n["id"] == 1)
+        assert node1["type"] == "VisualShaderNodeColorConstant"
+        assert node1["position"] == {"x": 100.0, "y": 200.0}
+        assert {"from_node": 1, "from_port": 0, "to_node": 0, "to_port": 0} in graph["connections"]
+
         types = await _ok(bridge, "cmd_list_shader_node_types", {})
         assert any(t.startswith("VisualShaderNode") for t in types["types"])
+
+        # validation: not a VisualShader resource path
+        bad = await bridge.send("cmd_read_visual_shader", {"shader_path": "res://nope.tres"})
+        assert bad.ok is False and bad.error == "RESOURCE_NOT_FOUND"
     finally:
         await bridge.close()
 

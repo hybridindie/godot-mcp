@@ -62,6 +62,31 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                     ]
                 },
             )
+        case "cmd_read_visual_shader":
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "shader_path": p["shader_path"],
+                    "mode": "spatial",
+                    "nodes": [
+                        {
+                            "id": 0,
+                            "type": "VisualShaderNodeOutput",
+                            "position": {"x": 0.0, "y": 0.0},
+                            "parameters": {},
+                        },
+                        {
+                            "id": 2,
+                            "type": "VisualShaderNodeColorConstant",
+                            "position": {"x": -200.0, "y": 40.0},
+                            "parameters": {"constant": {"r": 1.0, "g": 0.0, "b": 0.0, "a": 1.0}},
+                        },
+                    ],
+                    "connections": [
+                        {"from_node": 2, "from_port": 0, "to_node": 0, "to_port": 0}
+                    ],
+                },
+            )
     return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
 
 
@@ -194,3 +219,24 @@ async def test_mutating_tools_have_dry_run() -> None:
     assert dry.structured_content["dry_run"] is True
     assert dry.structured_content["added"] is False
     assert "cmd_add_shader_node" not in _commands(conn)
+
+
+async def test_read_visual_shader_returns_graph() -> None:
+    # #219 G6: read the VisualShader graph (nodes + connections) — inverts the writers.
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "visual_shader"})
+        result = await client.call_tool(
+            "read_visual_shader", {"shader_path": "res://shaders/fx.tres"}
+        )
+        tools = {t.name: t for t in await client.list_tools()}
+    data = result.structured_content
+    assert data["mode"] == "spatial"
+    assert {n["id"] for n in data["nodes"]} == {0, 2}
+    color = next(n for n in data["nodes"] if n["id"] == 2)
+    assert color["type"] == "VisualShaderNodeColorConstant"
+    assert color["parameters"]["constant"]["r"] == 1.0
+    conn_edge = data["connections"][0]
+    assert conn_edge["from_node"] == 2 and conn_edge["to_node"] == 0
+    assert tools["read_visual_shader"].meta["safety_class"] == "read_only"
+    assert "cmd_read_visual_shader" in _commands(conn)

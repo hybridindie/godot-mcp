@@ -611,6 +611,7 @@ to the text-shader `shader` toolset (issue #47). All mutating tools support `dry
 | `connect_shader_nodes` | `shader_path, from_node, from_port, to_node, to_port` | `ConnectShaderNodesResult { connected }` | `mutating` |
 | `set_shader_node_param` | `shader_path, node_id, property, value` | `SetShaderNodeParamResult { node_id, property, value, set }` | `mutating` |
 | `list_shader_node_types` | — | `ListShaderNodeTypesResult { types[] }` | `read_only` |
+| `read_visual_shader` | `shader_path` | `VisualShaderGraph { shader_path, mode, nodes[{id, type, position, parameters}], connections[{from_node, from_port, to_node, to_port}] }` | `read_only` |
 
 `create_visual_shader` creates a `VisualShader` resource with `shader_type` set from
 `type` (`"2d"` → canvas_item, `"3d"` → spatial, `"particles"` | `"sky"` | `"fog"`).
@@ -618,7 +619,9 @@ to the text-shader `shader` toolset (issue #47). All mutating tools support `dry
 `position`. `connect_shader_nodes` wires an output port to an input port by
 integer ids. `set_shader_node_param` sets a property on the node (values coerced via
 `type_coerce`). `list_shader_node_types` scans ClassDB for instantiable
-`VisualShaderNode*` classes so agents know what's available.
+`VisualShaderNode*` classes so agents know what's available. `read_visual_shader` is the
+inverse read — it serializes the whole graph (mode, every node with its class/position/
+parameters, and the connections) for rollback before edits.
 
 #### Project scaffold (issue #112) — category: `project_scaffold` (gated off by default)
 

@@ -2,6 +2,7 @@
 class_name MCPVisualShaderHandlers
 extends RefCounted
 const Coerce := preload("res://addons/godot_mcp/type_coerce.gd")
+const VisualShaderRead := preload("res://addons/godot_mcp/visual_shader_read.gd")
 ## Domain handler: visual shader node graphs (issue #107).
 ##
 ## Registered by the router on _init(). Each handler receives a params dict and
@@ -20,6 +21,7 @@ func register(handlers: Dictionary) -> void:
 	handlers["cmd_connect_shader_nodes"] = _cmd_connect_shader_nodes
 	handlers["cmd_set_shader_node_param"] = _cmd_set_shader_node_param
 	handlers["cmd_list_shader_node_types"] = _cmd_list_shader_node_types
+	handlers["cmd_read_visual_shader"] = _cmd_read_visual_shader
 
 
 # -- helpers -----------------------------------------------------------------
@@ -195,3 +197,19 @@ func _cmd_list_shader_node_types(_params: Dictionary) -> Dictionary:
 		if str(cls).begins_with("VisualShaderNode") and ClassDB.can_instantiate(str(cls)):
 			types.append(str(cls))
 	return _router._ok({"types": types})
+
+
+## Read a VisualShader graph — mode + nodes + connections (issue #219 G6). The inverse of
+## the visual-shader writers; delegates the pure serialization to MCPVisualShaderRead.
+func _cmd_read_visual_shader(params: Dictionary) -> Dictionary:
+	var path := str(params.get("shader_path", ""))
+	if not path.begins_with("res://"):
+		return _router._fail("VALIDATION_ERROR", "shader_path must start with res://.")
+	if not ResourceLoader.exists(path):
+		return _router._fail("RESOURCE_NOT_FOUND", "No shader at '%s'." % path)
+	var resource: Resource = ResourceLoader.load(path)
+	if not (resource is VisualShader):
+		return _router._fail("VALIDATION_ERROR", "'%s' is not a VisualShader." % path)
+	var data: Dictionary = VisualShaderRead.serialize(resource)
+	data["shader_path"] = path
+	return _router._ok(data)

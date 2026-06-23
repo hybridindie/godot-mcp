@@ -20,6 +20,7 @@ from mcp_server.models.visual_shader import (
     CreateVisualShaderResult,
     ListShaderNodeTypesResult,
     SetShaderNodeParamResult,
+    VisualShaderGraph,
 )
 from mcp_server.safety import MUTATING, READ_ONLY
 from mcp_server.tools._route import route, run_or_preview
@@ -162,4 +163,17 @@ def register_visual_shader(mcp: FastMCP, bridge: Bridge) -> None:
         """
         return ListShaderNodeTypesResult(
             **await route(bridge, "cmd_list_shader_node_types")
+        )
+
+    @mcp.tool(meta=READ_ONLY, tags=VISUAL_SHADER)
+    async def read_visual_shader(shader_path: str) -> VisualShaderGraph:
+        """Read the VisualShader graph at ``shader_path`` (a ``res://*.tres``): its
+        ``mode`` plus every ``node`` ({id, type, position, parameters}) and
+        ``connection`` ({from_node, from_port, to_node, to_port}). The inverse of
+        ``create_visual_shader`` / ``add_shader_node`` / ``connect_shader_nodes`` /
+        ``set_shader_node_param`` — snapshot a shader graph before editing it for
+        rollback. Errors if the path isn't a VisualShader resource.
+        """
+        return VisualShaderGraph(
+            **await route(bridge, "cmd_read_visual_shader", {"shader_path": shader_path})
         )
