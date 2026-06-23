@@ -3,7 +3,7 @@ class_name MCPAnimationRead
 extends RefCounted
 ## Pure, read-only serialization of Animation resources (issue #218 — rollback
 ## enabler G4). Takes Animation/AnimationPlayer resources (never EditorInterface),
-## so it is verifiable headlessly (see godot/tests/animation_smoke.gd). Keyframe
+## so it is verifiable headlessly (see godot/tests/animation_read_smoke.gd). Keyframe
 ## values are JSON-safe via MCPTypeCoerce. Inverts the animation writers
 ## (create_animation / add_animation_track / insert_keyframe).
 
