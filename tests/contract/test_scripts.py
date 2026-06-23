@@ -79,9 +79,9 @@ def _build(check_output: RunOutput | None = None) -> tuple[FastMCP, FakeAddonCon
 
 def test_parse_check_errors_extracts_line() -> None:
     text = (
-        "SCRIPT ERROR: Parse Error: Expected expression after \"=\".\n"
+        'SCRIPT ERROR: Parse Error: Expected expression after "=".\n'
         "          at: GDScript::reload (res://player.gd:3)\n"
-        "ERROR: Failed to load script with error \"Parse error\"."
+        'ERROR: Failed to load script with error "Parse error".'
     )
     errors = parse_check_errors(text)
     assert len(errors) == 1
@@ -99,18 +99,23 @@ def test_parse_check_errors_ignores_non_parse_script_errors() -> None:
 async def test_script_tools_gated_in_scripts_toolset() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        assert "read_script" not in {t.name for t in await client.list_tools()}
-        await client.call_tool("enable_toolset", {"category": "scripts"})
+        assert "godot_scripts_read" not in {t.name for t in await client.list_tools()}
+        await client.call_tool("godot_enable_toolset", {"category": "scripts"})
         names = {t.name for t in await client.list_tools()}
-    assert {"read_script", "write_script", "patch_script", "get_parse_errors"} <= names
+    assert {
+        "godot_scripts_read",
+        "godot_scripts_write",
+        "godot_scripts_patch",
+        "godot_scripts_get_parse_errors",
+    } <= names
 
 
 async def test_read_and_list_scripts() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scripts"})
-        content = await client.call_tool("read_script", {"script_path": "res://a.gd"})
-        listing = await client.call_tool("list_scripts", {"directory": "res://"})
+        await client.call_tool("godot_enable_toolset", {"category": "scripts"})
+        content = await client.call_tool("godot_scripts_read", {"script_path": "res://a.gd"})
+        listing = await client.call_tool("godot_scripts_list", {"directory": "res://"})
     assert content.structured_content["content"] == "extends Node\n"
     assert listing.structured_content["scripts"] == ["res://a.gd", "res://b.gd"]
 
@@ -118,17 +123,17 @@ async def test_read_and_list_scripts() -> None:
 async def test_write_script_safety_and_dry_run() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scripts"})
-        tool = next(t for t in await client.list_tools() if t.name == "write_script")
+        await client.call_tool("godot_enable_toolset", {"category": "scripts"})
+        tool = next(t for t in await client.list_tools() if t.name == "godot_scripts_write")
         assert tool.meta is not None and tool.meta.get("safety_class") == "mutating"
         # Existing target (the fake reads it back) -> would_overwrite, not created.
         dry = await client.call_tool(
-            "write_script",
+            "godot_scripts_write",
             {"script_path": "res://x.gd", "content": "extends Node", "dry_run": True},
         )
         # Missing target -> not an overwrite; would be created.
         dry_new = await client.call_tool(
-            "write_script",
+            "godot_scripts_write",
             {"script_path": "res://missing.gd", "content": "extends Node", "dry_run": True},
         )
     assert dry.structured_content["dry_run"] is True
@@ -145,10 +150,10 @@ async def test_write_script_rejects_res_root_escape() -> None:
 
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scripts"})
+        await client.call_tool("godot_enable_toolset", {"category": "scripts"})
         with pytest.raises(ToolError):
             await client.call_tool(
-                "write_script", {"script_path": "res://../../etc/x.gd", "content": "x"}
+                "godot_scripts_write", {"script_path": "res://../../etc/x.gd", "content": "x"}
             )
     sent = [CommandEnvelope.model_validate_json(s).command for s in conn.sent]
     assert "cmd_write_script" not in sent  # rejected before reaching the addon
@@ -161,10 +166,10 @@ async def test_write_script_dry_run_does_not_bypass_containment() -> None:
 
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scripts"})
+        await client.call_tool("godot_enable_toolset", {"category": "scripts"})
         with pytest.raises(ToolError):
             await client.call_tool(
-                "write_script",
+                "godot_scripts_write",
                 {"script_path": "res://../../etc/passwd", "content": "x", "dry_run": True},
             )
     sent = [CommandEnvelope.model_validate_json(s).command for s in conn.sent]
@@ -188,9 +193,9 @@ def test_write_script_create_undo_removes_uid_sidecar() -> None:
 async def test_patch_script_routes() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scripts"})
+        await client.call_tool("godot_enable_toolset", {"category": "scripts"})
         result = await client.call_tool(
-            "patch_script", {"script_path": "res://a.gd", "find": "foo", "replace": "bar"}
+            "godot_scripts_patch", {"script_path": "res://a.gd", "find": "foo", "replace": "bar"}
         )
     assert result.structured_content["replacements"] == 2
 
@@ -202,8 +207,10 @@ async def test_get_parse_errors_reports_structured_errors() -> None:
     )
     server, _ = _build(check_output=check)
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scripts"})
-        result = await client.call_tool("get_parse_errors", {"script_path": "res://a.gd"})
+        await client.call_tool("godot_enable_toolset", {"category": "scripts"})
+        result = await client.call_tool(
+            "godot_scripts_get_parse_errors", {"script_path": "res://a.gd"}
+        )
     payload = result.structured_content
     assert payload["ok"] is False
     assert payload["errors"][0]["line"] == 5
@@ -212,9 +219,9 @@ async def test_get_parse_errors_reports_structured_errors() -> None:
 async def test_missing_script_is_structured_error() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scripts"})
+        await client.call_tool("godot_enable_toolset", {"category": "scripts"})
         result = await client.call_tool(
-            "read_script", {"script_path": "res://missing.gd"}, raise_on_error=False
+            "godot_scripts_read", {"script_path": "res://missing.gd"}, raise_on_error=False
         )
     assert result.is_error
     assert "RESOURCE_NOT_FOUND" in str(result.content)

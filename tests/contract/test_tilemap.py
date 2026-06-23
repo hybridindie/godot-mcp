@@ -62,10 +62,18 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                     "layer": p["layer"],
                     "count": 2,
                     "cells": [
-                        {"coords": [0, 0], "source_id": 1, "atlas_coords": [2, 3],
-                         "alternative_tile": 0},
-                        {"coords": [1, 0], "source_id": 1, "atlas_coords": [4, 5],
-                         "alternative_tile": 1},
+                        {
+                            "coords": [0, 0],
+                            "source_id": 1,
+                            "atlas_coords": [2, 3],
+                            "alternative_tile": 0,
+                        },
+                        {
+                            "coords": [1, 0],
+                            "source_id": 1,
+                            "atlas_coords": [4, 5],
+                            "alternative_tile": 1,
+                        },
                     ],
                 },
             )
@@ -130,11 +138,11 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 async def test_gated_in_tilemap_toolset_with_safety_classes() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        assert "tilemap_set_cell" not in {t.name for t in await client.list_tools()}
-        await client.call_tool("enable_toolset", {"category": "tilemap"})
+        assert "godot_tilemap_set_cell" not in {t.name for t in await client.list_tools()}
+        await client.call_tool("godot_enable_toolset", {"category": "tilemap"})
         tools = {t.name: t for t in await client.list_tools()}
-    mutating = {"tilemap_set_cell", "tilemap_fill_rect", "tilemap_clear"}
-    read_only = {"tilemap_get_cell", "tilemap_layers"}
+    mutating = {"godot_tilemap_set_cell", "godot_tilemap_fill_rect", "godot_tilemap_clear"}
+    read_only = {"godot_tilemap_get_cell", "godot_tilemap_layers"}
     assert (mutating | read_only) <= set(tools)
     assert all(tools[n].meta["safety_class"] == "mutating" for n in mutating)
     assert all(tools[n].meta["safety_class"] == "read_only" for n in read_only)
@@ -143,13 +151,13 @@ async def test_gated_in_tilemap_toolset_with_safety_classes() -> None:
 async def test_set_cell_and_fill_rect() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "tilemap"})
+        await client.call_tool("godot_enable_toolset", {"category": "tilemap"})
         cell = await client.call_tool(
-            "tilemap_set_cell",
+            "godot_tilemap_set_cell",
             {"node_path": "Ground", "coords": [3, 4], "source_id": 0, "atlas_coords": [1, 2]},
         )
         fill = await client.call_tool(
-            "tilemap_fill_rect",
+            "godot_tilemap_fill_rect",
             {"node_path": "Ground", "rect": [0, 0, 4, 3], "source_id": 0},
         )
     assert cell.structured_content["coords"] == [3, 4]
@@ -160,9 +168,11 @@ async def test_set_cell_and_fill_rect() -> None:
 async def test_get_cell_and_layers() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "tilemap"})
-        cell = await client.call_tool("tilemap_get_cell", {"node_path": "Ground", "coords": [0, 0]})
-        layers = await client.call_tool("tilemap_layers", {"node_path": "Ground"})
+        await client.call_tool("godot_enable_toolset", {"category": "tilemap"})
+        cell = await client.call_tool(
+            "godot_tilemap_get_cell", {"node_path": "Ground", "coords": [0, 0]}
+        )
+        layers = await client.call_tool("godot_tilemap_layers", {"node_path": "Ground"})
     assert cell.structured_content["empty"] is True
     assert cell.structured_content["source_id"] == -1
     assert layers.structured_content["node_type"] == "TileMapLayer"
@@ -183,9 +193,9 @@ async def test_readonly_tool_surfaces_structured_precondition() -> None:
     bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
     server = create_server(ServerConfig(), bridge=bridge)
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "tilemap"})
+        await client.call_tool("godot_enable_toolset", {"category": "tilemap"})
         result = await client.call_tool(
-            "tilemap_get_cell",
+            "godot_tilemap_get_cell",
             {"node_path": "Ground", "coords": [0, 0]},
             raise_on_error=False,
         )
@@ -198,16 +208,17 @@ async def test_tileset_authoring_chain() -> None:
     # the prerequisite chain that lets tilemap_set_cell place real tiles.
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "tilemap"})
+        await client.call_tool("godot_enable_toolset", {"category": "tilemap"})
         ts = await client.call_tool(
-            "create_tileset", {"node_path": "Ground", "tile_size": [16, 16]}
+            "godot_tilemap_create_tileset", {"node_path": "Ground", "tile_size": [16, 16]}
         )
         src = await client.call_tool(
-            "add_tileset_atlas_source",
+            "godot_tilemap_add_tileset_atlas_source",
             {"node_path": "Ground", "texture_path": "res://tiles.png", "region_size": [16, 16]},
         )
         tile = await client.call_tool(
-            "create_tile", {"node_path": "Ground", "source_id": 0, "atlas_coords": [0, 0]},
+            "godot_tilemap_create_tile",
+            {"node_path": "Ground", "source_id": 0, "atlas_coords": [0, 0]},
         )
     assert ts.structured_content["tile_size"] == [16, 16]
     assert ts.structured_content["created"] is True
@@ -220,17 +231,21 @@ async def test_tileset_authoring_chain() -> None:
 async def test_tileset_authoring_file_backed_and_safety() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "tilemap"})
+        await client.call_tool("godot_enable_toolset", {"category": "tilemap"})
         tools = {t.name: t for t in await client.list_tools()}
-        authoring = {"create_tileset", "add_tileset_atlas_source", "create_tile"}
+        authoring = {
+            "godot_tilemap_create_tileset",
+            "godot_tilemap_add_tileset_atlas_source",
+            "godot_tilemap_create_tile",
+        }
         assert authoring <= set(tools)
         assert all(tools[n].meta["safety_class"] == "mutating" for n in authoring)
         # a .tres-backed source needs no node_path
         saved = await client.call_tool(
-            "create_tileset", {"save_path": "res://floor.tres", "tile_size": [8, 8]}
+            "godot_tilemap_create_tileset", {"save_path": "res://floor.tres", "tile_size": [8, 8]}
         )
         src = await client.call_tool(
-            "add_tileset_atlas_source",
+            "godot_tilemap_add_tileset_atlas_source",
             {
                 "tileset_path": "res://floor.tres",
                 "texture_path": "res://tiles.png",
@@ -246,9 +261,9 @@ async def test_tileset_target_must_be_single_and_present() -> None:
     # ambiguous, passing neither is underspecified. Both reject before any bridge call.
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "tilemap"})
+        await client.call_tool("godot_enable_toolset", {"category": "tilemap"})
         both = await client.call_tool(
-            "create_tile",
+            "godot_tilemap_create_tile",
             {
                 "node_path": "Ground",
                 "tileset_path": "res://x.tres",
@@ -258,7 +273,7 @@ async def test_tileset_target_must_be_single_and_present() -> None:
             raise_on_error=False,
         )
         neither = await client.call_tool(
-            "add_tileset_atlas_source",
+            "godot_tilemap_add_tileset_atlas_source",
             {"texture_path": "res://t.png", "region_size": [16, 16]},
             raise_on_error=False,
         )
@@ -271,9 +286,9 @@ async def test_tileset_target_must_be_single_and_present() -> None:
 async def test_tileset_create_dry_run_sends_no_command() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "tilemap"})
+        await client.call_tool("godot_enable_toolset", {"category": "tilemap"})
         dry = await client.call_tool(
-            "create_tileset", {"save_path": "res://x.tres", "dry_run": True}
+            "godot_tilemap_create_tileset", {"save_path": "res://x.tres", "dry_run": True}
         )
     assert dry.structured_content["dry_run"] is True
     assert "cmd_create_tileset" not in _commands(conn)
@@ -282,10 +297,10 @@ async def test_tileset_create_dry_run_sends_no_command() -> None:
 async def test_clear_and_dry_run() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "tilemap"})
-        cleared = await client.call_tool("tilemap_clear", {"node_path": "Ground"})
+        await client.call_tool("godot_enable_toolset", {"category": "tilemap"})
+        cleared = await client.call_tool("godot_tilemap_clear", {"node_path": "Ground"})
         dry = await client.call_tool(
-            "tilemap_set_cell",
+            "godot_tilemap_set_cell",
             {"node_path": "Ground", "coords": [1, 1], "source_id": 0, "dry_run": True},
         )
     assert cleared.structured_content["cleared"] == 4
@@ -297,9 +312,9 @@ async def test_tilemap_get_used_cells_snapshot() -> None:
     # #219 P3: bulk snapshot of used cells — inverts tilemap_fill_rect / tilemap_clear.
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "tilemap"})
+        await client.call_tool("godot_enable_toolset", {"category": "tilemap"})
         result = await client.call_tool(
-            "tilemap_get_used_cells", {"node_path": "TileMapLayer", "layer": 0}
+            "godot_tilemap_get_used_cells", {"node_path": "TileMapLayer", "layer": 0}
         )
         tools = {t.name: t for t in await client.list_tools()}
     data = result.structured_content
@@ -310,6 +325,6 @@ async def test_tilemap_get_used_cells_snapshot() -> None:
         "atlas_coords": [2, 3],
         "alternative_tile": 0,
     }
-    assert tools["tilemap_get_used_cells"].meta["safety_class"] == "read_only"
+    assert tools["godot_tilemap_get_used_cells"].meta["safety_class"] == "read_only"
     cmds = [CommandEnvelope.model_validate_json(s).command for s in conn.sent]
     assert "cmd_tilemap_get_used_cells" in cmds

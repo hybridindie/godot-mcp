@@ -77,26 +77,26 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 async def test_node_ops_gated_in_scene_edit() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        assert "duplicate_node" not in {t.name for t in await client.list_tools()}
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        assert "godot_scene_edit_duplicate_node" not in {t.name for t in await client.list_tools()}
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         names = {t.name for t in await client.list_tools()}
     assert {
-        "duplicate_node",
-        "move_node",
-        "add_to_group",
-        "remove_from_group",
-        "list_signal_connections",
-        "disconnect_signal",
+        "godot_scene_edit_duplicate_node",
+        "godot_scene_edit_move_node",
+        "godot_scene_edit_add_to_group",
+        "godot_scene_edit_remove_from_group",
+        "godot_scene_edit_list_signal_connections",
+        "godot_scene_edit_disconnect_signal",
     } <= names
 
 
 async def test_duplicate_and_move() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
-        dup = await client.call_tool("duplicate_node", {"node_path": "Box"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
+        dup = await client.call_tool("godot_scene_edit_duplicate_node", {"node_path": "Box"})
         mv = await client.call_tool(
-            "move_node", {"node_path": "Box", "new_parent_path": "Container"}
+            "godot_scene_edit_move_node", {"node_path": "Box", "new_parent_path": "Container"}
         )
     assert dup.structured_content["node_path"] == "Box2"
     assert mv.structured_content["moved"] is True
@@ -105,9 +105,13 @@ async def test_duplicate_and_move() -> None:
 async def test_group_tools() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
-        added = await client.call_tool("add_to_group", {"node_path": "Box", "group": "g"})
-        removed = await client.call_tool("remove_from_group", {"node_path": "Box", "group": "g"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
+        added = await client.call_tool(
+            "godot_scene_edit_add_to_group", {"node_path": "Box", "group": "g"}
+        )
+        removed = await client.call_tool(
+            "godot_scene_edit_remove_from_group", {"node_path": "Box", "group": "g"}
+        )
     assert added.structured_content == {
         "node_path": "Box",
         "group": "g",
@@ -121,11 +125,17 @@ async def test_group_tools() -> None:
 async def test_list_and_disconnect_signals() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
-        listed = await client.call_tool("list_signal_connections", {"node_path": "Clock"})
-        tool = next(t for t in await client.list_tools() if t.name == "list_signal_connections")
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
+        listed = await client.call_tool(
+            "godot_scene_edit_list_signal_connections", {"node_path": "Clock"}
+        )
+        tool = next(
+            t
+            for t in await client.list_tools()
+            if t.name == "godot_scene_edit_list_signal_connections"
+        )
         disc = await client.call_tool(
-            "disconnect_signal",
+            "godot_scene_edit_disconnect_signal",
             {
                 "source_path": "Clock",
                 "signal_name": "timeout",
@@ -141,7 +151,9 @@ async def test_list_and_disconnect_signals() -> None:
 async def test_dry_run_sends_no_mutation() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
-        result = await client.call_tool("duplicate_node", {"node_path": "Box", "dry_run": True})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
+        result = await client.call_tool(
+            "godot_scene_edit_duplicate_node", {"node_path": "Box", "dry_run": True}
+        )
     assert result.structured_content["dry_run"] is True
     assert "cmd_duplicate_node" not in _commands(conn)

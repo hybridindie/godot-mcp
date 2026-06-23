@@ -83,29 +83,29 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 async def test_gated_with_safety_classes() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        assert "batch_set_property" not in {t.name for t in await client.list_tools()}
-        await client.call_tool("enable_toolset", {"category": "batch"})
+        assert "godot_batch_set_property" not in {t.name for t in await client.list_tools()}
+        await client.call_tool("godot_enable_toolset", {"category": "batch"})
         tools = {t.name: t for t in await client.list_tools()}
     expected = {
-        "find_nodes_by_type",
-        "batch_set_property",
-        "cross_scene_set_property",
-        "get_dependencies",
+        "godot_batch_find_nodes_by_type",
+        "godot_batch_set_property",
+        "godot_batch_cross_scene_set_property",
+        "godot_batch_get_dependencies",
     }
     assert expected <= set(tools)
-    assert tools["batch_set_property"].meta["safety_class"] == "mutating"
-    assert tools["cross_scene_set_property"].meta["safety_class"] == "mutating"
-    assert tools["find_nodes_by_type"].meta["safety_class"] == "read_only"
-    assert tools["get_dependencies"].meta["safety_class"] == "read_only"
+    assert tools["godot_batch_set_property"].meta["safety_class"] == "mutating"
+    assert tools["godot_batch_cross_scene_set_property"].meta["safety_class"] == "mutating"
+    assert tools["godot_batch_find_nodes_by_type"].meta["safety_class"] == "read_only"
+    assert tools["godot_batch_get_dependencies"].meta["safety_class"] == "read_only"
 
 
 async def test_find_and_batch_set() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "batch"})
-        found = await client.call_tool("find_nodes_by_type", {"node_type": "Sprite2D"})
+        await client.call_tool("godot_enable_toolset", {"category": "batch"})
+        found = await client.call_tool("godot_batch_find_nodes_by_type", {"node_type": "Sprite2D"})
         result = await client.call_tool(
-            "batch_set_property",
+            "godot_batch_set_property",
             {"property": "visible", "value": False, "node_type": "Sprite2D"},
         )
     assert found.structured_content["count"] == 2
@@ -117,9 +117,9 @@ async def test_find_and_batch_set() -> None:
 async def test_cross_scene_and_dependencies() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "batch"})
+        await client.call_tool("godot_enable_toolset", {"category": "batch"})
         cross = await client.call_tool(
-            "cross_scene_set_property",
+            "godot_batch_cross_scene_set_property",
             {
                 "scenes": ["res://a.tscn", "res://b.tscn"],
                 "node_type": "Camera2D",
@@ -127,7 +127,7 @@ async def test_cross_scene_and_dependencies() -> None:
                 "value": True,
             },
         )
-        deps = await client.call_tool("get_dependencies", {"path": "res://main.tscn"})
+        deps = await client.call_tool("godot_batch_get_dependencies", {"path": "res://main.tscn"})
     assert cross.structured_content["total_modified"] == 2
     assert cross.structured_content["results"][0]["scene"] == "res://a.tscn"
     assert deps.structured_content["dependencies"][0]["path"] == "res://icon.png"
@@ -136,9 +136,9 @@ async def test_cross_scene_and_dependencies() -> None:
 async def test_batch_set_dry_run_forwards_flag() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "batch"})
+        await client.call_tool("godot_enable_toolset", {"category": "batch"})
         result = await client.call_tool(
-            "batch_set_property",
+            "godot_batch_set_property",
             {"property": "visible", "value": False, "node_type": "Sprite2D", "dry_run": True},
         )
     assert result.structured_content["dry_run"] is True

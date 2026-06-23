@@ -62,26 +62,32 @@ def _solid(w: int, h: int, rgba: tuple[int, int, int, int]) -> str:
 async def test_gated_with_safety_classes() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        assert "run_test_scenario" not in {t.name for t in await client.list_tools()}
-        await client.call_tool("enable_toolset", {"category": "testing"})
+        assert "godot_testing_run_test_scenario" not in {t.name for t in await client.list_tools()}
+        await client.call_tool("godot_enable_toolset", {"category": "testing"})
         tools = {t.name: t for t in await client.list_tools()}
-    expected = {"assert_node_state", "run_test_scenario", "run_stress_test", "compare_screenshots"}
+    expected = {
+        "godot_testing_assert_node_state",
+        "godot_testing_run_test_scenario",
+        "godot_testing_run_stress_test",
+        "godot_testing_compare_screenshots",
+    }
     assert expected <= set(tools)
-    assert tools["run_test_scenario"].meta["safety_class"] == "runtime"
-    assert tools["run_stress_test"].meta["safety_class"] == "runtime"
-    assert tools["assert_node_state"].meta["safety_class"] == "read_only"
-    assert tools["compare_screenshots"].meta["safety_class"] == "read_only"
+    assert tools["godot_testing_run_test_scenario"].meta["safety_class"] == "runtime"
+    assert tools["godot_testing_run_stress_test"].meta["safety_class"] == "runtime"
+    assert tools["godot_testing_assert_node_state"].meta["safety_class"] == "read_only"
+    assert tools["godot_testing_compare_screenshots"].meta["safety_class"] == "read_only"
 
 
 async def test_assert_node_state_passes_and_fails() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "testing"})
+        await client.call_tool("godot_enable_toolset", {"category": "testing"})
         ok = await client.call_tool(
-            "assert_node_state", {"node_path": "Player", "property": "health", "expected": 100}
+            "godot_testing_assert_node_state",
+            {"node_path": "Player", "property": "health", "expected": 100},
         )
         bad = await client.call_tool(
-            "assert_node_state",
+            "godot_testing_assert_node_state",
             {"node_path": "Player", "property": "health", "expected": 50, "op": "<"},
         )
     assert ok.structured_content["passed"] is True and ok.structured_content["actual"] == 100
@@ -91,9 +97,9 @@ async def test_assert_node_state_passes_and_fails() -> None:
 async def test_run_test_scenario_evaluates_assertions() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "testing"})
+        await client.call_tool("godot_enable_toolset", {"category": "testing"})
         result = await client.call_tool(
-            "run_test_scenario",
+            "godot_testing_run_test_scenario",
             {
                 "scene": "res://main.tscn",
                 "events": [{"type": "key", "key": "Space"}],
@@ -112,8 +118,10 @@ async def test_run_test_scenario_evaluates_assertions() -> None:
 async def test_run_stress_test_reports_survival() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "testing"})
-        result = await client.call_tool("run_stress_test", {"iterations": 10, "seed": 3})
+        await client.call_tool("godot_enable_toolset", {"category": "testing"})
+        result = await client.call_tool(
+            "godot_testing_run_stress_test", {"iterations": 10, "seed": 3}
+        )
     assert result.structured_content["survived"] is True
     assert result.structured_content["iterations"] == 10
 
@@ -123,9 +131,13 @@ async def test_compare_screenshots_match_and_diff() -> None:
     black = _solid(3, 3, (0, 0, 0, 255))
     white = _solid(3, 3, (255, 255, 255, 255))
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "testing"})
-        same = await client.call_tool("compare_screenshots", {"image_a": black, "image_b": black})
-        diff = await client.call_tool("compare_screenshots", {"image_a": black, "image_b": white})
+        await client.call_tool("godot_enable_toolset", {"category": "testing"})
+        same = await client.call_tool(
+            "godot_testing_compare_screenshots", {"image_a": black, "image_b": black}
+        )
+        diff = await client.call_tool(
+            "godot_testing_compare_screenshots", {"image_a": black, "image_b": white}
+        )
     assert same.structured_content["match"] is True
     assert (
         diff.structured_content["match"] is False and diff.structured_content["diff_ratio"] == 1.0

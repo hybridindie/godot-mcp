@@ -73,10 +73,15 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 async def test_gated_in_theme_ui_toolset() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        assert "create_theme" not in {t.name for t in await client.list_tools()}
-        await client.call_tool("enable_toolset", {"category": "theme_ui"})
+        assert "godot_theme_ui_create" not in {t.name for t in await client.list_tools()}
+        await client.call_tool("godot_enable_toolset", {"category": "theme_ui"})
         tools = {t.name: t for t in await client.list_tools()}
-    expected = {"create_theme", "set_theme_color", "set_theme_font_size", "set_theme_stylebox"}
+    expected = {
+        "godot_theme_ui_create",
+        "godot_theme_ui_set_color",
+        "godot_theme_ui_set_font_size",
+        "godot_theme_ui_set_stylebox",
+    }
     assert expected <= set(tools)
     assert all(tools[n].meta["safety_class"] == "mutating" for n in expected)
 
@@ -84,18 +89,19 @@ async def test_gated_in_theme_ui_toolset() -> None:
 async def test_create_theme_and_overrides() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "theme_ui"})
+        await client.call_tool("godot_enable_toolset", {"category": "theme_ui"})
         theme = await client.call_tool(
-            "create_theme", {"node_path": "UI", "save_path": "res://ui.tres"}
+            "godot_theme_ui_create", {"node_path": "UI", "save_path": "res://ui.tres"}
         )
         color = await client.call_tool(
-            "set_theme_color", {"node_path": "UI", "name": "font_color", "color": "#ff8800"}
+            "godot_theme_ui_set_color",
+            {"node_path": "UI", "name": "font_color", "color": "#ff8800"},
         )
         size = await client.call_tool(
-            "set_theme_font_size", {"node_path": "UI", "name": "font_size", "size": 24}
+            "godot_theme_ui_set_font_size", {"node_path": "UI", "name": "font_size", "size": 24}
         )
         box = await client.call_tool(
-            "set_theme_stylebox",
+            "godot_theme_ui_set_stylebox",
             {
                 "node_path": "UI",
                 "name": "panel",
@@ -113,9 +119,9 @@ async def test_create_theme_and_overrides() -> None:
 async def test_dry_run_sends_no_mutation() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "theme_ui"})
+        await client.call_tool("godot_enable_toolset", {"category": "theme_ui"})
         result = await client.call_tool(
-            "set_theme_color",
+            "godot_theme_ui_set_color",
             {"node_path": "UI", "name": "font_color", "color": "#ffffff", "dry_run": True},
         )
     assert result.structured_content["dry_run"] is True
@@ -126,8 +132,8 @@ async def test_get_node_theme_overrides_reads_all_kinds() -> None:
     # #219 G7: read color/font-size/stylebox overrides — inverts the set_theme_* writers.
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "theme_ui"})
-        result = await client.call_tool("get_node_theme_overrides", {"node_path": "Panel"})
+        await client.call_tool("godot_enable_toolset", {"category": "theme_ui"})
+        result = await client.call_tool("godot_theme_ui_get_node_overrides", {"node_path": "Panel"})
         tools = {t.name: t for t in await client.list_tools()}
     data = result.structured_content
     assert data["colors"]["font_color"] == {"r": 1.0, "g": 0.0, "b": 0.0, "a": 1.0}
@@ -135,6 +141,6 @@ async def test_get_node_theme_overrides_reads_all_kinds() -> None:
     sb = data["styleboxes"][0]
     assert sb["name"] == "panel" and sb["type"] == "StyleBoxFlat"
     assert sb["properties"]["bg_color"]["r"] == 0.1
-    assert tools["get_node_theme_overrides"].meta["safety_class"] == "read_only"
+    assert tools["godot_theme_ui_get_node_overrides"].meta["safety_class"] == "read_only"
     cmds = [CommandEnvelope.model_validate_json(s).command for s in conn.sent]
     assert "cmd_get_node_theme_overrides" in cmds

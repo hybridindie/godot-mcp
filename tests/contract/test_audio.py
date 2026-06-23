@@ -76,31 +76,31 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 async def test_gated_in_audio_toolset_with_safety_classes() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        assert "add_audio_bus" not in {t.name for t in await client.list_tools()}
-        await client.call_tool("enable_toolset", {"category": "audio"})
+        assert "godot_audio_add_bus" not in {t.name for t in await client.list_tools()}
+        await client.call_tool("godot_enable_toolset", {"category": "audio"})
         tools = {t.name: t for t in await client.list_tools()}
-    mutating = {"add_audio_player", "add_audio_bus", "add_audio_bus_effect"}
+    mutating = {"godot_audio_add_player", "godot_audio_add_bus", "godot_audio_add_bus_effect"}
     assert mutating <= set(tools)
     assert all(tools[n].meta["safety_class"] == "mutating" for n in mutating)
     # the layout read is exposed in the same toolset but is read_only
-    assert tools["get_audio_bus_layout"].meta["safety_class"] == "read_only"
+    assert tools["godot_audio_get_bus_layout"].meta["safety_class"] == "read_only"
 
 
 async def test_player_bus_and_effect() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "audio"})
+        await client.call_tool("godot_enable_toolset", {"category": "audio"})
         player = await client.call_tool(
-            "add_audio_player",
+            "godot_audio_add_player",
             {
                 "parent_path": ".",
                 "player_type": "AudioStreamPlayer2D",
                 "properties": {"volume_db": -6.0},
             },
         )
-        bus = await client.call_tool("add_audio_bus", {"name": "Music", "volume_db": -3.0})
+        bus = await client.call_tool("godot_audio_add_bus", {"name": "Music", "volume_db": -3.0})
         effect = await client.call_tool(
-            "add_audio_bus_effect", {"bus": "Music", "effect_type": "AudioEffectReverb"}
+            "godot_audio_add_bus_effect", {"bus": "Music", "effect_type": "AudioEffectReverb"}
         )
     assert player.structured_content["player_type"] == "AudioStreamPlayer2D"
     assert player.structured_content["node_path"] == "./AudioStreamPlayer2D"
@@ -112,8 +112,8 @@ async def test_player_bus_and_effect() -> None:
 async def test_get_bus_layout_reports_buses_and_effects() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "audio"})
-        layout = await client.call_tool("get_audio_bus_layout", {})
+        await client.call_tool("godot_enable_toolset", {"category": "audio"})
+        layout = await client.call_tool("godot_audio_get_bus_layout", {})
     buses = layout.structured_content["buses"]
     assert buses[0]["name"] == "Master"
     assert buses[0]["effects"][0]["type"] == "AudioEffectReverb"
@@ -122,8 +122,8 @@ async def test_get_bus_layout_reports_buses_and_effects() -> None:
 async def test_dry_run_sends_no_mutation() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "audio"})
-        result = await client.call_tool("add_audio_bus", {"name": "SFX", "dry_run": True})
+        await client.call_tool("godot_enable_toolset", {"category": "audio"})
+        result = await client.call_tool("godot_audio_add_bus", {"name": "SFX", "dry_run": True})
     assert result.structured_content["dry_run"] is True
     assert "cmd_add_audio_bus" not in _commands(conn)
 
@@ -132,22 +132,22 @@ async def test_audio_bus_removers_are_destructive() -> None:
     # #219 G8: the removers are destructive (confirm-gated), the inverse of the adders.
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "audio"})
+        await client.call_tool("godot_enable_toolset", {"category": "audio"})
         tools = {t.name: t for t in await client.list_tools()}
-    assert tools["remove_audio_bus"].meta["safety_class"] == "destructive"
-    assert tools["remove_audio_bus_effect"].meta["safety_class"] == "destructive"
+    assert tools["godot_audio_remove_bus"].meta["safety_class"] == "destructive"
+    assert tools["godot_audio_remove_bus_effect"].meta["safety_class"] == "destructive"
 
 
 async def test_remove_audio_bus_requires_confirm() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "audio"})
+        await client.call_tool("godot_enable_toolset", {"category": "audio"})
         blocked = await client.call_tool(
-            "remove_audio_bus", {"bus": "SFX"}, raise_on_error=False
+            "godot_audio_remove_bus", {"bus": "SFX"}, raise_on_error=False
         )
         assert blocked.is_error and "confirm" in str(blocked.content)
         assert "cmd_remove_audio_bus" not in _commands(conn)
-        ok = await client.call_tool("remove_audio_bus", {"bus": "SFX", "confirm": True})
+        ok = await client.call_tool("godot_audio_remove_bus", {"bus": "SFX", "confirm": True})
     assert ok.structured_content["removed"] is True
     assert ok.structured_content["index"] == 1
     assert "cmd_remove_audio_bus" in _commands(conn)
@@ -156,10 +156,8 @@ async def test_remove_audio_bus_requires_confirm() -> None:
 async def test_remove_audio_bus_dry_run_sends_no_command() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "audio"})
-        result = await client.call_tool(
-            "remove_audio_bus", {"bus": "SFX", "dry_run": True}
-        )
+        await client.call_tool("godot_enable_toolset", {"category": "audio"})
+        result = await client.call_tool("godot_audio_remove_bus", {"bus": "SFX", "dry_run": True})
     assert result.structured_content["dry_run"] is True
     assert result.structured_content["removed"] is False
     assert "cmd_remove_audio_bus" not in _commands(conn)
@@ -168,14 +166,14 @@ async def test_remove_audio_bus_dry_run_sends_no_command() -> None:
 async def test_remove_audio_bus_effect_requires_confirm() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "audio"})
+        await client.call_tool("godot_enable_toolset", {"category": "audio"})
         blocked = await client.call_tool(
-            "remove_audio_bus_effect", {"bus": "SFX", "effect_index": 0}, raise_on_error=False
+            "godot_audio_remove_bus_effect", {"bus": "SFX", "effect_index": 0}, raise_on_error=False
         )
         assert blocked.is_error and "confirm" in str(blocked.content)
         assert "cmd_remove_audio_bus_effect" not in _commands(conn)
         ok = await client.call_tool(
-            "remove_audio_bus_effect", {"bus": "SFX", "effect_index": 0, "confirm": True}
+            "godot_audio_remove_bus_effect", {"bus": "SFX", "effect_index": 0, "confirm": True}
         )
     assert ok.structured_content["removed"] is True
     assert ok.structured_content["effect_index"] == 0

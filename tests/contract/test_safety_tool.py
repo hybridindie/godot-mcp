@@ -20,19 +20,19 @@ def _server() -> FastMCP:
 
 async def test_list_tools_by_safety_class_tool() -> None:
     async with Client(_server()) as client:
-        result = await client.call_tool("list_tools_by_safety_class", {})
+        result = await client.call_tool("godot_list_tools_by_safety_class", {})
     grouped = result.structured_content
 
     # Every tool to date is read_only — including the introspection tool itself.
     read_only = set(grouped["read_only"])
     expected = {
-        "health_check",
-        "get_project_info",
-        "get_active_scene",
-        "get_scene_tree",
-        "get_selected_node",
-        "get_node_properties",
-        "list_tools_by_safety_class",
+        "godot_health_check",
+        "godot_inspection_get_project_info",
+        "godot_inspection_get_active_scene",
+        "godot_inspection_get_scene_tree",
+        "godot_inspection_get_selected_node",
+        "godot_inspection_get_node_properties",
+        "godot_list_tools_by_safety_class",
     }
     assert expected <= read_only
     # Nothing should be unclassified — every tool carries a safety class.

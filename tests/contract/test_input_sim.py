@@ -56,22 +56,29 @@ def _build() -> tuple[FastMCP, FakeAddonConnection]:
 async def test_gated_in_input_toolset_with_safety_classes() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        assert "simulate_key" not in {t.name for t in await client.list_tools()}
-        await client.call_tool("enable_toolset", {"category": "input"})
+        assert "godot_input_simulate_key" not in {t.name for t in await client.list_tools()}
+        await client.call_tool("godot_enable_toolset", {"category": "input"})
         tools = {t.name: t for t in await client.list_tools()}
-    runtime = {"simulate_key", "simulate_mouse", "simulate_action", "play_input_sequence"}
+    runtime = {
+        "godot_input_simulate_key",
+        "godot_input_simulate_mouse",
+        "godot_input_simulate_action",
+        "godot_input_play_sequence",
+    }
     assert runtime <= set(tools)
     assert all(tools[n].meta["safety_class"] == "runtime" for n in runtime)
-    assert tools["get_input_stats"].meta["safety_class"] == "read_only"
+    assert tools["godot_input_get_stats"].meta["safety_class"] == "read_only"
 
 
 async def test_simulate_key_mouse_action() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "input"})
-        key = await client.call_tool("simulate_key", {"key": "Space", "pressed": True})
-        mouse = await client.call_tool("simulate_mouse", {"x": 10, "y": 20, "button": "left"})
-        action = await client.call_tool("simulate_action", {"action": "ui_accept"})
+        await client.call_tool("godot_enable_toolset", {"category": "input"})
+        key = await client.call_tool("godot_input_simulate_key", {"key": "Space", "pressed": True})
+        mouse = await client.call_tool(
+            "godot_input_simulate_mouse", {"x": 10, "y": 20, "button": "left"}
+        )
+        action = await client.call_tool("godot_input_simulate_action", {"action": "ui_accept"})
     assert key.structured_content["kind"] == "key" and key.structured_content["sent"] is True
     assert mouse.structured_content["kind"] == "mouse"
     assert action.structured_content["kind"] == "action"
@@ -80,9 +87,9 @@ async def test_simulate_key_mouse_action() -> None:
 async def test_play_input_sequence_counts_events() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "input"})
+        await client.call_tool("godot_enable_toolset", {"category": "input"})
         seq = await client.call_tool(
-            "play_input_sequence",
+            "godot_input_play_sequence",
             {
                 "events": [
                     {"type": "key", "key": "A"},
@@ -99,8 +106,8 @@ async def test_play_input_sequence_counts_events() -> None:
 async def test_get_input_stats() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "input"})
-        stats = await client.call_tool("get_input_stats", {})
+        await client.call_tool("godot_enable_toolset", {"category": "input"})
+        stats = await client.call_tool("godot_input_get_stats", {})
     assert stats.structured_content["connected"] is True
     assert stats.structured_content["injected"] == 3
 
@@ -108,9 +115,9 @@ async def test_get_input_stats() -> None:
 async def test_record_and_stop_returns_replayable_events() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "input"})
-        rec = await client.call_tool("record_input", {})
-        stopped = await client.call_tool("stop_recording", {})
+        await client.call_tool("godot_enable_toolset", {"category": "input"})
+        rec = await client.call_tool("godot_input_record", {})
+        stopped = await client.call_tool("godot_input_stop_recording", {})
     assert rec.structured_content["recording"] is True
     events = stopped.structured_content["events"]
     assert events and events[0]["type"] == "key" and events[0]["key"] == "Space"
@@ -119,7 +126,7 @@ async def test_record_and_stop_returns_replayable_events() -> None:
 async def test_record_input_safety_classes() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "input"})
+        await client.call_tool("godot_enable_toolset", {"category": "input"})
         tools = {t.name: t for t in await client.list_tools()}
-    assert tools["record_input"].meta["safety_class"] == "runtime"
-    assert tools["stop_recording"].meta["safety_class"] == "read_only"
+    assert tools["godot_input_record"].meta["safety_class"] == "runtime"
+    assert tools["godot_input_stop_recording"].meta["safety_class"] == "read_only"

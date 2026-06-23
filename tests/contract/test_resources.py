@@ -85,12 +85,12 @@ async def test_read_resource_fallback_tool() -> None:
     server, _ = _build()
     async with Client(server) as client:
         # The fallback tool is in `core`, so it's exposed by default.
-        result = await client.call_tool("read_resource", {"uri": "godot://project/info"})
+        result = await client.call_tool("godot_read_resource", {"uri": "godot://project/info"})
         payload = json.loads(result.data)
         assert payload["name"] == "demo"
 
         err = await client.call_tool(
-            "read_resource", {"uri": "godot://bogus"}, raise_on_error=False
+            "godot_read_resource", {"uri": "godot://bogus"}, raise_on_error=False
         )
     assert err.is_error
     assert "Unknown resource URI" in str(err.content)

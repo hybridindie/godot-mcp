@@ -36,7 +36,7 @@ The LLM can discover these via `list_prompts()` and render them via `get_prompt(
 
 ### 3. Tool Docstrings
 
-Every tool's description explicitly states which toolset it belongs to. For example, `create_node`'s docstring says "Requires the `scene_edit` toolset. Call `enable_toolset('scene_edit')` first." This means even if the LLM forgets the instructions, the tool description reminds it.
+Every tool's description explicitly states which toolset it belongs to. For example, `godot_scene_edit_create_node`'s docstring says "Requires the `scene_edit` toolset. Call `enable_toolset('scene_edit')` first." This means even if the LLM forgets the instructions, the tool description reminds it.
 
 ### 4. System Prompt Template (Manual Fallback)
 
@@ -152,9 +152,9 @@ For each prompt below, paste it into your MCP client chat. The LLM will use the 
 > "Show me what toolsets are available, then get the current project info and the active scene."
 
 **What the agent will do:**
-- `list_toolsets` → discover available categories
-- `get_project_info` → read project name, Godot version, main scene
-- `get_active_scene` → check if a scene is open
+- `godot_list_toolsets` → discover available categories
+- `godot_inspection_get_project_info` → read project name, Godot version, main scene
+- `godot_inspection_get_active_scene` → check if a scene is open
 
 **Example response:**
 > Project `godot-mcp-demo` on Godot 4.6.3. No scene is currently open.
@@ -178,7 +178,7 @@ For each prompt below, paste it into your MCP client chat. The LLM will use the 
 **What the agent will do:**
 - `create_scene(scene_path="res://scenes/main.tscn", root_type="Node2D")`
 
-**Tip:** If the agent is unsure about the root name, it may also `rename_node` or confirm the root is already named `Main`.
+**Tip:** If the agent is unsure about the root name, it may also `godot_scene_edit_rename_node` or confirm the root is already named `Main`.
 
 ---
 
@@ -211,7 +211,7 @@ For each prompt below, paste it into your MCP client chat. The LLM will use the 
 - `create_node(parent_path="./Player", node_type="CollisionShape2D", node_name="CollisionShape2D")`
 - `set_node_property(node_path="./Player/CollisionShape2D", property="shape", value={"type": "CircleShape2D", "radius": 32})`
 
-> **Alternative**: The agent could also use `setup_collision` (physics toolset).
+> **Alternative**: The agent could also use `godot_physics_setup_collision` (physics toolset).
 
 ---
 
@@ -285,7 +285,7 @@ For each prompt below, paste it into your MCP client chat. The LLM will use the 
 - `set_node_property(node_path="./UI/WinLabel", property="text", value="You Win!")`
 - `set_node_property(node_path="./UI/WinLabel", property="visible", value=false)`
 
-> For the large font, the agent may create a `LabelSettings` resource via `create_resource` and `set_resource_property`, or set `label_settings` if supported.
+> For the large font, the agent may create a `LabelSettings` resource via `godot_resources_edit_create_resource` and `godot_resources_edit_set_resource_property`, or set `label_settings` if supported.
 
 ---
 
@@ -294,8 +294,8 @@ For each prompt below, paste it into your MCP client chat. The LLM will use the 
 > "Save the current scene and all open scenes."
 
 **What the agent will do:**
-- `save_scene`
-- `save_all_scenes` (optional, to be safe)
+- `godot_scene_edit_save_scene`
+- `godot_scene_edit_save_all_scenes` (optional, to be safe)
 
 ---
 
@@ -357,7 +357,7 @@ For each prompt below, paste it into your MCP client chat. The LLM will use the 
 > "What does the live scene tree look like right now?"
 
 **What the agent will do:**
-- `get_game_scene_tree`
+- `godot_runtime_get_game_scene_tree`
 
 **Example response:**
 > The live tree shows `Window` → `Main` (`Node2D`) with children: `GameManager` (`Node`), `Player` (`CharacterBody2D`), `Coins` (`Node2D`), `UI` (`CanvasLayer`). The probe is connected.
@@ -383,7 +383,7 @@ For each prompt below, paste it into your MCP client chat. The LLM will use the 
 **What the agent will do:**
 - `monitor_property(node_path="/root/Main/Player", property="position", samples=30)`
 - Wait for completion
-- `get_property_samples`
+- `godot_runtime_get_property_samples`
 
 **Example response:**
 > Position changed from (400, 300) to (520, 300) over 30 frames.
@@ -428,7 +428,7 @@ For each prompt below, paste it into your MCP client chat. The LLM will use the 
 > "Stop the play session."
 
 **What the agent will do:**
-- `stop_scene`
+- `godot_runtime_stop_scene`
 
 ---
 
@@ -463,11 +463,11 @@ For each prompt below, paste it into your MCP client chat. The LLM will use the 
 
 **What the agent will do:**
 - `record_input(include_motion=false)`
-- A series of `simulate_action` calls to drive the player to each coin
-- `stop_recording`
+- A series of `godot_input_simulate_action` calls to drive the player to each coin
+- `godot_input_stop_recording`
 
 **Example response:**
-> Recorded 42 input events. You can replay them with `play_input_sequence`.
+> Recorded 42 input events. You can replay them with `godot_input_play_sequence`.
 
 ---
 
@@ -484,10 +484,10 @@ For each prompt below, paste it into your MCP client chat. The LLM will use the 
 
 | Prompt Style | Tool | Needs Editor Open? | Needs Probe? | Use Case |
 |-------------|------|-------------------|-------------|----------|
-| "Run headless and report errors" | `run_and_capture` | No | No | CI, boot check |
-| "Play the scene from the editor" | `play_scene` | **Yes** | Yes (for live inspection) | Interactive testing, debugging |
+| "Run headless and report errors" | `godot_runtime_run_and_capture` | No | No | CI, boot check |
+| "Play the scene from the editor" | `godot_runtime_play_scene` | **Yes** | Yes (for live inspection) | Interactive testing, debugging |
 
-Key insight: **`play_scene` keeps Godot open** and launches the game as a child process connected to the editor debugger. This is what enables `get_game_scene_tree`, `simulate_action`, `monitor_property`, and all other live tools. `run_and_capture` spawns a separate `godot --headless` process and only returns the log.
+Key insight: **`godot_runtime_play_scene` keeps Godot open** and launches the game as a child process connected to the editor debugger. This is what enables `godot_runtime_get_game_scene_tree`, `godot_input_simulate_action`, `godot_runtime_monitor_property`, and all other live tools. `godot_runtime_run_and_capture` spawns a separate `godot --headless` process and only returns the log.
 
 ---
 
@@ -495,17 +495,17 @@ Key insight: **`play_scene` keeps Godot open** and launches the game as a child 
 
 By running through the prompts above, you (and the LLM) validated:
 
-1. ✅ **Scene editing** — `create_scene`, `create_node`, `set_node_property`, `attach_script`, `save_scene`
-2. ✅ **Script authoring** — `write_script`, `read_script`, `get_parse_errors`
-3. ✅ **Headless verification** — `run_and_capture`
-4. ✅ **Editor play session** — `play_scene` while Godot stays open
-5. ✅ **Live inspection** — `get_game_scene_tree`, `monitor_property`, `find_ui_elements`
-6. ✅ **Input simulation** — `simulate_action`, `simulate_key`, `play_input_sequence`
-7. ✅ **State assertion** — `assert_node_state`
-8. ✅ **Input recording** — `record_input`, `stop_recording`
-9. ✅ **Batch operations** — `batch_set_property`, `find_nodes_by_type`
+1. ✅ **Scene editing** — `godot_scene_edit_create_scene`, `godot_scene_edit_create_node`, `godot_scene_edit_set_node_property`, `godot_scene_edit_attach_script`, `godot_scene_edit_save_scene`
+2. ✅ **Script authoring** — `godot_scripts_write`, `godot_scripts_read`, `godot_scripts_get_parse_errors`
+3. ✅ **Headless verification** — `godot_runtime_run_and_capture`
+4. ✅ **Editor play session** — `godot_runtime_play_scene` while Godot stays open
+5. ✅ **Live inspection** — `godot_runtime_get_game_scene_tree`, `godot_runtime_monitor_property`, `godot_runtime_find_ui_elements`
+6. ✅ **Input simulation** — `godot_input_simulate_action`, `godot_input_simulate_key`, `godot_input_play_sequence`
+7. ✅ **State assertion** — `godot_testing_assert_node_state`
+8. ✅ **Input recording** — `godot_input_record`, `godot_input_stop_recording`
+9. ✅ **Batch operations** — `godot_batch_set_property`, `godot_batch_find_nodes_by_type`
 10. ✅ **Safety** — `dry_run` and `confirm` gates
-11. ✅ **Debug workflow** — `debug_workflow` (one-call comprehensive check)
+11. ✅ **Debug workflow** — `godot_debug_workflow` (one-call comprehensive check)
 
 ---
 
@@ -513,23 +513,23 @@ By running through the prompts above, you (and the LLM) validated:
 
 | What you want to say | Category to enable | Key tools |
 |---------------------|-------------------|-----------|
-| "Create / edit scenes" | `scene_edit` | `create_node`, `set_node_property`, `attach_script`, `save_scene` |
-| "Write / read scripts" | `scripts` | `write_script`, `read_script`, `get_parse_errors` |
-| "Run headless to check" | `runtime` | `run_and_capture` |
-| "Play from editor" | `runtime` | `play_scene`, `stop_scene`, `is_playing` |
-| "Inspect running game" | `runtime` | `get_game_scene_tree`, `monitor_property`, `find_ui_elements` |
-| "Drive input" | `input` | `simulate_action`, `simulate_key`, `play_input_sequence` |
-| "Record gameplay" | `input` | `record_input`, `stop_recording` |
-| "Assert state" | `testing` | `assert_node_state` |
-| "Change many nodes" | `batch` | `batch_set_property`, `find_nodes_by_type` |
-| "Register autoloads" | `resources_edit` | `register_autoload` |
+| "Create / edit scenes" | `scene_edit` | `godot_scene_edit_create_node`, `godot_scene_edit_set_node_property`, `godot_scene_edit_attach_script`, `godot_scene_edit_save_scene` |
+| "Write / read scripts" | `scripts` | `godot_scripts_write`, `godot_scripts_read`, `godot_scripts_get_parse_errors` |
+| "Run headless to check" | `runtime` | `godot_runtime_run_and_capture` |
+| "Play from editor" | `runtime` | `godot_runtime_play_scene`, `godot_runtime_stop_scene`, `godot_runtime_is_playing` |
+| "Inspect running game" | `runtime` | `godot_runtime_get_game_scene_tree`, `godot_runtime_monitor_property`, `godot_runtime_find_ui_elements` |
+| "Drive input" | `input` | `godot_input_simulate_action`, `godot_input_simulate_key`, `godot_input_play_sequence` |
+| "Record gameplay" | `input` | `godot_input_record`, `godot_input_stop_recording` |
+| "Assert state" | `testing` | `godot_testing_assert_node_state` |
+| "Change many nodes" | `batch` | `godot_batch_set_property`, `godot_batch_find_nodes_by_type` |
+| "Register autoloads" | `resources_edit` | `godot_resources_edit_register_autoload` |
 
 ---
 
 ## Next Prompt Ideas
 
 - "Add a `StaticBody2D` obstacle in the middle of the map with a rectangle collision shape."
-- "Animate the coins spinning using `create_animation` and `add_animation_track`."
+- "Animate the coins spinning using `godot_animation_create` and `godot_animation_add_track`."
 - "Export a Web build to the `builds/web/` folder."
 - "Run a stress test with 100 coins and profile the FPS."
 - "Take an editor screenshot so I can see the current layout."

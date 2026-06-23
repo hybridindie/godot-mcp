@@ -50,26 +50,26 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 async def test_gated_in_debugger_toolset() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        assert "step_into" not in {t.name for t in await client.list_tools()}
-        await client.call_tool("enable_toolset", {"category": "debugger"})
+        assert "godot_debugger_step_into" not in {t.name for t in await client.list_tools()}
+        await client.call_tool("godot_enable_toolset", {"category": "debugger"})
         names = {t.name for t in await client.list_tools()}
     assert {
-        "set_breakpoint",
-        "remove_breakpoint",
-        "clear_breakpoints",
-        "force_break",
-        "step_into",
-        "step_over",
-        "step_out",
-        "continue_execution",
+        "godot_debugger_set_breakpoint",
+        "godot_debugger_remove_breakpoint",
+        "godot_debugger_clear_breakpoints",
+        "godot_debugger_force_break",
+        "godot_debugger_step_into",
+        "godot_debugger_step_over",
+        "godot_debugger_step_out",
+        "godot_debugger_continue_execution",
     } <= names
 
 
 async def test_step_into() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "debugger"})
-        result = await client.call_tool("step_into", {})
+        await client.call_tool("godot_enable_toolset", {"category": "debugger"})
+        result = await client.call_tool("godot_debugger_step_into", {})
     assert result.structured_content["stepped"] is True
     assert "cmd_step_into" in _commands(conn)
 
@@ -77,8 +77,8 @@ async def test_step_into() -> None:
 async def test_step_over() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "debugger"})
-        result = await client.call_tool("step_over", {})
+        await client.call_tool("godot_enable_toolset", {"category": "debugger"})
+        result = await client.call_tool("godot_debugger_step_over", {})
     assert result.structured_content["stepped"] is True
     assert "cmd_step_over" in _commands(conn)
 
@@ -86,8 +86,8 @@ async def test_step_over() -> None:
 async def test_step_out() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "debugger"})
-        result = await client.call_tool("step_out", {})
+        await client.call_tool("godot_enable_toolset", {"category": "debugger"})
+        result = await client.call_tool("godot_debugger_step_out", {})
     assert result.structured_content["stepped"] is True
     assert "cmd_step_out" in _commands(conn)
 
@@ -95,8 +95,8 @@ async def test_step_out() -> None:
 async def test_continue_execution() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "debugger"})
-        result = await client.call_tool("continue_execution", {})
+        await client.call_tool("godot_enable_toolset", {"category": "debugger"})
+        result = await client.call_tool("godot_debugger_continue_execution", {})
     assert result.structured_content["running"] is True
     assert "cmd_continue_execution" in _commands(conn)
 
@@ -104,8 +104,13 @@ async def test_continue_execution() -> None:
 async def test_tier2_tools_are_runtime_class() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "debugger"})
-        for name in ("step_into", "step_over", "step_out", "continue_execution"):
+        await client.call_tool("godot_enable_toolset", {"category": "debugger"})
+        for name in (
+            "godot_debugger_step_into",
+            "godot_debugger_step_over",
+            "godot_debugger_step_out",
+            "godot_debugger_continue_execution",
+        ):
             tool = next(t for t in await client.list_tools() if t.name == name)
             assert tool.meta is not None
             assert tool.meta.get("safety_class") == "runtime"

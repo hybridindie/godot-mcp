@@ -8,7 +8,7 @@
 
 **RECOMMENDATION: GO.** The Godot editor→game debugger protocol supports step control, stack-frame inspection, and expression evaluation over the same `EditorDebuggerSession.send_message()` mechanism already used for Tier 1 breakpoints.  Async replies are captured via the existing poll-and-cache pattern (`EditorDebuggerPlugin._capture()`), reusing the `#66` runtime-probe infrastructure.
 
-A Tier 2 debugger toolset (`step_*`, `continue`, `get_stack_frames`, `evaluate_expression`) is implementable with **no engine changes**.
+A Tier 2 debugger toolset (`step_*`, `continue`, `godot_debugger_get_stack_frames`, `godot_debugger_evaluate_expression`) is implementable with **no engine changes**.
 
 ## What we already know
 
@@ -16,15 +16,15 @@ A Tier 2 debugger toolset (`step_*`, `continue`, `get_stack_frames`, `evaluate_e
 
 | Tool | Protocol message | Addon-side implementation |
 |------|-----------------|--------------------------|
-| `set_breakpoint` | `session.set_breakpoint(path, line, true)` | `EditorDebuggerSession.set_breakpoint` (direct API) |
-| `remove_breakpoint` | `session.set_breakpoint(path, line, false)` | Direct API |
-| `clear_breakpoints` | `session.set_breakpoint(..., false)` per tracked + probe message | Iterative + probe message |
-| `force_break` | `debugger.send_to_probe("godot_mcp:force_break", [])` | Flag-based (`check_force_break()`) in probe — see **Limitations** below |
+| `godot_debugger_set_breakpoint` | `session.set_breakpoint(path, line, true)` | `EditorDebuggerSession.set_breakpoint` (direct API) |
+| `godot_debugger_remove_breakpoint` | `session.set_breakpoint(path, line, false)` | Direct API |
+| `godot_debugger_clear_breakpoints` | `session.set_breakpoint(..., false)` per tracked + probe message | Iterative + probe message |
+| `godot_debugger_force_break` | `debugger.send_to_probe("godot_mcp:force_break", [])` | Flag-based (`check_force_break()`) in probe — see **Limitations** below |
 
 ### Key signals
 
 `EditorDebuggerSession` emits useful session state:
-- **`breaked(can_debug)`** — fired when the remote game enters the debug loop (i.e. at a breakpoint or after `force_break`).
+- **`breaked(can_debug)`** — fired when the remote game enters the debug loop (i.e. at a breakpoint or after `godot_debugger_force_break`).
 - **`continued()`** — fired when the game resumes.
 - **`started()`** / **`stopped()`** — session lifecycle.
 
@@ -101,13 +101,13 @@ All `runtime` class (like Tier 1), gated in the existing `debugger` toolset.
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `step_into` | — | `StepResult { hit, paused }` |
-| `step_over` | — | `StepResult { hit, paused }` |
-| `step_out` | — | `StepResult { hit, paused }` |
-| `continue_execution` | — | `ContinueResult { running }` |
-| `get_stack_frames` | — | `StackFramesResult { frames[]{file, line, func} }` |
-| `evaluate_expression` | `expression, frame=0` | `EvaluationResult { expression, value }` |
-| `get_frame_variables` | `frame=0` | `FrameVarsResult { locals[], members[], globals[] }` |
+| `godot_debugger_step_into` | — | `StepResult { hit, paused }` |
+| `godot_debugger_step_over` | — | `StepResult { hit, paused }` |
+| `godot_debugger_step_out` | — | `StepResult { hit, paused }` |
+| `godot_debugger_continue_execution` | — | `ContinueResult { running }` |
+| `godot_debugger_get_stack_frames` | — | `StackFramesResult { frames[]{file, line, func} }` |
+| `godot_debugger_evaluate_expression` | `expression, frame=0` | `EvaluationResult { expression, value }` |
+| `godot_debugger_get_frame_variables` | `frame=0` | `FrameVarsResult { locals[], members[], globals[] }` |
 
 ### Precondition
 
@@ -122,12 +122,12 @@ if not session.is_breaked():
 
 ### Async pattern (same as #66)
 
-1. `get_stack_frames` calls `session.send_message("get_stack_dump", [])`.
+1. `godot_debugger_get_stack_frames` calls `session.send_message("get_stack_dump", [])`.
 2. Game replies via debugger protocol → `_capture("stack_dump", data, session_id)` fires.
 3. Cache the parsed frames in `MCPDebugger._stack_frames`.
-4. Server-side tool polls `get_stack_frames` until `ready=true` or timeout.
+4. Server-side tool polls `godot_debugger_get_stack_frames` until `ready=true` or timeout.
 
-The MCP-side implementation mirrors `get_game_scene_tree` / `get_property_samples` exactly.
+The MCP-side implementation mirrors `godot_runtime_get_game_scene_tree` / `godot_runtime_get_property_samples` exactly.
 
 ### Expression evaluation caveat
 
@@ -142,14 +142,14 @@ The evaluator in the game requires a **valid script instance** at the target fra
 
 ## Limitations
 
-### `force_break` deadlock (issue #131)
+### `godot_debugger_force_break` deadlock (issue #131)
 
 Calling `EngineDebugger.debug(true, false)` from inside `MCPRuntimeProbe._capture()`
 deadlocks: `debug()` blocks until the editor replies with `continue`/`step`, but the
 editor can't send anything because `_capture()` never returns (it is waiting for
 `debug()` to return).
 
-**Workaround**: `force_break` sets `force_break_pending = true` inside `_capture()`;
+**Workaround**: `godot_debugger_force_break` sets `force_break_pending = true` inside `_capture()`;
 the game checks the flag in its `_process` / `_physics_process` loop via
 `MCPRuntimeProbe.check_force_break()` and calls `breakpoint` when true. This
 requires the consuming game to poll the flag — a documented limitation.
@@ -160,8 +160,8 @@ requires the consuming game to poll the flag — a documented limitation.
 
 If the protocol approach fails (or as an alternative when no play session is active), log-point debugging is always available:
 
-1. Inject `print("VAR_NAME = ", some_var)` at a specific line via `patch_script`.
-2. `run_and_capture` executes the scene.
+1. Inject `print("VAR_NAME = ", some_var)` at a specific line via `godot_scripts_patch`.
+2. `godot_runtime_run_and_capture` executes the scene.
 3. Parse stdout for the logged value.
 4. Patch the script back to remove the print statement.
 

@@ -154,12 +154,12 @@ A status dock appears (bottom panel). It shows connection state, project name, a
 1. Open your Godot project and enable the addon.
 2. Start your MCP client (Claude Code, OpenCode, etc.).
 3. Ask the agent to inspect the project:
-   - *"Show me the scene tree"* → `get_scene_tree`
-   - *"What node is selected?"* → `get_selected_node`
-   - *"List available toolsets"* → `list_toolsets`
+   - *"Show me the scene tree"* → `godot_inspection_get_scene_tree`
+   - *"What node is selected?"* → `godot_inspection_get_selected_node`
+   - *"List available toolsets"* → `godot_list_toolsets`
 4. Enable a toolset when needed:
    - *"Enable scene editing"* → `enable_toolset("scene_edit")`
-   - *"Create a player node"* → `create_node`
+   - *"Create a player node"* → `godot_scene_edit_create_node`
 
 ---
 
@@ -246,10 +246,10 @@ With 121 tools, showing everything at once would overwhelm an agent's context wi
 
 | Tool | Purpose |
 |------|---------|
-| `list_toolsets` | Discover toolsets, their enabled state, and version requirements |
+| `godot_list_toolsets` | Discover toolsets, their enabled state, and version requirements |
 | `enable_toolset(category)` | Expose a toolset's tools (fires `tools/list_changed`) |
 | `disable_toolset(category)` | Hide a toolset to keep the surface small |
-| `list_tools_by_safety_class` | Report which tools are `read_only` / `mutating` / `destructive` / `runtime` |
+| `godot_list_tools_by_safety_class` | Report which tools are `read_only` / `mutating` / `destructive` / `runtime` |
 
 Enable a toolset before using its tools:
 
@@ -267,10 +267,10 @@ Every tool carries a safety class that determines its risk and required paramete
 
 | Class | Risk | Extra params | Example |
 |-------|------|------------|---------|
-| `read_only` | None | none | `get_scene_tree`, `read_script` |
-| `mutating` | Reversible change | `dry_run: bool = False` | `create_node`, `set_node_property` |
-| `destructive` | May be irreversible | `dry_run` **and** `confirm: bool = True` | `delete_node`, `reload_scene` |
-| `runtime` | Controls execution | varies | `play_scene`, `run_and_capture`, `export_project` |
+| `read_only` | None | none | `godot_inspection_get_scene_tree`, `godot_scripts_read` |
+| `mutating` | Reversible change | `dry_run: bool = False` | `godot_scene_edit_create_node`, `godot_scene_edit_set_node_property` |
+| `destructive` | May be irreversible | `dry_run` **and** `confirm: bool = True` | `godot_scene_edit_delete_node`, `godot_scene_edit_reload_scene` |
+| `runtime` | Controls execution | varies | `godot_runtime_play_scene`, `godot_runtime_run_and_capture`, `godot_export_project` |
 
 - `dry_run=True` runs preconditions and returns what *would* happen without sending any change.
 - `confirm=True` is required for destructive tools. Without it, the tool returns `PRECONDITION_FAILED: ... [required=confirm]`.
@@ -399,15 +399,15 @@ Some tools inspect or drive a **running** game (not the editor). This requires t
 
 | Capability | Needs probe? | Without probe |
 |------------|-------------|---------------|
-| `play_scene` / `stop_scene` | No | Works (editor play control) |
-| `get_game_scene_tree` | Yes | Returns `connected: false` + hint |
-| `simulate_key` / `simulate_mouse` / `simulate_action` | Yes | `PRECONDITION_FAILED: required=runtime_probe` |
-| `monitor_property` / `get_property_samples` | Yes | `PRECONDITION_FAILED: required=runtime_probe` |
-| `find_ui_elements` | Yes | `PRECONDITION_FAILED: required=runtime_probe` |
-| `get_performance_monitors` (live game) | Yes | Returns `connected: false` + hint |
-| `record_input` / `stop_recording` | Yes | `PRECONDITION_FAILED: required=runtime_probe` |
-| `run_and_capture` | No | Runs Godot headless subprocess directly |
-| `export_project` | No | Runs Godot headless subprocess directly |
+| `godot_runtime_play_scene` / `godot_runtime_stop_scene` | No | Works (editor play control) |
+| `godot_runtime_get_game_scene_tree` | Yes | Returns `connected: false` + hint |
+| `godot_input_simulate_key` / `godot_input_simulate_mouse` / `godot_input_simulate_action` | Yes | `PRECONDITION_FAILED: required=runtime_probe` |
+| `godot_runtime_monitor_property` / `godot_runtime_get_property_samples` | Yes | `PRECONDITION_FAILED: required=runtime_probe` |
+| `godot_runtime_find_ui_elements` | Yes | `PRECONDITION_FAILED: required=runtime_probe` |
+| `godot_profiling_get_performance_monitors` (live game) | Yes | Returns `connected: false` + hint |
+| `godot_input_record` / `godot_input_stop_recording` | Yes | `PRECONDITION_FAILED: required=runtime_probe` |
+| `godot_runtime_run_and_capture` | No | Runs Godot headless subprocess directly |
+| `godot_export_project` | No | Runs Godot headless subprocess directly |
 
 ---
 
@@ -416,108 +416,108 @@ Some tools inspect or drive a **running** game (not the editor). This requires t
 The full surface is 121 tools across 23 categories. Below is a summary; the authoritative per-tool spec is in [`docs/tool-contracts.md`](docs/tool-contracts.md).
 
 ### Core (always on)
-- `health_check` — server version + bridge state
-- `get_server_info` — full capability snapshot: toolsets, prompts, resources, bridge state, and common troubleshooting scenarios (call this first)
-- `debug_workflow` — one-call comprehensive debug check: parse errors, scene tree, headless run, and bridge state
-- `list_toolsets` / `enable_toolset` / `disable_toolset` — toolset management
-- `list_tools_by_safety_class` — safety introspection
-- `read_resource` — fallback for clients without resource protocol support
+- `godot_health_check` — server version + bridge state
+- `godot_get_server_info` — full capability snapshot: toolsets, prompts, resources, bridge state, and common troubleshooting scenarios (call this first)
+- `godot_debug_workflow` — one-call comprehensive debug check: parse errors, scene tree, headless run, and bridge state
+- `godot_list_toolsets` / `godot_enable_toolset` / `godot_disable_toolset` — toolset management
+- `godot_list_tools_by_safety_class` — safety introspection
+- `godot_read_resource` — fallback for clients without resource protocol support
 
 ### Inspection (always on) — `read_only`
-- `get_project_info` — name, Godot version, main scene, autoloads, input actions
-- `get_active_scene` — is_open, path, name
-- `get_scene_tree` — full node hierarchy with `max_depth` control
-- `get_selected_node` — the currently selected node in the editor
-- `get_node_properties` — type, script, properties, children for any node path
-- `get_node_property` — read a single property by name, including built-in Godot properties
-- `get_node_groups` — a node's group memberships (for snapshot/rollback)
+- `godot_inspection_get_project_info` — name, Godot version, main scene, autoloads, input actions
+- `godot_inspection_get_active_scene` — is_open, path, name
+- `godot_inspection_get_scene_tree` — full node hierarchy with `max_depth` control
+- `godot_inspection_get_selected_node` — the currently selected node in the editor
+- `godot_inspection_get_node_properties` — type, script, properties, children for any node path
+- `godot_inspection_get_node_property` — read a single property by name, including built-in Godot properties
+- `godot_inspection_get_node_groups` — a node's group memberships (for snapshot/rollback)
 
 ### Scene Edit (gated) — `mutating` / `destructive`
-- **Node creation:** `create_node`, `instance_scene`, `duplicate_node`
-- **Hierarchy:** `move_node`, `rename_node`, `delete_node` (destructive, needs `confirm`)
-- **Properties:** `set_node_property` (with Godot↔JSON type coercion)
-- **Scripts:** `attach_script`
-- **Signals:** `connect_signal`, `disconnect_signal`, `list_signal_connections`
-- **Groups:** `add_to_group`, `remove_from_group`
-- **Scene I/O:** `save_scene`, `create_scene`
-- **Session:** `open_scene`, `reload_scene` (destructive), `save_all_scenes`, `list_open_scenes`, `select_nodes`
+- **Node creation:** `godot_scene_edit_create_node`, `godot_scene_edit_instance_scene`, `godot_scene_edit_duplicate_node`
+- **Hierarchy:** `godot_scene_edit_move_node`, `godot_scene_edit_rename_node`, `godot_scene_edit_delete_node` (destructive, needs `confirm`)
+- **Properties:** `godot_scene_edit_set_node_property` (with Godot↔JSON type coercion)
+- **Scripts:** `godot_scene_edit_attach_script`
+- **Signals:** `godot_scene_edit_connect_signal`, `godot_scene_edit_disconnect_signal`, `godot_scene_edit_list_signal_connections`
+- **Groups:** `godot_scene_edit_add_to_group`, `godot_scene_edit_remove_from_group`
+- **Scene I/O:** `godot_scene_edit_save_scene`, `godot_scene_edit_create_scene`
+- **Session:** `godot_scene_edit_open_scene`, `godot_scene_edit_reload_scene` (destructive), `godot_scene_edit_save_all_scenes`, `godot_scene_edit_list_open_scenes`, `godot_scene_edit_select_nodes`
 
 ### Scripts (gated) — `read_only` / `mutating`
-- `read_script`, `list_scripts`, `get_script_for_node`
-- `write_script`, `patch_script` (both `mutating`, support `dry_run`)
-- `get_parse_errors` — shells out to `godot --check-only`
+- `godot_scripts_read`, `godot_scripts_list`, `godot_scripts_get_for_node`
+- `godot_scripts_write`, `godot_scripts_patch` (both `mutating`, support `dry_run`)
+- `godot_scripts_get_parse_errors` — shells out to `godot --check-only`
 
 ### Resources & Autoloads (gated) — `read_only` / `mutating`
-- `read_resource_file`, `create_resource`, `set_resource_property`
-- `register_autoload`, `unregister_autoload`
+- `godot_resources_edit_read_resource_file`, `godot_resources_edit_create_resource`, `godot_resources_edit_set_resource_property`
+- `godot_resources_edit_register_autoload`, `godot_resources_edit_unregister_autoload`
 
 ### Project & Filesystem (gated) — `read_only` / `mutating`
-- `get_filesystem_tree` — recursive project tree
-- `search_files` — by name glob and/or content substring
-- `get_setting`, `set_setting` — project settings
-- `resolve_uid` — path ↔ uid:// resolution
-- `delete_resource_file` — delete a `res://` file (destructive; inverse of file-creating tools)
+- `godot_project_get_filesystem_tree` — recursive project tree
+- `godot_project_search_files` — by name glob and/or content substring
+- `godot_project_get_setting`, `godot_project_set_setting` — project settings
+- `godot_project_resolve_uid` — path ↔ uid:// resolution
+- `godot_project_delete_resource_file` — delete a `res://` file (destructive; inverse of file-creating tools)
 
 ### Editor (gated) — `read_only`
-- `capture_editor_screenshot` — returns a PNG image for vision-capable clients
+- `godot_editor_capture_screenshot` — returns a PNG image for vision-capable clients
 
 ### Physics (gated) — `mutating`
-- `setup_physics_body`, `setup_collision`, `set_physics_layers`, `add_raycast`
+- `godot_physics_setup_body`, `godot_physics_setup_collision`, `godot_physics_set_layers`, `godot_physics_add_raycast`
 
 ### Animation (gated) — `mutating` / `read_only`
-- `create_animation`, `add_animation_track`, `insert_keyframe`
-- `create_animation_tree`, `add_state_machine_state`, `set_blend_tree_node`
-- `list_animations`, `get_animation` — read tracks/keyframes (for snapshot/rollback)
+- `godot_animation_create`, `godot_animation_add_track`, `godot_animation_insert_keyframe`
+- `godot_animation_create_tree`, `godot_animation_add_state_machine_state`, `godot_animation_set_blend_tree_node`
+- `godot_animation_list_animations`, `godot_animation_get` — read tracks/keyframes (for snapshot/rollback)
 
 ### 3D Scene (gated) — `mutating`
-- `add_mesh_instance`, `setup_camera`, `setup_lighting`, `setup_environment`, `gridmap_set_cell`, `gridmap_get_cell`
-- **MeshLibrary authoring:** `create_mesh_library`, `add_mesh_library_item`
+- `godot_scene_3d_add_mesh_instance`, `godot_scene_3d_setup_camera`, `godot_scene_3d_setup_lighting`, `godot_scene_3d_setup_environment`, `godot_scene_3d_gridmap_set_cell`, `godot_scene_3d_gridmap_get_cell`
+- **MeshLibrary authoring:** `godot_scene_3d_create_mesh_library`, `godot_scene_3d_add_mesh_library_item`
 
 ### Particles (gated) — `mutating` / `read_only`
-- `create_particles`, `set_particle_material`, `set_particle_color_gradient`, `apply_particle_preset`, `get_particle_material`
+- `godot_particles_create`, `godot_particles_set_material`, `godot_particles_set_color_gradient`, `godot_particles_apply_preset`, `godot_particles_get_material`
 
 ### Navigation (gated) — `mutating`
-- `setup_navigation_region`, `setup_navigation_agent`, `bake_navigation_mesh`, `set_navigation_layers`
+- `godot_navigation_setup_region`, `godot_navigation_setup_agent`, `godot_navigation_bake_mesh`, `godot_navigation_set_layers`
 
 ### Audio (gated) — `read_only` / `mutating` / `destructive`
-- `add_audio_player`, `get_audio_bus_layout`, `add_audio_bus`, `add_audio_bus_effect`, `remove_audio_bus` (destructive), `remove_audio_bus_effect` (destructive)
+- `godot_audio_add_player`, `godot_audio_get_bus_layout`, `godot_audio_add_bus`, `godot_audio_add_bus_effect`, `godot_audio_remove_bus` (destructive), `godot_audio_remove_bus_effect` (destructive)
 
 ### TileMap (gated) — `read_only` / `mutating`
-- `tilemap_set_cell`, `tilemap_fill_rect`, `tilemap_get_cell`, `tilemap_get_used_cells`, `tilemap_clear`, `tilemap_layers`
-- **TileSet authoring:** `create_tileset`, `add_tileset_atlas_source`, `create_tile`
+- `godot_tilemap_set_cell`, `godot_tilemap_fill_rect`, `godot_tilemap_get_cell`, `godot_tilemap_get_used_cells`, `godot_tilemap_clear`, `godot_tilemap_layers`
+- **TileSet authoring:** `godot_tilemap_create_tileset`, `godot_tilemap_add_tileset_atlas_source`, `godot_tilemap_create_tile`
 
 ### Theme & UI (gated) — `mutating` / `read_only`
-- `create_theme`, `set_theme_color`, `set_theme_font_size`, `set_theme_stylebox`, `get_node_theme_overrides`
+- `godot_theme_ui_create`, `godot_theme_ui_set_color`, `godot_theme_ui_set_font_size`, `godot_theme_ui_set_stylebox`, `godot_theme_ui_get_node_overrides`
 
 ### Shaders (gated) — `read_only` / `mutating`
-- `create_shader`, `read_shader`, `assign_shader_material`, `set_shader_param`
+- `godot_shader_create`, `godot_shader_read`, `godot_shader_assign_material`, `godot_shader_set_param`
 
 ### Runtime (gated) — `runtime` / `read_only`
-- `run_and_capture` — headless subprocess
-- `play_scene`, `stop_scene`, `is_playing`, `get_game_scene_tree` — editor play session
+- `godot_runtime_run_and_capture` — headless subprocess
+- `godot_runtime_play_scene`, `godot_runtime_stop_scene`, `godot_runtime_is_playing`, `godot_runtime_get_game_scene_tree` — editor play session
 
 ### Input Simulation (gated) — `runtime` / `read_only`
-- `simulate_key`, `simulate_mouse`, `simulate_action`, `play_input_sequence`
-- `get_input_stats`, `record_input`, `stop_recording`
+- `godot_input_simulate_key`, `godot_input_simulate_mouse`, `godot_input_simulate_action`, `godot_input_play_sequence`
+- `godot_input_get_stats`, `godot_input_record`, `godot_input_stop_recording`
 
 ### Testing / QA (gated) — `runtime` / `read_only`
-- `assert_node_state`, `run_test_scenario`, `run_stress_test`, `compare_screenshots`
+- `godot_testing_assert_node_state`, `godot_testing_run_test_scenario`, `godot_testing_run_stress_test`, `godot_testing_compare_screenshots`
 
 ### Profiling (gated) — `read_only`
-- `get_editor_performance` — editor process monitors
-- `get_performance_monitors` — live game monitors (via probe)
+- `godot_profiling_get_editor_performance` — editor process monitors
+- `godot_profiling_get_performance_monitors` — live game monitors (via probe)
 
 ### Batch / Refactor (gated) — `read_only` / `mutating`
-- `find_nodes_by_type`, `batch_set_property`, `cross_scene_set_property`, `get_dependencies`
+- `godot_batch_find_nodes_by_type`, `godot_batch_set_property`, `godot_batch_cross_scene_set_property`, `godot_batch_get_dependencies`
 
 ### Static Analysis (gated) — `read_only`
-- `find_unused_resources`, `analyze_signal_flow`, `detect_circular_dependencies`, `project_stats`, `project_structure`
+- `godot_analysis_find_unused_resources`, `godot_analysis_analyze_signal_flow`, `godot_analysis_detect_circular_dependencies`, `godot_analysis_project_stats`, `godot_analysis_project_structure`
 
 ### Export (gated) — `read_only` / `runtime`
-- `list_export_presets`, `get_export_info`, `export_project`
+- `godot_export_list_presets`, `godot_export_get_info`, `godot_export_project`
 
 ### Input Map (gated, Godot 4.4+) — `mutating` / `destructive` / `read_only`
-- `add_input_action`, `remove_input_action` (destructive), `add_input_event`, `clear_input_action_events` (destructive), `get_input_action_events` (read_only)
+- `godot_input_map_add_action`, `godot_input_map_remove_action` (destructive), `godot_input_map_add_event`, `godot_input_map_clear_action_events` (destructive), `godot_input_map_get_action_events` (read_only)
 
 ### Resources (`godot://` URIs)
 Read-only snapshots refreshed on access:
@@ -539,7 +539,7 @@ All configuration is optional and passed via environment variables:
 | `GODOT_MCP_HTTP_HOST` | `127.0.0.1` | HTTP bind host |
 | `GODOT_MCP_HTTP_PORT` | `9090` | HTTP bind port |
 | `GODOT_MCP_BRIDGE_URL` | `ws://localhost:9080` | Godot addon WebSocket URL |
-| `GODOT_MCP_GODOT_BIN` | auto-discovered | Godot executable for `run_and_capture` / `export_project` |
+| `GODOT_MCP_GODOT_BIN` | auto-discovered | Godot executable for `godot_runtime_run_and_capture` / `godot_export_project` |
 | `GODOT_MCP_PROJECT_DIR` | connected editor's project | Project directory for runner, export, and analysis |
 | `GODOT_MCP_LOG_LEVEL` | `INFO` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) — JSON to stderr |
 | `GODOT_MCP_APPROVAL_WEBHOOK` | unset | Optional human-in-the-loop approval webhook for destructive tools (`ApprovalGate`) |
@@ -560,7 +560,7 @@ All configuration is optional and passed via environment variables:
 - Open a `.tscn` scene in the Godot editor before calling scene editing tools.
 
 ### "PRECONDITION_FAILED: required=confirm"
-- Destructive tools (`delete_node`, `reload_scene`, etc.) need `confirm=True`.
+- Destructive tools (`godot_scene_edit_delete_node`, `godot_scene_edit_reload_scene`, etc.) need `confirm=True`.
 - Or use `dry_run=True` to preview.
 
 ### "PRECONDITION_FAILED: required=play_session"

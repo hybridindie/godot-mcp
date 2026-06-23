@@ -23,13 +23,9 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
     p = cmd.params
     match cmd.command:
         case "cmd_get_active_scene":
-            return ResponseEnvelope.success(
-                cmd.id, {"is_open": True, "path": "res://world.tscn"}
-            )
+            return ResponseEnvelope.success(cmd.id, {"is_open": True, "path": "res://world.tscn"})
         case "cmd_get_node_properties":
-            return ResponseEnvelope.success(
-                cmd.id, {"node_path": p["node_path"], "type": "Node2D"}
-            )
+            return ResponseEnvelope.success(cmd.id, {"node_path": p["node_path"], "type": "Node2D"})
         case "cmd_open_scene":
             return ResponseEnvelope.success(
                 cmd.id,
@@ -48,9 +44,7 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                 },
             )
         case "cmd_save_all_scenes":
-            return ResponseEnvelope.success(
-                cmd.id, {"saved": True, "count": 3}
-            )
+            return ResponseEnvelope.success(cmd.id, {"saved": True, "count": 3})
         case "cmd_list_open_scenes":
             return ResponseEnvelope.success(
                 cmd.id,
@@ -86,20 +80,20 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 async def test_scene_session_safety_classes() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         tools = {t.name: t for t in await client.list_tools()}
-    assert tools["open_scene"].meta["safety_class"] == "mutating"
-    assert tools["reload_scene"].meta["safety_class"] == "destructive"
-    assert tools["save_all_scenes"].meta["safety_class"] == "mutating"
-    assert tools["select_nodes"].meta["safety_class"] == "mutating"
+    assert tools["godot_scene_edit_open_scene"].meta["safety_class"] == "mutating"
+    assert tools["godot_scene_edit_reload_scene"].meta["safety_class"] == "destructive"
+    assert tools["godot_scene_edit_save_all_scenes"].meta["safety_class"] == "mutating"
+    assert tools["godot_scene_edit_select_nodes"].meta["safety_class"] == "mutating"
 
 
 async def test_open_scene_routes_to_addon() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         result = await client.call_tool(
-            "open_scene", {"scene_path": "res://level.tscn"}
+            "godot_scene_edit_open_scene", {"scene_path": "res://level.tscn"}
         )
     assert result.structured_content["opened"] is True
     assert result.structured_content["scene_path"] == "res://level.tscn"
@@ -109,9 +103,9 @@ async def test_open_scene_routes_to_addon() -> None:
 async def test_open_scene_dry_run_sends_no_command() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         result = await client.call_tool(
-            "open_scene", {"scene_path": "res://level.tscn", "dry_run": True}
+            "godot_scene_edit_open_scene", {"scene_path": "res://level.tscn", "dry_run": True}
         )
     assert result.structured_content["dry_run"] is True
     assert result.structured_content["opened"] is False
@@ -121,9 +115,11 @@ async def test_open_scene_dry_run_sends_no_command() -> None:
 async def test_reload_scene_requires_confirm() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         result = await client.call_tool(
-            "reload_scene", {"scene_path": "res://level.tscn"}, raise_on_error=False
+            "godot_scene_edit_reload_scene",
+            {"scene_path": "res://level.tscn"},
+            raise_on_error=False,
         )
     assert result.is_error
     assert "confirm" in str(result.content)
@@ -133,9 +129,9 @@ async def test_reload_scene_requires_confirm() -> None:
 async def test_reload_scene_with_confirm_proceeds() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         result = await client.call_tool(
-            "reload_scene", {"scene_path": "res://level.tscn", "confirm": True}
+            "godot_scene_edit_reload_scene", {"scene_path": "res://level.tscn", "confirm": True}
         )
     assert result.structured_content["reloaded"] is True
     assert "cmd_reload_scene" in _commands(conn)
@@ -144,9 +140,9 @@ async def test_reload_scene_with_confirm_proceeds() -> None:
 async def test_reload_scene_dry_run_needs_no_confirm() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         result = await client.call_tool(
-            "reload_scene", {"scene_path": "res://level.tscn", "dry_run": True}
+            "godot_scene_edit_reload_scene", {"scene_path": "res://level.tscn", "dry_run": True}
         )
     assert result.structured_content["dry_run"] is True
     assert result.structured_content["reloaded"] is False
@@ -156,8 +152,8 @@ async def test_reload_scene_dry_run_needs_no_confirm() -> None:
 async def test_save_all_scenes_routes_to_addon() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
-        result = await client.call_tool("save_all_scenes")
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
+        result = await client.call_tool("godot_scene_edit_save_all_scenes")
     assert result.structured_content["saved"] is True
     assert result.structured_content["count"] == 3
     assert "cmd_save_all_scenes" in _commands(conn)
@@ -166,8 +162,8 @@ async def test_save_all_scenes_routes_to_addon() -> None:
 async def test_save_all_scenes_dry_run_sends_no_command() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
-        result = await client.call_tool("save_all_scenes", {"dry_run": True})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
+        result = await client.call_tool("godot_scene_edit_save_all_scenes", {"dry_run": True})
     assert result.structured_content["dry_run"] is True
     assert result.structured_content["saved"] is False
     assert "cmd_save_all_scenes" not in _commands(conn)
@@ -176,10 +172,10 @@ async def test_save_all_scenes_dry_run_sends_no_command() -> None:
 async def test_list_open_scenes_is_read_only() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         tools = {t.name: t for t in await client.list_tools()}
-        result = await client.call_tool("list_open_scenes")
-    assert tools["list_open_scenes"].meta["safety_class"] == "read_only"
+        result = await client.call_tool("godot_scene_edit_list_open_scenes")
+    assert tools["godot_scene_edit_list_open_scenes"].meta["safety_class"] == "read_only"
     scenes = result.structured_content["scenes"]
     assert len(scenes) == 2
     assert scenes[0]["path"] == "res://a.tscn"
@@ -189,9 +185,9 @@ async def test_list_open_scenes_is_read_only() -> None:
 async def test_select_nodes_routes_to_addon() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         result = await client.call_tool(
-            "select_nodes",
+            "godot_scene_edit_select_nodes",
             {"node_paths": ["Player", "Enemy"]},
         )
     assert result.structured_content["count"] == 2
@@ -202,9 +198,9 @@ async def test_select_nodes_routes_to_addon() -> None:
 async def test_select_nodes_dry_run_sends_no_command() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         result = await client.call_tool(
-            "select_nodes",
+            "godot_scene_edit_select_nodes",
             {"node_paths": ["Player"], "dry_run": True},
         )
     assert result.structured_content["dry_run"] is True

@@ -48,23 +48,30 @@ def _build() -> tuple[FastMCP, FakeAddonConnection]:
 async def test_gated_in_runtime_toolset_with_safety_classes() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        assert "play_scene" not in {t.name for t in await client.list_tools()}
-        await client.call_tool("enable_toolset", {"category": "runtime"})
+        assert "godot_runtime_play_scene" not in {t.name for t in await client.list_tools()}
+        await client.call_tool("godot_enable_toolset", {"category": "runtime"})
         tools = {t.name: t for t in await client.list_tools()}
-    assert {"play_scene", "stop_scene", "is_playing", "get_game_scene_tree"} <= set(tools)
-    assert tools["play_scene"].meta["safety_class"] == "runtime"
-    assert tools["stop_scene"].meta["safety_class"] == "runtime"
-    assert tools["is_playing"].meta["safety_class"] == "read_only"
-    assert tools["get_game_scene_tree"].meta["safety_class"] == "read_only"
+    assert {
+        "godot_runtime_play_scene",
+        "godot_runtime_stop_scene",
+        "godot_runtime_is_playing",
+        "godot_runtime_get_game_scene_tree",
+    } <= set(tools)
+    assert tools["godot_runtime_play_scene"].meta["safety_class"] == "runtime"
+    assert tools["godot_runtime_stop_scene"].meta["safety_class"] == "runtime"
+    assert tools["godot_runtime_is_playing"].meta["safety_class"] == "read_only"
+    assert tools["godot_runtime_get_game_scene_tree"].meta["safety_class"] == "read_only"
 
 
 async def test_play_stop_and_is_playing() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "runtime"})
-        played = await client.call_tool("play_scene", {"scene_path": "res://main.tscn"})
-        playing = await client.call_tool("is_playing", {})
-        stopped = await client.call_tool("stop_scene", {})
+        await client.call_tool("godot_enable_toolset", {"category": "runtime"})
+        played = await client.call_tool(
+            "godot_runtime_play_scene", {"scene_path": "res://main.tscn"}
+        )
+        playing = await client.call_tool("godot_runtime_is_playing", {})
+        stopped = await client.call_tool("godot_runtime_stop_scene", {})
     assert played.structured_content["playing"] is True
     assert played.structured_content["scene"] == "res://main.tscn"
     assert playing.structured_content["playing"] is True
@@ -74,8 +81,8 @@ async def test_play_stop_and_is_playing() -> None:
 async def test_get_game_scene_tree_returns_live_tree() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "runtime"})
-        result = await client.call_tool("get_game_scene_tree", {})
+        await client.call_tool("godot_enable_toolset", {"category": "runtime"})
+        result = await client.call_tool("godot_runtime_get_game_scene_tree", {})
     sc = result.structured_content
     assert sc["connected"] is True
     assert sc["tree"]["type"] == "Window"
@@ -96,8 +103,8 @@ async def test_get_game_scene_tree_not_connected() -> None:
     bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
     server = create_server(ServerConfig(), bridge=bridge)
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "runtime"})
-        result = await client.call_tool("get_game_scene_tree", {})
+        await client.call_tool("godot_enable_toolset", {"category": "runtime"})
+        result = await client.call_tool("godot_runtime_get_game_scene_tree", {})
     assert result.structured_content["connected"] is False
     assert result.structured_content["tree"] is None
     assert "probe" in result.structured_content["hint"]

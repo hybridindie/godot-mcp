@@ -24,6 +24,7 @@ from mcp_server.prompts import register_prompts
 from mcp_server.resources.context import register_resources
 from mcp_server.runtime import GodotRunner, Runner
 from mcp_server.safety import ApprovalGate, apply_safety_annotations, register_safety_tools
+from mcp_server.tool_naming import install_tool_naming
 from mcp_server.tools.analysis import register_analysis
 from mcp_server.tools.animation import register_animation
 from mcp_server.tools.audio import register_audio
@@ -117,6 +118,10 @@ def create_server(
             }
         },
     )
+    # Expose every tool as godot_<toolset>_<action> (issue #224). Installed before any
+    # registration so tools register under their final name; tag-based gating is unaffected.
+    install_tool_naming(mcp)
+
     register_health(mcp, bridge, config)
     register_inspection(mcp, bridge)
     register_mutation(mcp, bridge, approval)

@@ -75,13 +75,17 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 
 
 async def test_composite_tools_are_gated_mutating() -> None:
-    names = ("compose_node", "batch_create_nodes", "apply_node_edits")
+    names = (
+        "godot_composite_compose_node",
+        "godot_composite_batch_create_nodes",
+        "godot_composite_apply_node_edits",
+    )
     server, _ = _build()
     async with Client(server) as client:
         # Gated off by default: absent until the toolset is enabled.
         before = {t.name for t in await client.list_tools()}
         assert before.isdisjoint(names), "composite tools must be gated off by default"
-        await client.call_tool("enable_toolset", {"category": "composite"})
+        await client.call_tool("godot_enable_toolset", {"category": "composite"})
         tools = {t.name: t for t in await client.list_tools()}
     for name in names:
         assert tools[name].meta["safety_class"] == "mutating"
@@ -90,9 +94,9 @@ async def test_composite_tools_are_gated_mutating() -> None:
 async def test_compose_node_routes_with_full_config() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "composite"})
+        await client.call_tool("godot_enable_toolset", {"category": "composite"})
         result = await client.call_tool(
-            "compose_node",
+            "godot_composite_compose_node",
             {
                 "parent_path": ".",
                 "node_type": "Node2D",
@@ -115,9 +119,9 @@ async def test_compose_node_routes_with_full_config() -> None:
 async def test_compose_node_dry_run_sends_no_mutation() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "composite"})
+        await client.call_tool("godot_enable_toolset", {"category": "composite"})
         result = await client.call_tool(
-            "compose_node",
+            "godot_composite_compose_node",
             {"parent_path": ".", "node_type": "Node2D", "node_name": "Hero", "dry_run": True},
         )
     assert result.structured_content["created"] is False
@@ -127,9 +131,9 @@ async def test_compose_node_dry_run_sends_no_mutation() -> None:
 async def test_compose_node_missing_parent_is_error() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "composite"})
+        await client.call_tool("godot_enable_toolset", {"category": "composite"})
         result = await client.call_tool(
-            "compose_node",
+            "godot_composite_compose_node",
             {"parent_path": "Ghost", "node_type": "Node2D", "node_name": "X"},
             raise_on_error=False,
         )
@@ -140,9 +144,9 @@ async def test_compose_node_missing_parent_is_error() -> None:
 async def test_batch_create_nodes_routes() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "composite"})
+        await client.call_tool("godot_enable_toolset", {"category": "composite"})
         result = await client.call_tool(
-            "batch_create_nodes",
+            "godot_composite_batch_create_nodes",
             {"parent_path": ".", "node_type": "Sprite2D", "names": ["A", "B", "C"]},
         )
     assert result.structured_content["count"] == 3
@@ -153,9 +157,9 @@ async def test_batch_create_nodes_routes() -> None:
 async def test_apply_node_edits_routes() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "composite"})
+        await client.call_tool("godot_enable_toolset", {"category": "composite"})
         result = await client.call_tool(
-            "apply_node_edits",
+            "godot_composite_apply_node_edits",
             {
                 "edits": [
                     {"node_path": "A", "properties": {"visible": False}},

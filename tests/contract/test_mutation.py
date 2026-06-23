@@ -101,20 +101,21 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 async def test_mutation_safety_classes() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         tools = {t.name: t for t in await client.list_tools()}
-    assert tools["create_node"].meta["safety_class"] == "mutating"
-    assert tools["set_node_property"].meta["safety_class"] == "mutating"
-    assert tools["save_scene"].meta["safety_class"] == "mutating"
-    assert tools["delete_node"].meta["safety_class"] == "destructive"
+    assert tools["godot_scene_edit_create_node"].meta["safety_class"] == "mutating"
+    assert tools["godot_scene_edit_set_node_property"].meta["safety_class"] == "mutating"
+    assert tools["godot_scene_edit_save_scene"].meta["safety_class"] == "mutating"
+    assert tools["godot_scene_edit_delete_node"].meta["safety_class"] == "destructive"
 
 
 async def test_create_node_real_routes_to_addon() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         result = await client.call_tool(
-            "create_node", {"parent_path": ".", "node_type": "Node2D", "node_name": "Player"}
+            "godot_scene_edit_create_node",
+            {"parent_path": ".", "node_type": "Node2D", "node_name": "Player"},
         )
     assert result.structured_content["created"] is True
     assert result.structured_content["node_path"] == "./Player"
@@ -124,9 +125,9 @@ async def test_create_node_real_routes_to_addon() -> None:
 async def test_create_node_dry_run_sends_no_mutation() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         result = await client.call_tool(
-            "create_node",
+            "godot_scene_edit_create_node",
             {"parent_path": ".", "node_type": "Node2D", "node_name": "Player", "dry_run": True},
         )
     assert result.structured_content["dry_run"] is True
@@ -141,9 +142,9 @@ async def test_connect_signal_reports_already_connected() -> None:
     # idempotent success (connected + already_connected), not a false failure.
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         result = await client.call_tool(
-            "connect_signal",
+            "godot_scene_edit_connect_signal",
             {
                 "source_path": "Player",
                 "signal_name": "ready",
@@ -158,9 +159,9 @@ async def test_connect_signal_reports_already_connected() -> None:
 async def test_connect_signal_fresh_connection_not_marked_already() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         result = await client.call_tool(
-            "connect_signal",
+            "godot_scene_edit_connect_signal",
             {
                 "source_path": "Button",
                 "signal_name": "pressed",
@@ -175,9 +176,9 @@ async def test_connect_signal_fresh_connection_not_marked_already() -> None:
 async def test_set_property_maps_value_and_flag() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         result = await client.call_tool(
-            "set_node_property",
+            "godot_scene_edit_set_node_property",
             {"node_path": "Player", "property": "position", "value": {"x": 1, "y": 2}},
         )
     assert result.structured_content["set"] is True
@@ -197,9 +198,7 @@ def _addon_base(cmd: CommandEnvelope) -> ResponseEnvelope:
         )
     # Return failure for bootstrap commands so FakeAddonConnection auto-replaces
     # cmd_ping / cmd_get_project_info with its default responder.
-    return ResponseEnvelope.failure(
-        cmd.id, "VALIDATION_ERROR", f"Unknown command '{cmd.command}'."
-    )
+    return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", f"Unknown command '{cmd.command}'.")
 
 
 def _respond_with_suggestions(cmd: CommandEnvelope) -> ResponseEnvelope:
@@ -230,9 +229,9 @@ async def test_set_node_property_suggests_closest_matches() -> None:
     bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
     server = create_server(ServerConfig(), bridge=bridge)
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         result = await client.call_tool(
-            "set_node_property",
+            "godot_scene_edit_set_node_property",
             {"node_path": "Player", "property": "positoin", "value": 1},
             raise_on_error=False,
         )
@@ -258,9 +257,9 @@ async def test_set_node_property_no_suggestions_when_list_empty() -> None:
     bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
     server = create_server(ServerConfig(), bridge=bridge)
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         result = await client.call_tool(
-            "set_node_property",
+            "godot_scene_edit_set_node_property",
             {"node_path": "Player", "property": "bad", "value": 1},
             raise_on_error=False,
         )
@@ -282,9 +281,11 @@ async def test_delete_node_blocked_when_approval_denied() -> None:
     gate = ApprovalGate(webhook_url="http://hook", poster=deny)
     server = create_server(ServerConfig(), bridge=bridge, approval=gate)
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         result = await client.call_tool(
-            "delete_node", {"node_path": "Player", "confirm": True}, raise_on_error=False
+            "godot_scene_edit_delete_node",
+            {"node_path": "Player", "confirm": True},
+            raise_on_error=False,
         )
     assert result.is_error
     assert "APPROVAL_DENIED" in str(result.content)
@@ -301,8 +302,10 @@ async def test_delete_node_proceeds_when_approval_granted() -> None:
     gate = ApprovalGate(webhook_url="http://hook", poster=approve)
     server = create_server(ServerConfig(), bridge=bridge, approval=gate)
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
-        result = await client.call_tool("delete_node", {"node_path": "Player", "confirm": True})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
+        result = await client.call_tool(
+            "godot_scene_edit_delete_node", {"node_path": "Player", "confirm": True}
+        )
     assert result.structured_content["deleted"] is True
     assert "cmd_delete_node" in _commands(conn)
 
@@ -310,9 +313,9 @@ async def test_delete_node_proceeds_when_approval_granted() -> None:
 async def test_delete_without_confirm_is_blocked() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         result = await client.call_tool(
-            "delete_node", {"node_path": "Player"}, raise_on_error=False
+            "godot_scene_edit_delete_node", {"node_path": "Player"}, raise_on_error=False
         )
     assert result.is_error
     assert "confirm" in str(result.content)
@@ -322,8 +325,10 @@ async def test_delete_without_confirm_is_blocked() -> None:
 async def test_delete_with_confirm_proceeds() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
-        result = await client.call_tool("delete_node", {"node_path": "Player", "confirm": True})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
+        result = await client.call_tool(
+            "godot_scene_edit_delete_node", {"node_path": "Player", "confirm": True}
+        )
     assert result.structured_content["deleted"] is True
     assert "cmd_delete_node" in _commands(conn)
 
@@ -331,8 +336,10 @@ async def test_delete_with_confirm_proceeds() -> None:
 async def test_delete_dry_run_needs_no_confirm() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
-        result = await client.call_tool("delete_node", {"node_path": "Player", "dry_run": True})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
+        result = await client.call_tool(
+            "godot_scene_edit_delete_node", {"node_path": "Player", "dry_run": True}
+        )
     assert result.structured_content["dry_run"] is True
     assert result.structured_content["deleted"] is False
     assert "cmd_delete_node" not in _commands(conn)
@@ -341,9 +348,9 @@ async def test_delete_dry_run_needs_no_confirm() -> None:
 async def test_missing_node_precondition_is_structured_error() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         result = await client.call_tool(
-            "create_node",
+            "godot_scene_edit_create_node",
             {"parent_path": "Ghost", "node_type": "Node2D", "node_name": "X"},
             raise_on_error=False,
         )
@@ -358,17 +365,17 @@ async def test_missing_node_precondition_is_structured_error() -> None:
 async def test_instance_scene_safety_class_is_mutating() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         tools = {t.name: t for t in await client.list_tools()}
-    assert tools["instance_scene"].meta["safety_class"] == "mutating"
+    assert tools["godot_scene_edit_instance_scene"].meta["safety_class"] == "mutating"
 
 
 async def test_instance_scene_routes_to_addon() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         result = await client.call_tool(
-            "instance_scene",
+            "godot_scene_edit_instance_scene",
             {"parent_path": ".", "scene_path": "res://player.tscn"},
         )
     assert result.structured_content["instanced"] is True
@@ -379,9 +386,9 @@ async def test_instance_scene_routes_to_addon() -> None:
 async def test_instance_scene_dry_run_sends_no_command() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         result = await client.call_tool(
-            "instance_scene",
+            "godot_scene_edit_instance_scene",
             {"parent_path": ".", "scene_path": "res://player.tscn", "name": "P1", "dry_run": True},
         )
     assert result.structured_content["dry_run"] is True
@@ -392,9 +399,9 @@ async def test_instance_scene_dry_run_sends_no_command() -> None:
 async def test_instance_scene_missing_parent_is_error() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_edit"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         result = await client.call_tool(
-            "instance_scene",
+            "godot_scene_edit_instance_scene",
             {"parent_path": "Ghost", "scene_path": "res://player.tscn"},
             raise_on_error=False,
         )

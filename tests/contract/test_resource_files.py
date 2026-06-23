@@ -62,24 +62,26 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 async def test_gated_in_resources_edit_toolset() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        assert "create_resource" not in {t.name for t in await client.list_tools()}
-        await client.call_tool("enable_toolset", {"category": "resources_edit"})
+        assert "godot_resources_edit_create_resource" not in {
+            t.name for t in await client.list_tools()
+        }
+        await client.call_tool("godot_enable_toolset", {"category": "resources_edit"})
         names = {t.name for t in await client.list_tools()}
     assert {
-        "read_resource_file",
-        "create_resource",
-        "set_resource_property",
-        "register_autoload",
-        "unregister_autoload",
+        "godot_resources_edit_read_resource_file",
+        "godot_resources_edit_create_resource",
+        "godot_resources_edit_set_resource_property",
+        "godot_resources_edit_register_autoload",
+        "godot_resources_edit_unregister_autoload",
     } <= names
 
 
 async def test_read_resource_file() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "resources_edit"})
+        await client.call_tool("godot_enable_toolset", {"category": "resources_edit"})
         result = await client.call_tool(
-            "read_resource_file", {"resource_path": "res://shape.tres"}
+            "godot_resources_edit_read_resource_file", {"resource_path": "res://shape.tres"}
         )
     assert result.structured_content["type"] == "RectangleShape2D"
     assert result.structured_content["properties"]["size"] == {"x": 4.0, "y": 5.0}
@@ -88,11 +90,13 @@ async def test_read_resource_file() -> None:
 async def test_create_resource_safety_and_dry_run() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "resources_edit"})
-        tool = next(t for t in await client.list_tools() if t.name == "create_resource")
+        await client.call_tool("godot_enable_toolset", {"category": "resources_edit"})
+        tool = next(
+            t for t in await client.list_tools() if t.name == "godot_resources_edit_create_resource"
+        )
         assert tool.meta is not None and tool.meta.get("safety_class") == "mutating"
         dry = await client.call_tool(
-            "create_resource",
+            "godot_resources_edit_create_resource",
             {"type": "RectangleShape2D", "resource_path": "res://s.tres", "dry_run": True},
         )
     assert dry.structured_content["dry_run"] is True
@@ -102,15 +106,15 @@ async def test_create_resource_safety_and_dry_run() -> None:
 async def test_set_resource_property_and_autoloads() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "resources_edit"})
+        await client.call_tool("godot_enable_toolset", {"category": "resources_edit"})
         s = await client.call_tool(
-            "set_resource_property",
+            "godot_resources_edit_set_resource_property",
             {"resource_path": "res://s.tres", "property": "size", "value": {"x": 1, "y": 2}},
         )
         reg = await client.call_tool(
-            "register_autoload", {"name": "Game", "path": "res://game.gd"}
+            "godot_resources_edit_register_autoload", {"name": "Game", "path": "res://game.gd"}
         )
-        unreg = await client.call_tool("unregister_autoload", {"name": "Game"})
+        unreg = await client.call_tool("godot_resources_edit_unregister_autoload", {"name": "Game"})
     assert s.structured_content["value"] == {"x": 1, "y": 2}
     assert reg.structured_content["registered"] is True
     assert unreg.structured_content["unregistered"] is True
@@ -119,6 +123,10 @@ async def test_set_resource_property_and_autoloads() -> None:
 async def test_read_resource_file_is_read_only() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "resources_edit"})
-        tool = next(t for t in await client.list_tools() if t.name == "read_resource_file")
+        await client.call_tool("godot_enable_toolset", {"category": "resources_edit"})
+        tool = next(
+            t
+            for t in await client.list_tools()
+            if t.name == "godot_resources_edit_read_resource_file"
+        )
     assert tool.meta is not None and tool.meta.get("safety_class") == "read_only"

@@ -104,15 +104,15 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 async def test_gated_in_scene_3d_toolset() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        assert "add_mesh_instance" not in {t.name for t in await client.list_tools()}
-        await client.call_tool("enable_toolset", {"category": "scene_3d"})
+        assert "godot_scene_3d_add_mesh_instance" not in {t.name for t in await client.list_tools()}
+        await client.call_tool("godot_enable_toolset", {"category": "scene_3d"})
         tools = {t.name: t for t in await client.list_tools()}
     expected = {
-        "add_mesh_instance",
-        "setup_camera",
-        "setup_lighting",
-        "setup_environment",
-        "gridmap_set_cell",
+        "godot_scene_3d_add_mesh_instance",
+        "godot_scene_3d_setup_camera",
+        "godot_scene_3d_setup_lighting",
+        "godot_scene_3d_setup_environment",
+        "godot_scene_3d_gridmap_set_cell",
     }
     assert expected <= set(tools)
     assert all(tools[n].meta["safety_class"] == "mutating" for n in expected)
@@ -121,18 +121,18 @@ async def test_gated_in_scene_3d_toolset() -> None:
 async def test_mesh_camera_light_environment() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_3d"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_3d"})
         mesh = await client.call_tool(
-            "add_mesh_instance",
+            "godot_scene_3d_add_mesh_instance",
             {"parent_path": ".", "mesh_type": "SphereMesh", "properties": {"radius": 2}},
         )
         cam = await client.call_tool(
-            "setup_camera", {"parent_path": ".", "properties": {"fov": 60}}
+            "godot_scene_3d_setup_camera", {"parent_path": ".", "properties": {"fov": 60}}
         )
         light = await client.call_tool(
-            "setup_lighting", {"parent_path": ".", "light_type": "OmniLight3D"}
+            "godot_scene_3d_setup_lighting", {"parent_path": ".", "light_type": "OmniLight3D"}
         )
-        env = await client.call_tool("setup_environment", {"parent_path": "."})
+        env = await client.call_tool("godot_scene_3d_setup_environment", {"parent_path": "."})
     assert mesh.structured_content["mesh_type"] == "SphereMesh"
     assert mesh.structured_content["created"] is True
     assert cam.structured_content["current"] is True
@@ -145,9 +145,10 @@ async def test_mesh_camera_light_environment() -> None:
 async def test_gridmap_set_cell_roundtrips_position() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_3d"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_3d"})
         cell = await client.call_tool(
-            "gridmap_set_cell", {"node_path": "GridMap", "position": [1, 0, 2], "item": 3}
+            "godot_scene_3d_gridmap_set_cell",
+            {"node_path": "GridMap", "position": [1, 0, 2], "item": 3},
         )
     assert cell.structured_content["position"] == [1, 0, 2]
     assert cell.structured_content["item"] == 3
@@ -169,9 +170,9 @@ async def test_gridmap_missing_library_preserves_required() -> None:
     bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
     server = create_server(ServerConfig(), bridge=bridge)
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_3d"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_3d"})
         result = await client.call_tool(
-            "gridmap_set_cell",
+            "godot_scene_3d_gridmap_set_cell",
             {"node_path": "GridMap", "position": [0, 0, 0], "item": 0},
             raise_on_error=False,
         )
@@ -184,14 +185,14 @@ async def test_mesh_library_authoring_chain() -> None:
     # prerequisite that lets gridmap_set_cell place a real item.
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_3d"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_3d"})
         tools = {t.name: t for t in await client.list_tools()}
-        authoring = {"create_mesh_library", "add_mesh_library_item"}
+        authoring = {"godot_scene_3d_create_mesh_library", "godot_scene_3d_add_mesh_library_item"}
         assert authoring <= set(tools)
         assert all(tools[n].meta["safety_class"] == "mutating" for n in authoring)
-        lib = await client.call_tool("create_mesh_library", {"node_path": "Grid"})
+        lib = await client.call_tool("godot_scene_3d_create_mesh_library", {"node_path": "Grid"})
         item = await client.call_tool(
-            "add_mesh_library_item",
+            "godot_scene_3d_add_mesh_library_item",
             {"node_path": "Grid", "mesh_type": "BoxMesh", "name": "Wall"},
         )
     assert lib.structured_content["created"] is True
@@ -203,19 +204,19 @@ async def test_mesh_library_authoring_chain() -> None:
 async def test_mesh_library_target_and_mesh_source_are_exclusive() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_3d"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_3d"})
         both_targets = await client.call_tool(
-            "add_mesh_library_item",
+            "godot_scene_3d_add_mesh_library_item",
             {"node_path": "Grid", "library_path": "res://l.tres", "mesh_type": "BoxMesh"},
             raise_on_error=False,
         )
         both_meshes = await client.call_tool(
-            "add_mesh_library_item",
+            "godot_scene_3d_add_mesh_library_item",
             {"node_path": "Grid", "mesh_type": "BoxMesh", "mesh_path": "res://m.tres"},
             raise_on_error=False,
         )
         neither_target = await client.call_tool(
-            "create_mesh_library", {}, raise_on_error=False
+            "godot_scene_3d_create_mesh_library", {}, raise_on_error=False
         )
     assert both_targets.is_error and "only one" in str(both_targets.content)
     assert both_meshes.is_error
@@ -226,9 +227,10 @@ async def test_mesh_library_target_and_mesh_source_are_exclusive() -> None:
 async def test_mesh_library_save_dry_run_sends_no_command() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_3d"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_3d"})
         dry = await client.call_tool(
-            "create_mesh_library", {"save_path": "res://blocks.tres", "dry_run": True}
+            "godot_scene_3d_create_mesh_library",
+            {"save_path": "res://blocks.tres", "dry_run": True},
         )
     assert dry.structured_content["dry_run"] is True
     assert "cmd_create_mesh_library" not in _commands(conn)
@@ -237,9 +239,10 @@ async def test_mesh_library_save_dry_run_sends_no_command() -> None:
 async def test_dry_run_sends_no_mutation() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_3d"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_3d"})
         result = await client.call_tool(
-            "add_mesh_instance", {"parent_path": ".", "mesh_type": "BoxMesh", "dry_run": True}
+            "godot_scene_3d_add_mesh_instance",
+            {"parent_path": ".", "mesh_type": "BoxMesh", "dry_run": True},
         )
     assert result.structured_content["dry_run"] is True
     assert "cmd_add_mesh_instance" not in _commands(conn)
@@ -249,17 +252,17 @@ async def test_gridmap_get_cell_reads_cell() -> None:
     # #219 G5: read a GridMap cell (item + orientation) — inverts gridmap_set_cell.
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "scene_3d"})
+        await client.call_tool("godot_enable_toolset", {"category": "scene_3d"})
         filled = await client.call_tool(
-            "gridmap_get_cell", {"node_path": "GridMap", "position": [1, 0, 2]}
+            "godot_scene_3d_gridmap_get_cell", {"node_path": "GridMap", "position": [1, 0, 2]}
         )
         empty = await client.call_tool(
-            "gridmap_get_cell", {"node_path": "GridMap", "position": [9, 9, 9]}
+            "godot_scene_3d_gridmap_get_cell", {"node_path": "GridMap", "position": [9, 9, 9]}
         )
         tools = {t.name: t for t in await client.list_tools()}
     f = filled.structured_content
     assert f["position"] == [1, 0, 2] and f["item"] == 3 and f["orientation"] == 22
     assert f["empty"] is False
     assert empty.structured_content["item"] == -1 and empty.structured_content["empty"] is True
-    assert tools["gridmap_get_cell"].meta["safety_class"] == "read_only"
+    assert tools["godot_scene_3d_gridmap_get_cell"].meta["safety_class"] == "read_only"
     assert "cmd_gridmap_get_cell" in _commands(conn)

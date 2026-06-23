@@ -141,7 +141,7 @@ def _build(conn: FakeAddonConnection) -> FastMCP:
 
 async def test_get_project_info() -> None:
     async with Client(_build(FakeAddonConnection(responder=_populated))) as client:
-        result = await client.call_tool("get_project_info", {})
+        result = await client.call_tool("godot_inspection_get_project_info", {})
     info = result.structured_content
     assert info["name"] == "demo"
     assert info["godot_version"] == "4.6.3"
@@ -151,7 +151,7 @@ async def test_get_project_info() -> None:
 
 async def test_get_active_scene() -> None:
     async with Client(_build(FakeAddonConnection(responder=_populated))) as client:
-        result = await client.call_tool("get_active_scene", {})
+        result = await client.call_tool("godot_inspection_get_active_scene", {})
     assert result.structured_content["is_open"] is True
     assert result.structured_content["name"] == "main.tscn"
 
@@ -159,7 +159,7 @@ async def test_get_active_scene() -> None:
 async def test_get_scene_tree_passes_max_depth() -> None:
     conn = FakeAddonConnection(responder=_populated)
     async with Client(_build(conn)) as client:
-        result = await client.call_tool("get_scene_tree", {"max_depth": 2})
+        result = await client.call_tool("godot_inspection_get_scene_tree", {"max_depth": 2})
     assert result.structured_content["tree"]["name"] == "Main"
     assert conn.last_command().params["max_depth"] == 2
 
@@ -169,13 +169,15 @@ async def test_scene_tree_carries_path_round_trips_into_tool() -> None:
     # verbatim by a path-taking tool (here get_node_properties) with no reconstruction.
     conn = FakeAddonConnection(responder=_populated)
     async with Client(_build(conn)) as client:
-        tree = await client.call_tool("get_scene_tree", {})
+        tree = await client.call_tool("godot_inspection_get_scene_tree", {})
         root = tree.structured_content["tree"]
         assert root["path"] == "."
         child_path = root["children"][0]["path"]
         assert child_path == "Player"
         # Feed the discovered path straight into a path-taking tool — no walking.
-        info = await client.call_tool("get_node_properties", {"node_path": child_path})
+        info = await client.call_tool(
+            "godot_inspection_get_node_properties", {"node_path": child_path}
+        )
     assert info.structured_content["node_path"] == "Player"
 
 
@@ -183,7 +185,7 @@ async def test_get_scene_tree_lightweight_passes_flag() -> None:
     # #168: lightweight=True forwards to the addon so it can skip script serialization.
     conn = FakeAddonConnection(responder=_populated)
     async with Client(_build(conn)) as client:
-        result = await client.call_tool("get_scene_tree", {"lightweight": True})
+        result = await client.call_tool("godot_inspection_get_scene_tree", {"lightweight": True})
     assert result.structured_content["tree"]["name"] == "Main"
     assert conn.last_command().params["lightweight"] is True
 
@@ -192,13 +194,13 @@ async def test_get_scene_tree_defaults_to_full() -> None:
     # Default stays full (lightweight=False) for back-compat.
     conn = FakeAddonConnection(responder=_populated)
     async with Client(_build(conn)) as client:
-        await client.call_tool("get_scene_tree", {})
+        await client.call_tool("godot_inspection_get_scene_tree", {})
     assert conn.last_command().params["lightweight"] is False
 
 
 async def test_get_selected_node() -> None:
     async with Client(_build(FakeAddonConnection(responder=_populated))) as client:
-        result = await client.call_tool("get_selected_node", {})
+        result = await client.call_tool("godot_inspection_get_selected_node", {})
     selected = result.structured_content["selected"]
     assert selected["node_path"] == "Player"
     assert selected["properties"]["speed"] == 200.0
@@ -206,7 +208,9 @@ async def test_get_selected_node() -> None:
 
 async def test_get_node_properties_success() -> None:
     async with Client(_build(FakeAddonConnection(responder=_populated))) as client:
-        result = await client.call_tool("get_node_properties", {"node_path": "Player/Sprite2D"})
+        result = await client.call_tool(
+            "godot_inspection_get_node_properties", {"node_path": "Player/Sprite2D"}
+        )
     assert result.structured_content["node_path"] == "Player/Sprite2D"
     assert result.structured_content["type"] == "Sprite2D"
 
@@ -214,7 +218,7 @@ async def test_get_node_properties_success() -> None:
 async def test_get_node_properties_missing_is_structured_error() -> None:
     async with Client(_build(FakeAddonConnection(responder=_populated))) as client:
         result = await client.call_tool(
-            "get_node_properties", {"node_path": "Missing"}, raise_on_error=False
+            "godot_inspection_get_node_properties", {"node_path": "Missing"}, raise_on_error=False
         )
     assert result.is_error
     assert "RESOURCE_NOT_FOUND" in str(result.content)
@@ -225,7 +229,7 @@ async def test_get_node_property_reads_builtin() -> None:
     conn = FakeAddonConnection(responder=_populated)
     async with Client(_build(conn)) as client:
         result = await client.call_tool(
-            "get_node_property", {"node_path": "Player", "property": "position"}
+            "godot_inspection_get_node_property", {"node_path": "Player", "property": "position"}
         )
     data = result.structured_content
     assert data["node_path"] == "Player"
@@ -238,7 +242,7 @@ async def test_get_node_property_reads_builtin() -> None:
 async def test_get_node_property_absent_reports_exists_false() -> None:
     async with Client(_build(FakeAddonConnection(responder=_populated))) as client:
         result = await client.call_tool(
-            "get_node_property", {"node_path": "Player", "property": "nope"}
+            "godot_inspection_get_node_property", {"node_path": "Player", "property": "nope"}
         )
     data = result.structured_content
     assert data["exists"] is False
@@ -248,7 +252,7 @@ async def test_get_node_property_absent_reports_exists_false() -> None:
 async def test_get_node_property_missing_node_is_structured_error() -> None:
     async with Client(_build(FakeAddonConnection(responder=_populated))) as client:
         result = await client.call_tool(
-            "get_node_property",
+            "godot_inspection_get_node_property",
             {"node_path": "Missing", "property": "position"},
             raise_on_error=False,
         )
@@ -259,7 +263,7 @@ async def test_get_node_groups_success() -> None:
     # #216: returns the node's group memberships (so add/remove_from_group is invertible).
     conn = FakeAddonConnection(responder=_populated)
     async with Client(_build(conn)) as client:
-        result = await client.call_tool("get_node_groups", {"node_path": "Player"})
+        result = await client.call_tool("godot_inspection_get_node_groups", {"node_path": "Player"})
     data = result.structured_content
     assert data["node_path"] == "Player"
     assert data["groups"] == ["enemies", "spawnable"]
@@ -268,7 +272,7 @@ async def test_get_node_groups_success() -> None:
 async def test_get_node_groups_missing_is_structured_error() -> None:
     async with Client(_build(FakeAddonConnection(responder=_populated))) as client:
         result = await client.call_tool(
-            "get_node_groups", {"node_path": "Missing"}, raise_on_error=False
+            "godot_inspection_get_node_groups", {"node_path": "Missing"}, raise_on_error=False
         )
     assert result.is_error
 
@@ -278,13 +282,13 @@ async def test_inspection_tools_are_read_only() -> None:
         tools = await client.list_tools()
     by_name = {t.name: t for t in tools}
     for name in (
-        "get_project_info",
-        "get_active_scene",
-        "get_scene_tree",
-        "get_selected_node",
-        "get_node_properties",
-        "get_node_property",
-        "get_node_groups",
+        "godot_inspection_get_project_info",
+        "godot_inspection_get_active_scene",
+        "godot_inspection_get_scene_tree",
+        "godot_inspection_get_selected_node",
+        "godot_inspection_get_node_properties",
+        "godot_inspection_get_node_property",
+        "godot_inspection_get_node_groups",
     ):
         assert by_name[name].meta is not None
         assert by_name[name].meta.get("safety_class") == "read_only"
@@ -292,9 +296,9 @@ async def test_inspection_tools_are_read_only() -> None:
 
 async def test_inspection_handles_no_open_scene() -> None:
     async with Client(_build(FakeAddonConnection(responder=_empty))) as client:
-        scene = await client.call_tool("get_active_scene", {})
-        tree = await client.call_tool("get_scene_tree", {})
-        selected = await client.call_tool("get_selected_node", {})
+        scene = await client.call_tool("godot_inspection_get_active_scene", {})
+        tree = await client.call_tool("godot_inspection_get_scene_tree", {})
+        selected = await client.call_tool("godot_inspection_get_selected_node", {})
     assert scene.structured_content["is_open"] is False
     assert tree.structured_content["tree"] is None
     assert selected.structured_content["selected"] is None

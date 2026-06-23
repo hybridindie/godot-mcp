@@ -32,22 +32,22 @@ Every `@mcp.tool()`:
   `mcp_server/constraints.py` (timeouts, sample/result counts, depths, delays, TileMap ids),
   so absurd input is rejected before the bridge round-trip and the bounds show in the schema
   (issue #221). Pass-through geometry/identifiers (coordinates, node/port ids) stay unbounded.
-- **Bounds large reads** (issue #222): list-shaped tools (`find_nodes_by_type`, `list_scripts`)
+- **Bounds large reads** (issue #222): list-shaped tools (`godot_batch_find_nodes_by_type`, `godot_scripts_list`)
   paginate with `offset`/`limit` and report `total`/`returned`/`truncated`/`next_offset`;
   reads that can be huge (the scene tree, `godot://scene/tree`) are capped at
   `output.CHARACTER_LIMIT` (25k) — an oversized resource payload becomes a truncation
-  marker and `get_scene_tree` falls back to a lightweight view with `truncated=true`.
+  marker and `godot_inspection_get_scene_tree` falls back to a lightweight view with `truncated=true`.
 
 ### Naming
 
 The addon handler is `cmd_<verb>_<noun>`; the matching MCP tool drops the `cmd_` prefix
-(`cmd_create_node` ⇄ `create_node`). All domain/data fields are `snake_case`.
+(`cmd_create_node` ⇄ `godot_scene_edit_create_node`). All domain/data fields are `snake_case`.
 
 ### Value shapes
 
-Polymorphic `value: Any` setters (`set_node_property`, `set_setting`,
-`set_resource_property`, `batch_set_property`, `cross_scene_set_property`,
-`insert_keyframe`, `set_shader_param`, `set_shader_node_param`) accept JSON that the
+Polymorphic `value: Any` setters (`godot_scene_edit_set_node_property`, `godot_project_set_setting`,
+`godot_resources_edit_set_resource_property`, `godot_batch_set_property`, `godot_batch_cross_scene_set_property`,
+`godot_animation_insert_keyframe`, `godot_shader_set_param`, `godot_visual_shader_set_node_param`) accept JSON that the
 addon coerces to the target Godot type (`type_coerce.gd`, the single source of truth).
 The accepted shapes:
 
@@ -114,8 +114,8 @@ A denial (or a fail-closed unreachable webhook) raises the structured error
 executes** — after `confirm` is checked but before the mutation is sent (a read-only
 existence precondition such as `require_node_exists` may run first). A malformed webhook
 reply fails safe to *denied*, never auto-approved. Every decision is logged. Gated tools
-today: `delete_node`, `reload_scene`, `scaffold_project`, `remove_input_action`,
-`clear_input_action_events`.
+today: `godot_scene_edit_delete_node`, `godot_scene_edit_reload_scene`, `godot_project_scaffold`, `godot_input_map_remove_action`,
+`godot_input_map_clear_action_events`.
 
 #### Version gating (per-toolset)
 
@@ -123,10 +123,10 @@ Some toolsets depend on Godot editor APIs that are only reliable from a specific
 version onward (e.g. `input_map` needs `ProjectSettings.save()` to persist input
 actions, which is only fully reliable from 4.4+).
 
-`enable_toolset` checks the connected Godot version **lazily** (once per session
+`godot_enable_toolset` checks the connected Godot version **lazily** (once per session
 via `cmd_get_project_info`) against `TOOLSET_MIN_GODOT` in `mcp_server/toolsets.py`:
 
-- `list_toolsets` surfaces `min_godot: "4.4" | null` per toolset so the agent
+- `godot_list_toolsets` surfaces `min_godot: "4.4" | null` per toolset so the agent
   knows the requirement before attempting to enable it.
 - `enable_toolset("input_map")` on a 4.3 editor raises a structured `ToolError`:
   ```
@@ -175,7 +175,7 @@ never a Python traceback. The structured precondition shape (matching the bridge
 
 Document each tool here as it lands, using this shape:
 
-> #### `create_node` — `mutating`
+> #### `godot_scene_edit_create_node` — `mutating`
 > Create a node of `node_type` as a child of `parent_path`, named `name`.
 > **Preconditions:** `require_bridge_connected`, `require_active_scene`,
 > `require_node_exists(parent_path)`.
@@ -193,115 +193,115 @@ states return an empty model (`is_open=False` / `tree=None` / `selected=None`), 
 
 | Tool | Params | Returns | Bridge command |
 |------|--------|---------|----------------|
-| `get_project_info` | — | `ProjectInfo { name, godot_version, main_scene?, autoloads, input_actions }` | `cmd_get_project_info` |
-| `get_active_scene` | — | `ActiveScene { is_open, path?, name? }` | `cmd_get_active_scene` |
-| `get_scene_tree` | `max_depth: int = -1, lightweight: bool = False` | `SceneTree { tree: SceneNode? }` | `cmd_get_scene_tree` |
-| `get_selected_node` | — | `SelectedNode { selected: NodeInfo? }` | `cmd_get_selected_node` |
-| `get_node_properties` | `node_path: str` | `NodeInfo { node_path, type, script?, properties, children }` | `cmd_get_node_properties` |
-| `get_node_property` | `node_path: str, property: str` | `NodeProperty { node_path, property, value, exists }` | `cmd_get_node_property` |
-| `get_node_property_list` | `node_path: str` | `NodePropertyList { node_path, type, properties[] }` | `cmd_get_node_property_list` |
-| `get_node_groups` | `node_path: str` | `NodeGroups { node_path, groups[] }` | `cmd_get_node_groups` |
+| `godot_inspection_get_project_info` | — | `ProjectInfo { name, godot_version, main_scene?, autoloads, input_actions }` | `cmd_get_project_info` |
+| `godot_inspection_get_active_scene` | — | `ActiveScene { is_open, path?, name? }` | `cmd_get_active_scene` |
+| `godot_inspection_get_scene_tree` | `max_depth: int = -1, lightweight: bool = False` | `SceneTree { tree: SceneNode? }` | `cmd_get_scene_tree` |
+| `godot_inspection_get_selected_node` | — | `SelectedNode { selected: NodeInfo? }` | `cmd_get_selected_node` |
+| `godot_inspection_get_node_properties` | `node_path: str` | `NodeInfo { node_path, type, script?, properties, children }` | `cmd_get_node_properties` |
+| `godot_inspection_get_node_property` | `node_path: str, property: str` | `NodeProperty { node_path, property, value, exists }` | `cmd_get_node_property` |
+| `godot_inspection_get_node_property_list` | `node_path: str` | `NodePropertyList { node_path, type, properties[] }` | `cmd_get_node_property_list` |
+| `godot_inspection_get_node_groups` | `node_path: str` | `NodeGroups { node_path, groups[] }` | `cmd_get_node_groups` |
 
 `SceneNode = { name, type, path, script?, children: [SceneNode] }`. Each node's `path` (#180)
 is scene-relative (`"."` for the root, e.g. `Player/Weapon` below it) and is accepted verbatim
-by the path-taking tools (`set_node_property`, `create_node` parent, `attach_script`,
-`get_node_properties`) — clients must not reconstruct paths by walking the tree.
+by the path-taking tools (`godot_scene_edit_set_node_property`, `godot_scene_edit_create_node` parent, `godot_scene_edit_attach_script`,
+`godot_inspection_get_node_properties`) — clients must not reconstruct paths by walking the tree.
 `lightweight=True` (#168) drops `script` → `{ name, type, path, children }` for a smaller
-discovery payload (pair with `max_depth`). `get_node_properties` errors
+discovery payload (pair with `max_depth`). `godot_inspection_get_node_properties` errors
 with `RESOURCE_NOT_FOUND` (bad path) or `PRECONDITION_FAILED` (no scene open).
-`get_node_property_list` returns every valid property name for a node (useful before calling
-`set_node_property`). `get_node_property` reads a single property by name — **including
+`godot_inspection_get_node_property_list` returns every valid property name for a node (useful before calling
+`godot_scene_edit_set_node_property`). `godot_inspection_get_node_property` reads a single property by name — **including
 built-in Godot properties** (`position`, `modulate`, `collision_layer`, …) that
-`get_node_properties` omits (it returns only script vars) — as `{ value, exists }`
+`godot_inspection_get_node_properties` omits (it returns only script vars) — as `{ value, exists }`
 (`exists=false`, value null when absent), for snapshotting a value before a set (#215).
-`get_node_groups` returns a node's group memberships (editor-internal `_`-prefixed groups
-excluded) for snapshotting before `add_to_group`/`remove_from_group` (#216).
+`godot_inspection_get_node_groups` returns a node's group memberships (editor-internal `_`-prefixed groups
+excluded) for snapshotting before `godot_scene_edit_add_to_group`/`godot_scene_edit_remove_from_group` (#216).
 
-#### Mutation (issue #6) — `mutating` (except `delete_node`)
+#### Mutation (issue #6) — `mutating` (except `godot_scene_edit_delete_node`)
 
 All take `dry_run: bool = False` (preview, sends no change). Each routes to a
 UndoRedo-wrapped `cmd_*` handler and runs preconditions first.
 
 | Tool | Params | Returns | Class |
 |------|--------|---------|-------|
-| `create_node` | `parent_path, node_type, node_name` | `CreateNodeResult { node_path, created }` | `mutating` |
-| `rename_node` | `node_path, new_name` | `RenameNodeResult { node_path, old_name?, new_name, renamed }` | `mutating` |
-| `set_node_property` | `node_path, property, value` | `SetPropertyResult { node_path, property, value, set }` | `mutating` |
-| `delete_node` | `node_path, confirm=False` | `DeleteNodeResult { node_path, deleted }` | **`destructive`** |
-| `attach_script` | `node_path, script_path` | `AttachScriptResult { node_path, script_path, attached }` | `mutating` |
-| `connect_signal` | `source_path, signal_name, target_path, method_name` | `ConnectSignalResult { …, connected }` | `mutating` |
- | `save_scene` | — | `SaveSceneResult { path?, saved }` | `mutating` |
- | `create_scene` | `root_type, scene_path` | `CreateSceneResult { scene_path, root_type, created }` | `mutating` |
- | `instance_scene` | `parent_path, scene_path, name=""` | `InstanceSceneResult { node_path, scene_path, instanced }` | `mutating` |
+| `godot_scene_edit_create_node` | `parent_path, node_type, node_name` | `CreateNodeResult { node_path, created }` | `mutating` |
+| `godot_scene_edit_rename_node` | `node_path, new_name` | `RenameNodeResult { node_path, old_name?, new_name, renamed }` | `mutating` |
+| `godot_scene_edit_set_node_property` | `node_path, property, value` | `SetPropertyResult { node_path, property, value, set }` | `mutating` |
+| `godot_scene_edit_delete_node` | `node_path, confirm=False` | `DeleteNodeResult { node_path, deleted }` | **`destructive`** |
+| `godot_scene_edit_attach_script` | `node_path, script_path` | `AttachScriptResult { node_path, script_path, attached }` | `mutating` |
+| `godot_scene_edit_connect_signal` | `source_path, signal_name, target_path, method_name` | `ConnectSignalResult { …, connected }` | `mutating` |
+ | `godot_scene_edit_save_scene` | — | `SaveSceneResult { path?, saved }` | `mutating` |
+ | `godot_scene_edit_create_scene` | `root_type, scene_path` | `CreateSceneResult { scene_path, root_type, created }` | `mutating` |
+ | `godot_scene_edit_instance_scene` | `parent_path, scene_path, name=""` | `InstanceSceneResult { node_path, scene_path, instanced }` | `mutating` |
 
 
- - `set_node_property` coerces JSON to the property's declared Godot type via
+ - `godot_scene_edit_set_node_property` coerces JSON to the property's declared Godot type via
    `type_coerce.from_json` (Vector2/3 & Color as `{…}` objects or arrays, NodePath as string,
    plus string forms like `"Vector2(100, 200)"` and `"#ff0000"` — issue #51).
- - `delete_node` (destructive) requires `confirm=True` to delete; `dry_run=True` previews
+ - `godot_scene_edit_delete_node` (destructive) requires `confirm=True` to delete; `dry_run=True` previews
    without confirming. The addon also honors the `confirm` flag defensively.
- - `create_scene` writes a new `.tscn`/`.scn` and opens it; it is a file creation, not a
+ - `godot_scene_edit_create_scene` writes a new `.tscn`/`.scn` and opens it; it is a file creation, not a
    UndoRedo-tracked tree edit.
- - `instance_scene` (issue #80) loads a `PackedScene`, instantiates with `GEN_EDIT_STATE_INSTANCE`
+ - `godot_scene_edit_instance_scene` (issue #80) loads a `PackedScene`, instantiates with `GEN_EDIT_STATE_INSTANCE`
    (editor builds), adds it under `parent_path`, and sets owner. Reversible via undo.
 
 Node parity (issue #31), also in `scene_edit`:
 
 | Tool | Params | Returns | Class |
 |------|--------|---------|-------|
-| `duplicate_node` | `node_path` | `DuplicateNodeResult { node_path, source_path }` | `mutating` |
-| `move_node` | `node_path, new_parent_path, index=-1` | `MoveNodeResult { node_path, moved }` | `mutating` |
-| `add_to_group` / `remove_from_group` | `node_path, group` | `GroupResult { node_path, group, in_group, changed }` | `mutating` |
-| `list_signal_connections` | `node_path` | `SignalConnectionList { node_path, connections: [{signal, target_path, method, persistent}] }` | `read_only` |
-| `disconnect_signal` | `source_path, signal_name, target_path, method_name` | `DisconnectSignalResult { …, disconnected }` | `mutating` |
+| `godot_scene_edit_duplicate_node` | `node_path` | `DuplicateNodeResult { node_path, source_path }` | `mutating` |
+| `godot_scene_edit_move_node` | `node_path, new_parent_path, index=-1` | `MoveNodeResult { node_path, moved }` | `mutating` |
+| `godot_scene_edit_add_to_group` / `godot_scene_edit_remove_from_group` | `node_path, group` | `GroupResult { node_path, group, in_group, changed }` | `mutating` |
+| `godot_scene_edit_list_signal_connections` | `node_path` | `SignalConnectionList { node_path, connections: [{signal, target_path, method, persistent}] }` | `read_only` |
+| `godot_scene_edit_disconnect_signal` | `source_path, signal_name, target_path, method_name` | `DisconnectSignalResult { …, disconnected }` | `mutating` |
 
-`duplicate_node` adds with a readable name (`Box2`). `move_node` rejects moving the root or
+`godot_scene_edit_duplicate_node` adds with a readable name (`Box2`). `godot_scene_edit_move_node` rejects moving the root or
 into a descendant. Group membership is persistent (saved into the scene). All reversible via
 the editor's undo. The `mutating` tools also accept `dry_run: bool = False` and echo it in
  the result (omitted from the table for brevity, per the `dry_run`/`confirm` convention above).
 
  #### Scene session (issue #79) — category: `scene_edit` (gated off by default)
 
- Editor session management. `reload_scene` discards unsaved changes and is
+ Editor session management. `godot_scene_edit_reload_scene` discards unsaved changes and is
  **`destructive`** (`confirm=True` required); the rest are `mutating` or `read_only`.
 
  | Tool | Params | Returns | Class |
  |------|--------|---------|-------|
- | `open_scene` | `scene_path` | `OpenSceneResult { scene_path, opened, already_open }` | `mutating` |
- | `reload_scene` | `scene_path, confirm=False` | `ReloadSceneResult { scene_path, reloaded }` | **`destructive`** |
- | `save_all_scenes` | — | `SaveAllScenesResult { saved, count }` | `mutating` |
- | `list_open_scenes` | — | `ListOpenScenesResult { scenes[{path}] }` | `read_only` |
- | `select_nodes` | `node_paths: str[]` | `SelectNodesResult { scene_path, selected[], count }` | `mutating` |
+ | `godot_scene_edit_open_scene` | `scene_path` | `OpenSceneResult { scene_path, opened, already_open }` | `mutating` |
+ | `godot_scene_edit_reload_scene` | `scene_path, confirm=False` | `ReloadSceneResult { scene_path, reloaded }` | **`destructive`** |
+ | `godot_scene_edit_save_all_scenes` | — | `SaveAllScenesResult { saved, count }` | `mutating` |
+ | `godot_scene_edit_list_open_scenes` | — | `ListOpenScenesResult { scenes[{path}] }` | `read_only` |
+ | `godot_scene_edit_select_nodes` | `node_paths: str[]` | `SelectNodesResult { scene_path, selected[], count }` | `mutating` |
 
- `open_scene` uses `EditorInterface.open_scene_from_path`. `reload_scene` requires
- the scene to already be open. `select_nodes` replaces the current editor
+ `godot_scene_edit_open_scene` uses `EditorInterface.open_scene_from_path`. `godot_scene_edit_reload_scene` requires
+ the scene to already be open. `godot_scene_edit_select_nodes` replaces the current editor
  selection with the resolved nodes. All accept `dry_run: bool = False` (the
  destructive tool also accepts `confirm`).
 
  #### Scripts (issue #10) — category: `scripts` (gated off by default)
 
 Read/write/patch route through the addon (single path; the editor re-scans after
-writes, and writes register `UndoRedo`). `get_parse_errors` shells out to
+writes, and writes register `UndoRedo`). `godot_scripts_get_parse_errors` shells out to
 `godot --check-only` (Godot has no in-editor API for structured parse errors).
 
 | Tool | Params | Returns | Class |
 |------|--------|---------|-------|
-| `read_script` | `script_path` | `ScriptContent { script_path, content }` | `read_only` |
-| `list_scripts` | `directory = "res://"` | `ScriptList { directory, scripts[] }` (recursive) | `read_only` |
-| `get_script_for_node` | `node_path = ""` (else selected) | `NodeScript { node_path, script_path?, content? }` | `read_only` |
-| `write_script` | `script_path, content, dry_run=False` | `WriteScriptResult { script_path, created, would_overwrite, dry_run }` | `mutating` |
-| `patch_script` | `script_path, find, replace, dry_run=False` | `PatchScriptResult { script_path, replacements, dry_run }` | `mutating` |
-| `get_parse_errors` | `script_path` | `ParseCheckResult { script_path, ok, errors: [ParseError{message, source?, line?}] }` | `read_only` |
+| `godot_scripts_read` | `script_path` | `ScriptContent { script_path, content }` | `read_only` |
+| `godot_scripts_list` | `directory = "res://"` | `ScriptList { directory, scripts[] }` (recursive) | `read_only` |
+| `godot_scripts_get_for_node` | `node_path = ""` (else selected) | `NodeScript { node_path, script_path?, content? }` | `read_only` |
+| `godot_scripts_write` | `script_path, content, dry_run=False` | `WriteScriptResult { script_path, created, would_overwrite, dry_run }` | `mutating` |
+| `godot_scripts_patch` | `script_path, find, replace, dry_run=False` | `PatchScriptResult { script_path, replacements, dry_run }` | `mutating` |
+| `godot_scripts_get_parse_errors` | `script_path` | `ParseCheckResult { script_path, ok, errors: [ParseError{message, source?, line?}] }` | `read_only` |
 
 Non-`.gd` paths, missing files, and a `find` string that isn't present return structured
 errors. A `script_path` that isn't a `res://` path **or that escapes the project root**
 (`res://../…`, `res:///abs`) is rejected with `PARAM_ERROR` before reaching the addon
-(path-traversal containment, server-side). `write_script` reports `would_overwrite` (in
+(path-traversal containment, server-side). `godot_scripts_write` reports `would_overwrite` (in
 `dry_run`, determined by a read-only existence probe) so the agent isn't blind to
 replacing hand-written code; it stays `mutating` because the change is reversible via the
 editor's undo (the prior content is restored, and undoing a *created* script also removes
-its `.uid` sidecar). The agent composes `get_parse_errors` to validate after a write —
-`write_script` does not auto-validate.
+its `.uid` sidecar). The agent composes `godot_scripts_get_parse_errors` to validate after a write —
+`godot_scripts_write` does not auto-validate.
 
 #### Resource files & autoloads (issue #34) — category: `resources_edit` (gated off by default)
 
@@ -311,14 +311,14 @@ property's declared Godot type.
 
 | Tool | Params | Returns | Class |
 |------|--------|---------|-------|
-| `read_resource_file` | `resource_path` | `ResourceContent { resource_path, type, script?, properties }` | `read_only` |
-| `create_resource` | `type, resource_path, properties?` | `CreateResourceResult { resource_path, type, created }` | `mutating` |
-| `set_resource_property` | `resource_path, property, value` | `SetResourcePropertyResult { resource_path, property, value }` | `mutating` |
-| `register_autoload` | `name, path` | `RegisterAutoloadResult { name, path, registered }` | `mutating` |
-| `unregister_autoload` | `name` | `UnregisterAutoloadResult { name, unregistered }` | `mutating` |
+| `godot_resources_edit_read_resource_file` | `resource_path` | `ResourceContent { resource_path, type, script?, properties }` | `read_only` |
+| `godot_resources_edit_create_resource` | `type, resource_path, properties?` | `CreateResourceResult { resource_path, type, created }` | `mutating` |
+| `godot_resources_edit_set_resource_property` | `resource_path, property, value` | `SetResourcePropertyResult { resource_path, property, value }` | `mutating` |
+| `godot_resources_edit_register_autoload` | `name, path` | `RegisterAutoloadResult { name, path, registered }` | `mutating` |
+| `godot_resources_edit_unregister_autoload` | `name` | `UnregisterAutoloadResult { name, unregistered }` | `mutating` |
 
-`set_resource_property` is undo-reversible; `create_resource` is a file write (not undo-tracked);
-`register_autoload`/`unregister_autoload` persist to project settings. Mutating tools accept
+`godot_resources_edit_set_resource_property` is undo-reversible; `godot_resources_edit_create_resource` is a file write (not undo-tracked);
+`godot_resources_edit_register_autoload`/`godot_resources_edit_unregister_autoload` persist to project settings. Mutating tools accept
 `dry_run: bool = False` and echo it in the result (sending no change when true).
 
 #### External asset import (issue #108) — category: `asset_import` (gated off by default)
@@ -327,31 +327,31 @@ Import external files (local paths or HTTP URLs) into a Godot project and assemb
 
 | Tool | Params | Returns | Class |
 |------|--------|---------|-------|
-| `import_asset` | `source: str`, `target_path: str`, `options?: dict` | `ImportAssetResult { imported, target_path, detected_type }` | `mutating` |
-| `create_material_from_textures` | `albedo?, normal?, roughness?, metallic?, ao?, emission?, path?` | `CreateMaterialResult { material_path, created, channels_set }` | `mutating` |
-| `get_import_status` | `target_path: str` | `ImportStatusResult { imported, last_modified?, type? }` | `read_only` |
+| `godot_asset_import_asset` | `source: str`, `target_path: str`, `options?: dict` | `ImportAssetResult { imported, target_path, detected_type }` | `mutating` |
+| `godot_asset_import_create_material_from_textures` | `albedo?, normal?, roughness?, metallic?, ao?, emission?, path?` | `CreateMaterialResult { material_path, created, channels_set }` | `mutating` |
+| `godot_asset_import_get_status` | `target_path: str` | `ImportStatusResult { imported, last_modified?, type? }` | `read_only` |
 
-`import_asset` auto-detects the Godot type from the file extension (`.png`→`Texture2D`, `.glb`→`PackedScene`, `.wav`→`AudioStreamWAV`, etc.). When `source` is an HTTP(S) URL it is downloaded via `httpx` with a 60-second timeout, then copied to `target_path` (must start with `res://`). The response is streamed to disk in 64 KiB chunks to avoid buffering the entire payload in memory. The `options` dict may contain `overwrite` (bool, default `false`) and `import_settings` (dict, e.g. `{"type": "Texture2D", "compress": "lossy"}`). The editor filesystem scan is triggered after copy so Godot imports the file.
+`godot_asset_import_asset` auto-detects the Godot type from the file extension (`.png`→`Texture2D`, `.glb`→`PackedScene`, `.wav`→`AudioStreamWAV`, etc.). When `source` is an HTTP(S) URL it is downloaded via `httpx` with a 60-second timeout, then copied to `target_path` (must start with `res://`). The response is streamed to disk in 64 KiB chunks to avoid buffering the entire payload in memory. The `options` dict may contain `overwrite` (bool, default `false`) and `import_settings` (dict, e.g. `{"type": "Texture2D", "compress": "lossy"}`). The editor filesystem scan is triggered after copy so Godot imports the file.
 
-`create_material_from_textures` creates a `StandardMaterial3D`, assigns every non-empty texture channel that exists in the project, and saves the material as a `.tres`. The default `path` is `res://materials/generated_{rand}.tres`. Only channels with a valid `res://` texture path are included in `channels_set`. Both mutating tools accept `dry_run: bool = False` and echo it in the result (sending no change when true).
+`godot_asset_import_create_material_from_textures` creates a `StandardMaterial3D`, assigns every non-empty texture channel that exists in the project, and saves the material as a `.tres`. The default `path` is `res://materials/generated_{rand}.tres`. Only channels with a valid `res://` texture path are included in `channels_set`. Both mutating tools accept `dry_run: bool = False` and echo it in the result (sending no change when true).
 
-`get_import_status` checks whether the target file has an `.import` sidecar (the canonical signal that Godot has processed it) and reads the `remap/type` metadata from that sidecar. When the sidecar is missing, it falls back to `ResourceLoader.exists(target_path)` and type detection from the file extension.
+`godot_asset_import_get_status` checks whether the target file has an `.import` sidecar (the canonical signal that Godot has processed it) and reads the `remap/type` metadata from that sidecar. When the sidecar is missing, it falls back to `ResourceLoader.exists(target_path)` and type detection from the file extension.
 
 #### Project & filesystem (issue #32) — category: `project` (gated off by default)
 
 | Tool | Params | Returns | Class |
 |------|--------|---------|-------|
-| `get_filesystem_tree` | `directory="res://", max_depth=-1` | `FilesystemTree { tree: FsEntry{name,path,type,children} }` | `read_only` |
-| `search_files` | `directory="res://", name_glob="", content="", max_results=200` | `SearchResult { matches[], truncated }` | `read_only` |
-| `get_setting` | `name` | `SettingValue { name, value, exists }` | `read_only` |
-| `set_setting` | `name, value, dry_run=False` | `SetSettingResult { name, value, set, dry_run }` | `mutating` |
-| `resolve_uid` | `value` (a `res://` path or `uid://…`) | `UidResolution { uid?, path? }` | `read_only` |
-| `delete_resource_file` | `path, confirm=False, dry_run=False` | `DeleteResourceFileResult { path, deleted, had_uid, dry_run }` | `destructive` |
+| `godot_project_get_filesystem_tree` | `directory="res://", max_depth=-1` | `FilesystemTree { tree: FsEntry{name,path,type,children} }` | `read_only` |
+| `godot_project_search_files` | `directory="res://", name_glob="", content="", max_results=200` | `SearchResult { matches[], truncated }` | `read_only` |
+| `godot_project_get_setting` | `name` | `SettingValue { name, value, exists }` | `read_only` |
+| `godot_project_set_setting` | `name, value, dry_run=False` | `SetSettingResult { name, value, set, dry_run }` | `mutating` |
+| `godot_project_resolve_uid` | `value` (a `res://` path or `uid://…`) | `UidResolution { uid?, path? }` | `read_only` |
+| `godot_project_delete_resource_file` | `path, confirm=False, dry_run=False` | `DeleteResourceFileResult { path, deleted, had_uid, dry_run }` | `destructive` |
 
-Hidden entries (`.godot`, `.git`, …) are skipped. `search_files` matches `name_glob`
-and/or `content` substring (truncating at `max_results`). `set_setting` coerces to the
+Hidden entries (`.godot`, `.git`, …) are skipped. `godot_project_search_files` matches `name_glob`
+and/or `content` substring (truncating at `max_results`). `godot_project_set_setting` coerces to the
 setting's existing type, persists to project settings (not undo-tracked), and accepts
-`dry_run`. `resolve_uid` picks direction by the input prefix. `delete_resource_file`
+`dry_run`. `godot_project_resolve_uid` picks direction by the input prefix. `godot_project_delete_resource_file`
 removes a `res://` file (and its `.uid` sidecar) — the inverse of the file-creating tools;
 `destructive` (requires `confirm=True`, `dry_run` previews), `res://` containment enforced,
 undoable in the editor.
@@ -360,7 +360,7 @@ undoable in the editor.
 
 | Tool | Params | Returns | Class |
 |------|--------|---------|-------|
-| `capture_editor_screenshot` | — | image content (PNG) | `read_only` |
+| `godot_editor_capture_screenshot` | — | image content (PNG) | `read_only` |
 
 The addon captures the editor viewport and returns a base64 PNG; the tool decodes it
 into a FastMCP `Image` so a vision-capable client receives an image block (no temp
@@ -373,14 +373,14 @@ Generic over 2D/3D — pass the Godot type names. All `mutating` (UndoRedo-wrapp
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `setup_physics_body` | `node_path, properties` | `SetupBodyResult { node_path, properties }` |
-| `setup_collision` | `node_path, shape_type, collision_node_type="CollisionShape2D", properties?` | `CollisionShapeResult { node_path, shape_type, created }` |
-| `set_physics_layers` | `node_path, layers?, mask?` (1-based bit indices) | `PhysicsLayersResult { node_path, collision_layer, collision_mask }` |
-| `add_raycast` | `parent_path, name="RayCast", raycast_type="RayCast2D", properties?` | `RaycastResult { node_path, created }` |
+| `godot_physics_setup_body` | `node_path, properties` | `SetupBodyResult { node_path, properties }` |
+| `godot_physics_setup_collision` | `node_path, shape_type, collision_node_type="CollisionShape2D", properties?` | `CollisionShapeResult { node_path, shape_type, created }` |
+| `godot_physics_set_layers` | `node_path, layers?, mask?` (1-based bit indices) | `PhysicsLayersResult { node_path, collision_layer, collision_mask }` |
+| `godot_physics_add_raycast` | `parent_path, name="RayCast", raycast_type="RayCast2D", properties?` | `RaycastResult { node_path, created }` |
 
-`setup_physics_body`/`set_physics_layers` require a `CollisionObject2D`/`3D` target.
-`setup_collision` creates a `CollisionShape` holding a `shape_type` shape with `properties`
-(size/radius). `set_physics_layers` turns `[1,3]` into the bitmask `5`.
+`godot_physics_setup_body`/`godot_physics_set_layers` require a `CollisionObject2D`/`3D` target.
+`godot_physics_setup_collision` creates a `CollisionShape` holding a `shape_type` shape with `properties`
+(size/radius). `godot_physics_set_layers` turns `[1,3]` into the bitmask `5`.
 
 #### Animation (issue #39) — category: `animation` (gated off by default)
 
@@ -389,22 +389,22 @@ Author AnimationPlayer animations and AnimationTree graphs. All `mutating`
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `create_animation` | `node_path, name, length=1.0` | `CreateAnimationResult { player_path, animation, length }` |
-| `add_animation_track` | `node_path, animation, track_path, track_type="value"` | `AnimationTrackResult { animation, track, track_path }` |
-| `insert_keyframe` | `node_path, animation, track, time, value, easing=1.0` | `KeyframeResult { animation, track, time }` |
-| `create_animation_tree` | `parent_path, name="AnimationTree", anim_player?, root_type="AnimationNodeStateMachine"` | `AnimationTreeResult { node_path, root_type }` |
-| `add_state_machine_state` | `tree_path, state_name, animation?` | `StateMachineStateResult { tree_path, state }` |
-| `set_blend_tree_node` | `tree_path, node_name, node_type` | `BlendTreeNodeResult { tree_path, node, node_type }` |
-| `list_animations` | `node_path` | `AnimationList { player_path, animations[] }` (`read_only`) |
-| `get_animation` | `node_path, animation_name` | `AnimationDetail { name, length, tracks[]{type, path, keys[]{time, value}} }` (`read_only`) |
+| `godot_animation_create` | `node_path, name, length=1.0` | `CreateAnimationResult { player_path, animation, length }` |
+| `godot_animation_add_track` | `node_path, animation, track_path, track_type="value"` | `AnimationTrackResult { animation, track, track_path }` |
+| `godot_animation_insert_keyframe` | `node_path, animation, track, time, value, easing=1.0` | `KeyframeResult { animation, track, time }` |
+| `godot_animation_create_tree` | `parent_path, name="AnimationTree", anim_player?, root_type="AnimationNodeStateMachine"` | `AnimationTreeResult { node_path, root_type }` |
+| `godot_animation_add_state_machine_state` | `tree_path, state_name, animation?` | `StateMachineStateResult { tree_path, state }` |
+| `godot_animation_set_blend_tree_node` | `tree_path, node_name, node_type` | `BlendTreeNodeResult { tree_path, node, node_type }` |
+| `godot_animation_list_animations` | `node_path` | `AnimationList { player_path, animations[] }` (`read_only`) |
+| `godot_animation_get` | `node_path, animation_name` | `AnimationDetail { name, length, tracks[]{type, path, keys[]{time, value}} }` (`read_only`) |
 
-`create_animation` adds a default `AnimationLibrary` ("") if absent and rejects a
-duplicate name. `add_animation_track` returns the new track index; `track_type` is one
-of value/position_3d/rotation_3d/scale_3d/method/bezier/audio/animation. `insert_keyframe`
+`godot_animation_create` adds a default `AnimationLibrary` ("") if absent and rejects a
+duplicate name. `godot_animation_add_track` returns the new track index; `track_type` is one
+of value/position_3d/rotation_3d/scale_3d/method/bezier/audio/animation. `godot_animation_insert_keyframe`
 accepts Godot string forms for `value` (e.g. `"Vector2(10, 20)"`, coerced via `str_to_var`).
-`add_state_machine_state` requires an `AnimationNodeStateMachine` root; `set_blend_tree_node`
-requires an `AnimationNodeBlendTree` root and an `AnimationNode` `node_type`. `list_animations`
-and `get_animation` (#218) are the `read_only` inverses of the writers — `get_animation`
+`godot_animation_add_state_machine_state` requires an `AnimationNodeStateMachine` root; `godot_animation_set_blend_tree_node`
+requires an `AnimationNodeBlendTree` root and an `AnimationNode` `node_type`. `godot_animation_list_animations`
+and `godot_animation_get` (#218) are the `read_only` inverses of the writers — `godot_animation_get`
 returns each track's keyframes (values JSON-coerced) for snapshot/rollback.
 
 #### 3D scene (issue #40) — category: `scene_3d` (gated off by default)
@@ -414,37 +414,37 @@ Build 3D scenes — generic Godot, pass the node/resource type names. All `mutat
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `add_mesh_instance` | `parent_path, mesh_type="BoxMesh", name="MeshInstance3D", properties?` | `MeshInstanceResult { node_path, mesh_type, created }` |
-| `setup_camera` | `parent_path, name="Camera3D", make_current=True, properties?` | `CameraResult { node_path, current, created }` |
-| `setup_lighting` | `parent_path, light_type="DirectionalLight3D", name?, properties?` | `LightResult { node_path, light_type, created }` |
-| `setup_environment` | `parent_path, name="WorldEnvironment", properties?` | `EnvironmentResult { node_path, created }` |
-| `gridmap_set_cell` | `node_path, position=[x,y,z], item, orientation=0` | `GridMapCellResult { node_path, position, item }` |
-| `gridmap_get_cell` | `node_path, position=[x,y,z]` | `GridMapCellGet { node_path, position, item, orientation, empty }` (`read_only`) |
+| `godot_scene_3d_add_mesh_instance` | `parent_path, mesh_type="BoxMesh", name="MeshInstance3D", properties?` | `MeshInstanceResult { node_path, mesh_type, created }` |
+| `godot_scene_3d_setup_camera` | `parent_path, name="Camera3D", make_current=True, properties?` | `CameraResult { node_path, current, created }` |
+| `godot_scene_3d_setup_lighting` | `parent_path, light_type="DirectionalLight3D", name?, properties?` | `LightResult { node_path, light_type, created }` |
+| `godot_scene_3d_setup_environment` | `parent_path, name="WorldEnvironment", properties?` | `EnvironmentResult { node_path, created }` |
+| `godot_scene_3d_gridmap_set_cell` | `node_path, position=[x,y,z], item, orientation=0` | `GridMapCellResult { node_path, position, item }` |
+| `godot_scene_3d_gridmap_get_cell` | `node_path, position=[x,y,z]` | `GridMapCellGet { node_path, position, item, orientation, empty }` (`read_only`) |
 
-`add_mesh_instance` creates a `MeshInstance3D` holding a `mesh_type` primitive mesh
-(BoxMesh/SphereMesh/…) configured with `properties` (size/radius/…). `setup_lighting`
+`godot_scene_3d_add_mesh_instance` creates a `MeshInstance3D` holding a `mesh_type` primitive mesh
+(BoxMesh/SphereMesh/…) configured with `properties` (size/radius/…). `godot_scene_3d_setup_lighting`
 requires a `Light3D` subclass (DirectionalLight3D/OmniLight3D/SpotLight3D);
-`setup_environment` attaches a `WorldEnvironment` with a new `Environment` resource
-configured from `properties` (background_mode, ambient_light_color, …). `gridmap_set_cell`
+`godot_scene_3d_setup_environment` attaches a `WorldEnvironment` with a new `Environment` resource
+configured from `properties` (background_mode, ambient_light_color, …). `godot_scene_3d_gridmap_set_cell`
 requires a `GridMap` with a `mesh_library` (else a structured `mesh_library` precondition);
 a negative `item` clears the cell.
 
 #### MeshLibrary authoring (issue #83) — category: `scene_3d` (gated off by default)
 
-Build the MeshLibrary that `gridmap_set_cell` references — without one, a GridMap has
+Build the MeshLibrary that `godot_scene_3d_gridmap_set_cell` references — without one, a GridMap has
 nothing to place. Target a MeshLibrary by `node_path` (an in-scene GridMap,
 UndoRedo-wrapped) or `library_path` (a saved `.tres`, re-saved via ResourceSaver). All
 `mutating`, `dry_run`.
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `create_mesh_library` | `node_path="", save_path=""` | `MeshLibraryResult { node_path, library_path, created }` |
-| `add_mesh_library_item` | `node_path="", library_path="", mesh_type="", mesh_path="", item_id?, name="", properties?` | `MeshLibraryItemResult { node_path, library_path, item_id, name, mesh_type, mesh_path }` |
+| `godot_scene_3d_create_mesh_library` | `node_path="", save_path=""` | `MeshLibraryResult { node_path, library_path, created }` |
+| `godot_scene_3d_add_mesh_library_item` | `node_path="", library_path="", mesh_type="", mesh_path="", item_id?, name="", properties?` | `MeshLibraryItemResult { node_path, library_path, item_id, name, mesh_type, mesh_path }` |
 
-Typical chain: `create_mesh_library` (assign to a GridMap and/or save a `.tres`) →
-`add_mesh_library_item` (returns the `item_id`) → `gridmap_set_cell` with that `item_id`.
-For `create_mesh_library` pass at least one of `node_path`/`save_path` (combinable). For
-`add_mesh_library_item` pass exactly one target (`node_path`|`library_path`) and exactly
+Typical chain: `godot_scene_3d_create_mesh_library` (assign to a GridMap and/or save a `.tres`) →
+`godot_scene_3d_add_mesh_library_item` (returns the `item_id`) → `godot_scene_3d_gridmap_set_cell` with that `item_id`.
+For `godot_scene_3d_create_mesh_library` pass at least one of `node_path`/`save_path` (combinable). For
+`godot_scene_3d_add_mesh_library_item` pass exactly one target (`node_path`|`library_path`) and exactly
 one mesh source: `mesh_type` (a primitive like BoxMesh, configured via `properties` — no
 asset needed, good for greyboxing) or `mesh_path` (an imported Mesh resource
 `.tres`/`.res`/`.obj`; `.glb`/`.gltf` import as scenes, not meshes). `item_id` overrides
@@ -453,22 +453,22 @@ the auto-assigned id.
 #### Particles (issue #42) — category: `particles` (gated off by default)
 
 Create and configure GPU particle systems — generic Godot, pass the node type names.
-Writes are `mutating` (UndoRedo-wrapped), `dry_run`; `get_particle_material` is `read_only`.
+Writes are `mutating` (UndoRedo-wrapped), `dry_run`; `godot_particles_get_material` is `read_only`.
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `create_particles` | `parent_path, particles_type="GPUParticles2D", name?, amount=8, lifetime=1.0, properties?` | `CreateParticlesResult { node_path, particles_type, created }` |
-| `set_particle_material` | `node_path, properties` | `ParticleMaterialResult { node_path, properties }` |
-| `set_particle_color_gradient` | `node_path, colors[], offsets?` | `ParticleGradientResult { node_path, stops }` |
-| `apply_particle_preset` | `node_path, preset` | `ParticlePresetResult { node_path, preset }` |
-| `get_particle_material` | `node_path` | `ParticleMaterialDetail { node_path, has_material, properties, color_ramp{colors, offsets}? }` (`read_only`) |
+| `godot_particles_create` | `parent_path, particles_type="GPUParticles2D", name?, amount=8, lifetime=1.0, properties?` | `CreateParticlesResult { node_path, particles_type, created }` |
+| `godot_particles_set_material` | `node_path, properties` | `ParticleMaterialResult { node_path, properties }` |
+| `godot_particles_set_color_gradient` | `node_path, colors[], offsets?` | `ParticleGradientResult { node_path, stops }` |
+| `godot_particles_apply_preset` | `node_path, preset` | `ParticlePresetResult { node_path, preset }` |
+| `godot_particles_get_material` | `node_path` | `ParticleMaterialDetail { node_path, has_material, properties, color_ramp{colors, offsets}? }` (`read_only`) |
 
-`create_particles` adds a GPUParticles2D/3D with a fresh ParticleProcessMaterial.
-`set_particle_material` applies process-material properties (`gravity`,
+`godot_particles_create` adds a GPUParticles2D/3D with a fresh ParticleProcessMaterial.
+`godot_particles_set_material` applies process-material properties (`gravity`,
 `initial_velocity_min`/`max`, `scale_min`/`max`, `spread`, `color`, …), creating the
-material if absent. `set_particle_color_gradient` builds a GradientTexture1D from
+material if absent. `godot_particles_set_color_gradient` builds a GradientTexture1D from
 `colors` (HTML strings like `#ff8800` or `[r,g,b,a]`) at `offsets` (0..1, evenly
-spaced if omitted) and assigns it to `color_ramp`. `apply_particle_preset` applies a
+spaced if omitted) and assigns it to `color_ramp`. `godot_particles_apply_preset` applies a
 generic VFX preset — one of `fire` / `smoke` / `explosion` / `sparks` — to the node +
 material + ramp in one call.
 
@@ -479,41 +479,41 @@ Author navigation — generic over 2D/3D, pass the node type names. All `mutatin
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `setup_navigation_region` | `parent_path, region_type="NavigationRegion2D", name?, properties?` | `NavigationRegionResult { node_path, region_type, created }` |
-| `setup_navigation_agent` | `parent_path, agent_type="NavigationAgent2D", name?, properties?` | `NavigationAgentResult { node_path, agent_type, created }` |
-| `bake_navigation_mesh` | `node_path` | `BakeNavigationResult { node_path, baked }` |
-| `set_navigation_layers` | `node_path, layers[]` (1-based bit indices) | `NavigationLayersResult { node_path, navigation_layers }` |
+| `godot_navigation_setup_region` | `parent_path, region_type="NavigationRegion2D", name?, properties?` | `NavigationRegionResult { node_path, region_type, created }` |
+| `godot_navigation_setup_agent` | `parent_path, agent_type="NavigationAgent2D", name?, properties?` | `NavigationAgentResult { node_path, agent_type, created }` |
+| `godot_navigation_bake_mesh` | `node_path` | `BakeNavigationResult { node_path, baked }` |
+| `godot_navigation_set_layers` | `node_path, layers[]` (1-based bit indices) | `NavigationLayersResult { node_path, navigation_layers }` |
 
-`setup_navigation_region` adds a NavigationRegion2D/3D with an empty navmesh resource
+`godot_navigation_setup_region` adds a NavigationRegion2D/3D with an empty navmesh resource
 assigned (NavigationPolygon for 2D, NavigationMesh for 3D) so it is ready to bake.
-`setup_navigation_agent` adds a NavigationAgent2D/3D configured with `properties`
-(radius, path_desired_distance, target_desired_distance, max_speed, …). `bake_navigation_mesh`
+`godot_navigation_setup_agent` adds a NavigationAgent2D/3D configured with `properties`
+(radius, path_desired_distance, target_desired_distance, max_speed, …). `godot_navigation_bake_mesh`
 bakes the region's navmesh/navpoly synchronously (undo restores the pre-bake resource;
-a region with no navmesh returns a structured precondition). `set_navigation_layers`
+a region with no navmesh returns a structured precondition). `godot_navigation_set_layers`
 turns `[1,3]` into the bitmask `5` on any node with a `navigation_layers` property.
 
 #### Audio (issue #44) — category: `audio` (gated off by default)
 
 Set up audio — stream players, the AudioServer bus layout, and bus effects.
-`get_audio_bus_layout` is `read_only`; the adders are `mutating` (UndoRedo-wrapped),
+`godot_audio_get_bus_layout` is `read_only`; the adders are `mutating` (UndoRedo-wrapped),
 `dry_run`; the removers are `destructive` (`confirm`, `dry_run`). The bus layout is
 **global** AudioServer/editor state (not per-scene).
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `add_audio_player` | `parent_path, player_type="AudioStreamPlayer", name?, stream_path?, properties?` | `AudioPlayerResult { node_path, player_type, created }` |
-| `get_audio_bus_layout` | — | `AudioBusLayoutResult { buses[] }` (read_only) |
-| `add_audio_bus` | `name, volume_db=0.0` | `AudioBusResult { index, name }` |
-| `add_audio_bus_effect` | `bus, effect_type, properties?` | `AudioBusEffectResult { bus, bus_index, effect_type, effect_index }` |
-| `remove_audio_bus` | `bus, confirm` | `AudioBusRemoveResult { name, index, removed }` (destructive) |
-| `remove_audio_bus_effect` | `bus, effect_index, confirm` | `AudioBusEffectRemoveResult { bus, bus_index, effect_index, removed }` (destructive) |
+| `godot_audio_add_player` | `parent_path, player_type="AudioStreamPlayer", name?, stream_path?, properties?` | `AudioPlayerResult { node_path, player_type, created }` |
+| `godot_audio_get_bus_layout` | — | `AudioBusLayoutResult { buses[] }` (read_only) |
+| `godot_audio_add_bus` | `name, volume_db=0.0` | `AudioBusResult { index, name }` |
+| `godot_audio_add_bus_effect` | `bus, effect_type, properties?` | `AudioBusEffectResult { bus, bus_index, effect_type, effect_index }` |
+| `godot_audio_remove_bus` | `bus, confirm` | `AudioBusRemoveResult { name, index, removed }` (destructive) |
+| `godot_audio_remove_bus_effect` | `bus, effect_index, confirm` | `AudioBusEffectRemoveResult { bus, bus_index, effect_index, removed }` (destructive) |
 
-`add_audio_player` creates an AudioStreamPlayer/2D/3D, optionally loading a `res://`
+`godot_audio_add_player` creates an AudioStreamPlayer/2D/3D, optionally loading a `res://`
 AudioStream (`stream_path`) and applying `properties` (volume_db, bus, autoplay, …).
-`get_audio_bus_layout` returns each bus's index/name/volume_db, mute/solo/bypass, and
-its effect stack. `add_audio_bus` appends a uniquely-named bus; `add_audio_bus_effect`
-appends an AudioEffect (e.g. AudioEffectReverb) to the named bus. `remove_audio_bus`
-(the Master bus is never removable) and `remove_audio_bus_effect` are the inverses —
+`godot_audio_get_bus_layout` returns each bus's index/name/volume_db, mute/solo/bypass, and
+its effect stack. `godot_audio_add_bus` appends a uniquely-named bus; `godot_audio_add_bus_effect`
+appends an AudioEffect (e.g. AudioEffectReverb) to the named bus. `godot_audio_remove_bus`
+(the Master bus is never removable) and `godot_audio_remove_bus_effect` are the inverses —
 both undoable (the bus/effect, with its state, is restored on undo).
 
 #### TileMap (issue #45) — category: `tilemap` (gated off by default)
@@ -524,63 +524,63 @@ are `read_only`; edits are `mutating` (UndoRedo-wrapped), `dry_run`.
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `tilemap_set_cell` | `node_path, coords[x,y], source_id=-1, atlas_coords[x,y]=[0,0], alternative_tile=0, layer=0` | `TileCellResult { node_path, coords, source_id, layer }` |
-| `tilemap_fill_rect` | `node_path, rect[x,y,w,h], source_id=-1, atlas_coords=[0,0], alternative_tile=0, layer=0` | `TileFillResult { node_path, rect, cells, layer }` |
-| `tilemap_get_cell` | `node_path, coords[x,y], layer=0` | `TileGetResult { node_path, coords, source_id, atlas_coords, alternative_tile, empty }` (read_only) |
-| `tilemap_get_used_cells` | `node_path, layer=0` | `TileUsedCellsResult { node_path, layer, count, cells[]{coords, source_id, atlas_coords, alternative_tile} }` (read_only) |
-| `tilemap_clear` | `node_path, layer?` | `TileClearResult { node_path, layer, cleared }` |
-| `tilemap_layers` | `node_path` | `TileLayersResult { node_path, node_type, layers[] }` (read_only) |
+| `godot_tilemap_set_cell` | `node_path, coords[x,y], source_id=-1, atlas_coords[x,y]=[0,0], alternative_tile=0, layer=0` | `TileCellResult { node_path, coords, source_id, layer }` |
+| `godot_tilemap_fill_rect` | `node_path, rect[x,y,w,h], source_id=-1, atlas_coords=[0,0], alternative_tile=0, layer=0` | `TileFillResult { node_path, rect, cells, layer }` |
+| `godot_tilemap_get_cell` | `node_path, coords[x,y], layer=0` | `TileGetResult { node_path, coords, source_id, atlas_coords, alternative_tile, empty }` (read_only) |
+| `godot_tilemap_get_used_cells` | `node_path, layer=0` | `TileUsedCellsResult { node_path, layer, count, cells[]{coords, source_id, atlas_coords, alternative_tile} }` (read_only) |
+| `godot_tilemap_clear` | `node_path, layer?` | `TileClearResult { node_path, layer, cleared }` |
+| `godot_tilemap_layers` | `node_path` | `TileLayersResult { node_path, node_type, layers[] }` (read_only) |
 
-`tilemap_set_cell` sets/erases (`source_id=-1`) the cell; `tilemap_fill_rect` fills a
+`godot_tilemap_set_cell` sets/erases (`source_id=-1`) the cell; `godot_tilemap_fill_rect` fills a
 rectangle in one undoable action (capped at 16384 cells, returns a structured error
-above that). `tilemap_clear` clears a layer (TileMap: the given layer, default 0;
+above that). `godot_tilemap_clear` clears a layer (TileMap: the given layer, default 0;
 TileMapLayer: the node) and reports the cell count, undo restoring the prior cells.
-`tilemap_layers` lists each layer's index/name/enabled.
+`godot_tilemap_layers` lists each layer's index/name/enabled.
 
 #### TileSet authoring (issue #82) — category: `tilemap` (gated off by default)
 
-Build the TileSet that `tilemap_set_cell`/`tilemap_fill_rect` reference — without one,
+Build the TileSet that `godot_tilemap_set_cell`/`godot_tilemap_fill_rect` reference — without one,
 those tools have nothing to place. Target a TileSet by `node_path` (an in-scene
 TileMap/TileMapLayer, UndoRedo-wrapped) or `tileset_path` (a saved `.tres`, re-saved via
 ResourceSaver). All `mutating`, `dry_run`.
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `create_tileset` | `node_path="", save_path="", tile_size[w,h]=[16,16]` | `TileSetResult { node_path, tileset_path, tile_size, created }` |
-| `add_tileset_atlas_source` | `texture_path, region_size[w,h], node_path="", tileset_path="", source_id?` | `TileSetSourceResult { node_path, tileset_path, source_id, texture_path, region_size }` |
-| `create_tile` | `source_id, atlas_coords[x,y], node_path="", tileset_path="", size[w,h]=[1,1]` | `TileCreateResult { node_path, tileset_path, source_id, atlas_coords, size }` |
+| `godot_tilemap_create_tileset` | `node_path="", save_path="", tile_size[w,h]=[16,16]` | `TileSetResult { node_path, tileset_path, tile_size, created }` |
+| `godot_tilemap_add_tileset_atlas_source` | `texture_path, region_size[w,h], node_path="", tileset_path="", source_id?` | `TileSetSourceResult { node_path, tileset_path, source_id, texture_path, region_size }` |
+| `godot_tilemap_create_tile` | `source_id, atlas_coords[x,y], node_path="", tileset_path="", size[w,h]=[1,1]` | `TileCreateResult { node_path, tileset_path, source_id, atlas_coords, size }` |
 
-Typical chain: `create_tileset` (assign to a node and/or save a `.tres`) →
-`add_tileset_atlas_source` (slice an imported `Texture2D` at `res://texture_path` into a
-tile grid, returns the `source_id`) → `create_tile` (mark an atlas cell placeable). Then
-`tilemap_set_cell` with that `source_id` + `atlas_coords` places a real tile.
-`add_tileset_atlas_source` requires the texture to already exist in the project (it
-`load`s `texture_path`); `create_tile` validates the region is inside the atlas grid and
+Typical chain: `godot_tilemap_create_tileset` (assign to a node and/or save a `.tres`) →
+`godot_tilemap_add_tileset_atlas_source` (slice an imported `Texture2D` at `res://texture_path` into a
+tile grid, returns the `source_id`) → `godot_tilemap_create_tile` (mark an atlas cell placeable). Then
+`godot_tilemap_set_cell` with that `source_id` + `atlas_coords` places a real tile.
+`godot_tilemap_add_tileset_atlas_source` requires the texture to already exist in the project (it
+`load`s `texture_path`); `godot_tilemap_create_tile` validates the region is inside the atlas grid and
 not overlapping (`has_room_for_tile`).
 
 #### Theme & UI (issue #46) — category: `theme_ui` (gated off by default)
 
 Create a Theme for a Control and override theme colors, font sizes, and styleboxes on
 Control nodes. Writes are `mutating` (UndoRedo-wrapped), `dry_run`;
-`get_node_theme_overrides` is `read_only`. Overrides are local to the node and take
+`godot_theme_ui_get_node_overrides` is `read_only`. Overrides are local to the node and take
 precedence over its assigned theme.
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `create_theme` | `node_path, save_path?` | `ThemeResult { node_path, theme_path, created }` |
-| `set_theme_color` | `node_path, name, color` | `ThemeColorResult { node_path, name }` |
-| `set_theme_font_size` | `node_path, name, size` | `ThemeFontSizeResult { node_path, name, size }` |
-| `set_theme_stylebox` | `node_path, name, stylebox_type="StyleBoxFlat", properties?` | `ThemeStyleboxResult { node_path, name, stylebox_type }` |
-| `get_node_theme_overrides` | `node_path` | `NodeThemeOverrides { node_path, colors{name→rgba}, font_sizes{name→int}, styleboxes[{name, type, properties}] }` (`read_only`) |
+| `godot_theme_ui_create` | `node_path, save_path?` | `ThemeResult { node_path, theme_path, created }` |
+| `godot_theme_ui_set_color` | `node_path, name, color` | `ThemeColorResult { node_path, name }` |
+| `godot_theme_ui_set_font_size` | `node_path, name, size` | `ThemeFontSizeResult { node_path, name, size }` |
+| `godot_theme_ui_set_stylebox` | `node_path, name, stylebox_type="StyleBoxFlat", properties?` | `ThemeStyleboxResult { node_path, name, stylebox_type }` |
+| `godot_theme_ui_get_node_overrides` | `node_path` | `NodeThemeOverrides { node_path, colors{name→rgba}, font_sizes{name→int}, styleboxes[{name, type, properties}] }` (`read_only`) |
 
-`create_theme` makes a Theme and assigns it to the Control (saved to a `res://*.tres`
-when `save_path` is given, else embedded with the scene). `set_theme_color` /
-`set_theme_font_size` apply local overrides (`name` is the theme item, e.g.
+`godot_theme_ui_create` makes a Theme and assigns it to the Control (saved to a `res://*.tres`
+when `save_path` is given, else embedded with the scene). `godot_theme_ui_set_color` /
+`godot_theme_ui_set_font_size` apply local overrides (`name` is the theme item, e.g.
 "font_color", "font_size"); `color` accepts HTML strings or `[r,g,b,a]`.
-`set_theme_stylebox` builds a `stylebox_type` (StyleBoxFlat/Texture/Empty/Line)
+`godot_theme_ui_set_stylebox` builds a `stylebox_type` (StyleBoxFlat/Texture/Empty/Line)
 configured with `properties` (e.g. `bg_color`, `corner_radius_top_left`) and overrides
 the named stylebox. Undo restores the prior override (or removes it).
-`get_node_theme_overrides` is the inverse read — it returns the node's local color,
+`godot_theme_ui_get_node_overrides` is the inverse read — it returns the node's local color,
 font-size, and stylebox overrides (each stylebox with its class + serialized
 `properties`) for rollback. It covers theme items the control's type defines (the same
 set the Inspector exposes — e.g. `font_color` on a Label, the `panel` stylebox on a Panel).
@@ -588,19 +588,19 @@ set the Inspector exposes — e.g. `font_color` on a Label, the `panel` stylebox
 #### Shaders (issue #47) — category: `shader` (gated off by default)
 
 Author shaders — create/read `.gdshader` files, assign a ShaderMaterial, set uniforms.
-`read_shader` is `read_only`; the others are `mutating` (UndoRedo-wrapped), `dry_run`.
+`godot_shader_read` is `read_only`; the others are `mutating` (UndoRedo-wrapped), `dry_run`.
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `create_shader` | `shader_path, code=<canvas_item default>` | `ShaderResult { shader_path, created }` |
-| `read_shader` | `shader_path` | `ShaderReadResult { shader_path, code }` (read_only) |
-| `assign_shader_material` | `node_path, shader_path` | `ShaderMaterialResult { node_path, shader_path, material_property }` |
-| `set_shader_param` | `node_path, name, value, param_type?` | `ShaderParamResult { node_path, name }` |
+| `godot_shader_create` | `shader_path, code=<canvas_item default>` | `ShaderResult { shader_path, created }` |
+| `godot_shader_read` | `shader_path` | `ShaderReadResult { shader_path, code }` (read_only) |
+| `godot_shader_assign_material` | `node_path, shader_path` | `ShaderMaterialResult { node_path, shader_path, material_property }` |
+| `godot_shader_set_param` | `node_path, name, value, param_type?` | `ShaderParamResult { node_path, name }` |
 
-`create_shader` writes a `res://*.gdshader` file (undo restores the prior content or
-removes it). `assign_shader_material` wraps the shader in a ShaderMaterial and assigns it
+`godot_shader_create` writes a `res://*.gdshader` file (undo restores the prior content or
+removes it). `godot_shader_assign_material` wraps the shader in a ShaderMaterial and assigns it
 to `material` (CanvasItem) or `material_override` (GeometryInstance3D), reporting which.
-`set_shader_param` sets a uniform on the node's ShaderMaterial; `param_type`
+`godot_shader_set_param` sets a uniform on the node's ShaderMaterial; `param_type`
 (float/int/bool/vector2/vector3/vector4/color) coerces `value`, or it is inferred
 (number/bool as-is, `[x,y,z]` → vector, HTML string → color).
 
@@ -611,20 +611,20 @@ to the text-shader `shader` toolset (issue #47). All mutating tools support `dry
 
 | Tool | Params | Returns | Class |
 |------|--------|---------|-------|
-| `create_visual_shader` | `name, type="3d", path?` | `CreateVisualShaderResult { path, created }` | `mutating` |
-| `add_shader_node` | `shader_path, node_type, node_id, position=[x,y]` | `AddShaderNodeResult { node_id, node_type, added }` | `mutating` |
-| `connect_shader_nodes` | `shader_path, from_node, from_port, to_node, to_port` | `ConnectShaderNodesResult { connected }` | `mutating` |
-| `set_shader_node_param` | `shader_path, node_id, property, value` | `SetShaderNodeParamResult { node_id, property, value, set }` | `mutating` |
-| `list_shader_node_types` | — | `ListShaderNodeTypesResult { types[] }` | `read_only` |
-| `read_visual_shader` | `shader_path` | `VisualShaderGraph { shader_path, mode, nodes[{id, type, position, parameters}], connections[{from_node, from_port, to_node, to_port}] }` | `read_only` |
+| `godot_visual_shader_create` | `name, type="3d", path?` | `CreateVisualShaderResult { path, created }` | `mutating` |
+| `godot_visual_shader_add_node` | `shader_path, node_type, node_id, position=[x,y]` | `AddShaderNodeResult { node_id, node_type, added }` | `mutating` |
+| `godot_visual_shader_connect_nodes` | `shader_path, from_node, from_port, to_node, to_port` | `ConnectShaderNodesResult { connected }` | `mutating` |
+| `godot_visual_shader_set_node_param` | `shader_path, node_id, property, value` | `SetShaderNodeParamResult { node_id, property, value, set }` | `mutating` |
+| `godot_visual_shader_list_node_types` | — | `ListShaderNodeTypesResult { types[] }` | `read_only` |
+| `godot_visual_shader_read` | `shader_path` | `VisualShaderGraph { shader_path, mode, nodes[{id, type, position, parameters}], connections[{from_node, from_port, to_node, to_port}] }` | `read_only` |
 
-`create_visual_shader` creates a `VisualShader` resource with `shader_type` set from
+`godot_visual_shader_create` creates a `VisualShader` resource with `shader_type` set from
 `type` (`"2d"` → canvas_item, `"3d"` → spatial, `"particles"` | `"sky"` | `"fog"`).
-`add_shader_node` instantiates a `VisualShaderNode` subclass and assigns it a graph
-`position`. `connect_shader_nodes` wires an output port to an input port by
-integer ids. `set_shader_node_param` sets a property on the node (values coerced via
-`type_coerce`). `list_shader_node_types` scans ClassDB for instantiable
-`VisualShaderNode*` classes so agents know what's available. `read_visual_shader` is the
+`godot_visual_shader_add_node` instantiates a `VisualShaderNode` subclass and assigns it a graph
+`position`. `godot_visual_shader_connect_nodes` wires an output port to an input port by
+integer ids. `godot_visual_shader_set_node_param` sets a property on the node (values coerced via
+`type_coerce`). `godot_visual_shader_list_node_types` scans ClassDB for instantiable
+`VisualShaderNode*` classes so agents know what's available. `godot_visual_shader_read` is the
 inverse read — it serializes the whole graph (mode, every node with its class/position/
 parameters, and the connections) for rollback before edits.
 
@@ -636,7 +636,7 @@ creates empty nodes and configuration values that the agent builds on with exist
 
 | Tool | Params | Returns | Class |
 |------|--------|---------|-------|
-| `scaffold_project` | `type, project_name?, main_scene?, confirm=False, dry_run=False` | `ScaffoldProjectResult { created, paths_created[], autoloads_registered[] }` | **`destructive`** |
+| `godot_project_scaffold` | `type, project_name?, main_scene?, confirm=False, dry_run=False` | `ScaffoldProjectResult { created, paths_created[], autoloads_registered[] }` | **`destructive`** |
 
 `type` is one of `2d_platformer`, `3d_fps`, `top_down_rpg`, `visual_novel`.
 Requires `confirm=True` because it mutates the project filesystem broadly.
@@ -660,23 +660,23 @@ support `dry_run`; `save=True` also saves the scene (a file write after the undo
 
 | Tool | Params | Returns | Class |
 |------|--------|---------|-------|
-| `compose_node` | `parent_path, node_type, node_name, properties?, script_path?, children?, save=False, dry_run=False` | `ComposeNodeResult { node_path, created, children[], script_attached, properties_set[], saved }` | `mutating` |
-| `batch_create_nodes` | `parent_path, node_type, names[], properties?, save=False, dry_run=False` | `BatchCreateNodesResult { created[], count, saved }` | `mutating` |
-| `apply_node_edits` | `edits[] ({node_path, properties}), save=False, dry_run=False` | `ApplyNodeEditsResult { edited[], skipped[], count, saved }` | `mutating` |
-| `run_commands` | `commands[] ({command, params}), stop_on_error=True, dry_run=False` | `RunCommandsResult { results[] ({command, ok, result?, error?, hint?}), ok_all, count, planned[], dry_run }` | `mutating` |
+| `godot_composite_compose_node` | `parent_path, node_type, node_name, properties?, script_path?, children?, save=False, dry_run=False` | `ComposeNodeResult { node_path, created, children[], script_attached, properties_set[], saved }` | `mutating` |
+| `godot_composite_batch_create_nodes` | `parent_path, node_type, names[], properties?, save=False, dry_run=False` | `BatchCreateNodesResult { created[], count, saved }` | `mutating` |
+| `godot_composite_apply_node_edits` | `edits[] ({node_path, properties}), save=False, dry_run=False` | `ApplyNodeEditsResult { edited[], skipped[], count, saved }` | `mutating` |
+| `godot_composite_run_commands` | `commands[] ({command, params}), stop_on_error=True, dry_run=False` | `RunCommandsResult { results[] ({command, ok, result?, error?, hint?}), ok_all, count, planned[], dry_run }` | `mutating` |
 
 Every result model also carries `dry_run` (true on a preview), as for all `dry_run`-aware tools.
 
-- `compose_node` replaces create_node + set_node_property(s) + attach_script + child
+- `godot_composite_compose_node` replaces create_node + set_node_property(s) + attach_script + child
   creation; `children` is a list of `{node_type, node_name, properties?}` parented under
   the new node. The node, its config, and its children commit as one action.
-- `batch_create_nodes` creates many same-typed nodes (each with the same `properties`).
-- `apply_node_edits` sets many properties across many existing nodes; a node missing a
+- `godot_composite_batch_create_nodes` creates many same-typed nodes (each with the same `properties`).
+- `godot_composite_apply_node_edits` sets many properties across many existing nodes; a node missing a
   property is reported under `skipped` (the rest still apply).
-- `run_commands` (issue #167) is a **generic** batch envelope: it runs an arbitrary
+- `godot_composite_run_commands` (issue #167) is a **generic** batch envelope: it runs an arbitrary
   sequence of bridge commands in **one** round-trip (the addon executes them in a single
   `_process` frame), the main throughput lever for scripted harnesses since the editor
-  drains commands serially. `command` may be the bare tool name (`set_node_property`) or
+  drains commands serially. `command` may be the bare tool name (`godot_scene_edit_set_node_property`) or
   the addon form (`cmd_set_node_property`). Each sub-mutation still wraps its own
   `UndoRedo` action; order is preserved. `ok_all` is true only if every sub-command
   succeeded — the batch envelope itself is a success (it ran); inspect `results[].ok`.
@@ -688,7 +688,7 @@ Every result model also carries `dry_run` (true on a preview), as for all `dry_r
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `run_and_capture` | `scene?: str`, `timeout_seconds: int = 10` | `RunCaptureResult { ran, exit_code?, timed_out, duration_seconds, errors[], warnings[], output[], command }` |
+| `godot_runtime_run_and_capture` | `scene?: str`, `timeout_seconds: int = 10` | `RunCaptureResult { ran, exit_code?, timed_out, duration_seconds, errors[], warnings[], output[], command }` |
 
 Runs the project headless (optionally a specific `scene`), waits up to the timeout,
 and returns a structured summary. `errors`/`warnings` are `LogEntry { type, message,
@@ -701,7 +701,7 @@ runtime-execution note in [`architecture.md`](architecture.md)).
 ##### Runtime session bridge (issue #66) — same `runtime` toolset
 
 Control an editor **play session** and inspect the running game live. Unlike
-`run_and_capture` (a detached headless subprocess), these play *from the editor* so the
+`godot_runtime_run_and_capture` (a detached headless subprocess), these play *from the editor* so the
 game connects to the editor debugger, which the addon's `MCPDebugger`
 (`EditorDebuggerPlugin`) captures. Live inspection requires the game to include the
 **godot-mcp runtime probe** autoload (`addons/godot_mcp/mcp_runtime_probe.gd`), which
@@ -709,13 +709,13 @@ answers `godot_mcp:` debugger queries. Play control is `runtime`; reads are `rea
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `play_scene` | `scene_path?` | `PlayResult { playing, scene }` |
-| `stop_scene` | — | `PlayResult { playing }` |
-| `is_playing` | — | `PlayResult { playing, scene }` |
-| `get_game_scene_tree` | — | `GameSceneTreeResult { playing, connected, tree?, hint }` (read_only) |
+| `godot_runtime_play_scene` | `scene_path?` | `PlayResult { playing, scene }` |
+| `godot_runtime_stop_scene` | — | `PlayResult { playing }` |
+| `godot_runtime_is_playing` | — | `PlayResult { playing, scene }` |
+| `godot_runtime_get_game_scene_tree` | — | `GameSceneTreeResult { playing, connected, tree?, hint }` (read_only) |
 
-`play_scene` runs `scene_path` (a `res://*.tscn`) or the main scene when omitted.
-`get_game_scene_tree` returns the *running* game's live tree (`GameNode { name, type,
+`godot_runtime_play_scene` runs `scene_path` (a `res://*.tscn`) or the main scene when omitted.
+`godot_runtime_get_game_scene_tree` returns the *running* game's live tree (`GameNode { name, type,
 path, children }`) from the probe; with no play session it is a `PRECONDITION_FAILED`
 (`required=play_session`), and when playing without the probe it returns
 `connected=false` with a `hint` to add the autoload. Replies are cached addon-side
@@ -731,43 +731,43 @@ follow-up #68.)
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `simulate_key` | `key, pressed=True, shift/ctrl/alt/meta=False` | `SimInputResult { sent, kind, count }` |
-| `simulate_mouse` | `x, y, button="", pressed=True, relative_x/relative_y=0` | `SimInputResult` |
-| `simulate_action` | `action, pressed=True, strength=1.0` | `SimInputResult` |
-| `play_input_sequence` | `events[], delay_ms=0` | `SimInputResult { count = len(events) }` |
-| `get_input_stats` | — | `InputStatsResult { playing, connected, injected }` (read_only) |
-| `record_input` | `include_motion=False` | `RecordResult { recording }` |
-| `stop_recording` | `timeout_ms=2000` | `RecordingResult { ready, connected, events[] }` (read_only) |
+| `godot_input_simulate_key` | `key, pressed=True, shift/ctrl/alt/meta=False` | `SimInputResult { sent, kind, count }` |
+| `godot_input_simulate_mouse` | `x, y, button="", pressed=True, relative_x/relative_y=0` | `SimInputResult` |
+| `godot_input_simulate_action` | `action, pressed=True, strength=1.0` | `SimInputResult` |
+| `godot_input_play_sequence` | `events[], delay_ms=0` | `SimInputResult { count = len(events) }` |
+| `godot_input_get_stats` | — | `InputStatsResult { playing, connected, injected }` (read_only) |
+| `godot_input_record` | `include_motion=False` | `RecordResult { recording }` |
+| `godot_input_stop_recording` | `timeout_ms=2000` | `RecordingResult { ready, connected, events[] }` (read_only) |
 
-`key` is a Godot key name ("A", "Space", "Enter"). `simulate_mouse` sends motion when
+`key` is a Godot key name ("A", "Space", "Enter"). `godot_input_simulate_mouse` sends motion when
 `button` is empty, else a button event (left/right/middle/wheel_up/wheel_down).
-`simulate_action` presses/releases an Input Map action (an action not in the *running
-game's* InputMap is dropped by the probe). `play_input_sequence` replays `events` (each
+`godot_input_simulate_action` presses/releases an Input Map action (an action not in the *running
+game's* InputMap is dropped by the probe). `godot_input_play_sequence` replays `events` (each
 `{type: key|mouse|action, …}`) `delay_ms` apart; every event's shape is validated up
 front (bad `type`/missing field/unknown button → `VALIDATION_ERROR`), so `count` =
 events sent. All injection requires a live probe (else `PRECONDITION_FAILED`,
 `required=play_session` / `runtime_probe`). `get_input_stats.injected` is the count of
 synthesized events the game has acknowledged — use it to confirm delivery.
-`record_input` (issue #68) captures the input the game receives — key + mouse button, plus
-mouse motion when `include_motion` — via the probe's `_input` hook; `stop_recording`
-returns the buffered `events` in the same `play_input_sequence` format, so a recording
+`godot_input_record` (issue #68) captures the input the game receives — key + mouse button, plus
+mouse motion when `include_motion` — via the probe's `_input` hook; `godot_input_stop_recording`
+returns the buffered `events` in the same `godot_input_play_sequence` format, so a recording
 replays directly (regression). Since `parse_input_event` also fires `_input`, synthesized
 input is recorded too.
 
 #### Export (issue #50) — category: `export` (gated off by default)
 
 Drive Godot's export pipeline. List/info are `read_only` (read `export_presets.cfg` via
-the addon's `ConfigFile`); `export_project` is `runtime` (runs a Godot process, like the
+the addon's `ConfigFile`); `godot_export_project` is `runtime` (runs a Godot process, like the
 runtime loop — see the note in [`architecture.md`](architecture.md)).
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `list_export_presets` | — | `ExportPresetsResult { presets[], has_config }` |
-| `get_export_info` | — | `ExportInfoResult { has_config, preset_count, preset_names, config_path }` |
-| `export_project` | `preset, output_path, debug=False, timeout_seconds=300` | `ExportResult { exported, preset, output_path, exit_code, timed_out, duration_seconds, errors[], warnings[], output[], command }` |
+| `godot_export_list_presets` | — | `ExportPresetsResult { presets[], has_config }` |
+| `godot_export_get_info` | — | `ExportInfoResult { has_config, preset_count, preset_names, config_path }` |
+| `godot_export_project` | `preset, output_path, debug=False, timeout_seconds=300` | `ExportResult { exported, preset, output_path, exit_code, timed_out, duration_seconds, errors[], warnings[], output[], command }` |
 
-`list_export_presets` returns each preset's `{index, name, platform, runnable,
-export_path}`. `export_project` validates the preset name, then runs `godot --headless
+`godot_export_list_presets` returns each preset's `{index, name, platform, runnable,
+export_path}`. `godot_export_project` validates the preset name, then runs `godot --headless
 --path <project> --export-release|--export-debug "<preset>" <output_path>` (relative
 `output_path` resolves against the project dir) and summarizes the run — `exported` is
 true when the process exits 0. **Requires export templates installed** for the target
@@ -783,30 +783,30 @@ commands). All `read_only`. The project dir is resolved like the runtime loop
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `find_unused_resources` | — | `UnusedResourcesResult { unused[], scanned, referenced }` |
-| `analyze_signal_flow` | `scene=""` | `SignalFlowResult { connections[], count }` |
-| `detect_circular_dependencies` | — | `CircularDependenciesResult { cycles[], count }` |
-| `project_stats` | — | `ProjectStatsResult { scenes, scripts, resources, total_nodes, connections, by_extension, busiest_scenes[] }` |
-| `project_structure` | — | `ProjectStructureResult { scenes[], scripts[], resources[], entry_points[] }` |
-| `analyze_dependencies` | `resource_path` | `AnalyzeDependenciesResult { path, type, references[], referencers[] }` |
-| `find_orphaned_resources` | `scan_dir="res://"`, `resource_types` | `FindOrphanedResult { orphaned[]{path, type, estimated_size}, scanned }` |
-| `validate_scene_integrity` | `scene_path` | `ValidateSceneIntegrityResult { valid, errors[]{severity, message, node_path, property}, warnings[] }` |
-| `cross_scene_find_refs` | `target_path` | `CrossSceneRefsResult { scenes[], resources[], scripts[] }` |
+| `godot_analysis_find_unused_resources` | — | `UnusedResourcesResult { unused[], scanned, referenced }` |
+| `godot_analysis_analyze_signal_flow` | `scene=""` | `SignalFlowResult { connections[], count }` |
+| `godot_analysis_detect_circular_dependencies` | — | `CircularDependenciesResult { cycles[], count }` |
+| `godot_analysis_project_stats` | — | `ProjectStatsResult { scenes, scripts, resources, total_nodes, connections, by_extension, busiest_scenes[] }` |
+| `godot_analysis_project_structure` | — | `ProjectStructureResult { scenes[], scripts[], resources[], entry_points[] }` |
+| `godot_analysis_analyze_dependencies` | `resource_path` | `AnalyzeDependenciesResult { path, type, references[], referencers[] }` |
+| `godot_analysis_find_orphaned_resources` | `scan_dir="res://"`, `resource_types` | `FindOrphanedResult { orphaned[]{path, type, estimated_size}, scanned }` |
+| `godot_analysis_validate_scene_integrity` | `scene_path` | `ValidateSceneIntegrityResult { valid, errors[]{severity, message, node_path, property}, warnings[] }` |
+| `godot_analysis_cross_scene_find_refs` | `target_path` | `CrossSceneRefsResult { scenes[], resources[], scripts[] }` |
 
-`find_unused_resources` flags resource files not referenced by any project file (excluding
-entry points — the main scene, autoloads, plugin scripts). `analyze_signal_flow` parses
+`godot_analysis_find_unused_resources` flags resource files not referenced by any project file (excluding
+entry points — the main scene, autoloads, plugin scripts). `godot_analysis_analyze_signal_flow` parses
 `[connection ...]` from scene files (each `{scene, signal, from, to, method}`).
-`detect_circular_dependencies` finds cycles in the `preload`/`load`/`extends` graph among
-`.gd` files. `project_stats` reports counts, total nodes, connections, a per-extension
-breakdown, and the busiest scenes. `project_structure` returns the raw inventory — the
+`godot_analysis_detect_circular_dependencies` finds cycles in the `preload`/`load`/`extends` graph among
+`.gd` files. `godot_analysis_project_stats` reports counts, total nodes, connections, a per-extension
+breakdown, and the busiest scenes. `godot_analysis_project_structure` returns the raw inventory — the
 actual scene/script/resource `res://` paths (sorted, non-overlapping) plus `entry_points`
 — for an agent to learn what exists before planning edits.
 
-Issue #111 adds **dependency-aware** analysis: `analyze_dependencies` extracts `res://` and
-`uid://` references from a resource file (recursing into sub-dependencies). `find_orphaned_resources`
+Issue #111 adds **dependency-aware** analysis: `godot_analysis_analyze_dependencies` extracts `res://` and
+`uid://` references from a resource file (recursing into sub-dependencies). `godot_analysis_find_orphaned_resources`
 surfaces resource files with no referencers, optionally filtered by Godot type and scoped to a
-directory. `validate_scene_integrity` checks a scene for broken `ext_resource` paths, missing
-scripts, and signal connections pointing to non-existent nodes. `cross_scene_find_refs` scans
+directory. `godot_analysis_validate_scene_integrity` checks a scene for broken `ext_resource` paths, missing
+scripts, and signal connections pointing to non-existent nodes. `godot_analysis_cross_scene_find_refs` scans
 all project files to find who references a given resource. Results remain **heuristic** text
 analysis — dynamically-built paths aren't tracked, so treat them as a strong hint.
 
@@ -817,51 +817,51 @@ Operate over many nodes/scenes. Finds/deps are `read_only`; writes are `mutating
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `find_nodes_by_type` | `node_type, parent_path=".", recursive=True` | `FindNodesResult { type, nodes[], count }` |
-| `batch_set_property` | `property, value, node_paths?, node_type?, dry_run=False` | `BatchSetResult { property, applied[], skipped[], count, dry_run }` |
-| `cross_scene_set_property` | `scenes[], node_type, property, value, dry_run=False` | `CrossSceneResult { results[], total_modified, scenes, dry_run }` |
-| `get_dependencies` | `path` | `DependenciesResult { path, dependencies[], count }` |
+| `godot_batch_find_nodes_by_type` | `node_type, parent_path=".", recursive=True` | `FindNodesResult { type, nodes[], count }` |
+| `godot_batch_set_property` | `property, value, node_paths?, node_type?, dry_run=False` | `BatchSetResult { property, applied[], skipped[], count, dry_run }` |
+| `godot_batch_cross_scene_set_property` | `scenes[], node_type, property, value, dry_run=False` | `CrossSceneResult { results[], total_modified, scenes, dry_run }` |
+| `godot_batch_get_dependencies` | `path` | `DependenciesResult { path, dependencies[], count }` |
 
-`find_nodes_by_type` matches by class (incl. derived) under `parent_path` in the open
-scene. `batch_set_property` sets one property on many nodes in the open scene in a single
+`godot_batch_find_nodes_by_type` matches by class (incl. derived) under `parent_path` in the open
+scene. `godot_batch_set_property` sets one property on many nodes in the open scene in a single
 undoable action — target by explicit `node_paths` or by `node_type`; nodes lacking the
-property are reported in `skipped`. `cross_scene_set_property` edits scene **files** on
+property are reported in `skipped`. `godot_batch_cross_scene_set_property` edits scene **files** on
 disk: it loads each (`GEN_EDIT_STATE_MAIN`), sets the property on every `node_type` node,
 re-packs and saves, and re-scans — the **currently-edited** scene is skipped (its
 in-memory copy would clobber the change; reported as an `error`), and each scene's
 `{modified, error}` is reported so skips are explicit (this path is not UndoRedo-wrapped —
-closed files). `get_dependencies` lists what a `res://` resource/scene depends on (each
+closed files). `godot_batch_get_dependencies` lists what a `res://` resource/scene depends on (each
 `{raw, path, type}` parsed from `ResourceLoader.get_dependencies`). `dry_run` on the writes
 returns the plan/counts without changing anything.
 
 #### Debugger (issue #110, Tier 1 + Tier 2) — category: `debugger` (gated off by default)
 
-Control breakpoints, step execution, and inspect the paused call stack in a running editor play session. Requires an active play session; `force_break` additionally needs the godot-mcp runtime probe autoload. All are `runtime`.
+Control breakpoints, step execution, and inspect the paused call stack in a running editor play session. Requires an active play session; `godot_debugger_force_break` additionally needs the godot-mcp runtime probe autoload. All are `runtime`.
 
 **Tier 1 — breakpoint control:**
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `set_breakpoint` | `path (res:// script), line` | `BreakpointResult { breakpoint_set, path, line }` |
-| `remove_breakpoint` | `path, line` | `BreakpointResult { breakpoint_removed, path, line }` |
-| `clear_breakpoints` | — | `ClearBreakpointsResult { breakpoints_cleared }` |
-| `force_break` | — | `ForceBreakResult { force_break_sent }` |
+| `godot_debugger_set_breakpoint` | `path (res:// script), line` | `BreakpointResult { breakpoint_set, path, line }` |
+| `godot_debugger_remove_breakpoint` | `path, line` | `BreakpointResult { breakpoint_removed, path, line }` |
+| `godot_debugger_clear_breakpoints` | — | `ClearBreakpointsResult { breakpoints_cleared }` |
+| `godot_debugger_force_break` | — | `ForceBreakResult { force_break_sent }` |
 
-`set_breakpoint` uses `EditorDebuggerSession.set_breakpoint(path, line, true)`; `remove_breakpoint` uses `set_breakpoint(path, line, false)`. `clear_breakpoints` clears on the game side via the probe (when connected) and removes any individually tracked breakpoints on the editor side. `force_break` sets `force_break_pending = true` in the probe; the game must call `MCPRuntimeProbe.check_force_break()` in its main loop (see `docs/debugger_feasibility.md` § Limitations).
+`godot_debugger_set_breakpoint` uses `EditorDebuggerSession.set_breakpoint(path, line, true)`; `godot_debugger_remove_breakpoint` uses `set_breakpoint(path, line, false)`. `godot_debugger_clear_breakpoints` clears on the game side via the probe (when connected) and removes any individually tracked breakpoints on the editor side. `godot_debugger_force_break` sets `force_break_pending = true` in the probe; the game must call `MCPRuntimeProbe.check_force_break()` in its main loop (see `docs/debugger_feasibility.md` § Limitations).
 
 **Tier 2 — step control & stack inspection (issue #110 follow-up):**
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `step_into` | — | `StepResult { stepped }` |
-| `step_over` | — | `StepResult { stepped }` |
-| `step_out` | — | `StepResult { stepped }` |
-| `continue_execution` | — | `ContinueResult { running }` |
-| `get_stack_frames` | — | `StackFramesResult { frames[] }` |
-| `evaluate_expression` | `expression, frame=0` | `EvaluationResult { expression, value }` |
-| `get_frame_variables` | `frame=0` | `FrameVarsResult { frame, locals[], members[], globals[] }` |
+| `godot_debugger_step_into` | — | `StepResult { stepped }` |
+| `godot_debugger_step_over` | — | `StepResult { stepped }` |
+| `godot_debugger_step_out` | — | `StepResult { stepped }` |
+| `godot_debugger_continue_execution` | — | `ContinueResult { running }` |
+| `godot_debugger_get_stack_frames` | — | `StackFramesResult { frames[] }` |
+| `godot_debugger_evaluate_expression` | `expression, frame=0` | `EvaluationResult { expression, value }` |
+| `godot_debugger_get_frame_variables` | `frame=0` | `FrameVarsResult { frame, locals[], members[], globals[] }` |
 
-Step tools send `step`/`next`/`out`/ `continue` via `EditorDebuggerSession.send_message` and require the game to be paused (`session.is_breaked()`). `get_stack_frames` returns the current call stack from the debugger protocol (`get_stack_dump` → `stack_dump`); `evaluate_expression` evaluates a GDScript expression at the given frame (`evaluate` → `evaluation_return`); `get_frame_variables` fetches locals, members, and globals (`get_stack_frame_vars` → `stack_frame_vars`). All three are captured via the poll-and-cache pattern on `MCPDebugger`, so the first call after a break may return empty data until the async reply arrives.
+Step tools send `step`/`next`/`out`/ `continue` via `EditorDebuggerSession.send_message` and require the game to be paused (`session.is_breaked()`). `godot_debugger_get_stack_frames` returns the current call stack from the debugger protocol (`get_stack_dump` → `stack_dump`); `godot_debugger_evaluate_expression` evaluates a GDScript expression at the given frame (`evaluate` → `evaluation_return`); `godot_debugger_get_frame_variables` fetches locals, members, and globals (`get_stack_frame_vars` → `stack_frame_vars`). All three are captured via the poll-and-cache pattern on `MCPDebugger`, so the first call after a break may return empty data until the async reply arrives.
 
 #### Profiling (issue #38) — category: `profiling` (gated off by default)
 
@@ -869,15 +869,15 @@ Read Godot's `Performance` monitors. Both `read_only`.
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `get_editor_performance` | — | `EditorPerformanceResult { monitors }` |
-| `get_performance_monitors` | `timeout_ms=2000` | `GamePerformanceResult { playing, connected, ready, monitors, hint }` |
+| `godot_profiling_get_editor_performance` | — | `EditorPerformanceResult { monitors }` |
+| `godot_profiling_get_performance_monitors` | `timeout_ms=2000` | `GamePerformanceResult { playing, connected, ready, monitors, hint }` |
 
 `monitors` is a name→value map of a curated set: `fps`, `process_time`,
 `physics_process_time`, `memory_static`/`_max`, `object_count`, `node_count`,
 `resource_count`, `orphan_node_count`, `objects_drawn`, `primitives_drawn`, `draw_calls`,
 `video_mem_used`, `texture_mem_used`, `buffer_mem_used`, `physics_2d_active`,
-`physics_3d_active`. `get_editor_performance` reads the editor process directly;
-`get_performance_monitors` reads the *running* game via the #66 runtime probe (a
+`physics_3d_active`. `godot_profiling_get_editor_performance` reads the editor process directly;
+`godot_profiling_get_performance_monitors` reads the *running* game via the #66 runtime probe (a
 `PRECONDITION_FAILED` with no play session, `connected=false` + hint without the probe). It
 polls the probe up to `timeout_ms`; `ready` is true once a snapshot arrived (false on
 timeout, with `monitors` empty). Render/memory metrics may read 0 under `--headless`.
@@ -890,57 +890,57 @@ screenshot diff are `read_only`.
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `run_tests` | `test_dir="res://test", timeout_seconds=120.0` | `RunTestsResult { ran, framework, framework_absent, passed, failed, total, failures[{test, file, line, message}], timed_out, exit_code, raw_summary }` |
-| `assert_node_state` | `node_path, property, expected, op="==", timeout_ms=1500` | `AssertionResult { …, actual, passed, error }` |
-| `run_test_scenario` | `scene="", events[], assertions[], setup_ms=800, settle_ms=300, stop_after=True` | `ScenarioResult { passed, played, connected, assertions[] }` |
-| `run_stress_test` | `iterations=100, actions[], seed=0, delay_ms=8` | `StressTestResult { survived, iterations, playing_after, seed }` |
-| `compare_screenshots` | `image_a, image_b (base64 PNG), tolerance=0.0` | `ScreenshotDiffResult { same_size, diff_pixels, diff_ratio, mean_abs_diff, match }` |
+| `godot_testing_run_tests` | `test_dir="res://test", timeout_seconds=120.0` | `RunTestsResult { ran, framework, framework_absent, passed, failed, total, failures[{test, file, line, message}], timed_out, exit_code, raw_summary }` |
+| `godot_testing_assert_node_state` | `node_path, property, expected, op="==", timeout_ms=1500` | `AssertionResult { …, actual, passed, error }` |
+| `godot_testing_run_test_scenario` | `scene="", events[], assertions[], setup_ms=800, settle_ms=300, stop_after=True` | `ScenarioResult { passed, played, connected, assertions[] }` |
+| `godot_testing_run_stress_test` | `iterations=100, actions[], seed=0, delay_ms=8` | `StressTestResult { survived, iterations, playing_after, seed }` |
+| `godot_testing_compare_screenshots` | `image_a, image_b (base64 PNG), tolerance=0.0` | `ScreenshotDiffResult { same_size, diff_pixels, diff_ratio, mean_abs_diff, match }` |
 
-`run_tests` runs the project's GDScript test suite ([GUT](https://github.com/bitwes/Gut)) headlessly (`godot --headless -s res://addons/gut/gut_cmdln.gd -gdir=<test_dir> -gexit`) and returns structured pass/fail with best-effort per-failure detail — the same out-of-process pattern as `get_parse_errors`. It is a **neutral capability** (execute + report); it encodes no test-first/TDD workflow — the agent composes it. When GUT is not installed (no `res://addons/gut/`), it returns `framework_absent=true` (a normal outcome, not an error) without launching Godot, so the caller can fall back. `runtime` safety class (it executes project code). Counts/overall are reliable; the `failures[]` detail (test name/file/line) is scraped best-effort and may vary by GUT version.
+`godot_testing_run_tests` runs the project's GDScript test suite ([GUT](https://github.com/bitwes/Gut)) headlessly (`godot --headless -s res://addons/gut/gut_cmdln.gd -gdir=<test_dir> -gexit`) and returns structured pass/fail with best-effort per-failure detail — the same out-of-process pattern as `godot_scripts_get_parse_errors`. It is a **neutral capability** (execute + report); it encodes no test-first/TDD workflow — the agent composes it. When GUT is not installed (no `res://addons/gut/`), it returns `framework_absent=true` (a normal outcome, not an error) without launching Godot, so the caller can fall back. `runtime` safety class (it executes project code). Counts/overall are reliable; the `failures[]` detail (test name/file/line) is scraped best-effort and may vary by GUT version.
 
-`assert_node_state` reads a live property (one sample via the runtime probe) and compares
-with `op` (==, !=, <, <=, >, >=, contains, approx). `run_test_scenario` plays a scene,
+`godot_testing_assert_node_state` reads a live property (one sample via the runtime probe) and compares
+with `op` (==, !=, <, <=, >, >=, contains, approx). `godot_testing_run_test_scenario` plays a scene,
 runs an input sequence, then evaluates `{node_path, property, expected, op}` assertions
-and stops the run. `run_stress_test` fuzzes the running game with seeded random input
+and stops the run. `godot_testing_run_stress_test` fuzzes the running game with seeded random input
 (keys / input-map actions / "click") and reports whether it survived (still playing).
-`compare_screenshots` does a per-pixel diff (via `pypng`) of two base64 PNGs — e.g. from
-`capture_editor_screenshot` or saved baselines — with a per-channel `tolerance`.
+`godot_testing_compare_screenshots` does a per-pixel diff (via `pypng`) of two base64 PNGs — e.g. from
+`godot_editor_capture_screenshot` or saved baselines — with a per-channel `tolerance`.
 
 #### Runtime inspection (issue #35) — `runtime` toolset, `read_only`
 
-Inspect a *running* game on the #66 rails (the third piece, `get_game_scene_tree`, shipped
+Inspect a *running* game on the #66 rails (the third piece, `godot_runtime_get_game_scene_tree`, shipped
 with #66). Requires a play session + the runtime probe.
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `monitor_property` | `node_path, property, samples=30` | `MonitorResult { monitoring, node_path, property, samples }` |
-| `get_property_samples` | — | `PropertySamplesResult { ready, connected, node_path, property, samples[], error }` |
-| `find_ui_elements` | `name_contains="", class_filter="", visible_only=False, timeout_ms=2000` | `UiElementsResult { ready, elements[] }` |
+| `godot_runtime_monitor_property` | `node_path, property, samples=30` | `MonitorResult { monitoring, node_path, property, samples }` |
+| `godot_runtime_get_property_samples` | — | `PropertySamplesResult { ready, connected, node_path, property, samples[], error }` |
+| `godot_runtime_find_ui_elements` | `name_contains="", class_filter="", visible_only=False, timeout_ms=2000` | `UiElementsResult { ready, elements[] }` |
 
-`monitor_property` captures `samples` readings of a live node's property (one per frame —
-`node_path` is an absolute path from `get_game_scene_tree`); collect the `[{frame, value}]`
-series with `get_property_samples` (which reports a validation `error` for a bad
-node/property). `find_ui_elements` returns matching Control nodes — each
+`godot_runtime_monitor_property` captures `samples` readings of a live node's property (one per frame —
+`node_path` is an absolute path from `godot_runtime_get_game_scene_tree`); collect the `[{frame, value}]`
+series with `godot_runtime_get_property_samples` (which reports a validation `error` for a bad
+node/property). `godot_runtime_find_ui_elements` returns matching Control nodes — each
 `UiElement { path, name, node_class, visible, rect{x,y,w,h}, text }` —
 and polls the probe up to `timeout_ms` for a fresh result. Each invocation carries an
 internal `request_id` (constant across its poll), so the addon dispatches exactly one
 full-Control scan per call and never returns a prior identical-filter request's stale
-result. The `rect` pairs with `simulate_mouse` to click located UI.
+result. The `rect` pairs with `godot_input_simulate_mouse` to click located UI.
 
 ### Diagnostics & debug workflow — `read_only` (category: `core`)
 
 | Tool | Params | Returns | Notes |
 |------|--------|---------|-------|
-| `get_server_info` | — | `ServerDiagnostics { server, version, contract_version, min_compatible_contract, transport, toolsets[], prompts[], resources[], bridge{}, active_scene?, common_errors[], next_steps[] }` | capability snapshot — call first |
-| `debug_workflow` | `scene="", timeout_seconds=5.0` | `DebugWorkflowResult { bridge{}, scene_tree?, run?, parse{ok, errors[], skipped_reason}, findings[], suggestions[] }` | one-call comprehensive check |
+| `godot_get_server_info` | — | `ServerDiagnostics { server, version, contract_version, min_compatible_contract, transport, toolsets[], prompts[], resources[], bridge{}, active_scene?, common_errors[], next_steps[] }` | capability snapshot — call first |
+| `godot_debug_workflow` | `scene="", timeout_seconds=5.0` | `DebugWorkflowResult { bridge{}, scene_tree?, run?, parse{ok, errors[], skipped_reason}, findings[], suggestions[] }` | one-call comprehensive check |
 
-`get_server_info` returns the full server surface so an agent can discover everything in one call: toolset summaries with counts, registered prompt names, resource URIs, bridge state, active scene, common errors with fixes, and suggested next steps.
+`godot_get_server_info` returns the full server surface so an agent can discover everything in one call: toolset summaries with counts, registered prompt names, resource URIs, bridge state, active scene, common errors with fixes, and suggested next steps.
 
-`debug_workflow` aggregates multiple read-only checks — parse errors across all `.gd` files, active scene tree, headless run capture, and bridge state — into a unified report with actionable findings and suggestions.
+`godot_debug_workflow` aggregates multiple read-only checks — parse errors across all `.gd` files, active scene tree, headless run capture, and bridge state — into a unified report with actionable findings and suggestions.
 
 #### Contract / compatibility versioning (issue #196)
 
-`get_server_info` carries two integers — `contract_version` and `min_compatible_contract` — that let a consuming client (e.g. [godot-agents](https://github.com/hybridindie/godot-agents)) negotiate compatibility against the **tool/envelope contract**, independent of the model layer.
+`godot_get_server_info` carries two integers — `contract_version` and `min_compatible_contract` — that let a consuming client (e.g. [godot-agents](https://github.com/hybridindie/godot-agents)) negotiate compatibility against the **tool/envelope contract**, independent of the model layer.
 
 - **`version`** is CalVer (`YYYY.MM.DD[-N]`) — the *build*. It moves on every release, including additive and internal changes, so it cannot tell a client whether a change was breaking.
 - **`contract_version`** is a monotonic integer — the *contract*. It is bumped **only on a breaking change** to the surface clients depend on: a removed or renamed tool, a changed/removed required parameter, a changed result-model field, or a bridge-envelope shape change. **Additive, backward-compatible changes do not bump it** (new tools, new toolsets, new *optional* fields, new error codes).
@@ -958,7 +958,7 @@ Below the floor, the client is too new for an old server (it may rely on contrac
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `list_tools_by_safety_class` | — | `{ "read_only": [...], "mutating": [...], ... }` |
+| `godot_list_tools_by_safety_class` | — | `{ "read_only": [...], "mutating": [...], ... }` |
 
 #### Toolset gating (issue #26) — `read_only` (category: `core`)
 
@@ -969,11 +969,11 @@ until enabled. These meta-tools are always available:
 
 | Tool | Params | Returns | Notes |
 |------|--------|---------|-------|
-| `list_toolsets` | — | `[ToolsetInfo { name, enabled, description }]` | discover categories |
-| `enable_toolset` | `category` | `ToolsetInfo` | expose a category's tools (fires `list_changed`) |
-| `disable_toolset` | `category` | `ToolsetInfo` | hide a category again |
+| `godot_list_toolsets` | — | `[ToolsetInfo { name, enabled, description }]` | discover categories |
+| `godot_enable_toolset` | `category` | `ToolsetInfo` | expose a category's tools (fires `list_changed`) |
+| `godot_disable_toolset` | `category` | `ToolsetInfo` | hide a category again |
 
-`enable_toolset`/`disable_toolset` reject unknown categories and `core` with a
+`godot_enable_toolset`/`godot_disable_toolset` reject unknown categories and `core` with a
 structured `ToolError`. They change tool *exposure* only — never the Godot project
 — so they are `read_only`. The default-off-for-new-categories rule means the live
 surface stays small as the catalog grows (see `.claude/rules/mcp-tools.md`).

@@ -53,16 +53,16 @@ def _build(
 
 
 async def _enable_runtime(client: Client) -> None:  # type: ignore[type-arg]
-    await client.call_tool("enable_toolset", {"category": "runtime"})
+    await client.call_tool("godot_enable_toolset", {"category": "runtime"})
 
 
 async def test_runtime_tool_is_gated_off_by_default() -> None:
     runner = FakeRunner(RunOutput(command=["fake"]))
     server, _ = _build(runner)
     async with Client(server) as client:
-        assert "run_and_capture" not in {t.name for t in await client.list_tools()}
+        assert "godot_runtime_run_and_capture" not in {t.name for t in await client.list_tools()}
         await _enable_runtime(client)
-        assert "run_and_capture" in {t.name for t in await client.list_tools()}
+        assert "godot_runtime_run_and_capture" in {t.name for t in await client.list_tools()}
 
 
 async def test_run_and_capture_summarizes_output() -> None:
@@ -75,7 +75,9 @@ async def test_run_and_capture_summarizes_output() -> None:
     server, _ = _build(runner)
     async with Client(server) as client:
         await _enable_runtime(client)
-        result = await client.call_tool("run_and_capture", {"scene": "res://main.tscn"})
+        result = await client.call_tool(
+            "godot_runtime_run_and_capture", {"scene": "res://main.tscn"}
+        )
     payload = result.structured_content
     assert payload["ran"] is True
     assert payload["exit_code"] == 0
@@ -91,7 +93,9 @@ async def test_run_and_capture_is_runtime_safety_class() -> None:
     server, _ = _build(runner)
     async with Client(server) as client:
         await _enable_runtime(client)
-        tool = next(t for t in await client.list_tools() if t.name == "run_and_capture")
+        tool = next(
+            t for t in await client.list_tools() if t.name == "godot_runtime_run_and_capture"
+        )
     assert tool.meta is not None and tool.meta.get("safety_class") == "runtime"
 
 
@@ -100,7 +104,7 @@ async def test_missing_binary_is_structured_error() -> None:
     server, _ = _build(runner)
     async with Client(server) as client:
         await _enable_runtime(client)
-        result = await client.call_tool("run_and_capture", {}, raise_on_error=False)
+        result = await client.call_tool("godot_runtime_run_and_capture", {}, raise_on_error=False)
     assert result.is_error
     content = str(result.content)
     assert "Godot binary not found" in content
@@ -120,5 +124,5 @@ async def test_project_dir_resolved_from_bridge_when_unset() -> None:
     server = create_server(config, bridge=bridge, runner=runner)
     async with Client(server) as client:
         await _enable_runtime(client)
-        await client.call_tool("run_and_capture", {})
+        await client.call_tool("godot_runtime_run_and_capture", {})
     assert runner.calls[0][0] == "/editor/proj"

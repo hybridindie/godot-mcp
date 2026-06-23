@@ -72,14 +72,14 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 async def test_gated_in_particles_toolset() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        assert "create_particles" not in {t.name for t in await client.list_tools()}
-        await client.call_tool("enable_toolset", {"category": "particles"})
+        assert "godot_particles_create" not in {t.name for t in await client.list_tools()}
+        await client.call_tool("godot_enable_toolset", {"category": "particles"})
         tools = {t.name: t for t in await client.list_tools()}
     expected = {
-        "create_particles",
-        "set_particle_material",
-        "set_particle_color_gradient",
-        "apply_particle_preset",
+        "godot_particles_create",
+        "godot_particles_set_material",
+        "godot_particles_set_color_gradient",
+        "godot_particles_apply_preset",
     }
     assert expected <= set(tools)
     assert all(tools[n].meta["safety_class"] == "mutating" for n in expected)
@@ -88,13 +88,13 @@ async def test_gated_in_particles_toolset() -> None:
 async def test_create_and_configure_material() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "particles"})
+        await client.call_tool("godot_enable_toolset", {"category": "particles"})
         created = await client.call_tool(
-            "create_particles",
+            "godot_particles_create",
             {"parent_path": ".", "particles_type": "GPUParticles3D", "amount": 64},
         )
         mat = await client.call_tool(
-            "set_particle_material",
+            "godot_particles_set_material",
             {"node_path": "GPUParticles3D", "properties": {"spread": 30.0}},
         )
     assert created.structured_content["particles_type"] == "GPUParticles3D"
@@ -105,13 +105,13 @@ async def test_create_and_configure_material() -> None:
 async def test_color_gradient_and_preset() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "particles"})
+        await client.call_tool("godot_enable_toolset", {"category": "particles"})
         grad = await client.call_tool(
-            "set_particle_color_gradient",
+            "godot_particles_set_color_gradient",
             {"node_path": "GPUParticles2D", "colors": ["#ffee88", "#ff6600", "#00000000"]},
         )
         preset = await client.call_tool(
-            "apply_particle_preset", {"node_path": "GPUParticles2D", "preset": "fire"}
+            "godot_particles_apply_preset", {"node_path": "GPUParticles2D", "preset": "fire"}
         )
     assert grad.structured_content["stops"] == 3
     assert preset.structured_content["preset"] == "fire"
@@ -120,9 +120,9 @@ async def test_color_gradient_and_preset() -> None:
 async def test_dry_run_sends_no_mutation() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "particles"})
+        await client.call_tool("godot_enable_toolset", {"category": "particles"})
         result = await client.call_tool(
-            "apply_particle_preset",
+            "godot_particles_apply_preset",
             {"node_path": "GPUParticles2D", "preset": "smoke", "dry_run": True},
         )
     assert result.structured_content["dry_run"] is True
@@ -133,8 +133,10 @@ async def test_get_particle_material_reads_props_and_ramp() -> None:
     # #219 P4: read the process_material props + color ramp — inverts the writers.
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "particles"})
-        result = await client.call_tool("get_particle_material", {"node_path": "GPUParticles2D"})
+        await client.call_tool("godot_enable_toolset", {"category": "particles"})
+        result = await client.call_tool(
+            "godot_particles_get_material", {"node_path": "GPUParticles2D"}
+        )
         tools = {t.name: t for t in await client.list_tools()}
     data = result.structured_content
     assert data["has_material"] is True
@@ -142,6 +144,6 @@ async def test_get_particle_material_reads_props_and_ramp() -> None:
     assert data["properties"]["gravity"] == {"x": 0.0, "y": -98.0, "z": 0.0}
     assert data["color_ramp"]["offsets"] == [0.0, 1.0]
     assert data["color_ramp"]["colors"][0] == {"r": 1.0, "g": 1.0, "b": 1.0, "a": 1.0}
-    assert tools["get_particle_material"].meta["safety_class"] == "read_only"
+    assert tools["godot_particles_get_material"].meta["safety_class"] == "read_only"
     cmds = [CommandEnvelope.model_validate_json(s).command for s in conn.sent]
     assert "cmd_get_particle_material" in cmds

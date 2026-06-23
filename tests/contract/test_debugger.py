@@ -44,10 +44,15 @@ def _build() -> tuple[FastMCP, FakeAddonConnection]:
 async def test_gated_in_debugger_toolset() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        assert "set_breakpoint" not in {t.name for t in await client.list_tools()}
-        await client.call_tool("enable_toolset", {"category": "debugger"})
+        assert "godot_debugger_set_breakpoint" not in {t.name for t in await client.list_tools()}
+        await client.call_tool("godot_enable_toolset", {"category": "debugger"})
         tools = {t.name: t for t in await client.list_tools()}
-    expected = {"set_breakpoint", "remove_breakpoint", "clear_breakpoints", "force_break"}
+    expected = {
+        "godot_debugger_set_breakpoint",
+        "godot_debugger_remove_breakpoint",
+        "godot_debugger_clear_breakpoints",
+        "godot_debugger_force_break",
+    }
     assert expected <= set(tools)
     assert all(tools[n].meta["safety_class"] == "runtime" for n in expected)
 
@@ -55,8 +60,10 @@ async def test_gated_in_debugger_toolset() -> None:
 async def test_set_breakpoint() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "debugger"})
-        result = await client.call_tool("set_breakpoint", {"path": "res://player.gd", "line": 42})
+        await client.call_tool("godot_enable_toolset", {"category": "debugger"})
+        result = await client.call_tool(
+            "godot_debugger_set_breakpoint", {"path": "res://player.gd", "line": 42}
+        )
     sc = result.structured_content
     assert sc["breakpoint_set"] is True
     assert sc["path"] == "res://player.gd"
@@ -66,9 +73,9 @@ async def test_set_breakpoint() -> None:
 async def test_remove_breakpoint() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "debugger"})
+        await client.call_tool("godot_enable_toolset", {"category": "debugger"})
         result = await client.call_tool(
-            "remove_breakpoint", {"path": "res://player.gd", "line": 42}
+            "godot_debugger_remove_breakpoint", {"path": "res://player.gd", "line": 42}
         )
     sc = result.structured_content
     assert sc["breakpoint_removed"] is True
@@ -79,14 +86,14 @@ async def test_remove_breakpoint() -> None:
 async def test_clear_breakpoints() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "debugger"})
-        result = await client.call_tool("clear_breakpoints", {})
+        await client.call_tool("godot_enable_toolset", {"category": "debugger"})
+        result = await client.call_tool("godot_debugger_clear_breakpoints", {})
     assert result.structured_content["breakpoints_cleared"] is True
 
 
 async def test_force_break() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "debugger"})
-        result = await client.call_tool("force_break", {})
+        await client.call_tool("godot_enable_toolset", {"category": "debugger"})
+        result = await client.call_tool("godot_debugger_force_break", {})
     assert result.structured_content["force_break_sent"] is True

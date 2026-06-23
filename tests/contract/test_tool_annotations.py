@@ -67,6 +67,6 @@ async def test_annotations_visible_on_public_surface() -> None:
     async with Client(server) as client:
         tools = {t.name: t for t in await client.list_tools()}
 
-    health = tools["health_check"]
+    health = tools["godot_health_check"]
     assert health.annotations is not None
     assert health.annotations.readOnlyHint is True

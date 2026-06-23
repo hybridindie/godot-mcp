@@ -52,15 +52,16 @@ def test_toolset_discovery_prompt_returns_messages(server: Any) -> None:
     assert len(result.messages) > 0
     # The message content should mention list_toolsets and enable_toolset.
     content = " ".join(str(m.content) for m in result.messages)
-    assert "list_toolsets" in content
-    assert "enable_toolset" in content
+    assert "godot_list_toolsets" in content
+    assert "godot_enable_toolset" in content
 
 
 def test_build_scene_prompt_parameterized(server: Any) -> None:
     """The build_scene prompt accepts scene_path and root_type arguments."""
     result = asyncio.run(
         _render_prompt(
-            server, "build_scene",
+            server,
+            "build_scene",
             {"scene_path": "res://level.tscn", "root_type": "Node3D"},
         )
     )
@@ -76,15 +77,16 @@ def test_play_test_prompt_parameterized(server: Any) -> None:
     assert result is not None
     content = " ".join(str(m.content) for m in result.messages)
     assert "res://demo.tscn" in content
-    assert "play_scene" in content
-    assert "get_game_scene_tree" in content
+    assert "godot_runtime_play_scene" in content
+    assert "godot_runtime_get_game_scene_tree" in content
 
 
 def test_script_edit_prompt_parameterized(server: Any) -> None:
     """The script_edit prompt accepts script_path and node_path arguments."""
     result = asyncio.run(
         _render_prompt(
-            server, "script_edit",
+            server,
+            "script_edit",
             {
                 "script_path": "res://scripts/hero.gd",
                 "node_path": "./Hero",
@@ -95,8 +97,8 @@ def test_script_edit_prompt_parameterized(server: Any) -> None:
     content = " ".join(str(m.content) for m in result.messages)
     assert "res://scripts/hero.gd" in content
     assert "./Hero" in content
-    assert "write_script" in content
-    assert "patch_script" in content
+    assert "godot_scripts_write" in content
+    assert "godot_scripts_patch" in content
 
 
 def test_troubleshoot_prompt_returns_messages(server: Any) -> None:
@@ -105,7 +107,7 @@ def test_troubleshoot_prompt_returns_messages(server: Any) -> None:
     assert result is not None
     assert len(result.messages) > 0
     content = " ".join(str(m.content) for m in result.messages)
-    assert "get_server_info" in content
+    assert "godot_get_server_info" in content
     assert "bridge is disconnected" in content
     assert "PRECONDITION_FAILED" in content
     assert "DOCUMENTATION" in content

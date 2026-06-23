@@ -41,5 +41,5 @@ def test_shared_protocol_is_self_consistent() -> None:
     assert GATING_INTRO in TOOLSET_PROTOCOL
     assert COMMON_TOOLSETS in TOOLSET_PROTOCOL
     # And it still names the two calls the agent must make.
-    assert "list_toolsets" in TOOLSET_PROTOCOL
-    assert "enable_toolset" in TOOLSET_PROTOCOL
+    assert "godot_list_toolsets" in TOOLSET_PROTOCOL
+    assert "godot_enable_toolset" in TOOLSET_PROTOCOL

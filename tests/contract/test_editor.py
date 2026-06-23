@@ -17,7 +17,8 @@ pytestmark = pytest.mark.asyncio
 
 # 1x1 red PNG.
 _PNG_B64 = (
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8"
+    "BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
 )
 
 
@@ -37,11 +38,11 @@ def _server() -> FastMCP:
 
 async def test_gated_in_editor_toolset() -> None:
     async with Client(_server()) as client:
-        assert "capture_editor_screenshot" not in {t.name for t in await client.list_tools()}
-        await client.call_tool("enable_toolset", {"category": "editor"})
+        assert "godot_editor_capture_screenshot" not in {t.name for t in await client.list_tools()}
+        await client.call_tool("godot_enable_toolset", {"category": "editor"})
         tools = {t.name: t for t in await client.list_tools()}
-    assert "capture_editor_screenshot" in tools
-    assert tools["capture_editor_screenshot"].meta["safety_class"] == "read_only"
+    assert "godot_editor_capture_screenshot" in tools
+    assert tools["godot_editor_capture_screenshot"].meta["safety_class"] == "read_only"
 
 
 async def test_malformed_base64_is_structured_error() -> None:
@@ -52,16 +53,16 @@ async def test_malformed_base64_is_structured_error() -> None:
     bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
     server = create_server(ServerConfig(), bridge=bridge)
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "editor"})
-        result = await client.call_tool("capture_editor_screenshot", {}, raise_on_error=False)
+        await client.call_tool("godot_enable_toolset", {"category": "editor"})
+        result = await client.call_tool("godot_editor_capture_screenshot", {}, raise_on_error=False)
     assert result.is_error
     assert "base64" in str(result.content)
 
 
 async def test_capture_returns_image_content() -> None:
     async with Client(_server()) as client:
-        await client.call_tool("enable_toolset", {"category": "editor"})
-        result = await client.call_tool("capture_editor_screenshot", {})
+        await client.call_tool("godot_enable_toolset", {"category": "editor"})
+        result = await client.call_tool("godot_editor_capture_screenshot", {})
     image_blocks = [b for b in result.content if type(b).__name__ == "ImageContent"]
     assert image_blocks, f"expected an image content block, got {result.content}"
     block = image_blocks[0]

@@ -40,13 +40,17 @@ def _poster(
 async def test_no_webhook_auto_approves() -> None:
     gate = ApprovalGate()  # webhook_url is None
     # Must not raise and must not attempt any POST.
-    await gate.require(action="delete_node", safety_class="destructive", params={"node_path": "X"})
+    await gate.require(
+        action="godot_scene_edit_delete_node", safety_class="destructive", params={"node_path": "X"}
+    )
 
 
 async def test_webhook_approval_passes() -> None:
     poster, seen = _poster(ApprovalResponse(approved=True))
     gate = ApprovalGate(webhook_url="http://hook", poster=poster)
-    await gate.require(action="delete_node", safety_class="destructive", params={"node_path": "X"})
+    await gate.require(
+        action="godot_scene_edit_delete_node", safety_class="destructive", params={"node_path": "X"}
+    )
     assert len(seen) == 1
 
 
@@ -54,7 +58,9 @@ async def test_webhook_denial_raises_precondition() -> None:
     poster, _ = _poster(ApprovalResponse(approved=False, reason="nope"))
     gate = ApprovalGate(webhook_url="http://hook", poster=poster)
     with pytest.raises(PreconditionError) as exc:
-        await gate.require(action="delete_node", safety_class="destructive", params={})
+        await gate.require(
+            action="godot_scene_edit_delete_node", safety_class="destructive", params={}
+        )
     assert exc.value.error == "APPROVAL_DENIED"
     assert "nope" in exc.value.hint
 
@@ -63,13 +69,13 @@ async def test_request_payload_carries_context() -> None:
     poster, seen = _poster()
     gate = ApprovalGate(webhook_url="http://hook", poster=poster, clock=lambda: 123.0)
     await gate.require(
-        action="delete_node",
+        action="godot_scene_edit_delete_node",
         safety_class="destructive",
         params={"node_path": "Enemy"},
         task_context="cleanup",
     )
     req = seen[0]
-    assert req.action == "delete_node"
+    assert req.action == "godot_scene_edit_delete_node"
     assert req.safety_class == "destructive"
     assert req.params == {"node_path": "Enemy"}
     assert req.task_context == "cleanup"
@@ -79,14 +85,18 @@ async def test_request_payload_carries_context() -> None:
 async def test_unreachable_webhook_fails_open_by_default() -> None:
     poster, _ = _poster(raises=TimeoutError("boom"))
     gate = ApprovalGate(webhook_url="http://hook", poster=poster, fail_open=True)
-    await gate.require(action="delete_node", safety_class="destructive", params={})  # no raise
+    await gate.require(
+        action="godot_scene_edit_delete_node", safety_class="destructive", params={}
+    )  # no raise
 
 
 async def test_unreachable_webhook_can_fail_closed() -> None:
     poster, _ = _poster(raises=TimeoutError("boom"))
     gate = ApprovalGate(webhook_url="http://hook", poster=poster, fail_open=False)
     with pytest.raises(PreconditionError) as exc:
-        await gate.require(action="delete_node", safety_class="destructive", params={})
+        await gate.require(
+            action="godot_scene_edit_delete_node", safety_class="destructive", params={}
+        )
     assert exc.value.error == "APPROVAL_DENIED"
 
 
@@ -103,7 +113,7 @@ async def test_from_config_reads_fields() -> None:
 async def test_from_config_without_webhook_is_noop() -> None:
     gate = ApprovalGate.from_config(ServerConfig())
     assert gate.webhook_url is None
-    await gate.require(action="delete_node", safety_class="destructive", params={})
+    await gate.require(action="godot_scene_edit_delete_node", safety_class="destructive", params={})
 
 
 async def test_well_formed_response_parses() -> None:
@@ -126,5 +136,7 @@ async def test_malformed_response_denies_even_when_fail_open() -> None:
 
     gate = ApprovalGate(webhook_url="http://hook", poster=malformed, fail_open=True)
     with pytest.raises(PreconditionError) as exc:
-        await gate.require(action="delete_node", safety_class="destructive", params={})
+        await gate.require(
+            action="godot_scene_edit_delete_node", safety_class="destructive", params={}
+        )
     assert exc.value.error == "APPROVAL_DENIED"

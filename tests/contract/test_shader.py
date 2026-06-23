@@ -58,27 +58,29 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 async def test_gated_in_shader_toolset_with_safety_classes() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        assert "create_shader" not in {t.name for t in await client.list_tools()}
-        await client.call_tool("enable_toolset", {"category": "shader"})
+        assert "godot_shader_create" not in {t.name for t in await client.list_tools()}
+        await client.call_tool("godot_enable_toolset", {"category": "shader"})
         tools = {t.name: t for t in await client.list_tools()}
-    mutating = {"create_shader", "assign_shader_material", "set_shader_param"}
+    mutating = {"godot_shader_create", "godot_shader_assign_material", "godot_shader_set_param"}
     assert mutating <= set(tools)
     assert all(tools[n].meta["safety_class"] == "mutating" for n in mutating)
-    assert tools["read_shader"].meta["safety_class"] == "read_only"
+    assert tools["godot_shader_read"].meta["safety_class"] == "read_only"
 
 
 async def test_create_read_assign_set() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "shader"})
-        created = await client.call_tool("create_shader", {"shader_path": "res://fx.gdshader"})
-        read = await client.call_tool("read_shader", {"shader_path": "res://fx.gdshader"})
+        await client.call_tool("godot_enable_toolset", {"category": "shader"})
+        created = await client.call_tool(
+            "godot_shader_create", {"shader_path": "res://fx.gdshader"}
+        )
+        read = await client.call_tool("godot_shader_read", {"shader_path": "res://fx.gdshader"})
         assigned = await client.call_tool(
-            "assign_shader_material",
+            "godot_shader_assign_material",
             {"node_path": "Sprite2D", "shader_path": "res://fx.gdshader"},
         )
         param = await client.call_tool(
-            "set_shader_param",
+            "godot_shader_set_param",
             {"node_path": "Sprite2D", "name": "strength", "value": 0.5, "param_type": "float"},
         )
     assert created.structured_content["created"] is True
@@ -90,8 +92,8 @@ async def test_create_read_assign_set() -> None:
 async def test_default_code_passed_when_omitted() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "shader"})
-        await client.call_tool("create_shader", {"shader_path": "res://fx.gdshader"})
+        await client.call_tool("godot_enable_toolset", {"category": "shader"})
+        await client.call_tool("godot_shader_create", {"shader_path": "res://fx.gdshader"})
     sent = [
         CommandEnvelope.model_validate_json(s)
         for s in conn.sent
@@ -103,9 +105,9 @@ async def test_default_code_passed_when_omitted() -> None:
 async def test_dry_run_sends_no_mutation() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "shader"})
+        await client.call_tool("godot_enable_toolset", {"category": "shader"})
         result = await client.call_tool(
-            "create_shader", {"shader_path": "res://fx.gdshader", "dry_run": True}
+            "godot_shader_create", {"shader_path": "res://fx.gdshader", "dry_run": True}
         )
     assert result.structured_content["dry_run"] is True
     assert "cmd_create_shader" not in _commands(conn)

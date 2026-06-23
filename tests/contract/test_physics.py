@@ -56,10 +56,15 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 async def test_gated_in_physics_toolset() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        assert "setup_collision" not in {t.name for t in await client.list_tools()}
-        await client.call_tool("enable_toolset", {"category": "physics"})
+        assert "godot_physics_setup_collision" not in {t.name for t in await client.list_tools()}
+        await client.call_tool("godot_enable_toolset", {"category": "physics"})
         tools = {t.name: t for t in await client.list_tools()}
-    expected = {"setup_physics_body", "setup_collision", "set_physics_layers", "add_raycast"}
+    expected = {
+        "godot_physics_setup_body",
+        "godot_physics_setup_collision",
+        "godot_physics_set_layers",
+        "godot_physics_add_raycast",
+    }
     assert expected <= set(tools)
     assert all(tools[n].meta["safety_class"] == "mutating" for n in expected)
 
@@ -67,9 +72,9 @@ async def test_gated_in_physics_toolset() -> None:
 async def test_setup_collision_and_layers() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "physics"})
+        await client.call_tool("godot_enable_toolset", {"category": "physics"})
         col = await client.call_tool(
-            "setup_collision",
+            "godot_physics_setup_collision",
             {
                 "node_path": "Body",
                 "shape_type": "RectangleShape2D",
@@ -77,7 +82,7 @@ async def test_setup_collision_and_layers() -> None:
             },
         )
         layers = await client.call_tool(
-            "set_physics_layers", {"node_path": "Body", "layers": [1, 3], "mask": [2]}
+            "godot_physics_set_layers", {"node_path": "Body", "layers": [1, 3], "mask": [2]}
         )
     assert col.structured_content["created"] is True
     assert layers.structured_content["collision_layer"] == 5
@@ -87,12 +92,12 @@ async def test_setup_collision_and_layers() -> None:
 async def test_setup_body_and_raycast() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "physics"})
+        await client.call_tool("godot_enable_toolset", {"category": "physics"})
         body = await client.call_tool(
-            "setup_physics_body", {"node_path": "Body", "properties": {"mass": 5}}
+            "godot_physics_setup_body", {"node_path": "Body", "properties": {"mass": 5}}
         )
         ray = await client.call_tool(
-            "add_raycast",
+            "godot_physics_add_raycast",
             {
                 "parent_path": ".",
                 "name": "Ray",
@@ -106,9 +111,9 @@ async def test_setup_body_and_raycast() -> None:
 async def test_dry_run_sends_no_mutation() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "physics"})
+        await client.call_tool("godot_enable_toolset", {"category": "physics"})
         result = await client.call_tool(
-            "set_physics_layers", {"node_path": "Body", "layers": [1], "dry_run": True}
+            "godot_physics_set_layers", {"node_path": "Body", "layers": [1], "dry_run": True}
         )
     assert result.structured_content["dry_run"] is True
     assert "cmd_set_physics_layers" not in _commands(conn)

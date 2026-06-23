@@ -68,10 +68,14 @@ def _build() -> tuple[FastMCP, FakeAddonConnection]:
 async def test_gated_read_only_in_runtime_toolset() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        assert "find_ui_elements" not in {t.name for t in await client.list_tools()}
-        await client.call_tool("enable_toolset", {"category": "runtime"})
+        assert "godot_runtime_find_ui_elements" not in {t.name for t in await client.list_tools()}
+        await client.call_tool("godot_enable_toolset", {"category": "runtime"})
         tools = {t.name: t for t in await client.list_tools()}
-    expected = {"monitor_property", "get_property_samples", "find_ui_elements"}
+    expected = {
+        "godot_runtime_monitor_property",
+        "godot_runtime_get_property_samples",
+        "godot_runtime_find_ui_elements",
+    }
     assert expected <= set(tools)
     assert all(tools[n].meta["safety_class"] == "read_only" for n in expected)
 
@@ -79,12 +83,12 @@ async def test_gated_read_only_in_runtime_toolset() -> None:
 async def test_monitor_and_collect_samples() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "runtime"})
+        await client.call_tool("godot_enable_toolset", {"category": "runtime"})
         mon = await client.call_tool(
-            "monitor_property",
+            "godot_runtime_monitor_property",
             {"node_path": "/root/Main", "property": "position", "samples": 5},
         )
-        samples = await client.call_tool("get_property_samples", {})
+        samples = await client.call_tool("godot_runtime_get_property_samples", {})
     assert mon.structured_content["monitoring"] is True
     assert mon.structured_content["samples"] == 5
     sc = samples.structured_content
@@ -95,9 +99,9 @@ async def test_monitor_and_collect_samples() -> None:
 async def test_find_ui_elements() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "runtime"})
+        await client.call_tool("godot_enable_toolset", {"category": "runtime"})
         result = await client.call_tool(
-            "find_ui_elements", {"class_filter": "Button", "visible_only": True}
+            "godot_runtime_find_ui_elements", {"class_filter": "Button", "visible_only": True}
         )
     sc = result.structured_content
     assert sc["ready"] is True

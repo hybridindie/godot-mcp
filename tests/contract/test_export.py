@@ -78,21 +78,23 @@ def _build(runner: FakeRunner) -> tuple[FastMCP, FakeAddonConnection]:
 async def test_gated_with_safety_classes() -> None:
     server, _ = _build(FakeRunner(RunOutput(command=["fake"])))
     async with Client(server) as client:
-        assert "export_project" not in {t.name for t in await client.list_tools()}
-        await client.call_tool("enable_toolset", {"category": "export"})
+        assert "godot_export_project" not in {t.name for t in await client.list_tools()}
+        await client.call_tool("godot_enable_toolset", {"category": "export"})
         tools = {t.name: t for t in await client.list_tools()}
-    assert {"list_export_presets", "get_export_info", "export_project"} <= set(tools)
-    assert tools["list_export_presets"].meta["safety_class"] == "read_only"
-    assert tools["get_export_info"].meta["safety_class"] == "read_only"
-    assert tools["export_project"].meta["safety_class"] == "runtime"
+    assert {"godot_export_list_presets", "godot_export_get_info", "godot_export_project"} <= set(
+        tools
+    )
+    assert tools["godot_export_list_presets"].meta["safety_class"] == "read_only"
+    assert tools["godot_export_get_info"].meta["safety_class"] == "read_only"
+    assert tools["godot_export_project"].meta["safety_class"] == "runtime"
 
 
 async def test_list_presets_and_info() -> None:
     server, _ = _build(FakeRunner(RunOutput(command=["fake"])))
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "export"})
-        presets = await client.call_tool("list_export_presets", {})
-        info = await client.call_tool("get_export_info", {})
+        await client.call_tool("godot_enable_toolset", {"category": "export"})
+        presets = await client.call_tool("godot_export_list_presets", {})
+        info = await client.call_tool("godot_export_get_info", {})
     assert presets.structured_content["presets"][0]["name"] == "Linux"
     assert info.structured_content["preset_names"] == ["Linux", "Web"]
 
@@ -101,9 +103,9 @@ async def test_export_project_runs_known_preset() -> None:
     runner = FakeRunner(RunOutput(command=["godot", "--export-release"], stdout="ok", exit_code=0))
     server, _ = _build(runner)
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "export"})
+        await client.call_tool("godot_enable_toolset", {"category": "export"})
         result = await client.call_tool(
-            "export_project", {"preset": "Linux", "output_path": "build/game.x86_64"}
+            "godot_export_project", {"preset": "Linux", "output_path": "build/game.x86_64"}
         )
     sc = result.structured_content
     assert sc["exported"] is True and sc["exit_code"] == 0
@@ -114,9 +116,9 @@ async def test_export_project_runs_known_preset() -> None:
 async def test_export_project_rejects_unknown_preset() -> None:
     server, _ = _build(FakeRunner(RunOutput(command=["fake"])))
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "export"})
+        await client.call_tool("godot_enable_toolset", {"category": "export"})
         result = await client.call_tool(
-            "export_project", {"preset": "Nope", "output_path": "x"}, raise_on_error=False
+            "godot_export_project", {"preset": "Nope", "output_path": "x"}, raise_on_error=False
         )
     assert result.is_error and "Nope" in str(result.content)
 
@@ -124,8 +126,8 @@ async def test_export_project_rejects_unknown_preset() -> None:
 async def test_export_project_requires_binary() -> None:
     server, _ = _build(FakeRunner(RunOutput(command=["fake"]), binary=None))
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "export"})
+        await client.call_tool("godot_enable_toolset", {"category": "export"})
         result = await client.call_tool(
-            "export_project", {"preset": "Linux", "output_path": "x"}, raise_on_error=False
+            "godot_export_project", {"preset": "Linux", "output_path": "x"}, raise_on_error=False
         )
     assert result.is_error and "godot_bin" in str(result.content)

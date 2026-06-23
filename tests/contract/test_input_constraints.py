@@ -78,4 +78,4 @@ async def test_out_of_range_rejected_before_bridge() -> None:
     server: FastMCP = create_server()
     async with Client(server) as client:
         with pytest.raises(ToolError):
-            await client.call_tool("get_scene_tree", {"max_depth": -5})
+            await client.call_tool("godot_inspection_get_scene_tree", {"max_depth": -5})

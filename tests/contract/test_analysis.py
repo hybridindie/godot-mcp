@@ -52,19 +52,19 @@ def _server(project_dir: Path) -> FastMCP:
 async def test_gated_read_only_in_analysis_toolset(tmp_path: Path) -> None:
     _make_project(tmp_path)
     async with Client(_server(tmp_path)) as client:
-        assert "project_stats" not in {t.name for t in await client.list_tools()}
-        await client.call_tool("enable_toolset", {"category": "analysis"})
+        assert "godot_analysis_project_stats" not in {t.name for t in await client.list_tools()}
+        await client.call_tool("godot_enable_toolset", {"category": "analysis"})
         tools = {t.name: t for t in await client.list_tools()}
     expected = {
-        "find_unused_resources",
-        "analyze_signal_flow",
-        "detect_circular_dependencies",
-        "project_stats",
-        "project_structure",
-        "analyze_dependencies",
-        "find_orphaned_resources",
-        "validate_scene_integrity",
-        "cross_scene_find_refs",
+        "godot_analysis_find_unused_resources",
+        "godot_analysis_analyze_signal_flow",
+        "godot_analysis_detect_circular_dependencies",
+        "godot_analysis_project_stats",
+        "godot_analysis_project_structure",
+        "godot_analysis_analyze_dependencies",
+        "godot_analysis_find_orphaned_resources",
+        "godot_analysis_validate_scene_integrity",
+        "godot_analysis_cross_scene_find_refs",
     }
     assert expected <= set(tools)
     assert all(tools[n].meta["safety_class"] == "read_only" for n in expected)
@@ -73,8 +73,8 @@ async def test_gated_read_only_in_analysis_toolset(tmp_path: Path) -> None:
 async def test_project_structure_returns_inventory(tmp_path: Path) -> None:
     _make_project(tmp_path)
     async with Client(_server(tmp_path)) as client:
-        await client.call_tool("enable_toolset", {"category": "analysis"})
-        result = await client.call_tool("project_structure", {})
+        await client.call_tool("godot_enable_toolset", {"category": "analysis"})
+        result = await client.call_tool("godot_analysis_project_structure", {})
     data = result.structured_content
     assert "res://main.tscn" in data["scenes"]
     assert "res://unused.png" in data["resources"]
@@ -84,9 +84,9 @@ async def test_project_structure_returns_inventory(tmp_path: Path) -> None:
 async def test_find_unused_and_signal_flow(tmp_path: Path) -> None:
     _make_project(tmp_path)
     async with Client(_server(tmp_path)) as client:
-        await client.call_tool("enable_toolset", {"category": "analysis"})
-        unused = await client.call_tool("find_unused_resources", {})
-        flow = await client.call_tool("analyze_signal_flow", {})
+        await client.call_tool("godot_enable_toolset", {"category": "analysis"})
+        unused = await client.call_tool("godot_analysis_find_unused_resources", {})
+        flow = await client.call_tool("godot_analysis_analyze_signal_flow", {})
     assert "res://unused.png" in unused.structured_content["unused"]
     assert "res://used.png" not in unused.structured_content["unused"]
     conn = flow.structured_content["connections"][0]
@@ -97,8 +97,8 @@ async def test_find_unused_and_signal_flow(tmp_path: Path) -> None:
 async def test_project_stats(tmp_path: Path) -> None:
     _make_project(tmp_path)
     async with Client(_server(tmp_path)) as client:
-        await client.call_tool("enable_toolset", {"category": "analysis"})
-        stats = await client.call_tool("project_stats", {})
+        await client.call_tool("godot_enable_toolset", {"category": "analysis"})
+        stats = await client.call_tool("godot_analysis_project_stats", {})
     sc = stats.structured_content
     assert sc["scenes"] == 1 and sc["total_nodes"] == 2 and sc["connections"] == 1
 
@@ -106,8 +106,8 @@ async def test_project_stats(tmp_path: Path) -> None:
 async def test_missing_project_dir_is_precondition_error(tmp_path: Path) -> None:
     missing = tmp_path / "does_not_exist"
     async with Client(_server(missing)) as client:
-        await client.call_tool("enable_toolset", {"category": "analysis"})
-        result = await client.call_tool("project_stats", {}, raise_on_error=False)
+        await client.call_tool("godot_enable_toolset", {"category": "analysis"})
+        result = await client.call_tool("godot_analysis_project_stats", {}, raise_on_error=False)
     assert result.is_error
     assert "project_dir" in str(result.content)
 
@@ -133,9 +133,9 @@ async def test_analyze_dependencies(tmp_path: Path) -> None:
     )
     (tmp_path / "explosion.tscn").write_bytes(b"\x00")  # binary-ish stub
     async with Client(_server(tmp_path)) as client:
-        await client.call_tool("enable_toolset", {"category": "analysis"})
+        await client.call_tool("godot_enable_toolset", {"category": "analysis"})
         deps = await client.call_tool(
-            "analyze_dependencies", {"resource_path": "res://player.gd"}
+            "godot_analysis_analyze_dependencies", {"resource_path": "res://player.gd"}
         )
     sc = deps.structured_content
     assert sc["path"] == "res://player.gd"
@@ -156,8 +156,8 @@ async def test_find_orphaned_resources(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     async with Client(_server(tmp_path)) as client:
-        await client.call_tool("enable_toolset", {"category": "analysis"})
-        orphans = await client.call_tool("find_orphaned_resources", {})
+        await client.call_tool("godot_enable_toolset", {"category": "analysis"})
+        orphans = await client.call_tool("godot_analysis_find_orphaned_resources", {})
     sc = orphans.structured_content
     assert any(o["path"] == "res://orphan.png" for o in sc["orphaned"])
     assert all(o["path"] != "res://used.png" for o in sc["orphaned"])
@@ -178,16 +178,13 @@ async def test_validate_scene_integrity(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     async with Client(_server(tmp_path)) as client:
-        await client.call_tool("enable_toolset", {"category": "analysis"})
+        await client.call_tool("godot_enable_toolset", {"category": "analysis"})
         integrity = await client.call_tool(
-            "validate_scene_integrity", {"scene_path": "res://main.tscn"}
+            "godot_analysis_validate_scene_integrity", {"scene_path": "res://main.tscn"}
         )
     sc = integrity.structured_content
     assert sc["valid"] is False
-    assert any(
-        e["severity"] == "error" and "missing.gd" in e["message"]
-        for e in sc["errors"]
-    )
+    assert any(e["severity"] == "error" and "missing.gd" in e["message"] for e in sc["errors"])
 
 
 async def test_cross_scene_find_refs(tmp_path: Path) -> None:
@@ -209,9 +206,9 @@ async def test_cross_scene_find_refs(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     async with Client(_server(tmp_path)) as client:
-        await client.call_tool("enable_toolset", {"category": "analysis"})
+        await client.call_tool("godot_enable_toolset", {"category": "analysis"})
         refs = await client.call_tool(
-            "cross_scene_find_refs", {"target_path": "res://shared.gd"}
+            "godot_analysis_cross_scene_find_refs", {"target_path": "res://shared.gd"}
         )
     sc = refs.structured_content
     assert "res://a.tscn" in sc["scenes"]

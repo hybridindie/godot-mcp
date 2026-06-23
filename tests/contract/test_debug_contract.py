@@ -29,14 +29,14 @@ async def _render_prompt(server: Any, name: str, arguments: dict[str, str] | Non
 
 def test_debug_workflow_tool_exists(server: Any) -> None:
     """debug_workflow is registered and callable."""
-    result_text = asyncio.run(_call_tool(server, "debug_workflow"))
+    result_text = asyncio.run(_call_tool(server, "godot_debug_workflow"))
     assert "findings" in result_text
     assert "suggestions" in result_text
 
 
 def test_debug_workflow_reports_bridge_state(server: Any) -> None:
     """The debug report always includes bridge connectivity."""
-    result_text = asyncio.run(_call_tool(server, "debug_workflow"))
+    result_text = asyncio.run(_call_tool(server, "godot_debug_workflow"))
     assert "bridge" in result_text
 
 
@@ -51,22 +51,23 @@ def test_debug_scene_prompt_content(server: Any) -> None:
     """The debug_scene prompt mentions all debugging phases."""
     result = asyncio.run(_render_prompt(server, "debug_scene"))
     content = " ".join(str(m.content) for m in result.messages)
-    assert "debug_workflow" in content
-    assert "get_parse_errors" in content
-    assert "get_scene_tree" in content
-    assert "analyze_signal_flow" in content
-    assert "run_and_capture" in content
-    assert "play_scene" in content
-    assert "monitor_property" in content
-    assert "detect_circular_dependencies" in content
-    assert "find_unused_resources" in content
+    assert "godot_debug_workflow" in content
+    assert "godot_scripts_get_parse_errors" in content
+    assert "godot_inspection_get_scene_tree" in content
+    assert "godot_analysis_analyze_signal_flow" in content
+    assert "godot_runtime_run_and_capture" in content
+    assert "godot_runtime_play_scene" in content
+    assert "godot_runtime_monitor_property" in content
+    assert "godot_analysis_detect_circular_dependencies" in content
+    assert "godot_analysis_find_unused_resources" in content
 
 
 def test_debug_scene_prompt_parameterized(server: Any) -> None:
     """The debug_scene prompt accepts scene_path and script_path."""
     result = asyncio.run(
         _render_prompt(
-            server, "debug_scene",
+            server,
+            "debug_scene",
             {
                 "scene_path": "res://level.tscn",
                 "script_path": "res://scripts/hero.gd",

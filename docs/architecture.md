@@ -142,7 +142,7 @@ parameter (`-1` = unlimited, `0` = the node with no children). Node detail seria
 
 ## Runtime execution (issue #13)
 
-The `run_and_capture` tool is the one place the server launches a **Godot process
+The `godot_runtime_run_and_capture` tool is the one place the server launches a **Godot process
 directly** (`godot --headless --path <project> [scene]`) rather than going through
 the bridge. This is a deliberate, reasoned exception to "the bridge is the only path
 to Godot" (Article II): running the game for verification is *process execution*,
@@ -150,7 +150,7 @@ not *editor control*, and Godot exposes no public GDScript API to read the edito
 Output/error log, so the addon cannot capture a separate game process's stdio. The
 bridge stays the only path for editor control; the runner is isolated in
 `mcp_server/runtime.py` with an injected subprocess so it stays testable. The runner also
-drives `export_project` (issue #50) — `godot --headless --export-release|--export-debug` —
+drives `godot_export_project` (issue #50) — `godot --headless --export-release|--export-debug` —
 for the same reason (process execution, not editor control).
 
 ## Runtime session bridge (issue #66)
@@ -184,7 +184,7 @@ property samples, find-UI, input injection, performance monitors).
 ## Health check
 
 `ping` → `pong` is the canonical liveness probe and the first contract test (issue #3).
-The server's `health_check` tool (issue #4) reports server version plus bridge connection
+The server's `godot_health_check` tool (issue #4) reports server version plus bridge connection
 state, built on this probe.
 
 ## MCP surface capabilities (auto-discovery)
@@ -201,6 +201,6 @@ play_test, script_edit, debug_scene, troubleshoot). Discoverable via `list_promp
 renderable via `render_prompt()`.
 - **Resources** — `godot://project/info`, `godot://scene/current`, `godot://scene/tree`,
 `godot://node/selected`. Read-only snapshots refreshed on access.
-- **`get_server_info`** — a single `core` tool that returns everything: toolset summaries
+- **`godot_get_server_info`** — a single `core` tool that returns everything: toolset summaries
 with per-category tool counts, prompt/resource lists, bridge state, active scene, 8 common
 errors with fixes, and suggested next steps.

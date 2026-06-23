@@ -59,14 +59,14 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 async def test_gated_in_navigation_toolset() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        assert "setup_navigation_region" not in {t.name for t in await client.list_tools()}
-        await client.call_tool("enable_toolset", {"category": "navigation"})
+        assert "godot_navigation_setup_region" not in {t.name for t in await client.list_tools()}
+        await client.call_tool("godot_enable_toolset", {"category": "navigation"})
         tools = {t.name: t for t in await client.list_tools()}
     expected = {
-        "setup_navigation_region",
-        "setup_navigation_agent",
-        "bake_navigation_mesh",
-        "set_navigation_layers",
+        "godot_navigation_setup_region",
+        "godot_navigation_setup_agent",
+        "godot_navigation_bake_mesh",
+        "godot_navigation_set_layers",
     }
     assert expected <= set(tools)
     assert all(tools[n].meta["safety_class"] == "mutating" for n in expected)
@@ -75,16 +75,18 @@ async def test_gated_in_navigation_toolset() -> None:
 async def test_region_agent_and_bake() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "navigation"})
+        await client.call_tool("godot_enable_toolset", {"category": "navigation"})
         region = await client.call_tool(
-            "setup_navigation_region",
+            "godot_navigation_setup_region",
             {"parent_path": ".", "region_type": "NavigationRegion3D"},
         )
         agent = await client.call_tool(
-            "setup_navigation_agent",
+            "godot_navigation_setup_agent",
             {"parent_path": ".", "properties": {"radius": 12.0}},
         )
-        baked = await client.call_tool("bake_navigation_mesh", {"node_path": "NavigationRegion3D"})
+        baked = await client.call_tool(
+            "godot_navigation_bake_mesh", {"node_path": "NavigationRegion3D"}
+        )
     assert region.structured_content["region_type"] == "NavigationRegion3D"
     assert region.structured_content["node_path"] == "./NavigationRegion3D"
     assert agent.structured_content["agent_type"] == "NavigationAgent2D"
@@ -94,9 +96,9 @@ async def test_region_agent_and_bake() -> None:
 async def test_set_navigation_layers_bitmask() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "navigation"})
+        await client.call_tool("godot_enable_toolset", {"category": "navigation"})
         layers = await client.call_tool(
-            "set_navigation_layers", {"node_path": "NavigationRegion2D", "layers": [1, 3]}
+            "godot_navigation_set_layers", {"node_path": "NavigationRegion2D", "layers": [1, 3]}
         )
     assert layers.structured_content["navigation_layers"] == 5
 
@@ -104,9 +106,9 @@ async def test_set_navigation_layers_bitmask() -> None:
 async def test_dry_run_sends_no_mutation() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "navigation"})
+        await client.call_tool("godot_enable_toolset", {"category": "navigation"})
         result = await client.call_tool(
-            "bake_navigation_mesh", {"node_path": "NavigationRegion3D", "dry_run": True}
+            "godot_navigation_bake_mesh", {"node_path": "NavigationRegion3D", "dry_run": True}
         )
     assert result.structured_content["dry_run"] is True
     assert "cmd_bake_navigation_mesh" not in _commands(conn)

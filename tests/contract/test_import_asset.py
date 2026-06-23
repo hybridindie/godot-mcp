@@ -67,18 +67,22 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 async def test_gated_in_asset_import_toolset() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        assert "import_asset" not in {t.name for t in await client.list_tools()}
-        await client.call_tool("enable_toolset", {"category": "asset_import"})
+        assert "godot_asset_import_asset" not in {t.name for t in await client.list_tools()}
+        await client.call_tool("godot_enable_toolset", {"category": "asset_import"})
         names = {t.name for t in await client.list_tools()}
-    assert {"import_asset", "create_material_from_textures", "get_import_status"} <= names
+    assert {
+        "godot_asset_import_asset",
+        "godot_asset_import_create_material_from_textures",
+        "godot_asset_import_get_status",
+    } <= names
 
 
 async def test_import_asset_success() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "asset_import"})
+        await client.call_tool("godot_enable_toolset", {"category": "asset_import"})
         result = await client.call_tool(
-            "import_asset",
+            "godot_asset_import_asset",
             {"source": "res://temp/download.png", "target_path": "res://assets/download.png"},
         )
     assert result.structured_content["imported"] is True
@@ -97,12 +101,10 @@ async def test_import_asset_with_url_download_cleanup() -> None:
     assert os.path.exists(tmp)
 
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "asset_import"})
-        with patch(
-            "mcp_server.tools.import_asset._download_url", return_value=tmp
-        ):
+        await client.call_tool("godot_enable_toolset", {"category": "asset_import"})
+        with patch("mcp_server.tools.import_asset._download_url", return_value=tmp):
             result = await client.call_tool(
-                "import_asset",
+                "godot_asset_import_asset",
                 {
                     "source": "https://example.com/img.png",
                     "target_path": "res://assets/img.png",
@@ -118,9 +120,9 @@ async def test_import_asset_with_url_download_cleanup() -> None:
 async def test_import_asset_dry_run() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "asset_import"})
+        await client.call_tool("godot_enable_toolset", {"category": "asset_import"})
         dry = await client.call_tool(
-            "import_asset",
+            "godot_asset_import_asset",
             {
                 "source": "https://example.com/img.png",
                 "target_path": "res://assets/img.png",
@@ -135,9 +137,9 @@ async def test_import_asset_dry_run() -> None:
 async def test_create_material_from_textures() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "asset_import"})
+        await client.call_tool("godot_enable_toolset", {"category": "asset_import"})
         result = await client.call_tool(
-            "create_material_from_textures",
+            "godot_asset_import_create_material_from_textures",
             {
                 "albedo": "res://tex/albedo.png",
                 "normal": "res://tex/normal.png",
@@ -153,9 +155,9 @@ async def test_create_material_from_textures() -> None:
 async def test_create_material_dry_run() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "asset_import"})
+        await client.call_tool("godot_enable_toolset", {"category": "asset_import"})
         dry = await client.call_tool(
-            "create_material_from_textures",
+            "godot_asset_import_create_material_from_textures",
             {"albedo": "res://tex/a.png", "dry_run": True},
         )
     assert dry.structured_content["dry_run"] is True
@@ -166,9 +168,9 @@ async def test_create_material_dry_run() -> None:
 async def test_get_import_status() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "asset_import"})
+        await client.call_tool("godot_enable_toolset", {"category": "asset_import"})
         result = await client.call_tool(
-            "get_import_status", {"target_path": "res://assets/download.png"}
+            "godot_asset_import_get_status", {"target_path": "res://assets/download.png"}
         )
     assert result.structured_content["imported"] is True
     assert result.structured_content["type"] == "Texture2D"
@@ -178,14 +180,16 @@ async def test_get_import_status() -> None:
 async def test_import_asset_safety_class() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "asset_import"})
-        tool = next(t for t in await client.list_tools() if t.name == "import_asset")
+        await client.call_tool("godot_enable_toolset", {"category": "asset_import"})
+        tool = next(t for t in await client.list_tools() if t.name == "godot_asset_import_asset")
     assert tool.meta is not None and tool.meta.get("safety_class") == "mutating"
 
 
 async def test_get_import_status_is_read_only() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "asset_import"})
-        tool = next(t for t in await client.list_tools() if t.name == "get_import_status")
+        await client.call_tool("godot_enable_toolset", {"category": "asset_import"})
+        tool = next(
+            t for t in await client.list_tools() if t.name == "godot_asset_import_get_status"
+        )
     assert tool.meta is not None and tool.meta.get("safety_class") == "read_only"

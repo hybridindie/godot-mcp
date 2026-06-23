@@ -78,7 +78,7 @@ async def test_structured_error_passes_through() -> None:
     conn = FakeAddonConnection(responder=fail)
     bridge = await _connected_bridge(conn)
 
-    resp = await bridge.send("create_node")
+    resp = await bridge.send("godot_scene_edit_create_node")
     assert resp.ok is False
     assert resp.error == "PRECONDITION_FAILED"
     assert resp.hint == "Open a scene first."

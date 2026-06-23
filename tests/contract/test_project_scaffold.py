@@ -52,18 +52,18 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 async def test_gated_in_project_scaffold_toolset() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        assert "scaffold_project" not in {t.name for t in await client.list_tools()}
-        await client.call_tool("enable_toolset", {"category": "project_scaffold"})
+        assert "godot_project_scaffold" not in {t.name for t in await client.list_tools()}
+        await client.call_tool("godot_enable_toolset", {"category": "project_scaffold"})
         names = {t.name for t in await client.list_tools()}
-    assert "scaffold_project" in names
+    assert "godot_project_scaffold" in names
 
 
 async def test_scaffold_project_success() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "project_scaffold"})
+        await client.call_tool("godot_enable_toolset", {"category": "project_scaffold"})
         result = await client.call_tool(
-            "scaffold_project",
+            "godot_project_scaffold",
             {
                 "type": "2d_platformer",
                 "project_name": "JumpQuest",
@@ -79,10 +79,10 @@ async def test_scaffold_project_success() -> None:
 async def test_scaffold_project_requires_confirm() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "project_scaffold"})
+        await client.call_tool("godot_enable_toolset", {"category": "project_scaffold"})
         with pytest.raises(Exception) as exc:
             await client.call_tool(
-                "scaffold_project",
+                "godot_project_scaffold",
                 {"type": "3d_fps", "project_name": "Shooter"},
             )
     assert "confirm" in str(exc.value).lower() or "PRECONDITION_FAILED" in str(exc.value)
@@ -92,9 +92,9 @@ async def test_scaffold_project_requires_confirm() -> None:
 async def test_scaffold_project_dry_run() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "project_scaffold"})
+        await client.call_tool("godot_enable_toolset", {"category": "project_scaffold"})
         dry = await client.call_tool(
-            "scaffold_project",
+            "godot_project_scaffold",
             {
                 "type": "visual_novel",
                 "project_name": "Story",
@@ -110,17 +110,17 @@ async def test_scaffold_project_dry_run() -> None:
 async def test_scaffold_project_safety_class() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "project_scaffold"})
-        tool = next(t for t in await client.list_tools() if t.name == "scaffold_project")
+        await client.call_tool("godot_enable_toolset", {"category": "project_scaffold"})
+        tool = next(t for t in await client.list_tools() if t.name == "godot_project_scaffold")
     assert tool.meta is not None and tool.meta.get("safety_class") == "destructive"
 
 
 async def test_scaffold_project_defaults() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "project_scaffold"})
+        await client.call_tool("godot_enable_toolset", {"category": "project_scaffold"})
         await client.call_tool(
-            "scaffold_project",
+            "godot_project_scaffold",
             {"type": "top_down_rpg", "project_name": "RPG", "confirm": True},
         )
     last = CommandEnvelope.model_validate_json(conn.sent[-1])

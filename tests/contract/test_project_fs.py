@@ -71,19 +71,27 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 async def test_gated_in_project_toolset() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        assert "get_filesystem_tree" not in {t.name for t in await client.list_tools()}
-        await client.call_tool("enable_toolset", {"category": "project"})
+        assert "godot_project_get_filesystem_tree" not in {
+            t.name for t in await client.list_tools()
+        }
+        await client.call_tool("godot_enable_toolset", {"category": "project"})
         names = {t.name for t in await client.list_tools()}
-    expected = {"get_filesystem_tree", "search_files", "get_setting", "set_setting", "resolve_uid"}
+    expected = {
+        "godot_project_get_filesystem_tree",
+        "godot_project_search_files",
+        "godot_project_get_setting",
+        "godot_project_set_setting",
+        "godot_project_resolve_uid",
+    }
     assert expected <= names
 
 
 async def test_filesystem_tree_and_search() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "project"})
-        tree = await client.call_tool("get_filesystem_tree", {"directory": "res://"})
-        found = await client.call_tool("search_files", {"name_glob": "*.gd"})
+        await client.call_tool("godot_enable_toolset", {"category": "project"})
+        tree = await client.call_tool("godot_project_get_filesystem_tree", {"directory": "res://"})
+        found = await client.call_tool("godot_project_search_files", {"name_glob": "*.gd"})
     assert tree.structured_content["tree"]["children"][0]["name"] == "a.gd"
     assert found.structured_content["matches"] == ["res://a.gd", "res://b.gd"]
 
@@ -91,9 +99,11 @@ async def test_filesystem_tree_and_search() -> None:
 async def test_get_setting_exists_and_missing() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "project"})
-        present = await client.call_tool("get_setting", {"name": "application/config/name"})
-        missing = await client.call_tool("get_setting", {"name": "nope/key"})
+        await client.call_tool("godot_enable_toolset", {"category": "project"})
+        present = await client.call_tool(
+            "godot_project_get_setting", {"name": "application/config/name"}
+        )
+        missing = await client.call_tool("godot_project_get_setting", {"name": "nope/key"})
     assert present.structured_content == {
         "name": "application/config/name",
         "value": "demo",
@@ -105,11 +115,11 @@ async def test_get_setting_exists_and_missing() -> None:
 async def test_set_setting_safety_and_dry_run() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "project"})
-        tool = next(t for t in await client.list_tools() if t.name == "set_setting")
+        await client.call_tool("godot_enable_toolset", {"category": "project"})
+        tool = next(t for t in await client.list_tools() if t.name == "godot_project_set_setting")
         assert tool.meta is not None and tool.meta.get("safety_class") == "mutating"
         dry = await client.call_tool(
-            "set_setting", {"name": "x/y", "value": 1, "dry_run": True}
+            "godot_project_set_setting", {"name": "x/y", "value": 1, "dry_run": True}
         )
     assert dry.structured_content["dry_run"] is True
     assert "cmd_set_setting" not in _commands(conn)
@@ -118,9 +128,9 @@ async def test_set_setting_safety_and_dry_run() -> None:
 async def test_resolve_uid_both_directions() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "project"})
-        from_path = await client.call_tool("resolve_uid", {"value": "res://a.gd"})
-        from_uid = await client.call_tool("resolve_uid", {"value": "uid://abc123"})
+        await client.call_tool("godot_enable_toolset", {"category": "project"})
+        from_path = await client.call_tool("godot_project_resolve_uid", {"value": "res://a.gd"})
+        from_uid = await client.call_tool("godot_project_resolve_uid", {"value": "uid://abc123"})
     assert from_path.structured_content["uid"] == "uid://abc123"
     assert from_uid.structured_content["path"] == "res://a.gd"
     assert "cmd_path_to_uid" in _commands(conn) and "cmd_uid_to_path" in _commands(conn)
@@ -130,9 +140,9 @@ async def test_delete_resource_file_requires_confirm() -> None:
     # Destructive: without confirm (and not a dry_run) it must refuse, not delete.
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "project"})
+        await client.call_tool("godot_enable_toolset", {"category": "project"})
         result = await client.call_tool(
-            "delete_resource_file", {"path": "res://gen.tres"}, raise_on_error=False
+            "godot_project_delete_resource_file", {"path": "res://gen.tres"}, raise_on_error=False
         )
     assert result.is_error
     assert "confirm" in str(result.content)
@@ -142,9 +152,9 @@ async def test_delete_resource_file_requires_confirm() -> None:
 async def test_delete_resource_file_dry_run_previews() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "project"})
+        await client.call_tool("godot_enable_toolset", {"category": "project"})
         dry = await client.call_tool(
-            "delete_resource_file", {"path": "res://gen.tres", "dry_run": True}
+            "godot_project_delete_resource_file", {"path": "res://gen.tres", "dry_run": True}
         )
     assert dry.structured_content["deleted"] is False
     assert dry.structured_content["dry_run"] is True
@@ -154,9 +164,9 @@ async def test_delete_resource_file_dry_run_previews() -> None:
 async def test_delete_resource_file_confirmed_deletes() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "project"})
+        await client.call_tool("godot_enable_toolset", {"category": "project"})
         done = await client.call_tool(
-            "delete_resource_file", {"path": "res://gen.tres", "confirm": True}
+            "godot_project_delete_resource_file", {"path": "res://gen.tres", "confirm": True}
         )
     data = done.structured_content
     assert data["deleted"] is True and data["had_uid"] is True
@@ -167,14 +177,14 @@ async def test_delete_resource_file_rejects_escape() -> None:
     # res:// containment (#205): a traversal/non-res path is rejected before the bridge.
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "project"})
+        await client.call_tool("godot_enable_toolset", {"category": "project"})
         escape = await client.call_tool(
-            "delete_resource_file",
+            "godot_project_delete_resource_file",
             {"path": "res://../secret.tres", "confirm": True},
             raise_on_error=False,
         )
         absolute = await client.call_tool(
-            "delete_resource_file",
+            "godot_project_delete_resource_file",
             {"path": "/etc/passwd", "confirm": True},
             raise_on_error=False,
         )
@@ -185,6 +195,6 @@ async def test_delete_resource_file_rejects_escape() -> None:
 async def test_delete_resource_file_is_destructive() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "project"})
+        await client.call_tool("godot_enable_toolset", {"category": "project"})
         tools = {t.name: t for t in await client.list_tools()}
-    assert tools["delete_resource_file"].meta["safety_class"] == "destructive"
+    assert tools["godot_project_delete_resource_file"].meta["safety_class"] == "destructive"

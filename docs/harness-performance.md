@@ -6,11 +6,11 @@ The server can't parallelize past that — the only levers are **fatter commands
 **fewer commands**. This doc collects the patterns a scripted harness (the eval runner,
 any MCP client) uses to stay off that ceiling. They are game-agnostic and complement the
 server-side wins (#166 dropped a redundant preflight round-trip per mutation; #168 added
-a lightweight `get_scene_tree` mode).
+a lightweight `godot_inspection_get_scene_tree` mode).
 
-## 1. Batch arbitrary commands — `run_commands` (#167)
+## 1. Batch arbitrary commands — `godot_composite_run_commands` (#167)
 
-When you have N commands to run, send them as **one** `run_commands` batch instead of N
+When you have N commands to run, send them as **one** `godot_composite_run_commands` batch instead of N
 tool calls. The addon executes the whole list in a single frame and returns one envelope
 per command, so N round-trips collapse to one. Each sub-mutation still wraps its own
 `UndoRedo` action; order is preserved.
@@ -25,12 +25,12 @@ run_commands({
 })
 ```
 
-Use this for **ordered** sequences and for writes. `run_commands` cannot be nested.
+Use this for **ordered** sequences and for writes. `godot_composite_run_commands` cannot be nested.
 
 ## 2. Pipeline independent reads — `gather_reads` (#169)
 
-A discovery phase often issues many *independent* reads (`get_scene_tree`,
-`get_node_properties`, …). Awaiting each in turn pays ~one frame of latency per read. The
+A discovery phase often issues many *independent* reads (`godot_inspection_get_scene_tree`,
+`godot_inspection_get_node_properties`, …). Awaiting each in turn pays ~one frame of latency per read. The
 bridge correlates responses by `id`, so many reads can be **in flight at once**: fired
 together, the addon answers them all in ~one frame — an O(N)-frame discovery phase becomes
 ~O(1).
@@ -50,11 +50,11 @@ tree, player_props, enemy_props = await gather_reads(bridge, [
 
 Only read-only commands pipeline safely — the editor is a single writer, so writes must
 stay ordered. `gather_reads` rejects any non-read command with a `ValueError`; batch
-writes with `run_commands` instead. See `READ_ONLY_COMMANDS` in `mcp_server/harness.py`
+writes with `godot_composite_run_commands` instead. See `READ_ONLY_COMMANDS` in `mcp_server/harness.py`
 for the allowed set.
 
-> Pipeline reads vs. `run_commands` for reads: both get N reads back in ~one frame.
-> `run_commands` is one tool call (good when going through the MCP tool surface);
+> Pipeline reads vs. `godot_composite_run_commands` for reads: both get N reads back in ~one frame.
+> `godot_composite_run_commands` is one tool call (good when going through the MCP tool surface);
 > `gather_reads` is a direct-bridge helper (good for a harness that already holds a
 > `Bridge`, e.g. the eval runner). Pick whichever your call path already uses.
 

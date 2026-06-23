@@ -73,8 +73,8 @@ async def test_run_tests_streams_progress_and_logs(tmp_path: Path) -> None:
         logs.append(str(params.data))
 
     async with Client(server, progress_handler=on_progress, log_handler=on_log) as client:
-        await client.call_tool("enable_toolset", {"category": "testing"})
-        await client.call_tool("run_tests", {"test_dir": "res://test"})
+        await client.call_tool("godot_enable_toolset", {"category": "testing"})
+        await client.call_tool("godot_testing_run_tests", {"test_dir": "res://test"})
 
     assert progress, "expected at least one progress update from run_tests"
     assert logs, "expected at least one structured log message from run_tests"

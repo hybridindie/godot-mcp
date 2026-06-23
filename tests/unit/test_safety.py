@@ -155,9 +155,9 @@ async def test_require_node_exists_does_not_mislabel_other_failures() -> None:
 
 
 def test_require_confirmation() -> None:
-    require_confirmation(True, "delete_node")  # must not raise
+    require_confirmation(True, "godot_scene_edit_delete_node")  # must not raise
     with pytest.raises(PreconditionError) as exc:
-        require_confirmation(False, "delete_node")
+        require_confirmation(False, "godot_scene_edit_delete_node")
     assert exc.value.required == "confirm"
 
 

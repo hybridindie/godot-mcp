@@ -25,8 +25,13 @@ pytestmark = pytest.mark.asyncio
 
 def _big_tree() -> dict[str, Any]:
     children: list[dict[str, Any]] = [
-        {"name": f"Node{i}", "type": "Sprite2D", "path": f"Root/Node{i}", "script": None,
-         "children": []}
+        {
+            "name": f"Node{i}",
+            "type": "Sprite2D",
+            "path": f"Root/Node{i}",
+            "script": None,
+            "children": [],
+        }
         for i in range(700)
     ]
     return {"name": "Root", "type": "Node2D", "path": ".", "script": None, "children": children}
@@ -59,9 +64,9 @@ def _server() -> FastMCP:
 
 async def test_find_nodes_by_type_paginates() -> None:
     async with Client(_server()) as client:
-        await client.call_tool("enable_toolset", {"category": "batch"})
+        await client.call_tool("godot_enable_toolset", {"category": "batch"})
         result = await client.call_tool(
-            "find_nodes_by_type", {"node_type": "Sprite2D", "limit": 3, "offset": 0}
+            "godot_batch_find_nodes_by_type", {"node_type": "Sprite2D", "limit": 3, "offset": 0}
         )
     data = result.data
     assert len(data.nodes) == 3
@@ -72,8 +77,8 @@ async def test_find_nodes_by_type_paginates() -> None:
 
 async def test_list_scripts_paginates_last_page() -> None:
     async with Client(_server()) as client:
-        await client.call_tool("enable_toolset", {"category": "scripts"})
-        result = await client.call_tool("list_scripts", {"limit": 4, "offset": 8})
+        await client.call_tool("godot_enable_toolset", {"category": "scripts"})
+        result = await client.call_tool("godot_scripts_list", {"limit": 4, "offset": 8})
     data = result.data
     assert len(data.scripts) == 2
     assert data.total == 10
@@ -91,7 +96,7 @@ async def test_scene_tree_resource_is_char_capped() -> None:
 
 async def test_get_scene_tree_tool_marks_truncation() -> None:
     async with Client(_server()) as client:
-        result = await client.call_tool("get_scene_tree", {})
+        result = await client.call_tool("godot_inspection_get_scene_tree", {})
     assert result.data.truncated is True
     assert result.data.hint
 
@@ -111,7 +116,7 @@ async def test_get_scene_tree_tool_strictly_caps_when_lightweight_still_large() 
     conn = FakeAddonConnection(_always_big_responder)
     server = create_server(config, bridge=Bridge(config.bridge, connector=connector_for(conn)))
     async with Client(server) as client:
-        result = await client.call_tool("get_scene_tree", {})
+        result = await client.call_tool("godot_inspection_get_scene_tree", {})
     # Even the lightweight fallback is too big → tree dropped, payload bounded.
     assert result.data.truncated is True
     assert result.data.tree is None

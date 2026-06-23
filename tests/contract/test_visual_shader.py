@@ -82,9 +82,7 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                             "parameters": {"constant": {"r": 1.0, "g": 0.0, "b": 0.0, "a": 1.0}},
                         },
                     ],
-                    "connections": [
-                        {"from_node": 2, "from_port": 0, "to_node": 0, "to_port": 0}
-                    ],
+                    "connections": [{"from_node": 2, "from_port": 0, "to_node": 0, "to_port": 0}],
                 },
             )
     return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
@@ -103,24 +101,24 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 async def test_gated_in_visual_shader_toolset() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        assert "create_visual_shader" not in {t.name for t in await client.list_tools()}
-        await client.call_tool("enable_toolset", {"category": "visual_shader"})
+        assert "godot_visual_shader_create" not in {t.name for t in await client.list_tools()}
+        await client.call_tool("godot_enable_toolset", {"category": "visual_shader"})
         names = {t.name for t in await client.list_tools()}
     assert {
-        "create_visual_shader",
-        "add_shader_node",
-        "connect_shader_nodes",
-        "set_shader_node_param",
-        "list_shader_node_types",
+        "godot_visual_shader_create",
+        "godot_visual_shader_add_node",
+        "godot_visual_shader_connect_nodes",
+        "godot_visual_shader_set_node_param",
+        "godot_visual_shader_list_node_types",
     } <= names
 
 
 async def test_create_visual_shader() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "visual_shader"})
+        await client.call_tool("godot_enable_toolset", {"category": "visual_shader"})
         result = await client.call_tool(
-            "create_visual_shader",
+            "godot_visual_shader_create",
             {"name": "fire", "type": "3d", "path": "res://shaders/fire.tres"},
         )
     assert result.structured_content["created"] is True
@@ -131,19 +129,17 @@ async def test_create_visual_shader() -> None:
 async def test_create_visual_shader_defaults() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "visual_shader"})
-        result = await client.call_tool(
-            "create_visual_shader", {"name": "water"}
-        )
+        await client.call_tool("godot_enable_toolset", {"category": "visual_shader"})
+        result = await client.call_tool("godot_visual_shader_create", {"name": "water"})
     assert result.structured_content["path"] == "res://shaders/water.tres"
 
 
 async def test_add_shader_node() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "visual_shader"})
+        await client.call_tool("godot_enable_toolset", {"category": "visual_shader"})
         result = await client.call_tool(
-            "add_shader_node",
+            "godot_visual_shader_add_node",
             {
                 "shader_path": "res://shaders/fire.tres",
                 "node_type": "VisualShaderNodeColorConstant",
@@ -160,9 +156,9 @@ async def test_add_shader_node() -> None:
 async def test_connect_shader_nodes() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "visual_shader"})
+        await client.call_tool("godot_enable_toolset", {"category": "visual_shader"})
         result = await client.call_tool(
-            "connect_shader_nodes",
+            "godot_visual_shader_connect_nodes",
             {
                 "shader_path": "res://shaders/fire.tres",
                 "from_node": 1,
@@ -178,9 +174,9 @@ async def test_connect_shader_nodes() -> None:
 async def test_set_shader_node_param() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "visual_shader"})
+        await client.call_tool("godot_enable_toolset", {"category": "visual_shader"})
         result = await client.call_tool(
-            "set_shader_node_param",
+            "godot_visual_shader_set_node_param",
             {
                 "shader_path": "res://shaders/fire.tres",
                 "node_id": 1,
@@ -196,8 +192,8 @@ async def test_set_shader_node_param() -> None:
 async def test_list_shader_node_types_is_read_only() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "visual_shader"})
-        result = await client.call_tool("list_shader_node_types")
+        await client.call_tool("godot_enable_toolset", {"category": "visual_shader"})
+        result = await client.call_tool("godot_visual_shader_list_node_types")
     assert result.structured_content["types"]
     assert isinstance(result.structured_content["types"], list)
 
@@ -205,9 +201,9 @@ async def test_list_shader_node_types_is_read_only() -> None:
 async def test_mutating_tools_have_dry_run() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "visual_shader"})
+        await client.call_tool("godot_enable_toolset", {"category": "visual_shader"})
         dry = await client.call_tool(
-            "add_shader_node",
+            "godot_visual_shader_add_node",
             {
                 "shader_path": "res://shaders/x.tres",
                 "node_type": "VisualShaderNodeFloatConstant",
@@ -225,9 +221,9 @@ async def test_read_visual_shader_returns_graph() -> None:
     # #219 G6: read the VisualShader graph (nodes + connections) — inverts the writers.
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "visual_shader"})
+        await client.call_tool("godot_enable_toolset", {"category": "visual_shader"})
         result = await client.call_tool(
-            "read_visual_shader", {"shader_path": "res://shaders/fx.tres"}
+            "godot_visual_shader_read", {"shader_path": "res://shaders/fx.tres"}
         )
         tools = {t.name: t for t in await client.list_tools()}
     data = result.structured_content
@@ -238,5 +234,5 @@ async def test_read_visual_shader_returns_graph() -> None:
     assert color["parameters"]["constant"]["r"] == 1.0
     conn_edge = data["connections"][0]
     assert conn_edge["from_node"] == 2 and conn_edge["to_node"] == 0
-    assert tools["read_visual_shader"].meta["safety_class"] == "read_only"
+    assert tools["godot_visual_shader_read"].meta["safety_class"] == "read_only"
     assert "cmd_read_visual_shader" in _commands(conn)

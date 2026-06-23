@@ -13,14 +13,14 @@ from mcp_server.server import create_server
 
 # Every tool that takes a polymorphic ``value: Any``.
 VALUE_SETTERS = {
-    "set_setting",
-    "set_shader_param",
-    "set_shader_node_param",
-    "set_node_property",
-    "batch_set_property",
-    "cross_scene_set_property",
-    "insert_keyframe",
-    "set_resource_property",
+    "godot_project_set_setting",
+    "godot_shader_set_param",
+    "godot_visual_shader_set_node_param",
+    "godot_scene_edit_set_node_property",
+    "godot_batch_set_property",
+    "godot_batch_cross_scene_set_property",
+    "godot_animation_insert_keyframe",
+    "godot_resources_edit_set_resource_property",
 }
 
 # Concrete shape markers the docstring must mention to actually guide the agent.

@@ -36,10 +36,15 @@ def _build() -> tuple[FastMCP, FakeAddonConnection]:
 async def test_gated_read_only_in_profiling_toolset() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        assert "get_editor_performance" not in {t.name for t in await client.list_tools()}
-        await client.call_tool("enable_toolset", {"category": "profiling"})
+        assert "godot_profiling_get_editor_performance" not in {
+            t.name for t in await client.list_tools()
+        }
+        await client.call_tool("godot_enable_toolset", {"category": "profiling"})
         tools = {t.name: t for t in await client.list_tools()}
-    expected = {"get_editor_performance", "get_performance_monitors"}
+    expected = {
+        "godot_profiling_get_editor_performance",
+        "godot_profiling_get_performance_monitors",
+    }
     assert expected <= set(tools)
     assert all(tools[n].meta["safety_class"] == "read_only" for n in expected)
 
@@ -47,8 +52,8 @@ async def test_gated_read_only_in_profiling_toolset() -> None:
 async def test_editor_performance_returns_monitors() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "profiling"})
-        result = await client.call_tool("get_editor_performance", {})
+        await client.call_tool("godot_enable_toolset", {"category": "profiling"})
+        result = await client.call_tool("godot_profiling_get_editor_performance", {})
     monitors = result.structured_content["monitors"]
     assert monitors["fps"] == 60.0
     assert monitors["object_count"] == 42.0
@@ -57,8 +62,8 @@ async def test_editor_performance_returns_monitors() -> None:
 async def test_game_performance_monitors() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "profiling"})
-        result = await client.call_tool("get_performance_monitors", {})
+        await client.call_tool("godot_enable_toolset", {"category": "profiling"})
+        result = await client.call_tool("godot_profiling_get_performance_monitors", {})
     sc = result.structured_content
     assert sc["playing"] is True and sc["connected"] is True and sc["ready"] is True
     assert sc["monitors"]["memory_static"] == 1048576.0
@@ -83,7 +88,7 @@ async def test_game_performance_not_connected_returns_hint() -> None:
     bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
     server = create_server(ServerConfig(), bridge=bridge)
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "profiling"})
-        result = await client.call_tool("get_performance_monitors", {})
+        await client.call_tool("godot_enable_toolset", {"category": "profiling"})
+        result = await client.call_tool("godot_profiling_get_performance_monitors", {})
     assert result.structured_content["connected"] is False
     assert "probe" in result.structured_content["hint"]

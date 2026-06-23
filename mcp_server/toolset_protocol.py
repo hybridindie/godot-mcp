@@ -23,10 +23,10 @@ GATING_INTRO = (
 
 MANDATORY_PROTOCOL = (
     "MANDATORY PROTOCOL — follow this order exactly:\n"
-    "1. Call get_server_info() for a full capability snapshot "
+    "1. Call godot_get_server_info() for a full capability snapshot "
     "(toolsets, bridge state, troubleshooting).\n"
-    "2. Call list_toolsets() to see what is available and which are enabled.\n"
-    "3. Call enable_toolset(category) for EVERY category you plan to use.\n"
+    "2. Call godot_list_toolsets() to see what is available and which are enabled.\n"
+    "3. Call godot_enable_toolset(category) for EVERY category you plan to use.\n"
     "4. Only after enabling can you call the tools in that category.\n\n"
     "WARNING: skip step 3 and EVERY gated tool call fails with "
     "'ToolError: unknown tool'. There is NO fallback."
@@ -50,24 +50,27 @@ DECISION_TREE = (
 
 COMMON_TOOLSETS = (
     "Common toolsets you will need:\n"
-    "- scene_edit  → create_node, set_node_property, attach_script, save_scene\n"
-    "- scripts     → write_script, read_script, get_parse_errors\n"
-    "- runtime     → run_and_capture (headless), play_scene (editor)\n"
-    "- input       → simulate_action, simulate_key, play_input_sequence\n"
-    "- testing     → assert_node_state, run_test_scenario\n"
-    "- batch       → batch_set_property, find_nodes_by_type\n"
-    "- physics     → setup_physics_body, setup_collision\n"
-    "- resources_edit → register_autoload, create_resource\n"
-    "- asset_import → import_asset, create_material_from_textures"
+    "- scene_edit  → godot_scene_edit_create_node, godot_scene_edit_set_node_property, "
+    "godot_scene_edit_attach_script, godot_scene_edit_save_scene\n"
+    "- scripts     → godot_scripts_write, godot_scripts_read, godot_scripts_get_parse_errors\n"
+    "- runtime     → godot_runtime_run_and_capture (headless), godot_runtime_play_scene (editor)\n"
+    "- input       → godot_input_simulate_action, godot_input_simulate_key, "
+    "godot_input_play_sequence\n"
+    "- testing     → godot_testing_assert_node_state, godot_testing_run_test_scenario\n"
+    "- batch       → godot_batch_set_property, godot_batch_find_nodes_by_type\n"
+    "- physics     → godot_physics_setup_body, godot_physics_setup_collision\n"
+    "- resources_edit → godot_resources_edit_register_autoload, "
+    "godot_resources_edit_create_resource\n"
+    "- asset_import → godot_asset_import_asset, godot_asset_import_create_material_from_textures"
 )
 
 SERVER_VS_ADDON = (
     "SERVER VS ADDON BOUNDARY:\n"
-    "Some tools run in the Python server (list_toolsets, enable_toolset, "
-    "get_server_info) and never message Godot. Most tools send commands to the Godot "
+    "Some tools run in the Python server (godot_list_toolsets, godot_enable_toolset, "
+    "godot_get_server_info) and never message Godot. Most tools send commands to the Godot "
     "addon via a WebSocket bridge. 'ToolError: unknown tool' means the toolset is not "
     "enabled OR you confused a server-side tool with an addon tool — call "
-    "enable_toolset first."
+    "godot_enable_toolset first."
 )
 
 # The full gating protocol, shared verbatim by the server instructions and the
@@ -85,6 +88,6 @@ SERVER_INSTRUCTIONS = (
     + DOC_LINKS
     + "\n\nThis server also exposes workflow prompts (toolset_discovery, build_scene, "
     "play_test, script_edit, debug_scene, troubleshoot) and a diagnostics tool "
-    "(get_server_info) that returns tool counts, bridge state, active scene, and "
+    "(godot_get_server_info) that returns tool counts, bridge state, active scene, and "
     "common errors with fixes."
 )

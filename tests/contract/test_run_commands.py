@@ -62,18 +62,20 @@ async def test_run_commands_is_gated_mutating() -> None:
     server, _ = _build()
     async with Client(server) as client:
         before = {t.name for t in await client.list_tools()}
-        assert "run_commands" not in before, "run_commands must be gated off by default"
-        await client.call_tool("enable_toolset", {"category": "composite"})
+        assert "godot_composite_run_commands" not in before, (
+            "run_commands must be gated off by default"
+        )
+        await client.call_tool("godot_enable_toolset", {"category": "composite"})
         tools = {t.name: t for t in await client.list_tools()}
-    assert tools["run_commands"].meta["safety_class"] == "mutating"
+    assert tools["godot_composite_run_commands"].meta["safety_class"] == "mutating"
 
 
 async def test_run_commands_executes_batch_in_one_round_trip() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "composite"})
+        await client.call_tool("godot_enable_toolset", {"category": "composite"})
         result = await client.call_tool(
-            "run_commands",
+            "godot_composite_run_commands",
             {
                 "commands": [
                     {"command": "cmd_create_node", "params": {"parent_path": ".", "name": "A"}},
@@ -94,9 +96,9 @@ async def test_run_commands_executes_batch_in_one_round_trip() -> None:
 async def test_run_commands_stop_on_error_truncates() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "composite"})
+        await client.call_tool("godot_enable_toolset", {"category": "composite"})
         result = await client.call_tool(
-            "run_commands",
+            "godot_composite_run_commands",
             {
                 "commands": [
                     {"command": "cmd_set_node_property", "params": {"node_path": "Ghost"}},
@@ -114,9 +116,9 @@ async def test_run_commands_stop_on_error_truncates() -> None:
 async def test_run_commands_continue_on_error_runs_all() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "composite"})
+        await client.call_tool("godot_enable_toolset", {"category": "composite"})
         result = await client.call_tool(
-            "run_commands",
+            "godot_composite_run_commands",
             {
                 "commands": [
                     {"command": "cmd_set_node_property", "params": {"node_path": "Ghost"}},
@@ -134,9 +136,9 @@ async def test_run_commands_continue_on_error_runs_all() -> None:
 async def test_run_commands_dry_run_sends_nothing() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "composite"})
+        await client.call_tool("godot_enable_toolset", {"category": "composite"})
         result = await client.call_tool(
-            "run_commands",
+            "godot_composite_run_commands",
             {
                 "commands": [
                     {"command": "cmd_create_node", "params": {"parent_path": ".", "name": "A"}}
@@ -156,9 +158,9 @@ async def test_run_commands_rejects_nesting() -> None:
     # it. The server rejects the batch up front (either bare or cmd_ form), sending nothing.
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "composite"})
+        await client.call_tool("godot_enable_toolset", {"category": "composite"})
         result = await client.call_tool(
-            "run_commands",
+            "godot_composite_run_commands",
             {"commands": [{"command": "run_commands", "params": {"commands": []}}]},
             raise_on_error=False,
         )

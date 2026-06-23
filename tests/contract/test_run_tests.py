@@ -70,8 +70,8 @@ async def test_run_tests_returns_structured_results(tmp_path: Path) -> None:
     output = RunOutput(command=["gut"], stdout=_GUT_FAIL, exit_code=1)
     server, runner = _build(str(tmp_path), output)
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "testing"})
-        result = await client.call_tool("run_tests", {"test_dir": "res://test"})
+        await client.call_tool("godot_enable_toolset", {"category": "testing"})
+        result = await client.call_tool("godot_testing_run_tests", {"test_dir": "res://test"})
     data = result.data
     assert data.ran is True and data.framework == "gut" and data.framework_absent is False
     assert data.passed == 2 and data.failed == 1 and data.total == 3
@@ -84,8 +84,8 @@ async def test_run_tests_reports_framework_absent_without_launching(tmp_path: Pa
     # No addons/gut/ in the project.
     server, runner = _build(str(tmp_path), RunOutput(command=["gut"], stdout=_GUT_FAIL))
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "testing"})
-        result = await client.call_tool("run_tests", {})
+        await client.call_tool("godot_enable_toolset", {"category": "testing"})
+        result = await client.call_tool("godot_testing_run_tests", {})
     data = result.data
     assert data.framework_absent is True and data.ran is False
     assert runner.run_tests_calls == []  # never launched Godot
@@ -94,6 +94,6 @@ async def test_run_tests_reports_framework_absent_without_launching(tmp_path: Pa
 async def test_run_tests_in_testing_toolset(tmp_path: Path) -> None:
     server, _ = _build(str(tmp_path), RunOutput(command=["gut"]))
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "testing"})
+        await client.call_tool("godot_enable_toolset", {"category": "testing"})
         names = {t.name for t in await client.list_tools()}
-    assert "run_tests" in names
+    assert "godot_testing_run_tests" in names

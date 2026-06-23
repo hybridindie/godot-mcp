@@ -83,16 +83,16 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 async def test_gated_in_animation_toolset() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        assert "create_animation" not in {t.name for t in await client.list_tools()}
-        await client.call_tool("enable_toolset", {"category": "animation"})
+        assert "godot_animation_create" not in {t.name for t in await client.list_tools()}
+        await client.call_tool("godot_enable_toolset", {"category": "animation"})
         tools = {t.name: t for t in await client.list_tools()}
     expected = {
-        "create_animation",
-        "add_animation_track",
-        "insert_keyframe",
-        "create_animation_tree",
-        "add_state_machine_state",
-        "set_blend_tree_node",
+        "godot_animation_create",
+        "godot_animation_add_track",
+        "godot_animation_insert_keyframe",
+        "godot_animation_create_tree",
+        "godot_animation_add_state_machine_state",
+        "godot_animation_set_blend_tree_node",
     }
     assert expected <= set(tools)
     assert all(tools[n].meta["safety_class"] == "mutating" for n in expected)
@@ -101,12 +101,13 @@ async def test_gated_in_animation_toolset() -> None:
 async def test_create_animation_and_track_and_keyframe() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "animation"})
+        await client.call_tool("godot_enable_toolset", {"category": "animation"})
         anim = await client.call_tool(
-            "create_animation", {"node_path": "AnimationPlayer", "name": "walk", "length": 2.0}
+            "godot_animation_create",
+            {"node_path": "AnimationPlayer", "name": "walk", "length": 2.0},
         )
         track = await client.call_tool(
-            "add_animation_track",
+            "godot_animation_add_track",
             {
                 "node_path": "AnimationPlayer",
                 "animation": "walk",
@@ -114,7 +115,7 @@ async def test_create_animation_and_track_and_keyframe() -> None:
             },
         )
         key = await client.call_tool(
-            "insert_keyframe",
+            "godot_animation_insert_keyframe",
             {
                 "node_path": "AnimationPlayer",
                 "animation": "walk",
@@ -132,15 +133,16 @@ async def test_create_animation_and_track_and_keyframe() -> None:
 async def test_animation_tree_state_machine_and_blend_tree() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "animation"})
+        await client.call_tool("godot_enable_toolset", {"category": "animation"})
         tree = await client.call_tool(
-            "create_animation_tree", {"parent_path": ".", "name": "AnimationTree"}
+            "godot_animation_create_tree", {"parent_path": ".", "name": "AnimationTree"}
         )
         state = await client.call_tool(
-            "add_state_machine_state", {"tree_path": "./AnimationTree", "state_name": "idle"}
+            "godot_animation_add_state_machine_state",
+            {"tree_path": "./AnimationTree", "state_name": "idle"},
         )
         blend = await client.call_tool(
-            "set_blend_tree_node",
+            "godot_animation_set_blend_tree_node",
             {
                 "tree_path": "./AnimationTree",
                 "node_name": "anim",
@@ -155,9 +157,9 @@ async def test_animation_tree_state_machine_and_blend_tree() -> None:
 async def test_create_tree_dry_run_previews_path() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "animation"})
+        await client.call_tool("godot_enable_toolset", {"category": "animation"})
         result = await client.call_tool(
-            "create_animation_tree", {"parent_path": "World", "name": "SM", "dry_run": True}
+            "godot_animation_create_tree", {"parent_path": "World", "name": "SM", "dry_run": True}
         )
     # dry_run previews the scene-relative path (parent + name), not an empty string.
     assert result.structured_content["dry_run"] is True
@@ -168,9 +170,9 @@ async def test_create_tree_dry_run_previews_path() -> None:
 async def test_dry_run_sends_no_mutation() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "animation"})
+        await client.call_tool("godot_enable_toolset", {"category": "animation"})
         result = await client.call_tool(
-            "create_animation",
+            "godot_animation_create",
             {"node_path": "AnimationPlayer", "name": "walk", "dry_run": True},
         )
     assert result.structured_content["dry_run"] is True
@@ -181,10 +183,12 @@ async def test_list_and_get_animation_reads() -> None:
     # #218: read tools so animation writers become invertible (G4).
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "animation"})
-        listed = await client.call_tool("list_animations", {"node_path": "AnimationPlayer"})
+        await client.call_tool("godot_enable_toolset", {"category": "animation"})
+        listed = await client.call_tool(
+            "godot_animation_list_animations", {"node_path": "AnimationPlayer"}
+        )
         detail = await client.call_tool(
-            "get_animation", {"node_path": "AnimationPlayer", "animation_name": "walk"}
+            "godot_animation_get", {"node_path": "AnimationPlayer", "animation_name": "walk"}
         )
     assert listed.structured_content["animations"] == ["idle", "walk"]
     data = detail.structured_content
@@ -198,9 +202,9 @@ async def test_list_and_get_animation_reads() -> None:
 async def test_get_animation_missing_is_structured_error() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "animation"})
+        await client.call_tool("godot_enable_toolset", {"category": "animation"})
         result = await client.call_tool(
-            "get_animation",
+            "godot_animation_get",
             {"node_path": "AnimationPlayer", "animation_name": "missing"},
             raise_on_error=False,
         )
@@ -210,7 +214,7 @@ async def test_get_animation_missing_is_structured_error() -> None:
 async def test_animation_reads_are_read_only() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("enable_toolset", {"category": "animation"})
+        await client.call_tool("godot_enable_toolset", {"category": "animation"})
         tools = {t.name: t for t in await client.list_tools()}
-    assert tools["list_animations"].meta["safety_class"] == "read_only"
-    assert tools["get_animation"].meta["safety_class"] == "read_only"
+    assert tools["godot_animation_list_animations"].meta["safety_class"] == "read_only"
+    assert tools["godot_animation_get"].meta["safety_class"] == "read_only"
