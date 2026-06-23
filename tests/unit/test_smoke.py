@@ -48,7 +48,7 @@ def test_fastmcp_pinned_below_major_4() -> None:
     assert fastmcp is not None, "fastmcp dependency missing from pyproject"
     spec = fastmcp.replace(" ", "")
     assert ">=3.3" in spec, f"fastmcp must floor at the validated 3.3 line, got {fastmcp!r}"
-    assert "<4" in spec, f"fastmcp must be capped below 4.0 to avoid a breaking major, got {fastmcp!r}"
+    assert "<4" in spec, f"fastmcp must cap below the next major (4.0), got {fastmcp!r}"
 
 
 @pytest.mark.parametrize(
