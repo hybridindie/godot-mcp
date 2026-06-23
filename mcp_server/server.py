@@ -103,31 +103,17 @@ def create_server(
         lifespan=lifespan,
         instructions=SERVER_INSTRUCTIONS,
         website_url="https://github.com/hybridindie/godot-mcp",
+        # The dynamic fields (toolset_count / prompts / resources) are filled in
+        # from the live registry after registration; see _apply_capabilities below.
         experimental_capabilities={
             "godot_mcp": {
                 "version": "2026.06.01",
                 "min_godot": "4.4",
-                "toolset_count": 28,
                 "docs": {
                     "tutorial": "https://github.com/hybridindie/godot-mcp/blob/main/TUTORIAL.md",
                     "tool_contracts": "https://github.com/hybridindie/godot-mcp/blob/main/docs/tool-contracts.md",
                     "architecture": "https://github.com/hybridindie/godot-mcp/blob/main/docs/architecture.md",
                 },
-                "prompts": [
-                    "toolset_discovery",
-                    "build_scene",
-                    "play_test",
-                    "script_edit",
-                    "debug_scene",
-                    "troubleshoot",
-                ],
-                "resources": [
-                    "godot://project/info",
-                    "godot://scene/current",
-                    "godot://scene/tree",
-                    "godot://scene/tree/{max_depth}",
-                    "godot://node/selected",
-                ],
             }
         },
     )
@@ -184,4 +170,36 @@ def create_server(
     # tool's safety_class, for every tool incl. gated-off ones (issue #220).
     apply_safety_annotations(mcp)
 
+    # Fill the capabilities snapshot from the live registry so it can never drift
+    # from the real toolset / prompt / resource catalog (issue #231).
+    _apply_capabilities(mcp, manager)
+
     return mcp
+
+
+def _apply_capabilities(mcp: FastMCP, manager: ToolsetManager) -> None:
+    """Derive the dynamic ``experimental_capabilities`` fields from the live registry.
+
+    ``toolset_count`` is the gated toolsets plus the always-on ``core`` toolset
+    (i.e. everything ``list_toolsets`` reports); prompts and resources are read
+    straight from the registered components, including resource templates. The
+    component access is guarded so a FastMCP internals change degrades gracefully.
+    """
+    from fastmcp.prompts import Prompt
+    from fastmcp.resources import Resource, ResourceTemplate
+
+    prompts: list[str] = []
+    resources: list[str] = []
+    for provider in getattr(mcp, "providers", []):
+        for component in getattr(provider, "_components", {}).values():
+            if isinstance(component, Prompt):
+                prompts.append(component.name)
+            elif isinstance(component, ResourceTemplate):
+                resources.append(str(component.uri_template))
+            elif isinstance(component, Resource):
+                resources.append(str(component.uri))
+
+    caps = mcp.experimental_capabilities["godot_mcp"]
+    caps["toolset_count"] = len(manager.status())
+    caps["prompts"] = prompts
+    caps["resources"] = resources
