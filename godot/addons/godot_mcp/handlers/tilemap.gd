@@ -19,6 +19,7 @@ func register(handlers: Dictionary) -> void:
 	handlers["cmd_tilemap_clear"] = _cmd_tilemap_clear
 	handlers["cmd_tilemap_fill_rect"] = _cmd_tilemap_fill_rect
 	handlers["cmd_tilemap_get_cell"] = _cmd_tilemap_get_cell
+	handlers["cmd_tilemap_get_used_cells"] = _cmd_tilemap_get_used_cells
 	handlers["cmd_tilemap_layers"] = _cmd_tilemap_layers
 	handlers["cmd_tilemap_set_cell"] = _cmd_tilemap_set_cell
 
@@ -123,6 +124,32 @@ func _cmd_tilemap_get_cell(params: Dictionary) -> Dictionary:
 		"atlas_coords": [atlas.x, atlas.y],
 		"alternative_tile": cell["alternative_tile"],
 		"empty": cell["source_id"] == -1,
+	})
+
+
+## Bulk snapshot of every painted cell on a layer (issue #219 P3) — the inverse of
+## tilemap_fill_rect / tilemap_clear. Reuses the _used_cells + _read_tile_cell helpers.
+func _cmd_tilemap_get_used_cells(params: Dictionary) -> Dictionary:
+	var found := _resolve_tilemap(params.get("node_path", ""), int(params.get("layer", 0)))
+	if not found["ok"]:
+		return found
+	var node: Node = found["node"]
+	var layer := int(params.get("layer", 0))
+	var cells: Array = []
+	for coords in _used_cells(node, layer):
+		var cell := _read_tile_cell(node, layer, coords)
+		var atlas: Vector2i = cell["atlas_coords"]
+		cells.append({
+			"coords": [coords.x, coords.y],
+			"source_id": cell["source_id"],
+			"atlas_coords": [atlas.x, atlas.y],
+			"alternative_tile": cell["alternative_tile"],
+		})
+	return _router._ok({
+		"node_path": str(params.get("node_path")),
+		"layer": layer,
+		"count": cells.size(),
+		"cells": cells,
 	})
 
 

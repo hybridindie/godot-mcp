@@ -86,6 +86,10 @@ async def _run() -> None:
         cell = await _ok(bridge, "cmd_tilemap_get_cell", {"node_path": "Ground", "coords": [0, 0]})
         assert cell["empty"] is True and cell["source_id"] == -1
 
+        # P3 (#219): a fresh layer has no used cells — the snapshot is empty.
+        used = await _ok(bridge, "cmd_tilemap_get_used_cells", {"node_path": "Ground", "layer": 0})
+        assert used["count"] == 0 and used["cells"] == []
+
         # erase set_cell + erase fill are valid without a TileSet and are undoable
         erased = await _ok(
             bridge,

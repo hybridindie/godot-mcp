@@ -54,6 +54,21 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                     "empty": True,
                 },
             )
+        case "cmd_tilemap_get_used_cells":
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "node_path": p["node_path"],
+                    "layer": p["layer"],
+                    "count": 2,
+                    "cells": [
+                        {"coords": [0, 0], "source_id": 1, "atlas_coords": [2, 3],
+                         "alternative_tile": 0},
+                        {"coords": [1, 0], "source_id": 1, "atlas_coords": [4, 5],
+                         "alternative_tile": 1},
+                    ],
+                },
+            )
         case "cmd_tilemap_clear":
             return ResponseEnvelope.success(
                 cmd.id, {"node_path": p["node_path"], "layer": p["layer"], "cleared": 4}
@@ -276,3 +291,25 @@ async def test_clear_and_dry_run() -> None:
     assert cleared.structured_content["cleared"] == 4
     assert dry.structured_content["dry_run"] is True
     assert "cmd_tilemap_set_cell" not in _commands(conn)
+
+
+async def test_tilemap_get_used_cells_snapshot() -> None:
+    # #219 P3: bulk snapshot of used cells — inverts tilemap_fill_rect / tilemap_clear.
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "tilemap"})
+        result = await client.call_tool(
+            "tilemap_get_used_cells", {"node_path": "TileMapLayer", "layer": 0}
+        )
+        tools = {t.name: t for t in await client.list_tools()}
+    data = result.structured_content
+    assert data["count"] == 2 and len(data["cells"]) == 2
+    assert data["cells"][0] == {
+        "coords": [0, 0],
+        "source_id": 1,
+        "atlas_coords": [2, 3],
+        "alternative_tile": 0,
+    }
+    assert tools["tilemap_get_used_cells"].meta["safety_class"] == "read_only"
+    cmds = [CommandEnvelope.model_validate_json(s).command for s in conn.sent]
+    assert "cmd_tilemap_get_used_cells" in cmds

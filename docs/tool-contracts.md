@@ -521,6 +521,7 @@ are `read_only`; edits are `mutating` (UndoRedo-wrapped), `dry_run`.
 | `tilemap_set_cell` | `node_path, coords[x,y], source_id=-1, atlas_coords[x,y]=[0,0], alternative_tile=0, layer=0` | `TileCellResult { node_path, coords, source_id, layer }` |
 | `tilemap_fill_rect` | `node_path, rect[x,y,w,h], source_id=-1, atlas_coords=[0,0], alternative_tile=0, layer=0` | `TileFillResult { node_path, rect, cells, layer }` |
 | `tilemap_get_cell` | `node_path, coords[x,y], layer=0` | `TileGetResult { node_path, coords, source_id, atlas_coords, alternative_tile, empty }` (read_only) |
+| `tilemap_get_used_cells` | `node_path, layer=0` | `TileUsedCellsResult { node_path, layer, count, cells[]{coords, source_id, atlas_coords, alternative_tile} }` (read_only) |
 | `tilemap_clear` | `node_path, layer?` | `TileClearResult { node_path, layer, cleared }` |
 | `tilemap_layers` | `node_path` | `TileLayersResult { node_path, node_type, layers[] }` (read_only) |
 

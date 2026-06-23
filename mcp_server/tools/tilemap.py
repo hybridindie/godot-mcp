@@ -29,6 +29,7 @@ from mcp_server.models.tilemap import (
     TileLayersResult,
     TileSetResult,
     TileSetSourceResult,
+    TileUsedCellsResult,
 )
 from mcp_server.safety import (
     MUTATING,
@@ -140,6 +141,17 @@ def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
         """
         params = {"node_path": node_path, "coords": coords, "layer": layer}
         return TileGetResult(**await route(bridge, "cmd_tilemap_get_cell", params))
+
+    @mcp.tool(meta=READ_ONLY, tags=TILEMAP)
+    async def tilemap_get_used_cells(node_path: str, layer: TileLayer = 0) -> TileUsedCellsResult:
+        """Snapshot every painted cell on the TileMap/TileMapLayer at ``node_path`` in
+        one call: each cell's ``coords`` plus ``source_id``/``atlas_coords``/
+        ``alternative_tile``. The bulk inverse of ``tilemap_fill_rect`` / ``tilemap_clear``
+        — capture a layer before editing so the change can be rolled back without an
+        O(n) sweep of ``tilemap_get_cell``. ``layer`` applies to multi-layer TileMap only.
+        """
+        params = {"node_path": node_path, "layer": layer}
+        return TileUsedCellsResult(**await route(bridge, "cmd_tilemap_get_used_cells", params))
 
     @mcp.tool(meta=MUTATING, tags=TILEMAP)
     @enforce_preconditions

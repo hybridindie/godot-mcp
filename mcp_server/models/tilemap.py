@@ -30,6 +30,25 @@ class TileGetResult(BaseModel):
     empty: bool = True
 
 
+class TileCellSnapshot(BaseModel):
+    """One painted cell in a used-cells snapshot (issue #219 P3)."""
+
+    coords: list[int]
+    source_id: int = -1
+    atlas_coords: list[int] = Field(default_factory=lambda: [-1, -1])
+    alternative_tile: int = -1
+
+
+class TileUsedCellsResult(BaseModel):
+    """Bulk snapshot of a TileMap layer's painted cells (issue #219 P3) — the inverse
+    of ``tilemap_fill_rect`` / ``tilemap_clear`` without per-cell reads."""
+
+    node_path: str
+    layer: int = 0
+    count: int = 0
+    cells: list[TileCellSnapshot] = Field(default_factory=list)
+
+
 class TileClearResult(BaseModel):
     node_path: str
     layer: int | None = None

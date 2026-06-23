@@ -2,7 +2,7 @@
 
 A **generic, game-agnostic** [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server for **AI-driven Godot development**. An AI agent (Claude Code, OpenCode, Cursor, or any stdio MCP client) connects to a live Godot 4.4+ editor and controls it programmatically — inspecting scenes, editing nodes, writing scripts, running the game, and exporting builds — all through a typed, structured API with no built-in game vocabulary.
 
-> **Status:** feature-complete across the planned ecosystem. **132 tools** across **23 gated toolsets** (plus always-on `core`). Every capability is documented, tested, and ready for agent use.
+> **Status:** feature-complete across the planned ecosystem. **133 tools** across **23 gated toolsets** (plus always-on `core`). Every capability is documented, tested, and ready for agent use.
 
 ---
 
@@ -483,7 +483,7 @@ The full surface is 121 tools across 23 categories. Below is a summary; the auth
 - `add_audio_player`, `get_audio_bus_layout`, `add_audio_bus`, `add_audio_bus_effect`
 
 ### TileMap (gated) — `read_only` / `mutating`
-- `tilemap_set_cell`, `tilemap_fill_rect`, `tilemap_get_cell`, `tilemap_clear`, `tilemap_layers`
+- `tilemap_set_cell`, `tilemap_fill_rect`, `tilemap_get_cell`, `tilemap_get_used_cells`, `tilemap_clear`, `tilemap_layers`
 - **TileSet authoring:** `create_tileset`, `add_tileset_atlas_source`, `create_tile`
 
 ### Theme & UI (gated) — `mutating`
