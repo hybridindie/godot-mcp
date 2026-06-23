@@ -9,7 +9,7 @@ see the architecture note there), so it's `runtime` and uses a generous timeout.
 
 from __future__ import annotations
 
-from fastmcp import FastMCP
+from fastmcp import Context, FastMCP
 from fastmcp.exceptions import ToolError
 
 from mcp_server.bridge import Bridge
@@ -50,6 +50,8 @@ def register_export(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner: 
         output_path: str,
         debug: bool = False,
         timeout_seconds: float = DEFAULT_EXPORT_TIMEOUT_SECONDS,
+        *,
+        ctx: Context,
     ) -> ExportResult:
         """Export the project with the named ``preset`` to ``output_path`` (relative paths
         resolve against the project dir). ``debug`` does a debug export. Runs Godot headless
@@ -66,8 +68,17 @@ def register_export(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner: 
         if preset not in names:
             raise ToolError(f"No export preset named '{preset}'. Available: {names}.")
         project_dir = await resolve_project_dir(bridge, config)
+        await ctx.info(
+            f"Exporting preset '{preset}' → {output_path} (timeout {timeout_seconds:g}s)…"
+        )
+        await ctx.report_progress(0, 1)
         run = await runner.export(project_dir, preset, output_path, debug, float(timeout_seconds))
+        await ctx.report_progress(1, 1)
         summary = summarize_run(run)
+        await ctx.info(
+            f"Export finished: exit={summary.exit_code}, "
+            f"{len(summary.errors)} error(s), {len(summary.warnings)} warning(s)"
+        )
         return ExportResult(
             exported=summary.exit_code == 0 and not summary.timed_out,
             preset=preset,

@@ -12,7 +12,7 @@ import asyncio
 from pathlib import Path
 from typing import Any
 
-from fastmcp import FastMCP
+from fastmcp import Context, FastMCP
 from fastmcp.exceptions import ToolError
 
 from mcp_server.bridge import Bridge
@@ -108,6 +108,8 @@ def register_testing(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
     async def run_tests(
         test_dir: str = "res://test",
         timeout_seconds: float = DEFAULT_TEST_RUN_TIMEOUT_SECONDS,
+        *,
+        ctx: Context,
     ) -> RunTestsResult:
         """Run the project's GDScript test suite (GUT) headlessly and return a
         structured result: ``passed``/``failed``/``total``, per-failure detail, and
@@ -129,13 +131,18 @@ def register_testing(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
         project_dir = await resolve_project_dir(bridge, config)
         if not _gut_present(project_dir):
             return RunTestsResult(ran=False, framework="gut", framework_absent=True)
+        await ctx.info(f"Running GUT suite in {test_dir} (timeout {timeout_seconds:g}s)…")
+        await ctx.report_progress(0, 1)
         output = await runner.run_tests(project_dir, test_dir, timeout=float(timeout_seconds))
+        await ctx.report_progress(1, 1)
         if output.timed_out:
+            await ctx.info("Test run timed out")
             return RunTestsResult(
                 ran=True, framework="gut", timed_out=True, raw_summary=output.stdout.strip()[-2000:]
             )
         result = parse_gut_results(output.stdout)
         result.exit_code = output.exit_code
+        await ctx.info(f"Tests finished: {result.passed} passed, {result.failed} failed")
         return result
 
     @mcp.tool(meta=READ_ONLY, tags=TESTING)

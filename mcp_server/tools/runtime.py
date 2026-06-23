@@ -7,7 +7,7 @@ Tagged ``runtime`` safety class and gated in the ``runtime`` toolset.
 
 from __future__ import annotations
 
-from fastmcp import FastMCP
+from fastmcp import Context, FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import RUNTIME_TAG
@@ -28,7 +28,10 @@ def register_runtime(
     @mcp.tool(meta=RUNTIME, tags={RUNTIME_TAG})
     @enforce_preconditions
     async def run_and_capture(
-        scene: str | None = None, timeout_seconds: float = DEFAULT_RUN_TIMEOUT_SECONDS
+        scene: str | None = None,
+        timeout_seconds: float = DEFAULT_RUN_TIMEOUT_SECONDS,
+        *,
+        ctx: Context,
     ) -> RunCaptureResult:
         """Run the project headless (optionally a specific ``scene`` like
         "res://main.tscn"), wait up to ``timeout_seconds``, then return a summary of
@@ -46,5 +49,13 @@ def register_runtime(
                 required="godot_bin",
             )
         project_dir = await resolve_project_dir(bridge, config)
+        await ctx.info(f"Running {scene or 'main scene'} headless (timeout {timeout_seconds:g}s)…")
+        await ctx.report_progress(0, 1)
         output = await runner.run(project_dir, scene, float(timeout_seconds))
-        return summarize_run(output)
+        await ctx.report_progress(1, 1)
+        result = summarize_run(output)
+        await ctx.info(
+            f"Run finished: exit={result.exit_code}, "
+            f"{len(result.errors)} error(s), {len(result.warnings)} warning(s)"
+        )
+        return result

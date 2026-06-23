@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastmcp import FastMCP
+from fastmcp import Context, FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import NAVIGATION_TAG
@@ -86,7 +86,9 @@ def register_navigation(mcp: FastMCP, bridge: Bridge) -> None:
 
     @mcp.tool(meta=MUTATING, tags=NAVIGATION)
     @enforce_preconditions
-    async def bake_navigation_mesh(node_path: str, dry_run: bool = False) -> BakeNavigationResult:
+    async def bake_navigation_mesh(
+        node_path: str, dry_run: bool = False, *, ctx: Context
+    ) -> BakeNavigationResult:
         """Bake the navigation mesh/polygon for the NavigationRegion2D/3D at
         ``node_path`` from the scene geometry (synchronous). The region must have a
         navmesh resource assigned (``setup_navigation_region`` creates one).
@@ -94,9 +96,16 @@ def register_navigation(mcp: FastMCP, bridge: Bridge) -> None:
         await require_node_exists(bridge, node_path)
         params = {"node_path": node_path}
         preview = {"node_path": node_path, "baked": False}
-        return await run_or_preview(
+        if not dry_run:
+            await ctx.info(f"Baking navigation mesh for {node_path}…")
+            await ctx.report_progress(0, 1)
+        result = await run_or_preview(
             dry_run, BakeNavigationResult, preview, bridge, "cmd_bake_navigation_mesh", params
         )
+        if not dry_run:
+            await ctx.report_progress(1, 1)
+            await ctx.info(f"Navigation bake finished for {node_path}")
+        return result
 
     @mcp.tool(meta=MUTATING, tags=NAVIGATION)
     @enforce_preconditions
