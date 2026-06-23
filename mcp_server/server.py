@@ -135,7 +135,7 @@ def create_server(
     register_shader(mcp, bridge)
     register_visual_shader(mcp, bridge)
     register_editor(mcp, bridge)
-    register_resources(mcp, bridge)
+    resource_uris = register_resources(mcp, bridge)
     register_runtime(mcp, bridge, config, runner)
     register_runtime_session(mcp, bridge)
     register_runtime_inspect(mcp, bridge)
@@ -164,7 +164,7 @@ def create_server(
     register_diagnostics(mcp, bridge, config, manager)
 
     # Register workflow prompts (instruction templates for the agent).
-    register_prompts(mcp)
+    prompt_names = register_prompts(mcp)
 
     # Derive standard MCP annotations (readOnlyHint/destructiveHint/...) from each
     # tool's safety_class, for every tool incl. gated-off ones (issue #220).
@@ -172,33 +172,21 @@ def create_server(
 
     # Fill the capabilities snapshot from the live registry so it can never drift
     # from the real toolset / prompt / resource catalog (issue #231).
-    _apply_capabilities(mcp, manager)
+    _apply_capabilities(mcp, manager, prompt_names, resource_uris)
 
     return mcp
 
 
-def _apply_capabilities(mcp: FastMCP, manager: ToolsetManager) -> None:
+def _apply_capabilities(
+    mcp: FastMCP, manager: ToolsetManager, prompts: list[str], resources: list[str]
+) -> None:
     """Derive the dynamic ``experimental_capabilities`` fields from the live registry.
 
-    ``toolset_count`` is the gated toolsets plus the always-on ``core`` toolset
-    (i.e. everything ``list_toolsets`` reports); prompts and resources are read
-    straight from the registered components, including resource templates. The
-    component access is guarded so a FastMCP internals change degrades gracefully.
+    ``toolset_count`` comes from ``manager.status()`` (the gated toolsets plus the
+    always-on ``core`` toolset — everything ``list_toolsets`` reports); ``prompts``
+    and ``resources`` are the names the registration functions report, so the
+    snapshot tracks the catalog without introspecting FastMCP internals (#231/#233).
     """
-    from fastmcp.prompts import Prompt
-    from fastmcp.resources import Resource, ResourceTemplate
-
-    prompts: list[str] = []
-    resources: list[str] = []
-    for provider in getattr(mcp, "providers", []):
-        for component in getattr(provider, "_components", {}).values():
-            if isinstance(component, Prompt):
-                prompts.append(component.name)
-            elif isinstance(component, ResourceTemplate):
-                resources.append(str(component.uri_template))
-            elif isinstance(component, Resource):
-                resources.append(str(component.uri))
-
     caps = mcp.experimental_capabilities["godot_mcp"]
     caps["toolset_count"] = len(manager.status())
     caps["prompts"] = prompts

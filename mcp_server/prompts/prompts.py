@@ -15,17 +15,24 @@ from fastmcp.prompts import Message
 from mcp_server.toolset_protocol import TOOLSET_PROTOCOL
 
 
-def register_prompts(mcp: FastMCP) -> None:
-    """Register all workflow prompts on the server."""
-    _register_toolset_discovery(mcp)
-    _register_build_scene(mcp)
-    _register_play_test(mcp)
-    _register_script_edit(mcp)
-    _register_debug_scene(mcp)
-    _register_troubleshoot(mcp)
+def register_prompts(mcp: FastMCP) -> list[str]:
+    """Register all workflow prompts on the server.
+
+    Returns the registered prompt names so the caller can advertise them without
+    introspecting FastMCP internals (#231/#233). Each registrant returns the name
+    it registered, so the list stays in lockstep with the actual prompts.
+    """
+    return [
+        _register_toolset_discovery(mcp),
+        _register_build_scene(mcp),
+        _register_play_test(mcp),
+        _register_script_edit(mcp),
+        _register_debug_scene(mcp),
+        _register_troubleshoot(mcp),
+    ]
 
 
-def _register_toolset_discovery(mcp: FastMCP) -> None:
+def _register_toolset_discovery(mcp: FastMCP) -> str:
     @mcp.prompt(
         name="toolset_discovery",
         description=(
@@ -40,8 +47,10 @@ def _register_toolset_discovery(mcp: FastMCP) -> None:
         # server instructions can never drift apart (issue #230).
         return [Message(role="user", content=TOOLSET_PROTOCOL)]
 
+    return "toolset_discovery"
 
-def _register_build_scene(mcp: FastMCP) -> None:
+
+def _register_build_scene(mcp: FastMCP) -> str:
     @mcp.prompt(
         name="build_scene",
         description=(
@@ -90,9 +99,10 @@ def _register_build_scene(mcp: FastMCP) -> None:
                 ),
             ),
         ]
+    return "build_scene"
 
 
-def _register_play_test(mcp: FastMCP) -> None:
+def _register_play_test(mcp: FastMCP) -> str:
     @mcp.prompt(
         name="play_test",
         description=(
@@ -152,9 +162,10 @@ def _register_play_test(mcp: FastMCP) -> None:
                 ),
             ),
         ]
+    return "play_test"
 
 
-def _register_script_edit(mcp: FastMCP) -> None:
+def _register_script_edit(mcp: FastMCP) -> str:
     @mcp.prompt(
         name="script_edit",
         description=(
@@ -199,9 +210,10 @@ def _register_script_edit(mcp: FastMCP) -> None:
                 ),
             ),
         ]
+    return "script_edit"
 
 
-def _register_debug_scene(mcp: FastMCP) -> None:
+def _register_debug_scene(mcp: FastMCP) -> str:
     @mcp.prompt(
         name="debug_scene",
         description=(
@@ -278,9 +290,10 @@ def _register_debug_scene(mcp: FastMCP) -> None:
                 ),
             ),
         ]
+    return "debug_scene"
 
 
-def _register_troubleshoot(mcp: FastMCP) -> None:
+def _register_troubleshoot(mcp: FastMCP) -> str:
     @mcp.prompt(
         name="troubleshoot",
         description=(
@@ -335,3 +348,4 @@ def _register_troubleshoot(mcp: FastMCP) -> None:
                 ),
             ),
         ]
+    return "troubleshoot"

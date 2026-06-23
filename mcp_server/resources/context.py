@@ -67,8 +67,12 @@ async def _read_uri(bridge: Bridge, uri: str) -> str:
     raise KeyError(uri)
 
 
-def register_resources(mcp: FastMCP, bridge: Bridge) -> None:
-    """Register the godot:// context resources and the resources-as-tools fallback."""
+def register_resources(mcp: FastMCP, bridge: Bridge) -> list[str]:
+    """Register the godot:// context resources and the resources-as-tools fallback.
+
+    Returns the registered resource URIs (the static set plus the depth template) so
+    the caller can advertise them without introspecting FastMCP internals (#231/#233).
+    """
 
     @mcp.resource("godot://project/info")
     async def project_info() -> str:
@@ -108,3 +112,5 @@ def register_resources(mcp: FastMCP, bridge: Bridge) -> None:
         except KeyError:
             known = ", ".join([*_STATIC, f"{SCENE_TREE_PREFIX}{{max_depth}}"])
             raise ToolError(f"Unknown resource URI '{uri}'. Known: {known}.") from None
+
+    return [*_STATIC, f"{SCENE_TREE_PREFIX}{{max_depth}}"]
