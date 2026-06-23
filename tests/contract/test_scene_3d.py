@@ -55,6 +55,18 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                 cmd.id,
                 {"node_path": p["node_path"], "position": p["position"], "item": p["item"]},
             )
+        case "cmd_gridmap_get_cell":
+            empty = p["position"] == [9, 9, 9]
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "node_path": p["node_path"],
+                    "position": p["position"],
+                    "item": -1 if empty else 3,
+                    "orientation": 0 if empty else 22,
+                    "empty": empty,
+                },
+            )
         case "cmd_create_mesh_library":
             return ResponseEnvelope.success(
                 cmd.id,
@@ -231,3 +243,23 @@ async def test_dry_run_sends_no_mutation() -> None:
         )
     assert result.structured_content["dry_run"] is True
     assert "cmd_add_mesh_instance" not in _commands(conn)
+
+
+async def test_gridmap_get_cell_reads_cell() -> None:
+    # #219 G5: read a GridMap cell (item + orientation) — inverts gridmap_set_cell.
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "scene_3d"})
+        filled = await client.call_tool(
+            "gridmap_get_cell", {"node_path": "GridMap", "position": [1, 0, 2]}
+        )
+        empty = await client.call_tool(
+            "gridmap_get_cell", {"node_path": "GridMap", "position": [9, 9, 9]}
+        )
+        tools = {t.name: t for t in await client.list_tools()}
+    f = filled.structured_content
+    assert f["position"] == [1, 0, 2] and f["item"] == 3 and f["orientation"] == 22
+    assert f["empty"] is False
+    assert empty.structured_content["item"] == -1 and empty.structured_content["empty"] is True
+    assert tools["gridmap_get_cell"].meta["safety_class"] == "read_only"
+    assert "cmd_gridmap_get_cell" in _commands(conn)

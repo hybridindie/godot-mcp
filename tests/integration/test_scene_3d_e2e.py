@@ -125,6 +125,13 @@ async def _run() -> None:
         assert no_lib.ok is False and no_lib.error == "VALIDATION_ERROR"
         assert no_lib.required == "mesh_library"
 
+        # G5 (#219): reading a cell needs no mesh_library — an unset cell is empty/-1.
+        empty_cell = await _ok(
+            bridge, "cmd_gridmap_get_cell", {"node_path": "Grid", "position": [0, 0, 0]}
+        )
+        assert empty_cell["item"] == -1 and empty_cell["empty"] is True
+        assert empty_cell["position"] == [0, 0, 0]
+
         # validation: bad mesh/light types, non-GridMap target, malformed position
         bad_mesh = await bridge.send(
             "cmd_add_mesh_instance", {"parent_path": ".", "mesh_type": "Node"}

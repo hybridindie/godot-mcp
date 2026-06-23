@@ -25,6 +25,7 @@ from mcp_server.defaults import (
 from mcp_server.models.scene_3d import (
     CameraResult,
     EnvironmentResult,
+    GridMapCellGet,
     GridMapCellResult,
     LightResult,
     MeshInstanceResult,
@@ -33,11 +34,12 @@ from mcp_server.models.scene_3d import (
 )
 from mcp_server.safety import (
     MUTATING,
+    READ_ONLY,
     PreconditionError,
     enforce_preconditions,
     require_node_exists,
 )
-from mcp_server.tools._route import run_or_preview
+from mcp_server.tools._route import route, run_or_preview
 
 SCENE_3D = {SCENE_3D_TAG}
 
@@ -196,6 +198,17 @@ def register_scene_3d(mcp: FastMCP, bridge: Bridge) -> None:
         return await run_or_preview(
             dry_run, GridMapCellResult, preview, bridge, "cmd_gridmap_set_cell", params
         )
+
+    @mcp.tool(meta=READ_ONLY, tags=SCENE_3D)
+    async def gridmap_get_cell(node_path: str, position: list[int]) -> GridMapCellGet:
+        """Read the GridMap cell at the integer grid ``position`` ``[x, y, z]``: its
+        ``item`` (MeshLibrary index, -1 when empty), ``orientation``, and ``empty``.
+        Symmetric with ``tilemap_get_cell`` and the inverse of ``gridmap_set_cell`` —
+        snapshot a cell before changing it for rollback. Errors if the node isn't a
+        GridMap or doesn't resolve.
+        """
+        params = {"node_path": node_path, "position": position}
+        return GridMapCellGet(**await route(bridge, "cmd_gridmap_get_cell", params))
 
     @mcp.tool(meta=MUTATING, tags=SCENE_3D)
     @enforce_preconditions

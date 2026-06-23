@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class MeshInstanceResult(BaseModel):
@@ -37,6 +37,17 @@ class GridMapCellResult(BaseModel):
     position: list[int]
     item: int
     dry_run: bool = False
+
+
+class GridMapCellGet(BaseModel):
+    """A read of a GridMap cell (issue #219 G5) — inverts ``gridmap_set_cell``.
+    ``item`` is the MeshLibrary index (-1 when empty); ``empty`` flags an unset cell."""
+
+    node_path: str
+    position: list[int] = Field(default_factory=list)
+    item: int = -1
+    orientation: int = 0
+    empty: bool = True
 
 
 class MeshLibraryResult(BaseModel):

@@ -16,6 +16,7 @@ func _init(router: MCPCommandRouter) -> void:
 func register(handlers: Dictionary) -> void:
 	handlers["cmd_add_mesh_instance"] = _cmd_add_mesh_instance
 	handlers["cmd_gridmap_set_cell"] = _cmd_gridmap_set_cell
+	handlers["cmd_gridmap_get_cell"] = _cmd_gridmap_get_cell
 	handlers["cmd_setup_camera"] = _cmd_setup_camera
 	handlers["cmd_setup_environment"] = _cmd_setup_environment
 	handlers["cmd_setup_lighting"] = _cmd_setup_lighting
@@ -124,6 +125,31 @@ func _cmd_gridmap_set_cell(params: Dictionary) -> Dictionary:
 		"node_path": str(params.get("node_path")),
 		"position": [position.x, position.y, position.z],
 		"item": item,
+	})
+
+
+## Read a GridMap cell — item + orientation (issue #219 G5). Inverts gridmap_set_cell
+## and is symmetric with tilemap_get_cell. No mesh_library needed: an unset cell reads
+## back as item == GridMap.INVALID_CELL_ITEM (-1) with empty == true.
+func _cmd_gridmap_get_cell(params: Dictionary) -> Dictionary:
+	var found := _router._resolve(params.get("node_path", ""))
+	if not found["ok"]:
+		return found
+	var node: Node = found["node"]
+	if not (node is GridMap):
+		return _router._fail("VALIDATION_ERROR", "Node is not a GridMap.")
+	var grid_map: GridMap = node
+	var raw_pos: Variant = params.get("position")
+	if not (raw_pos is Array) or (raw_pos as Array).size() != 3:
+		return _router._fail("VALIDATION_ERROR", "'position' must be a [x, y, z] integer array.")
+	var position := Vector3i(int(raw_pos[0]), int(raw_pos[1]), int(raw_pos[2]))
+	var item := grid_map.get_cell_item(position)
+	return _router._ok({
+		"node_path": str(params.get("node_path")),
+		"position": [position.x, position.y, position.z],
+		"item": item,
+		"orientation": grid_map.get_cell_item_orientation(position),
+		"empty": item == GridMap.INVALID_CELL_ITEM,
 	})
 
 

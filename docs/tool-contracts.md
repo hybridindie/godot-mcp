@@ -419,6 +419,7 @@ Build 3D scenes — generic Godot, pass the node/resource type names. All `mutat
 | `setup_lighting` | `parent_path, light_type="DirectionalLight3D", name?, properties?` | `LightResult { node_path, light_type, created }` |
 | `setup_environment` | `parent_path, name="WorldEnvironment", properties?` | `EnvironmentResult { node_path, created }` |
 | `gridmap_set_cell` | `node_path, position=[x,y,z], item, orientation=0` | `GridMapCellResult { node_path, position, item }` |
+| `gridmap_get_cell` | `node_path, position=[x,y,z]` | `GridMapCellGet { node_path, position, item, orientation, empty }` (`read_only`) |
 
 `add_mesh_instance` creates a `MeshInstance3D` holding a `mesh_type` primitive mesh
 (BoxMesh/SphereMesh/…) configured with `properties` (size/radius/…). `setup_lighting`
