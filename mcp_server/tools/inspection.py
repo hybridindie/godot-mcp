@@ -14,6 +14,7 @@ from mcp_server.categories import INSPECTION_TAG
 from mcp_server.constraints import MaxDepth
 from mcp_server.models.inspection import (
     ActiveScene,
+    NodeGroups,
     NodeInfo,
     NodeProperty,
     NodePropertyList,
@@ -131,3 +132,13 @@ def register_inspection(mcp: FastMCP, bridge: Bridge) -> None:
         return NodePropertyList(
             **await route(bridge, "cmd_get_node_property_list", {"node_path": node_path})
         )
+
+    @mcp.tool(meta=READ_ONLY, tags=INSPECTION)
+    async def get_node_groups(node_path: str) -> NodeGroups:
+        """List the groups the node at ``node_path`` belongs to (``{groups: [name]}``),
+        excluding editor-internal groups (names beginning with "_"). Use it to snapshot
+        membership before ``add_to_group`` / ``remove_from_group`` (or a delete) so the
+        change is reversible. Errors with RESOURCE_NOT_FOUND if the path doesn't resolve,
+        or PRECONDITION_FAILED if no scene is open.
+        """
+        return NodeGroups(**await route(bridge, "cmd_get_node_groups", {"node_path": node_path}))

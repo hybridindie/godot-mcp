@@ -200,6 +200,7 @@ states return an empty model (`is_open=False` / `tree=None` / `selected=None`), 
 | `get_node_properties` | `node_path: str` | `NodeInfo { node_path, type, script?, properties, children }` | `cmd_get_node_properties` |
 | `get_node_property` | `node_path: str, property: str` | `NodeProperty { node_path, property, value, exists }` | `cmd_get_node_property` |
 | `get_node_property_list` | `node_path: str` | `NodePropertyList { node_path, type, properties[] }` | `cmd_get_node_property_list` |
+| `get_node_groups` | `node_path: str` | `NodeGroups { node_path, groups[] }` | `cmd_get_node_groups` |
 
 `SceneNode = { name, type, path, script?, children: [SceneNode] }`. Each node's `path` (#180)
 is scene-relative (`"."` for the root, e.g. `Player/Weapon` below it) and is accepted verbatim
@@ -213,6 +214,8 @@ with `RESOURCE_NOT_FOUND` (bad path) or `PRECONDITION_FAILED` (no scene open).
 built-in Godot properties** (`position`, `modulate`, `collision_layer`, …) that
 `get_node_properties` omits (it returns only script vars) — as `{ value, exists }`
 (`exists=false`, value null when absent), for snapshotting a value before a set (#215).
+`get_node_groups` returns a node's group memberships (editor-internal `_`-prefixed groups
+excluded) for snapshotting before `add_to_group`/`remove_from_group` (#216).
 
 #### Mutation (issue #6) — `mutating` (except `delete_node`)
 

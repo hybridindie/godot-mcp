@@ -85,6 +85,17 @@ class NodeProperty(BaseModel):
     exists: bool = False
 
 
+class NodeGroups(BaseModel):
+    """A node's group memberships (issue #216), editor-internal groups excluded.
+
+    Inverts ``add_to_group`` / ``remove_from_group`` and lets ``delete_node`` restore
+    membership.
+    """
+
+    node_path: str
+    groups: list[str] = Field(default_factory=list)
+
+
 class SelectedNode(BaseModel):
     """The selected node, or ``selected=None`` when nothing is selected."""
 

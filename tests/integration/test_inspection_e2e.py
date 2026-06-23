@@ -61,6 +61,12 @@ async def _run_checks() -> None:
         assert prop.ok is False
         assert prop.error == "PRECONDITION_FAILED"
         assert prop.required == "active_scene"
+
+        # The new group-read handler is registered and routes the same way (#216).
+        groups = await bridge.send("cmd_get_node_groups", {"node_path": "Anything"})
+        assert groups.ok is False
+        assert groups.error == "PRECONDITION_FAILED"
+        assert groups.required == "active_scene"
     finally:
         await bridge.close()
 

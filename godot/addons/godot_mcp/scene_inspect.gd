@@ -74,6 +74,18 @@ static func read_property(node: Node, property: String) -> Dictionary:
 	return {"value": null, "exists": false}
 
 
+## A node's group memberships as plain strings, sorted, excluding editor-internal
+## groups (names beginning with "_") — issue #216. Inverts add/remove_from_group.
+static func node_groups(node: Node) -> Array:
+	var out: Array = []
+	for g in node.get_groups():
+		var name := String(g)
+		if not name.begins_with("_"):
+			out.append(name)
+	out.sort()
+	return out
+
+
 ## A resource's editable+stored properties, JSON-coerced (issue #34). Unlike nodes
 ## (script vars), built-in resource fields are EDITOR|STORAGE, so filter on those and
 ## drop the base Resource bookkeeping fields.

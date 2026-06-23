@@ -20,6 +20,7 @@ func _initialize() -> void:
 	_test_serialize_tree(failures)
 	_test_node_properties(failures)
 	_test_read_property(failures)
+	_test_node_groups(failures)
 	_test_node_info(failures)
 
 	if failures.is_empty():
@@ -157,6 +158,19 @@ func _test_read_property(failures: Array[String]) -> void:
 	_eq(failures, "read.absent.exists", absent.get("exists"), false)
 	_eq(failures, "read.absent.value", absent.get("value"), null)
 	node.free()
+
+
+func _test_node_groups(failures: Array[String]) -> void:
+	# node_groups returns sorted plain-string memberships, excluding internal "_" groups (#216).
+	var node := Node2D.new()
+	node.add_to_group("spawnable")
+	node.add_to_group("enemies")
+	node.add_to_group("_internal")  # editor-internal — must be filtered out
+	_eq(failures, "groups", Inspect.node_groups(node), ["enemies", "spawnable"])
+	var bare := Node.new()
+	_eq(failures, "groups.empty", Inspect.node_groups(bare), [])
+	node.free()
+	bare.free()
 
 
 func _test_node_info(failures: Array[String]) -> void:

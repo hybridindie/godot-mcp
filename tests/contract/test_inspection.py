@@ -111,6 +111,15 @@ def _populated(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                     "exists": False,
                 },
             )
+        case "cmd_get_node_groups":
+            if cmd.params.get("node_path") == "Missing":
+                return ResponseEnvelope.failure(
+                    cmd.id, "RESOURCE_NOT_FOUND", "No node at 'Missing'."
+                )
+            return ResponseEnvelope.success(
+                cmd.id,
+                {"node_path": cmd.params["node_path"], "groups": ["enemies", "spawnable"]},
+            )
     return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected command")
 
 
@@ -246,6 +255,24 @@ async def test_get_node_property_missing_node_is_structured_error() -> None:
     assert result.is_error
 
 
+async def test_get_node_groups_success() -> None:
+    # #216: returns the node's group memberships (so add/remove_from_group is invertible).
+    conn = FakeAddonConnection(responder=_populated)
+    async with Client(_build(conn)) as client:
+        result = await client.call_tool("get_node_groups", {"node_path": "Player"})
+    data = result.structured_content
+    assert data["node_path"] == "Player"
+    assert data["groups"] == ["enemies", "spawnable"]
+
+
+async def test_get_node_groups_missing_is_structured_error() -> None:
+    async with Client(_build(FakeAddonConnection(responder=_populated))) as client:
+        result = await client.call_tool(
+            "get_node_groups", {"node_path": "Missing"}, raise_on_error=False
+        )
+    assert result.is_error
+
+
 async def test_inspection_tools_are_read_only() -> None:
     async with Client(_build(FakeAddonConnection(responder=_populated))) as client:
         tools = await client.list_tools()
@@ -257,6 +284,7 @@ async def test_inspection_tools_are_read_only() -> None:
         "get_selected_node",
         "get_node_properties",
         "get_node_property",
+        "get_node_groups",
     ):
         assert by_name[name].meta is not None
         assert by_name[name].meta.get("safety_class") == "read_only"
