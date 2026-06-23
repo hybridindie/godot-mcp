@@ -51,8 +51,11 @@ class ServerConfig(BaseModel):
 
     Transport defaults to ``stdio`` (the spec'd, auth-free local transport);
     ``http`` exposes the server over Streamable HTTP for clients that want a
-    long-lived shared server. ``permission_mode`` is plumbed here but enforced in
-    issue #14.
+    long-lived shared server.
+
+    There is no per-mode "permission" gate: safety is enforced by per-tool
+    ``safety_class`` + ``dry_run``/``confirm`` (issue #14), plus the optional
+    human-in-the-loop :class:`~mcp_server.safety.ApprovalGate` webhook below.
     """
 
     bridge: BridgeConfig = Field(default_factory=BridgeConfig)
@@ -60,7 +63,6 @@ class ServerConfig(BaseModel):
     host: str = DEFAULT_HTTP_HOST
     port: int = DEFAULT_HTTP_PORT
     log_level: str = "INFO"
-    permission_mode: str = "ask"
     # Runtime loop (issue #13): path to the Godot binary and the project directory.
     # Both optional — the binary is auto-discovered and the project dir falls back to
     # the connected editor's project.
@@ -82,7 +84,6 @@ class ServerConfig(BaseModel):
             host=os.environ.get("GODOT_MCP_HTTP_HOST", DEFAULT_HTTP_HOST),
             port=int(os.environ.get("GODOT_MCP_HTTP_PORT", DEFAULT_HTTP_PORT)),
             log_level=os.environ.get("GODOT_MCP_LOG_LEVEL", "INFO"),
-            permission_mode=os.environ.get("GODOT_MCP_PERMISSION_MODE", "ask"),
             godot_bin=os.environ.get("GODOT_MCP_GODOT_BIN"),
             godot_project_dir=os.environ.get("GODOT_MCP_PROJECT_DIR"),
             approval_webhook=os.environ.get("GODOT_MCP_APPROVAL_WEBHOOK"),

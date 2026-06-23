@@ -538,7 +538,7 @@ All configuration is optional and passed via environment variables:
 | `GODOT_MCP_GODOT_BIN` | auto-discovered | Godot executable for `run_and_capture` / `export_project` |
 | `GODOT_MCP_PROJECT_DIR` | connected editor's project | Project directory for runner, export, and analysis |
 | `GODOT_MCP_LOG_LEVEL` | `INFO` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) — JSON to stderr |
-| `GODOT_MCP_PERMISSION_MODE` | `ask` | Reserved. Currently unenforced; safety is via per-tool classes + `dry_run`/`confirm`. |
+| `GODOT_MCP_APPROVAL_WEBHOOK` | unset | Optional human-in-the-loop approval webhook for destructive tools (`ApprovalGate`) |
 
 ---
 

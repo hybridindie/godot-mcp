@@ -36,3 +36,16 @@ def test_from_env_falls_back_to_stdio_on_unknown_transport(monkeypatch: pytest.M
     config = ServerConfig.from_env()
     # Unknown transports fall back to "stdio" rather than crashing.
     assert config.transport == "stdio"
+
+
+def test_no_dead_permission_mode_field() -> None:
+    # permission_mode was plumbed but never enforced; removed (issue #225).
+    # Approval is webhook-only via ApprovalGate. The field must not reappear as a
+    # misleading "permission gate" that does nothing.
+    assert "permission_mode" not in ServerConfig.model_fields
+
+
+def test_from_env_ignores_permission_mode_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GODOT_MCP_PERMISSION_MODE", "deny")
+    config = ServerConfig.from_env()
+    assert not hasattr(config, "permission_mode")
