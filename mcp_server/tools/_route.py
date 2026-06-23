@@ -84,9 +84,34 @@ async def _validate_script_path(
     return None
 
 
+async def _validate_delete_resource_path(
+    bridge: Bridge, command: str, params: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Fail a resource-file deletion whose ``path`` isn't a contained ``res://`` path
+    (issue #217) — mirrors the script-write containment hardening (#205)."""
+    if command != "cmd_delete_resource_file":
+        return None
+    path = params.get("path", "")
+    if not path.startswith("res://"):
+        return {
+            "ok": False,
+            "error": "PARAM_ERROR",
+            "hint": f"path must start with 'res://'. Got: '{path}'",
+            "required": "path",
+        }
+    if _escapes_res_root(path):
+        return {
+            "ok": False,
+            "error": "PARAM_ERROR",
+            "hint": f"path escapes the project root (res://). Got: '{path}'",
+            "required": "path",
+        }
+    return None
+
+
 # Each validator returns a PARAM_ERROR dict on failure, else None. Property
 # names are deliberately not validated server-side — the addon has better context.
-_VALIDATORS = (_validate_script_path,)
+_VALIDATORS = (_validate_script_path, _validate_delete_resource_path)
 
 
 async def _preflight_validate(

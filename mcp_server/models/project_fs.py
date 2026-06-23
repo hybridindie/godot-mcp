@@ -41,3 +41,13 @@ class SetSettingResult(BaseModel):
 class UidResolution(BaseModel):
     uid: str | None = None
     path: str | None = None
+
+
+class DeleteResourceFileResult(BaseModel):
+    """Result of deleting a ``res://`` file (issue #217). ``had_uid`` is true when a
+    ``.uid`` sidecar was removed alongside it."""
+
+    path: str
+    deleted: bool = False
+    had_uid: bool = False
+    dry_run: bool = False

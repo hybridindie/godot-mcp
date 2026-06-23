@@ -85,6 +85,17 @@ async def _run() -> None:
         # Sandbox: paths outside the project (res://) are rejected.
         outside = await bridge.send("cmd_get_filesystem_tree", {"directory": "/etc"})
         assert outside.ok is False and outside.error == "VALIDATION_ERROR"
+
+        # delete_resource_file round-trip (#217): create a throwaway file, delete it,
+        # confirm it's gone, and that a second delete + a non-res:// path are rejected.
+        tmp = "res://tmp_e2e_delete.gd"
+        await _ok(bridge, "cmd_write_script", {"script_path": tmp, "content": "extends Node\n"})
+        deleted = await _ok(bridge, "cmd_delete_resource_file", {"path": tmp})
+        assert deleted["deleted"] is True and deleted["path"] == tmp
+        gone = await bridge.send("cmd_delete_resource_file", {"path": tmp})
+        assert gone.ok is False and gone.error == "RESOURCE_NOT_FOUND"
+        bad = await bridge.send("cmd_delete_resource_file", {"path": "/etc/passwd"})
+        assert bad.ok is False and bad.error == "VALIDATION_ERROR"
     finally:
         await bridge.close()
 
@@ -106,3 +117,6 @@ def test_live_project_fs() -> None:
         except subprocess.TimeoutExpired:
             editor.kill()
         PROJECT_GODOT.write_text(snapshot)  # undo the set_setting write
+        # Clean up the delete round-trip's throwaway file if the test bailed early.
+        for leftover in ("tmp_e2e_delete.gd", "tmp_e2e_delete.gd.uid"):
+            (GODOT_PROJECT / leftover).unlink(missing_ok=True)

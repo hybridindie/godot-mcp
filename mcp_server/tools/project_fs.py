@@ -2,7 +2,7 @@
 
 Explore the project on disk, search files, read/write project settings, and resolve
 resource UIDs. Gated `project` toolset. Reads are `read_only`; `set_setting` is
-`mutating` (persists to project settings).
+`mutating` (persists to project settings); `delete_resource_file` is `destructive`.
 """
 
 from __future__ import annotations
@@ -18,19 +18,28 @@ from mcp_server.defaults import (
     DEFAULT_SEARCH_MAX_RESULTS,
 )
 from mcp_server.models.project_fs import (
+    DeleteResourceFileResult,
     FilesystemTree,
     SearchResult,
     SetSettingResult,
     SettingValue,
     UidResolution,
 )
-from mcp_server.safety import MUTATING, READ_ONLY
-from mcp_server.tools._route import route, run_or_preview
+from mcp_server.safety import (
+    DESTRUCTIVE,
+    MUTATING,
+    READ_ONLY,
+    ApprovalGate,
+    enforce_preconditions,
+    require_bridge_connected,
+    require_confirmation,
+)
+from mcp_server.tools._route import route, run_or_preview, validate_or_raise
 
 PROJECT = {PROJECT_TAG}
 
 
-def register_project_fs(mcp: FastMCP, bridge: Bridge) -> None:
+def register_project_fs(mcp: FastMCP, bridge: Bridge, approval: ApprovalGate) -> None:
     """Register the project & filesystem tools."""
 
     @mcp.tool(meta=READ_ONLY, tags=PROJECT)
@@ -95,3 +104,30 @@ def register_project_fs(mcp: FastMCP, bridge: Bridge) -> None:
         else:
             result = await route(bridge, "cmd_path_to_uid", {"path": value})
         return UidResolution(uid=result.get("uid"), path=result.get("path"))
+
+    @mcp.tool(meta=DESTRUCTIVE, tags=PROJECT)
+    @enforce_preconditions
+    async def delete_resource_file(
+        path: str, confirm: bool = False, dry_run: bool = False
+    ) -> DeleteResourceFileResult:
+        """Delete the ``res://`` file at ``path`` (and its ``.uid`` sidecar). The inverse
+        of the file-creating tools (create_scene, create_resource, create_tileset,
+        import_asset, …) — use it to roll back a file you just generated.
+
+        DESTRUCTIVE: requires ``confirm=True`` to actually delete; ``dry_run=True``
+        previews without confirming or deleting. ``res://`` containment is enforced (a
+        traversal or non-``res://`` path is rejected). Undoable in the editor (the file
+        bytes are restored on undo). Errors RESOURCE_NOT_FOUND if no file is at ``path``.
+        """
+        require_bridge_connected(bridge)
+        params = {"path": path}
+        if dry_run:
+            # Validate containment even on a dry_run so it can't preview an escaping
+            # path (parity with the script-write hardening, #205).
+            await validate_or_raise(bridge, "cmd_delete_resource_file", params)
+            return DeleteResourceFileResult(path=path, deleted=False, dry_run=True)
+        require_confirmation(confirm, "delete_resource_file")
+        await approval.require("delete_resource_file", "destructive", params)
+        return DeleteResourceFileResult(
+            **await route(bridge, "cmd_delete_resource_file", params)
+        )

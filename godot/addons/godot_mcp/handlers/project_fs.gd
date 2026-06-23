@@ -89,6 +89,7 @@ func register(handlers: Dictionary) -> void:
 	handlers["cmd_search_files"] = _cmd_search_files
 	handlers["cmd_set_setting"] = _cmd_set_setting
 	handlers["cmd_uid_to_path"] = _cmd_uid_to_path
+	handlers["cmd_delete_resource_file"] = _cmd_delete_resource_file
 
 
 # -- handlers ----------------------------------------------------------------
@@ -165,5 +166,29 @@ func _cmd_uid_to_path(params: Dictionary) -> Dictionary:
 	if id == -1 or not ResourceUID.has_id(id):
 		return _router._fail("RESOURCE_NOT_FOUND", "Unknown UID '%s'." % uid)
 	return _router._ok({"uid": uid, "path": ResourceUID.get_id_path(id)})
+
+
+## Delete a res:// file and its .uid sidecar — the inverse of the file-creating
+## handlers (issue #217). res:// containment is enforced server-side; the check here
+## is defense-in-depth. Undoable: the file (and uid) bytes are captured first and
+## restored on undo, so binary resources round-trip exactly.
+func _cmd_delete_resource_file(params: Dictionary) -> Dictionary:
+	var path := str(params.get("path", ""))
+	if not path.begins_with("res://"):
+		return _router._fail("VALIDATION_ERROR", "path must be a res:// file.")
+	if not FileAccess.file_exists(path):
+		return _router._fail("RESOURCE_NOT_FOUND", "No file at '%s'." % path)
+	var bytes := FileAccess.get_file_as_bytes(path)
+	var uid_path := path + ".uid"
+	var had_uid := FileAccess.file_exists(uid_path)
+	var uid_bytes := FileAccess.get_file_as_bytes(uid_path) if had_uid else PackedByteArray()
+	var ur := EditorInterface.get_editor_undo_redo()
+	ur.create_action("Delete file %s" % path)
+	ur.add_do_method(_router, "_remove_file_with_uid", path)
+	ur.add_undo_method(_router, "_write_file_bytes", path, bytes)
+	if had_uid:
+		ur.add_undo_method(_router, "_write_file_bytes", uid_path, uid_bytes)
+	ur.commit_action()
+	return _router._ok({"path": path, "deleted": true, "had_uid": had_uid})
 
 

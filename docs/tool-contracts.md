@@ -346,11 +346,15 @@ Import external files (local paths or HTTP URLs) into a Godot project and assemb
 | `get_setting` | `name` | `SettingValue { name, value, exists }` | `read_only` |
 | `set_setting` | `name, value, dry_run=False` | `SetSettingResult { name, value, set, dry_run }` | `mutating` |
 | `resolve_uid` | `value` (a `res://` path or `uid://…`) | `UidResolution { uid?, path? }` | `read_only` |
+| `delete_resource_file` | `path, confirm=False, dry_run=False` | `DeleteResourceFileResult { path, deleted, had_uid, dry_run }` | `destructive` |
 
 Hidden entries (`.godot`, `.git`, …) are skipped. `search_files` matches `name_glob`
 and/or `content` substring (truncating at `max_results`). `set_setting` coerces to the
 setting's existing type, persists to project settings (not undo-tracked), and accepts
-`dry_run`. `resolve_uid` picks direction by the input prefix.
+`dry_run`. `resolve_uid` picks direction by the input prefix. `delete_resource_file`
+removes a `res://` file (and its `.uid` sidecar) — the inverse of the file-creating tools;
+`destructive` (requires `confirm=True`, `dry_run` previews), `res://` containment enforced,
+undoable in the editor.
 
 #### Editor screenshots (issue #33) — category: `editor` (gated off by default)
 

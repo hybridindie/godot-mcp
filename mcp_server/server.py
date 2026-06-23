@@ -123,7 +123,7 @@ def create_server(
     register_scene_session(mcp, bridge, approval)
     register_node_ops(mcp, bridge)
     register_resource_files(mcp, bridge)
-    register_project_fs(mcp, bridge)
+    register_project_fs(mcp, bridge, approval)
     register_physics(mcp, bridge)
     register_animation(mcp, bridge)
     register_scene_3d(mcp, bridge)

@@ -260,6 +260,19 @@ func _write_file_text(path: String, text: String) -> void:
 	EditorInterface.get_resource_filesystem().update_file(path)
 
 
+## Write raw bytes to a file (creating parent dirs) and re-import it. The UndoRedo
+## undo callback for file deletion (#217), so binary resources round-trip exactly.
+func _write_file_bytes(path: String, bytes: PackedByteArray) -> void:
+	var base_dir := path.get_base_dir()
+	if not DirAccess.dir_exists_absolute(base_dir):
+		DirAccess.make_dir_recursive_absolute(base_dir)
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file != null:
+		file.store_buffer(bytes)
+		file.close()
+	EditorInterface.get_resource_filesystem().update_file(path)
+
+
 func _remove_file(path: String) -> void:
 	if FileAccess.file_exists(path):
 		DirAccess.remove_absolute(path)
