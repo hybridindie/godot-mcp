@@ -495,8 +495,9 @@ turns `[1,3]` into the bitmask `5` on any node with a `navigation_layers` proper
 #### Audio (issue #44) — category: `audio` (gated off by default)
 
 Set up audio — stream players, the AudioServer bus layout, and bus effects.
-`get_audio_bus_layout` is `read_only`; the others are `mutating` (UndoRedo-wrapped),
-`dry_run`. The bus layout is **global** AudioServer/editor state (not per-scene).
+`get_audio_bus_layout` is `read_only`; the adders are `mutating` (UndoRedo-wrapped),
+`dry_run`; the removers are `destructive` (`confirm`, `dry_run`). The bus layout is
+**global** AudioServer/editor state (not per-scene).
 
 | Tool | Params | Returns |
 |------|--------|---------|
@@ -504,12 +505,16 @@ Set up audio — stream players, the AudioServer bus layout, and bus effects.
 | `get_audio_bus_layout` | — | `AudioBusLayoutResult { buses[] }` (read_only) |
 | `add_audio_bus` | `name, volume_db=0.0` | `AudioBusResult { index, name }` |
 | `add_audio_bus_effect` | `bus, effect_type, properties?` | `AudioBusEffectResult { bus, bus_index, effect_type, effect_index }` |
+| `remove_audio_bus` | `bus, confirm` | `AudioBusRemoveResult { name, index, removed }` (destructive) |
+| `remove_audio_bus_effect` | `bus, effect_index, confirm` | `AudioBusEffectRemoveResult { bus, bus_index, effect_index, removed }` (destructive) |
 
 `add_audio_player` creates an AudioStreamPlayer/2D/3D, optionally loading a `res://`
 AudioStream (`stream_path`) and applying `properties` (volume_db, bus, autoplay, …).
 `get_audio_bus_layout` returns each bus's index/name/volume_db, mute/solo/bypass, and
 its effect stack. `add_audio_bus` appends a uniquely-named bus; `add_audio_bus_effect`
-appends an AudioEffect (e.g. AudioEffectReverb) to the named bus.
+appends an AudioEffect (e.g. AudioEffectReverb) to the named bus. `remove_audio_bus`
+(the Master bus is never removable) and `remove_audio_bus_effect` are the inverses —
+both undoable (the bus/effect, with its state, is restored on undo).
 
 #### TileMap (issue #45) — category: `tilemap` (gated off by default)
 

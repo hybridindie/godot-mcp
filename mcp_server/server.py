@@ -129,7 +129,7 @@ def create_server(
     register_scene_3d(mcp, bridge)
     register_particles(mcp, bridge)
     register_navigation(mcp, bridge)
-    register_audio(mcp, bridge)
+    register_audio(mcp, bridge, approval)
     register_tilemap(mcp, bridge)
     register_theme_ui(mcp, bridge)
     register_shader(mcp, bridge)

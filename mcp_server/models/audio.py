@@ -44,3 +44,24 @@ class AudioBusEffectResult(BaseModel):
     effect_type: str
     effect_index: int
     dry_run: bool = False
+
+
+class AudioBusRemoveResult(BaseModel):
+    """Result of removing an audio bus (issue #219 G8) — the inverse of ``add_audio_bus``.
+    Removal is undoable in the editor (the bus + its effects are restored on undo)."""
+
+    name: str
+    index: int
+    removed: bool = False
+    dry_run: bool = False
+
+
+class AudioBusEffectRemoveResult(BaseModel):
+    """Result of removing one effect from an audio bus (issue #219 G8) — the inverse of
+    ``add_audio_bus_effect``. Undoable (the effect is re-inserted at its index on undo)."""
+
+    bus: str
+    bus_index: int
+    effect_index: int
+    removed: bool = False
+    dry_run: bool = False

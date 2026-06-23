@@ -87,6 +87,31 @@ async def _run() -> None:
         assert abs(music["volume_db"] - (-3.0)) < 0.01
         assert any(e["type"] == "AudioEffectReverb" for e in music["effects"])
 
+        # G8 (#219): remove the effect, then the bus — confirm each via the layout.
+        removed_effect = await _ok(
+            bridge,
+            "cmd_remove_audio_bus_effect",
+            {"bus": "Music", "effect_index": 0, "confirm": True},
+        )
+        assert removed_effect["removed"] is True and removed_effect["effect_index"] == 0
+        layout2 = await _ok(bridge, "cmd_get_audio_bus_layout", {})
+        music2 = next(b for b in layout2["buses"] if b["name"] == "Music")
+        assert not any(e["type"] == "AudioEffectReverb" for e in music2["effects"])
+
+        removed_bus = await _ok(bridge, "cmd_remove_audio_bus", {"bus": "Music", "confirm": True})
+        assert removed_bus["removed"] is True and removed_bus["name"] == "Music"
+        layout3 = await _ok(bridge, "cmd_get_audio_bus_layout", {})
+        assert not any(b["name"] == "Music" for b in layout3["buses"])
+
+        # the Master bus is never removable; a bad effect index is rejected
+        master = await bridge.send("cmd_remove_audio_bus", {"bus": "Master", "confirm": True})
+        assert master.ok is False and master.error == "VALIDATION_ERROR"
+        bad_idx = await bridge.send(
+            "cmd_remove_audio_bus_effect",
+            {"bus": "Master", "effect_index": 99, "confirm": True},
+        )
+        assert bad_idx.ok is False and bad_idx.error == "VALIDATION_ERROR"
+
         # validation: bad player type, duplicate bus, unknown bus, bad effect type, bad stream
         bad_player = await bridge.send(
             "cmd_add_audio_player", {"parent_path": ".", "player_type": "Node2D"}

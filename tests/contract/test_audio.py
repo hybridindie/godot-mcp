@@ -54,6 +54,12 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                     "effect_index": 0,
                 },
             )
+        case "cmd_remove_audio_bus":
+            return ResponseEnvelope.success(cmd.id, {"name": "SFX", "index": 1, "removed": True})
+        case "cmd_remove_audio_bus_effect":
+            return ResponseEnvelope.success(
+                cmd.id, {"bus": "SFX", "bus_index": 1, "effect_index": 0, "removed": True}
+            )
     return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
 
 
@@ -120,3 +126,57 @@ async def test_dry_run_sends_no_mutation() -> None:
         result = await client.call_tool("add_audio_bus", {"name": "SFX", "dry_run": True})
     assert result.structured_content["dry_run"] is True
     assert "cmd_add_audio_bus" not in _commands(conn)
+
+
+async def test_audio_bus_removers_are_destructive() -> None:
+    # #219 G8: the removers are destructive (confirm-gated), the inverse of the adders.
+    server, _ = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "audio"})
+        tools = {t.name: t for t in await client.list_tools()}
+    assert tools["remove_audio_bus"].meta["safety_class"] == "destructive"
+    assert tools["remove_audio_bus_effect"].meta["safety_class"] == "destructive"
+
+
+async def test_remove_audio_bus_requires_confirm() -> None:
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "audio"})
+        blocked = await client.call_tool(
+            "remove_audio_bus", {"bus": "SFX"}, raise_on_error=False
+        )
+        assert blocked.is_error and "confirm" in str(blocked.content)
+        assert "cmd_remove_audio_bus" not in _commands(conn)
+        ok = await client.call_tool("remove_audio_bus", {"bus": "SFX", "confirm": True})
+    assert ok.structured_content["removed"] is True
+    assert ok.structured_content["index"] == 1
+    assert "cmd_remove_audio_bus" in _commands(conn)
+
+
+async def test_remove_audio_bus_dry_run_sends_no_command() -> None:
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "audio"})
+        result = await client.call_tool(
+            "remove_audio_bus", {"bus": "SFX", "dry_run": True}
+        )
+    assert result.structured_content["dry_run"] is True
+    assert result.structured_content["removed"] is False
+    assert "cmd_remove_audio_bus" not in _commands(conn)
+
+
+async def test_remove_audio_bus_effect_requires_confirm() -> None:
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "audio"})
+        blocked = await client.call_tool(
+            "remove_audio_bus_effect", {"bus": "SFX", "effect_index": 0}, raise_on_error=False
+        )
+        assert blocked.is_error and "confirm" in str(blocked.content)
+        assert "cmd_remove_audio_bus_effect" not in _commands(conn)
+        ok = await client.call_tool(
+            "remove_audio_bus_effect", {"bus": "SFX", "effect_index": 0, "confirm": True}
+        )
+    assert ok.structured_content["removed"] is True
+    assert ok.structured_content["effect_index"] == 0
+    assert "cmd_remove_audio_bus_effect" in _commands(conn)

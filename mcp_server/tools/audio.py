@@ -21,19 +21,31 @@ from mcp_server.defaults import (
     DEFAULT_AUDIO_PLAYER_TYPE,
 )
 from mcp_server.models.audio import (
+    AudioBusEffectRemoveResult,
     AudioBusEffectResult,
     AudioBusLayoutResult,
+    AudioBusRemoveResult,
     AudioBusResult,
     AudioPlayerResult,
 )
-from mcp_server.safety import MUTATING, READ_ONLY, enforce_preconditions, require_node_exists
+from mcp_server.safety import (
+    DESTRUCTIVE,
+    MUTATING,
+    READ_ONLY,
+    ApprovalGate,
+    enforce_preconditions,
+    require_bridge_connected,
+    require_confirmation,
+    require_node_exists,
+)
 from mcp_server.tools._route import route, run_or_preview
 
 AUDIO = {AUDIO_TAG}
 
 
-def register_audio(mcp: FastMCP, bridge: Bridge) -> None:
+def register_audio(mcp: FastMCP, bridge: Bridge, approval: ApprovalGate | None = None) -> None:
     """Register the audio tools."""
+    approval = approval or ApprovalGate()
 
     @mcp.tool(meta=MUTATING, tags=AUDIO)
     @enforce_preconditions
@@ -102,4 +114,51 @@ def register_audio(mcp: FastMCP, bridge: Bridge) -> None:
         preview = {"bus": bus, "bus_index": -1, "effect_type": effect_type, "effect_index": -1}
         return await run_or_preview(
             dry_run, AudioBusEffectResult, preview, bridge, "cmd_add_audio_bus_effect", params
+        )
+
+    @mcp.tool(meta=DESTRUCTIVE, tags=AUDIO)
+    @enforce_preconditions
+    async def remove_audio_bus(
+        bus: str, confirm: bool = False, dry_run: bool = False
+    ) -> AudioBusRemoveResult:
+        """Remove the audio bus named ``bus`` from the AudioServer layout — the inverse of
+        ``add_audio_bus``. The Master bus cannot be removed. Destructive: requires
+        ``confirm=True``. Undoable in the editor (the bus and its effects are restored on
+        undo).
+        """
+        require_bridge_connected(bridge)
+        if not dry_run:
+            require_confirmation(confirm, "remove_audio_bus")
+            await approval.require("remove_audio_bus", "destructive", {"bus": bus})
+        params = {"bus": bus, "confirm": True}
+        preview = {"name": bus, "index": -1, "removed": False}
+        return await run_or_preview(
+            dry_run, AudioBusRemoveResult, preview, bridge, "cmd_remove_audio_bus", params
+        )
+
+    @mcp.tool(meta=DESTRUCTIVE, tags=AUDIO)
+    @enforce_preconditions
+    async def remove_audio_bus_effect(
+        bus: str, effect_index: int, confirm: bool = False, dry_run: bool = False
+    ) -> AudioBusEffectRemoveResult:
+        """Remove the effect at ``effect_index`` from the bus named ``bus`` — the inverse
+        of ``add_audio_bus_effect`` (use ``get_audio_bus_layout`` to find the index).
+        Destructive: requires ``confirm=True``. Undoable in the editor (the effect is
+        re-inserted at its index on undo).
+        """
+        require_bridge_connected(bridge)
+        if not dry_run:
+            require_confirmation(confirm, "remove_audio_bus_effect")
+            await approval.require(
+                "remove_audio_bus_effect", "destructive", {"bus": bus, "effect_index": effect_index}
+            )
+        params = {"bus": bus, "effect_index": effect_index, "confirm": True}
+        preview = {"bus": bus, "bus_index": -1, "effect_index": effect_index, "removed": False}
+        return await run_or_preview(
+            dry_run,
+            AudioBusEffectRemoveResult,
+            preview,
+            bridge,
+            "cmd_remove_audio_bus_effect",
+            params,
         )
