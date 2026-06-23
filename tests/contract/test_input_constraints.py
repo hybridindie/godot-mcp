@@ -34,13 +34,18 @@ BOUNDED_PARAMS = {
 }
 
 
-def _numeric_leaf_has_minimum(schema: dict[str, Any]) -> bool:
-    """A numeric param schema declares a minimum, allowing for ``int | None`` (anyOf)."""
+# Params that carry an explicit upper bound by design. TileMap ids are open-ended
+# Godot identifiers and intentionally have only a lower bound, so they are excluded.
+UPPER_BOUNDED_PARAMS = BOUNDED_PARAMS - {"source_id", "layer", "alternative_tile"}
+
+
+def _numeric_leaf_has(schema: dict[str, Any], key: str) -> bool:
+    """A numeric param schema declares ``key`` (minimum/maximum), allowing ``int | None``."""
     candidates = [schema, *schema.get("anyOf", [])]
     numeric = [c for c in candidates if c.get("type") in ("integer", "number")]
     if not numeric:
         return True  # not a numeric leaf — not our concern
-    return all("minimum" in c for c in numeric)
+    return all(key in c for c in numeric)
 
 
 def test_targeted_numeric_params_declare_bounds() -> None:
@@ -48,7 +53,8 @@ def test_targeted_numeric_params_declare_bounds() -> None:
     import asyncio
 
     tools = asyncio.run(server._list_tools())
-    unbounded: list[str] = []
+    missing_min: list[str] = []
+    missing_max: list[str] = []
     checked = 0
     for tool in tools:
         props = (tool.parameters or {}).get("properties", {})
@@ -56,10 +62,14 @@ def test_targeted_numeric_params_declare_bounds() -> None:
             if name not in BOUNDED_PARAMS:
                 continue
             checked += 1
-            if not _numeric_leaf_has_minimum(schema):
-                unbounded.append(f"{tool.name}.{name}")
+            if not _numeric_leaf_has(schema, "minimum"):
+                missing_min.append(f"{tool.name}.{name}")
+            # Upper-bounded params must also cap the high end (guards a dropped ``le=``).
+            if name in UPPER_BOUNDED_PARAMS and not _numeric_leaf_has(schema, "maximum"):
+                missing_max.append(f"{tool.name}.{name}")
     assert checked > 0, "no targeted params found — test wiring is broken"
-    assert not unbounded, f"unbounded numeric params: {sorted(unbounded)}"
+    assert not missing_min, f"params with no minimum: {sorted(missing_min)}"
+    assert not missing_max, f"upper-bounded params with no maximum: {sorted(missing_max)}"
 
 
 async def test_out_of_range_rejected_before_bridge() -> None:
