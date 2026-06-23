@@ -88,6 +88,14 @@ async def _run() -> None:
         )
         assert grad["stops"] == 3
 
+        # P4 (#219): read the material back — the props + the 3-stop ramp just set.
+        read = await _ok(bridge, "cmd_get_particle_material", {"node_path": "FX"})
+        assert read["has_material"] is True
+        assert read["properties"]["spread"] == 33.0
+        assert read["properties"]["initial_velocity_min"] == 25.0
+        assert read["color_ramp"] is not None
+        assert len(read["color_ramp"]["offsets"]) == 3 and len(read["color_ramp"]["colors"]) == 3
+
         preset = await _ok(
             bridge, "cmd_apply_particle_preset", {"node_path": "FX", "preset": "explosion"}
         )

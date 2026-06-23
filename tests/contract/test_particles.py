@@ -40,6 +40,22 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
             return ResponseEnvelope.success(
                 cmd.id, {"node_path": p["node_path"], "preset": p["preset"]}
             )
+        case "cmd_get_particle_material":
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "node_path": p["node_path"],
+                    "has_material": True,
+                    "properties": {"gravity": {"x": 0.0, "y": -98.0, "z": 0.0}, "spread": 45.0},
+                    "color_ramp": {
+                        "colors": [
+                            {"r": 1.0, "g": 1.0, "b": 1.0, "a": 1.0},
+                            {"r": 1.0, "g": 0.0, "b": 0.0, "a": 0.0},
+                        ],
+                        "offsets": [0.0, 1.0],
+                    },
+                },
+            )
     return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
 
 
@@ -111,3 +127,21 @@ async def test_dry_run_sends_no_mutation() -> None:
         )
     assert result.structured_content["dry_run"] is True
     assert "cmd_apply_particle_preset" not in _commands(conn)
+
+
+async def test_get_particle_material_reads_props_and_ramp() -> None:
+    # #219 P4: read the process_material props + color ramp — inverts the writers.
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "particles"})
+        result = await client.call_tool("get_particle_material", {"node_path": "GPUParticles2D"})
+        tools = {t.name: t for t in await client.list_tools()}
+    data = result.structured_content
+    assert data["has_material"] is True
+    assert data["properties"]["spread"] == 45.0
+    assert data["properties"]["gravity"] == {"x": 0.0, "y": -98.0, "z": 0.0}
+    assert data["color_ramp"]["offsets"] == [0.0, 1.0]
+    assert data["color_ramp"]["colors"][0] == {"r": 1.0, "g": 1.0, "b": 1.0, "a": 1.0}
+    assert tools["get_particle_material"].meta["safety_class"] == "read_only"
+    cmds = [CommandEnvelope.model_validate_json(s).command for s in conn.sent]
+    assert "cmd_get_particle_material" in cmds

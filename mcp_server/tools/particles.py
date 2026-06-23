@@ -23,11 +23,12 @@ from mcp_server.defaults import (
 from mcp_server.models.particles import (
     CreateParticlesResult,
     ParticleGradientResult,
+    ParticleMaterialDetail,
     ParticleMaterialResult,
     ParticlePresetResult,
 )
-from mcp_server.safety import MUTATING, enforce_preconditions, require_node_exists
-from mcp_server.tools._route import run_or_preview
+from mcp_server.safety import MUTATING, READ_ONLY, enforce_preconditions, require_node_exists
+from mcp_server.tools._route import route, run_or_preview
 
 PARTICLES = {PARTICLES_TAG}
 
@@ -124,4 +125,16 @@ def register_particles(mcp: FastMCP, bridge: Bridge) -> None:
         preview = {"node_path": node_path, "preset": preset}
         return await run_or_preview(
             dry_run, ParticlePresetResult, preview, bridge, "cmd_apply_particle_preset", params
+        )
+
+    @mcp.tool(meta=READ_ONLY, tags=PARTICLES)
+    async def get_particle_material(node_path: str) -> ParticleMaterialDetail:
+        """Read the ProcessMaterial of the GPUParticles2D/3D at ``node_path``: its
+        ``properties`` (JSON-coerced material fields) and ``color_ramp`` (gradient stops,
+        null when none). ``has_material`` is false when no ProcessMaterial is set. The
+        inverse of ``set_particle_material`` / ``set_particle_color_gradient`` — snapshot
+        a material before editing it for rollback.
+        """
+        return ParticleMaterialDetail(
+            **await route(bridge, "cmd_get_particle_material", {"node_path": node_path})
         )

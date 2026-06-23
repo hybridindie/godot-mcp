@@ -461,6 +461,7 @@ All `mutating` (UndoRedo-wrapped), `dry_run`.
 | `set_particle_material` | `node_path, properties` | `ParticleMaterialResult { node_path, properties }` |
 | `set_particle_color_gradient` | `node_path, colors[], offsets?` | `ParticleGradientResult { node_path, stops }` |
 | `apply_particle_preset` | `node_path, preset` | `ParticlePresetResult { node_path, preset }` |
+| `get_particle_material` | `node_path` | `ParticleMaterialDetail { node_path, has_material, properties, color_ramp{colors, offsets}? }` (`read_only`) |
 
 `create_particles` adds a GPUParticles2D/3D with a fresh ParticleProcessMaterial.
 `set_particle_material` applies process-material properties (`gravity`,

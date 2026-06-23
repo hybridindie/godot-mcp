@@ -2,6 +2,7 @@
 class_name MCPParticlesHandlers
 extends RefCounted
 const Coerce := preload("res://addons/godot_mcp/type_coerce.gd")
+const ParticleRead := preload("res://addons/godot_mcp/particle_read.gd")
 ## Domain handler: particles.
 ##
 ## Registered by the router on _init().  Each handler receives params dict and
@@ -61,6 +62,7 @@ func register(handlers: Dictionary) -> void:
 	handlers["cmd_create_particles"] = _cmd_create_particles
 	handlers["cmd_set_particle_color_gradient"] = _cmd_set_particle_color_gradient
 	handlers["cmd_set_particle_material"] = _cmd_set_particle_material
+	handlers["cmd_get_particle_material"] = _cmd_get_particle_material
 
 
 # -- handlers ----------------------------------------------------------------
@@ -153,6 +155,19 @@ func _cmd_apply_particle_preset(params: Dictionary) -> Dictionary:
 			ur.add_undo_property(node, str(key), node.get(str(key)))
 	ur.commit_action()
 	return _router._ok({"node_path": str(params.get("node_path")), "preset": preset_name})
+
+
+## Read a particle node's ProcessMaterial — props + color ramp (issue #219 P4). The
+## inverse of set_particle_material / set_particle_color_gradient; delegates the pure
+## serialization to MCPParticleRead.
+func _cmd_get_particle_material(params: Dictionary) -> Dictionary:
+	var found := _resolve_particles(params.get("node_path", ""))
+	if not found["ok"]:
+		return found
+	var node: Node = found["node"]
+	var data: Dictionary = ParticleRead.serialize(node.process_material)
+	data["node_path"] = str(params.get("node_path"))
+	return _router._ok(data)
 
 
 func _resolve_particles(raw_path: Variant) -> Dictionary:
