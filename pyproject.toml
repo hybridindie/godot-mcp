@@ -6,8 +6,9 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
 dependencies = [
-    # The MCP framework (PrefectHQ/fastmcp). Server bootstrap lands in issue #4.
-    "fastmcp>=2.0",
+    # The MCP framework (PrefectHQ/fastmcp). Capped below 4.0: 2.x→3.x had breaking
+    # API changes and the server is validated on the 3.3 line (issue #228).
+    "fastmcp>=3.3,<4",
     # WebSocket transport for the addon/server bridge (issue #3).
     "websockets>=13.0",
     # Domain models and typed tool I/O (issue #7).

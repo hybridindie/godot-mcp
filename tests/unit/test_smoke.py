@@ -39,6 +39,18 @@ def test_version_matches_pyproject() -> None:
     assert mcp_server.__version__ == pyproject["project"]["version"]
 
 
+def test_fastmcp_pinned_below_major_4() -> None:
+    # fastmcp 2.x→3.x had breaking API changes; the server is validated on 3.x.
+    # A clean resolve must not pull 4.x (issue #228) — require an explicit upper cap.
+    pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
+    dependencies = pyproject["project"]["dependencies"]
+    fastmcp = next((d for d in dependencies if d.replace(" ", "").startswith("fastmcp")), None)
+    assert fastmcp is not None, "fastmcp dependency missing from pyproject"
+    spec = fastmcp.replace(" ", "")
+    assert ">=3.3" in spec, f"fastmcp must floor at the validated 3.3 line, got {fastmcp!r}"
+    assert "<4" in spec, f"fastmcp must be capped below 4.0 to avoid a breaking major, got {fastmcp!r}"
+
+
 @pytest.mark.parametrize(
     "module",
     ["mcp_server.tools", "mcp_server.resources", "mcp_server.prompts", "mcp_server.models"],
