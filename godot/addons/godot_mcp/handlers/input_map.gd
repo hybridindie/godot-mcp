@@ -6,6 +6,8 @@ extends RefCounted
 ## Registered by the router on _init().  Each handler receives params dict and
 ## returns a response body (without id) via the router's _ok / _fail builders.
 
+const InputActionRead := preload("res://addons/godot_mcp/input_action_read.gd")
+
 var _router: MCPCommandRouter
 
 
@@ -18,9 +20,26 @@ func register(handlers: Dictionary) -> void:
 	handlers["cmd_add_input_event"] = _cmd_add_input_event
 	handlers["cmd_clear_input_action_events"] = _cmd_clear_input_action_events
 	handlers["cmd_remove_input_action"] = _cmd_remove_input_action
+	handlers["cmd_get_input_action_events"] = _cmd_get_input_action_events
 
 
 # -- handlers ----------------------------------------------------------------
+
+## Read an input action's deadzone + events (issue #219 P2). The inverse of the
+## input_map writers; delegates per-event serialization to MCPInputActionRead. Events
+## come from ProjectSettings (project.godot), the same store the writers persist to.
+func _cmd_get_input_action_events(params: Dictionary) -> Dictionary:
+	var action_name := str(params.get("action", ""))
+	if action_name.is_empty():
+		return _router._fail("VALIDATION_ERROR", "action is required.")
+	var setting_key := "input/" + action_name
+	if not ProjectSettings.has_setting(setting_key):
+		return _router._fail("RESOURCE_NOT_FOUND", "No input action '%s'." % action_name)
+	var action_data: Dictionary = ProjectSettings.get_setting(setting_key)
+	var deadzone := float(action_data.get("deadzone", 0.5))
+	var events: Array = action_data.get("events", [])
+	return _router._ok(InputActionRead.serialize(action_name, deadzone, events))
+
 
 func _cmd_add_input_action(params: Dictionary) -> Dictionary:
 	var action_name := str(params.get("name", ""))

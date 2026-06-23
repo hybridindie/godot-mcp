@@ -19,17 +19,19 @@ from mcp_server.models.input_map import (
     AddInputActionResult,
     AddInputEventResult,
     ClearInputActionEventsResult,
+    InputActionEvents,
     RemoveInputActionResult,
 )
 from mcp_server.safety import (
     DESTRUCTIVE,
     MUTATING,
+    READ_ONLY,
     ApprovalGate,
     enforce_preconditions,
     require_bridge_connected,
     require_confirmation,
 )
-from mcp_server.tools._route import run_or_preview
+from mcp_server.tools._route import route, run_or_preview
 
 INPUT_MAP = {INPUT_MAP_TAG}
 
@@ -148,4 +150,19 @@ def register_input_map(
             bridge,
             "cmd_clear_input_action_events",
             params,
+        )
+
+    @mcp.tool(meta=READ_ONLY, tags=INPUT_MAP)
+    async def get_input_action_events(action: str) -> InputActionEvents:
+        """Read an input action's ``deadzone`` and full event list. Each event is a dict
+        in the same shape ``add_input_event`` accepts (``event_type`` plus its
+        kind-specific keys — ``keycode``/``physical_keycode``/modifiers for key,
+        ``button`` for mouse, ``device``/``joy_button_index`` or ``axis``/``axis_value``
+        for joypad). The inverse of ``add_input_event`` / ``clear_input_action_events`` /
+        ``remove_input_action`` — snapshot an action before editing it so it can be
+        rebuilt. Errors (RESOURCE_NOT_FOUND) if no such action exists.
+        """
+        require_bridge_connected(bridge)
+        return InputActionEvents(
+            **await route(bridge, "cmd_get_input_action_events", {"action": action})
         )

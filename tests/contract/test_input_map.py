@@ -33,6 +33,25 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
             )
         case "cmd_clear_input_action_events":
             return ResponseEnvelope.success(cmd.id, {"action": p["action"], "cleared": True})
+        case "cmd_get_input_action_events":
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "action": p["action"],
+                    "deadzone": 0.5,
+                    "events": [
+                        {
+                            "event_type": "key",
+                            "keycode": "Space",
+                            "shift": False,
+                            "ctrl": True,
+                            "alt": False,
+                            "meta": False,
+                        },
+                        {"event_type": "mouse", "button": "left"},
+                    ],
+                },
+            )
     return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected command")
 
 
@@ -149,3 +168,20 @@ async def test_clear_input_action_events_with_confirm_proceeds() -> None:
         )
     assert result.structured_content["cleared"] is True
     assert "cmd_clear_input_action_events" in _commands(conn)
+
+
+async def test_get_input_action_events_returns_detail() -> None:
+    # #219 P2: read each event's full detail so remove/clear are invertible.
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "input_map"})
+        result = await client.call_tool("get_input_action_events", {"action": "jump"})
+        tools = {t.name: t for t in await client.list_tools()}
+    data = result.structured_content
+    assert data["action"] == "jump"
+    assert data["deadzone"] == 0.5
+    key = data["events"][0]
+    assert key["event_type"] == "key" and key["keycode"] == "Space" and key["ctrl"] is True
+    assert data["events"][1] == {"event_type": "mouse", "button": "left"}
+    assert tools["get_input_action_events"].meta["safety_class"] == "read_only"
+    assert "cmd_get_input_action_events" in _commands(conn)
