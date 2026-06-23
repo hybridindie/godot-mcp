@@ -72,6 +72,19 @@ class NodePropertyList(BaseModel):
     properties: list[str] = Field(default_factory=list)
 
 
+class NodeProperty(BaseModel):
+    """A single node property read (issue #215), including built-in Godot properties.
+
+    ``value`` is JSON-coerced (see type_coerce.gd); ``exists`` is false (and ``value``
+    null) when the node has no such property.
+    """
+
+    node_path: str
+    property: str
+    value: Any = None
+    exists: bool = False
+
+
 class SelectedNode(BaseModel):
     """The selected node, or ``selected=None`` when nothing is selected."""
 

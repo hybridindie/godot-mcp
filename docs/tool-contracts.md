@@ -198,6 +198,7 @@ states return an empty model (`is_open=False` / `tree=None` / `selected=None`), 
 | `get_scene_tree` | `max_depth: int = -1, lightweight: bool = False` | `SceneTree { tree: SceneNode? }` | `cmd_get_scene_tree` |
 | `get_selected_node` | — | `SelectedNode { selected: NodeInfo? }` | `cmd_get_selected_node` |
 | `get_node_properties` | `node_path: str` | `NodeInfo { node_path, type, script?, properties, children }` | `cmd_get_node_properties` |
+| `get_node_property` | `node_path: str, property: str` | `NodeProperty { node_path, property, value, exists }` | `cmd_get_node_property` |
 | `get_node_property_list` | `node_path: str` | `NodePropertyList { node_path, type, properties[] }` | `cmd_get_node_property_list` |
 
 `SceneNode = { name, type, path, script?, children: [SceneNode] }`. Each node's `path` (#180)
@@ -208,7 +209,10 @@ by the path-taking tools (`set_node_property`, `create_node` parent, `attach_scr
 discovery payload (pair with `max_depth`). `get_node_properties` errors
 with `RESOURCE_NOT_FOUND` (bad path) or `PRECONDITION_FAILED` (no scene open).
 `get_node_property_list` returns every valid property name for a node (useful before calling
-`set_node_property`).
+`set_node_property`). `get_node_property` reads a single property by name — **including
+built-in Godot properties** (`position`, `modulate`, `collision_layer`, …) that
+`get_node_properties` omits (it returns only script vars) — as `{ value, exists }`
+(`exists=false`, value null when absent), for snapshotting a value before a set (#215).
 
 #### Mutation (issue #6) — `mutating` (except `delete_node`)
 

@@ -19,6 +19,7 @@ func _initialize() -> void:
 	_test_from_json(failures)
 	_test_serialize_tree(failures)
 	_test_node_properties(failures)
+	_test_read_property(failures)
 	_test_node_info(failures)
 
 	if failures.is_empty():
@@ -137,6 +138,24 @@ func _test_node_properties(failures: Array[String]) -> void:
 	var props: Dictionary = Inspect.node_properties(node)
 	_eq(failures, "props.speed", props.get("speed"), 200.0)
 	_eq(failures, "props.health", props.get("health"), 100)
+	node.free()
+
+
+func _test_read_property(failures: Array[String]) -> void:
+	# read_property reads built-ins the script-var filter hides, plus script vars,
+	# and reports exists=false for absent names (issue #215).
+	var node := Node2D.new()
+	node.set_script(Probe)
+	node.position = Vector2(10, 20)
+	var pos: Dictionary = Inspect.read_property(node, "position")
+	_eq(failures, "read.builtin.exists", pos.get("exists"), true)
+	_eq(failures, "read.builtin.value", pos.get("value"), {"x": 10.0, "y": 20.0})
+	var speed: Dictionary = Inspect.read_property(node, "speed")
+	_eq(failures, "read.script.exists", speed.get("exists"), true)
+	_eq(failures, "read.script.value", speed.get("value"), 200.0)
+	var absent: Dictionary = Inspect.read_property(node, "no_such_prop")
+	_eq(failures, "read.absent.exists", absent.get("exists"), false)
+	_eq(failures, "read.absent.value", absent.get("value"), null)
 	node.free()
 
 

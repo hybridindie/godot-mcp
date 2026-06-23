@@ -64,6 +64,16 @@ static func node_properties(node: Node) -> Dictionary:
 	return props
 
 
+## Read one property by name — built-in OR script var, no usage filter (issue #215).
+## { value, exists }: exists=false (value=null) when the node has no such property,
+## so a real null value is distinguishable from "absent". JSON-coerced via type_coerce.
+static func read_property(node: Node, property: String) -> Dictionary:
+	for entry in node.get_property_list():
+		if String(entry.get("name", "")) == property:
+			return {"value": Coerce.to_json(node.get(property)), "exists": true}
+	return {"value": null, "exists": false}
+
+
 ## A resource's editable+stored properties, JSON-coerced (issue #34). Unlike nodes
 ## (script vars), built-in resource fields are EDITOR|STORAGE, so filter on those and
 ## drop the base Resource bookkeeping fields.

@@ -53,6 +53,14 @@ async def _run_checks() -> None:
         assert props.ok is False
         assert props.error == "PRECONDITION_FAILED"
         assert props.required == "active_scene"
+
+        # The new single-property read handler is registered and routes the same way (#215).
+        prop = await bridge.send(
+            "cmd_get_node_property", {"node_path": "Anything", "property": "position"}
+        )
+        assert prop.ok is False
+        assert prop.error == "PRECONDITION_FAILED"
+        assert prop.required == "active_scene"
     finally:
         await bridge.close()
 

@@ -15,6 +15,7 @@ from mcp_server.constraints import MaxDepth
 from mcp_server.models.inspection import (
     ActiveScene,
     NodeInfo,
+    NodeProperty,
     NodePropertyList,
     ProjectInfo,
     SceneTree,
@@ -102,6 +103,24 @@ def register_inspection(mcp: FastMCP, bridge: Bridge) -> None:
         if no scene is open.
         """
         return NodeInfo(**await route(bridge, "cmd_get_node_properties", {"node_path": node_path}))
+
+    @mcp.tool(meta=READ_ONLY, tags=INSPECTION)
+    async def get_node_property(node_path: str, property: str) -> NodeProperty:
+        """Read a single ``property`` by name from the node at ``node_path`` — including
+        **built-in** Godot properties (position, scale, modulate, collision_layer,
+        material, theme, …) that ``get_node_properties`` omits (it returns only
+        script-declared variables). Returns ``{value, exists}``; ``exists=false``
+        (value null) when the node has no such property. The value is JSON-coerced
+        (Vector2 as {"x","y"}, Color, NodePath as string). Use it to snapshot a value
+        before ``set_node_property`` — for verification or rollback. Errors with
+        RESOURCE_NOT_FOUND if the path doesn't resolve, or PRECONDITION_FAILED if no
+        scene is open.
+        """
+        return NodeProperty(
+            **await route(
+                bridge, "cmd_get_node_property", {"node_path": node_path, "property": property}
+            )
+        )
 
     @mcp.tool(meta=READ_ONLY, tags=INSPECTION)
     async def get_node_property_list(node_path: str) -> NodePropertyList:

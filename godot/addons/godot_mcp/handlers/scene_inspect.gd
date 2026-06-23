@@ -20,6 +20,7 @@ func register(handlers: Dictionary) -> void:
 	handlers["cmd_get_scene_tree"] = _cmd_get_scene_tree
 	handlers["cmd_get_selected_node"] = _cmd_get_selected_node
 	handlers["cmd_get_node_properties"] = _cmd_get_node_properties
+	handlers["cmd_get_node_property"] = _cmd_get_node_property
 	handlers["cmd_get_node_property_list"] = _cmd_get_node_property_list
 
 
@@ -67,6 +68,34 @@ func _cmd_get_node_properties(params: Dictionary) -> Dictionary:
 	if node == null:
 		return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(params["node_path"]))
 	return _router._ok(Inspect.node_info(node, root))
+
+
+func _cmd_get_node_property(params: Dictionary) -> Dictionary:
+	if not params.has("node_path"):
+		return _router._fail("VALIDATION_ERROR", "'node_path' is required.")
+	if not params.has("property"):
+		return _router._fail("VALIDATION_ERROR", "'property' is required.")
+	var root: Node = EditorInterface.get_edited_scene_root()
+	if root == null:
+		return _router._fail("PRECONDITION_FAILED", "No scene is open.", "active_scene")
+	var node_path := str(params["node_path"])
+	if node_path.begins_with("/"):
+		node_path = node_path.substr(1)
+	# Also strip "root/" prefix commonly hallucinated by LLMs
+	if node_path.begins_with("root/"):
+		node_path = node_path.substr(5)
+	if node_path.is_empty():
+		node_path = "."
+	var node: Node = root.get_node_or_null(NodePath(node_path))
+	if node == null:
+		return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(params["node_path"]))
+	var read: Dictionary = Inspect.read_property(node, str(params["property"]))
+	return _router._ok({
+		"node_path": str(params["node_path"]),
+		"property": str(params["property"]),
+		"value": read["value"],
+		"exists": read["exists"],
+	})
 
 
 func _cmd_get_node_property_list(params: Dictionary) -> Dictionary:
