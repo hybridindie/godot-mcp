@@ -2,7 +2,7 @@
 
 A **generic, game-agnostic** [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server for **AI-driven Godot development**. An AI agent (Claude Code, OpenCode, Cursor, or any stdio MCP client) connects to a live Godot 4.4+ editor and controls it programmatically — inspecting scenes, editing nodes, writing scripts, running the game, and exporting builds — all through a typed, structured API with no built-in game vocabulary.
 
-> **Status:** feature-complete across the planned ecosystem. **125 tools** across **23 gated toolsets** (plus always-on `core`). Every capability is documented, tested, and ready for agent use.
+> **Status:** feature-complete across the planned ecosystem. **126 tools** across **23 gated toolsets** (plus always-on `core`). Every capability is documented, tested, and ready for agent use.
 
 ---
 
@@ -507,7 +507,7 @@ The full surface is 121 tools across 23 categories. Below is a summary; the auth
 - `find_nodes_by_type`, `batch_set_property`, `cross_scene_set_property`, `get_dependencies`
 
 ### Static Analysis (gated) — `read_only`
-- `find_unused_resources`, `analyze_signal_flow`, `detect_circular_dependencies`, `project_stats`
+- `find_unused_resources`, `analyze_signal_flow`, `detect_circular_dependencies`, `project_stats`, `project_structure`
 
 ### Export (gated) — `read_only` / `runtime`
 - `list_export_presets`, `get_export_info`, `export_project`

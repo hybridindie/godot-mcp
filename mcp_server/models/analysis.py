@@ -47,6 +47,18 @@ class ProjectStatsResult(BaseModel):
     busiest_scenes: list[SceneNodeCount] = Field(default_factory=list)
 
 
+class ProjectStructureResult(BaseModel):
+    """Raw project inventory (issue #210): ``res://`` paths bucketed by kind, plus
+    the entry points. ``scenes``/``scripts``/``resources`` are sorted and
+    non-overlapping; ``entry_points`` is a labelled cross-cut (main scene, autoloads,
+    plugins)."""
+
+    scenes: list[str] = Field(default_factory=list)
+    scripts: list[str] = Field(default_factory=list)
+    resources: list[str] = Field(default_factory=list)
+    entry_points: list[str] = Field(default_factory=list)
+
+
 # ---------------------------------------------------------------------------
 # Issue #111 — asset dependency, orphan detection, scene integrity
 # ---------------------------------------------------------------------------

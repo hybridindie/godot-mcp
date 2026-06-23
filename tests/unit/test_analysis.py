@@ -96,6 +96,23 @@ def test_project_stats(tmp_path: Path) -> None:
     assert stats["busiest_scenes"][0]["scene"] == "res://main.tscn"
 
 
+def test_project_structure(tmp_path: Path) -> None:
+    _make_project(tmp_path)
+    index = analysis.scan(tmp_path)
+    structure = analysis.project_structure(index)
+    # Buckets are sorted, non-overlapping, and cover every indexed file.
+    assert structure["scenes"] == ["res://main.tscn"]
+    assert structure["scripts"] == [
+        "res://a.gd",
+        "res://b.gd",
+        "res://game.gd",
+        "res://lonely.gd",
+    ]
+    assert structure["resources"] == ["res://unused.png", "res://used.png"]
+    # main scene + autoload script are entry points.
+    assert set(structure["entry_points"]) == {"res://main.tscn", "res://game.gd"}
+
+
 def test_scan_skips_godot_cache(tmp_path: Path) -> None:
     _make_project(tmp_path)
     (tmp_path / ".godot").mkdir()

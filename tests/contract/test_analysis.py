@@ -60,6 +60,7 @@ async def test_gated_read_only_in_analysis_toolset(tmp_path: Path) -> None:
         "analyze_signal_flow",
         "detect_circular_dependencies",
         "project_stats",
+        "project_structure",
         "analyze_dependencies",
         "find_orphaned_resources",
         "validate_scene_integrity",
@@ -67,6 +68,17 @@ async def test_gated_read_only_in_analysis_toolset(tmp_path: Path) -> None:
     }
     assert expected <= set(tools)
     assert all(tools[n].meta["safety_class"] == "read_only" for n in expected)
+
+
+async def test_project_structure_returns_inventory(tmp_path: Path) -> None:
+    _make_project(tmp_path)
+    async with Client(_server(tmp_path)) as client:
+        await client.call_tool("enable_toolset", {"category": "analysis"})
+        result = await client.call_tool("project_structure", {})
+    data = result.structured_content
+    assert "res://main.tscn" in data["scenes"]
+    assert "res://unused.png" in data["resources"]
+    assert "res://main.tscn" in data["entry_points"]
 
 
 async def test_find_unused_and_signal_flow(tmp_path: Path) -> None:

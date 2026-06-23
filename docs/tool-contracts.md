@@ -755,6 +755,7 @@ commands). All `read_only`. The project dir is resolved like the runtime loop
 | `analyze_signal_flow` | `scene=""` | `SignalFlowResult { connections[], count }` |
 | `detect_circular_dependencies` | — | `CircularDependenciesResult { cycles[], count }` |
 | `project_stats` | — | `ProjectStatsResult { scenes, scripts, resources, total_nodes, connections, by_extension, busiest_scenes[] }` |
+| `project_structure` | — | `ProjectStructureResult { scenes[], scripts[], resources[], entry_points[] }` |
 | `analyze_dependencies` | `resource_path` | `AnalyzeDependenciesResult { path, type, references[], referencers[] }` |
 | `find_orphaned_resources` | `scan_dir="res://"`, `resource_types` | `FindOrphanedResult { orphaned[]{path, type, estimated_size}, scanned }` |
 | `validate_scene_integrity` | `scene_path` | `ValidateSceneIntegrityResult { valid, errors[]{severity, message, node_path, property}, warnings[] }` |
@@ -765,7 +766,9 @@ entry points — the main scene, autoloads, plugin scripts). `analyze_signal_flo
 `[connection ...]` from scene files (each `{scene, signal, from, to, method}`).
 `detect_circular_dependencies` finds cycles in the `preload`/`load`/`extends` graph among
 `.gd` files. `project_stats` reports counts, total nodes, connections, a per-extension
-breakdown, and the busiest scenes.
+breakdown, and the busiest scenes. `project_structure` returns the raw inventory — the
+actual scene/script/resource `res://` paths (sorted, non-overlapping) plus `entry_points`
+— for an agent to learn what exists before planning edits.
 
 Issue #111 adds **dependency-aware** analysis: `analyze_dependencies` extracts `res://` and
 `uid://` references from a resource file (recursing into sub-dependencies). `find_orphaned_resources`

@@ -27,6 +27,7 @@ from mcp_server.models.analysis import (
     CrossSceneRefsResult,
     FindOrphanedResult,
     ProjectStatsResult,
+    ProjectStructureResult,
     SignalFlowResult,
     UnusedResourcesResult,
     ValidateSceneIntegrityResult,
@@ -83,6 +84,16 @@ def register_analysis(mcp: FastMCP, bridge: Bridge, config: ServerConfig) -> Non
         connections, a per-extension breakdown, and the busiest scenes by node count.
         """
         return ProjectStatsResult(**analysis.project_stats(await _index()))
+
+    @mcp.tool(meta=READ_ONLY, tags=ANALYSIS)
+    @enforce_preconditions
+    async def project_structure() -> ProjectStructureResult:
+        """The project's raw inventory: all scene, script, and resource ``res://`` paths
+        (sorted, non-overlapping buckets) plus ``entry_points`` (main scene, autoloads,
+        plugins). Use it to learn what exists before planning edits — unlike
+        ``project_stats`` (counts only), this returns the actual paths.
+        """
+        return ProjectStructureResult(**analysis.project_structure(await _index()))
 
     @mcp.tool(meta=READ_ONLY, tags=ANALYSIS)
     @enforce_preconditions

@@ -234,6 +234,31 @@ def project_stats(index: ProjectIndex) -> dict[str, Any]:
     }
 
 
+def project_structure(index: ProjectIndex) -> dict[str, list[str]]:
+    """The raw project inventory: every indexed ``res://`` path bucketed by kind.
+
+    Buckets are sorted and non-overlapping; their union is every file ``scan`` indexed.
+    ``entry_points`` (main scene + autoloads + plugin scripts) is a labelled cross-cut,
+    not a separate bucket. Exposes data ``scan`` already produces — no new analysis.
+    """
+    scenes: list[str] = []
+    scripts: list[str] = []
+    resources: list[str] = []
+    for res in index.resources:
+        if res.endswith((".tscn", ".scn")):
+            scenes.append(res)
+        elif res.endswith(".gd"):
+            scripts.append(res)
+        else:
+            resources.append(res)
+    return {
+        "scenes": sorted(scenes),
+        "scripts": sorted(scripts),
+        "resources": sorted(resources),
+        "entry_points": sorted(index.entry_points),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Issue #111 — asset dependency, orphan detection, scene integrity
 # ---------------------------------------------------------------------------
