@@ -10,7 +10,10 @@ errors. All in the gated ``scripts`` toolset.
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastmcp import FastMCP
+from pydantic import Field
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import SCRIPTS_TAG
@@ -23,12 +26,14 @@ from mcp_server.models.scripts import (
     ScriptList,
     WriteScriptResult,
 )
+from mcp_server.output import paginate
 from mcp_server.runtime import Runner, resolve_project_dir
 from mcp_server.safety import MUTATING, READ_ONLY, PreconditionError, enforce_preconditions
 from mcp_server.scripts_parse import parse_check_errors
 from mcp_server.tools._route import route, run_or_preview, validate_or_raise
 
 SCRIPTS = {SCRIPTS_TAG}
+DEFAULT_PAGE_LIMIT = 200
 
 
 async def _script_exists(bridge: Bridge, script_path: str) -> bool:
@@ -47,9 +52,24 @@ def register_scripts(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
         return ScriptContent(**await route(bridge, "cmd_read_script", {"script_path": script_path}))
 
     @mcp.tool(meta=READ_ONLY, tags=SCRIPTS)
-    async def list_scripts(directory: str = "res://") -> ScriptList:
-        """List all ``.gd`` files under ``directory`` (recursive, ``res://`` path)."""
-        return ScriptList(**await route(bridge, "cmd_list_scripts", {"directory": directory}))
+    async def list_scripts(
+        directory: str = "res://",
+        offset: Annotated[int, Field(ge=0)] = 0,
+        limit: Annotated[int, Field(ge=1, le=1000)] = DEFAULT_PAGE_LIMIT,
+    ) -> ScriptList:
+        """List all ``.gd`` files under ``directory`` (recursive, ``res://`` path).
+
+        Paginated: ``scripts`` is a window of ``total`` files starting at ``offset``
+        (default page ``limit`` 200). When ``truncated``, pass ``next_offset`` to page on.
+        """
+        result = ScriptList(**await route(bridge, "cmd_list_scripts", {"directory": directory}))
+        window, total, truncated, next_offset = paginate(result.scripts, offset, limit)
+        result.scripts = window
+        result.total = total
+        result.returned = len(window)
+        result.truncated = truncated
+        result.next_offset = next_offset
+        return result
 
     @mcp.tool(meta=READ_ONLY, tags=SCRIPTS)
     async def get_script_for_node(node_path: str = "") -> NodeScript:

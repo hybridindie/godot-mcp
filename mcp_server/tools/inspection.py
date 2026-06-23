@@ -19,6 +19,7 @@ from mcp_server.models.inspection import (
     SceneTree,
     SelectedNode,
 )
+from mcp_server.output import TRUNCATION_HINT, over_character_limit
 from mcp_server.safety import READ_ONLY
 from mcp_server.tools._route import route
 
@@ -59,13 +60,25 @@ def register_inspection(mcp: FastMCP, bridge: Bridge) -> None:
         a smaller payload for a discovery pass where you just need the shape; pair
         it with ``max_depth`` to keep large scenes out of context.
 
+        If the full tree exceeds the character limit, a lightweight view is returned
+        instead with ``truncated=true`` and a ``hint`` to narrow with ``max_depth``.
+
         WHEN TO USE: You need to understand the static scene structure before
         making edits (adding nodes, attaching scripts, setting properties).
         WHEN NOT TO USE: The game is running and you need live state — use
         get_game_scene_tree() to read the running game's current hierarchy.
         """
         params = {"max_depth": max_depth, "lightweight": lightweight}
-        return SceneTree(**await route(bridge, "cmd_get_scene_tree", params))
+        result = SceneTree(**await route(bridge, "cmd_get_scene_tree", params))
+        # Output bounding (issue #222): if the tree is too large, fall back to the
+        # lightweight view (a real, addon-supported reduction) and mark it truncated.
+        if over_character_limit(result.model_dump_json()):
+            if not lightweight:
+                light = {"max_depth": max_depth, "lightweight": True}
+                result = SceneTree(**await route(bridge, "cmd_get_scene_tree", light))
+            result.truncated = True
+            result.hint = TRUNCATION_HINT
+        return result
 
     @mcp.tool(meta=READ_ONLY, tags=INSPECTION)
     async def get_selected_node() -> SelectedNode:

@@ -48,6 +48,10 @@ class SceneTree(BaseModel):
     """The active scene tree, or ``tree=None`` when no scene is open."""
 
     tree: SceneNode | None = None
+    # Output bounding (issue #222): set when the full tree exceeded the character
+    # limit and a lightweight view was returned instead; ``hint`` says how to narrow.
+    truncated: bool = False
+    hint: str | None = None
 
 
 class NodeInfo(BaseModel):

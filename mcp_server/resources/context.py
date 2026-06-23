@@ -21,6 +21,7 @@ from fastmcp.exceptions import ToolError
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import CORE_TAG
+from mcp_server.output import cap_json
 from mcp_server.safety import READ_ONLY
 
 SCENE_TREE_PREFIX = "godot://scene/tree/"
@@ -41,7 +42,9 @@ async def _fetch_json(bridge: Bridge, command: str, params: dict[str, object]) -
     return the structured error as JSON (resources always return valid JSON)."""
     response = await bridge.send(command, params)
     if response.ok:
-        return json.dumps(response.result or {}, indent=2)
+        # Bound large reads (e.g. a deep scene tree) so a resource can't blow up the
+        # agent's context window — oversized JSON is replaced with a marker (#222).
+        return cap_json(json.dumps(response.result or {}, indent=2))
     error: dict[str, object] = {"error": response.error, "hint": response.hint}
     if response.required is not None:
         error["required"] = response.required

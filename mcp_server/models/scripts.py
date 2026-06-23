@@ -13,6 +13,11 @@ class ScriptContent(BaseModel):
 class ScriptList(BaseModel):
     directory: str
     scripts: list[str] = Field(default_factory=list)
+    # Pagination (issue #222): ``scripts`` is a page of ``total`` files.
+    total: int = 0
+    returned: int = 0
+    truncated: bool = False
+    next_offset: int | None = None
 
 
 class NodeScript(BaseModel):

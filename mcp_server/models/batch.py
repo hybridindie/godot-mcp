@@ -17,6 +17,11 @@ class FindNodesResult(BaseModel):
     type: str
     nodes: list[NodeRef] = Field(default_factory=list)
     count: int = 0
+    # Pagination (issue #222): ``nodes`` is a page of ``total`` matches.
+    total: int = 0
+    returned: int = 0
+    truncated: bool = False
+    next_offset: int | None = None
 
 
 class BatchSetResult(BaseModel):

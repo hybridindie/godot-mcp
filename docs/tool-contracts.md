@@ -28,6 +28,11 @@ Every `@mcp.tool()`:
 - Validates inputs and checks preconditions **before** any side effect.
 - Is **delegation only** — no domain branching in the handler body.
 - Carries a `safety_class`.
+- **Bounds large reads** (issue #222): list-shaped tools (`find_nodes_by_type`, `list_scripts`)
+  paginate with `offset`/`limit` and report `total`/`returned`/`truncated`/`next_offset`;
+  reads that can be huge (the scene tree, `godot://scene/tree`) are capped at
+  `output.CHARACTER_LIMIT` (25k) — an oversized resource payload becomes a truncation
+  marker and `get_scene_tree` falls back to a lightweight view with `truncated=true`.
 
 ### Naming
 

@@ -12,9 +12,10 @@ there), background/closed scenes are edited and re-scanned, and every target is 
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
 from fastmcp import FastMCP
+from pydantic import Field
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import BATCH_TAG
@@ -24,8 +25,11 @@ from mcp_server.models.batch import (
     DependenciesResult,
     FindNodesResult,
 )
+from mcp_server.output import paginate
 from mcp_server.safety import MUTATING, READ_ONLY, enforce_preconditions, require_active_scene
 from mcp_server.tools._route import route
+
+DEFAULT_PAGE_LIMIT = 200
 
 BATCH = {BATCH_TAG}
 
@@ -35,14 +39,28 @@ def register_batch(mcp: FastMCP, bridge: Bridge) -> None:
 
     @mcp.tool(meta=READ_ONLY, tags=BATCH)
     async def find_nodes_by_type(
-        node_type: str, parent_path: str = ".", recursive: bool = True
+        node_type: str,
+        parent_path: str = ".",
+        recursive: bool = True,
+        offset: Annotated[int, Field(ge=0)] = 0,
+        limit: Annotated[int, Field(ge=1, le=1000)] = DEFAULT_PAGE_LIMIT,
     ) -> FindNodesResult:
         """Find nodes in the open scene whose class is (or derives from) ``node_type``
         (e.g. "Sprite2D", "Control") under ``parent_path``. Returns each node's path,
         name, and concrete type — feed the paths into ``batch_set_property``.
+
+        Paginated: ``nodes`` is a window of ``total`` matches starting at ``offset``
+        (default page ``limit`` 200). When ``truncated``, pass ``next_offset`` to page on.
         """
         params = {"type": node_type, "parent_path": parent_path, "recursive": recursive}
-        return FindNodesResult(**await route(bridge, "cmd_find_nodes_by_type", params))
+        result = FindNodesResult(**await route(bridge, "cmd_find_nodes_by_type", params))
+        window, total, truncated, next_offset = paginate(result.nodes, offset, limit)
+        result.nodes = window
+        result.total = total
+        result.returned = len(window)
+        result.truncated = truncated
+        result.next_offset = next_offset
+        return result
 
     @mcp.tool(meta=MUTATING, tags=BATCH)
     @enforce_preconditions
