@@ -35,6 +35,56 @@ def test_safety_meta_constants() -> None:
     assert SafetyClass.DESTRUCTIVE.value == "destructive"
 
 
+def test_annotations_for_safety_class_mapping() -> None:
+    from mcp_server.safety import annotations_for_safety_class
+
+    ro = annotations_for_safety_class("read_only")
+    assert ro is not None and ro.readOnlyHint is True and ro.idempotentHint is True
+
+    mut = annotations_for_safety_class("mutating")
+    assert mut is not None and mut.readOnlyHint is False and mut.destructiveHint is False
+
+    dest = annotations_for_safety_class("destructive")
+    assert dest is not None and dest.readOnlyHint is False and dest.destructiveHint is True
+
+    run = annotations_for_safety_class("runtime")
+    assert run is not None and run.readOnlyHint is False and run.destructiveHint is False
+
+    assert annotations_for_safety_class("unclassified") is None
+    assert annotations_for_safety_class("bogus") is None
+
+
+def test_apply_safety_annotations_respects_explicit_override() -> None:
+    from fastmcp import FastMCP
+    from mcp.types import ToolAnnotations
+
+    from mcp_server.safety import READ_ONLY, apply_safety_annotations
+
+    mcp = FastMCP("t")
+
+    @mcp.tool(meta=READ_ONLY)
+    async def derived() -> str:
+        """doc"""
+        return "x"
+
+    @mcp.tool(meta=READ_ONLY, annotations=ToolAnnotations(title="Custom", readOnlyHint=False))
+    async def overridden() -> str:
+        """doc"""
+        return "x"
+
+    apply_safety_annotations(mcp)
+
+    # Read back via the component registry the production code uses.
+    from mcp_server.safety import _iter_registered_tools
+
+    by_name = {t.name: t for t in _iter_registered_tools(mcp)}
+    assert by_name["derived"].annotations is not None
+    assert by_name["derived"].annotations.readOnlyHint is True
+    # An explicit annotation set at registration is preserved, not overwritten.
+    assert by_name["overridden"].annotations.title == "Custom"
+    assert by_name["overridden"].annotations.readOnlyHint is False
+
+
 async def _connected(responder: Responder) -> Bridge:
     conn = FakeAddonConnection(responder=responder)
     bridge = Bridge(BridgeConfig(), connector=connector_for(conn))

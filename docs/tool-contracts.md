@@ -51,6 +51,11 @@ Every tool is tagged with exactly one:
   from `safety.py`, e.g. `@mcp.tool(meta=MUTATING)`.
 - `list_tools_by_safety_class()` is a `read_only` tool returning `{ class: [tool names] }`
   for agent introspection.
+- Each `safety_class` also drives the tool's **standard MCP `annotations`** (issue #220), set
+  for every tool (incl. gated-off ones) at server build so clients render them natively:
+  `read_only` → `readOnlyHint=true, idempotentHint=true`; `destructive` → `destructiveHint=true`;
+  `mutating`/`runtime` → `readOnlyHint=false, destructiveHint=false`. An annotation set
+  explicitly at registration is preserved.
 
 ### Human-in-the-loop approval (issue #153)
 

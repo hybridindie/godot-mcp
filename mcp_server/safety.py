@@ -15,7 +15,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterator
 from dataclasses import dataclass, field
 from enum import StrEnum
 from functools import wraps
@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Any
 import httpx
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
+from mcp.types import ToolAnnotations
 from pydantic import ValidationError
 
 from mcp_server.bridge import Bridge
@@ -55,6 +56,68 @@ READ_ONLY = _meta(SafetyClass.READ_ONLY)
 MUTATING = _meta(SafetyClass.MUTATING)
 DESTRUCTIVE = _meta(SafetyClass.DESTRUCTIVE)
 RUNTIME = _meta(SafetyClass.RUNTIME)
+
+
+# --- standard MCP annotations (issue #220) ---------------------------------
+#
+# Clients (e.g. Claude) consume the *standard* MCP ``annotations`` natively to
+# reason about which tools are safe vs. state-changing; the custom ``safety_class``
+# meta above only helps this server. Derive the standard hints from it so both are
+# kept in sync from a single source of truth.
+
+
+def annotations_for_safety_class(safety_class: str) -> ToolAnnotations | None:
+    """Map a ``safety_class`` value to standard MCP :class:`ToolAnnotations`.
+
+    Returns ``None`` for unknown / unclassified tools (no hints asserted).
+    A fresh instance is returned per call so callers never share mutable state.
+    """
+    try:
+        cls = SafetyClass(safety_class)
+    except ValueError:
+        return None
+    if cls is SafetyClass.READ_ONLY:
+        # Reads never mutate and are repeatable with no additional effect.
+        return ToolAnnotations(readOnlyHint=True, idempotentHint=True)
+    if cls is SafetyClass.DESTRUCTIVE:
+        return ToolAnnotations(readOnlyHint=False, destructiveHint=True)
+    # mutating (reversible via UndoRedo) and runtime (controls execution):
+    # state-changing but not destructive.
+    return ToolAnnotations(readOnlyHint=False, destructiveHint=False)
+
+
+def _iter_registered_tools(mcp: FastMCP) -> Iterator[Any]:
+    """Yield every registered tool object, including toolset-gated (disabled) ones.
+
+    FastMCP's public ``list_tools()`` filters out disabled tools, but annotations
+    must be applied to *all* tools so they are already correct the moment a gated
+    toolset is enabled. We read the providers' component registry directly; the
+    access is guarded so a future FastMCP internals change degrades to a no-op
+    rather than breaking server startup.
+    """
+    from fastmcp.tools import Tool
+
+    for provider in getattr(mcp, "providers", []):
+        for component in getattr(provider, "_components", {}).values():
+            if isinstance(component, Tool):
+                yield component
+
+
+def apply_safety_annotations(mcp: FastMCP) -> None:
+    """Set standard MCP ``annotations`` on every tool from its ``safety_class``.
+
+    Call once after all tools are registered. An annotation set explicitly at
+    registration is preserved (treated as an intentional override).
+    """
+    for tool in _iter_registered_tools(mcp):
+        if tool.annotations is not None:
+            continue
+        safety_class = (tool.meta or {}).get("safety_class")
+        if not safety_class:
+            continue
+        annotations = annotations_for_safety_class(safety_class)
+        if annotations is not None:
+            tool.annotations = annotations
 
 
 class PreconditionError(Exception):

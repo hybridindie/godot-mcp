@@ -23,7 +23,7 @@ from mcp_server.diagnostics import register_diagnostics
 from mcp_server.prompts import register_prompts
 from mcp_server.resources.context import register_resources
 from mcp_server.runtime import GodotRunner, Runner
-from mcp_server.safety import ApprovalGate, register_safety_tools
+from mcp_server.safety import ApprovalGate, apply_safety_annotations, register_safety_tools
 from mcp_server.tools.analysis import register_analysis
 from mcp_server.tools.animation import register_animation
 from mcp_server.tools.audio import register_audio
@@ -229,5 +229,9 @@ def create_server(
 
     # Register workflow prompts (instruction templates for the agent).
     register_prompts(mcp)
+
+    # Derive standard MCP annotations (readOnlyHint/destructiveHint/...) from each
+    # tool's safety_class, for every tool incl. gated-off ones (issue #220).
+    apply_safety_annotations(mcp)
 
     return mcp
