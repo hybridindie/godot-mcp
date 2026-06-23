@@ -21,6 +21,8 @@ from mcp_server.defaults import (
     DEFAULT_ANIMATION_TREE_ROOT_TYPE,
 )
 from mcp_server.models.animation import (
+    AnimationDetail,
+    AnimationList,
     AnimationTrackResult,
     AnimationTreeResult,
     BlendTreeNodeResult,
@@ -28,8 +30,8 @@ from mcp_server.models.animation import (
     KeyframeResult,
     StateMachineStateResult,
 )
-from mcp_server.safety import MUTATING, enforce_preconditions, require_node_exists
-from mcp_server.tools._route import run_or_preview
+from mcp_server.safety import MUTATING, READ_ONLY, enforce_preconditions, require_node_exists
+from mcp_server.tools._route import route, run_or_preview
 
 ANIMATION = {ANIMATION_TAG}
 
@@ -167,3 +169,22 @@ def register_animation(mcp: FastMCP, bridge: Bridge) -> None:
         return await run_or_preview(
             dry_run, BlendTreeNodeResult, preview, bridge, "cmd_set_blend_tree_node", params
         )
+
+    @mcp.tool(meta=READ_ONLY, tags=ANIMATION)
+    async def list_animations(node_path: str) -> AnimationList:
+        """List the animation names on the AnimationPlayer at ``node_path``. Pair with
+        ``get_animation`` to snapshot an animation before editing it — for rollback.
+        Errors if the node isn't an AnimationPlayer or doesn't resolve.
+        """
+        return AnimationList(**await route(bridge, "cmd_list_animations", {"node_path": node_path}))
+
+    @mcp.tool(meta=READ_ONLY, tags=ANIMATION)
+    async def get_animation(node_path: str, animation_name: str) -> AnimationDetail:
+        """Read an animation on the AnimationPlayer at ``node_path``: its ``length`` and
+        each ``track`` ({type, path, keys:[{time, value}]}), with keyframe values
+        JSON-coerced (Vector2 as {"x","y"}, …). The inverse of the animation writers
+        (create_animation / add_animation_track / insert_keyframe) — capture this before
+        a change to roll it back. Errors RESOURCE_NOT_FOUND if the animation is absent.
+        """
+        params = {"node_path": node_path, "animation_name": animation_name}
+        return AnimationDetail(**await route(bridge, "cmd_get_animation", params))

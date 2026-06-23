@@ -395,13 +395,17 @@ Author AnimationPlayer animations and AnimationTree graphs. All `mutating`
 | `create_animation_tree` | `parent_path, name="AnimationTree", anim_player?, root_type="AnimationNodeStateMachine"` | `AnimationTreeResult { node_path, root_type }` |
 | `add_state_machine_state` | `tree_path, state_name, animation?` | `StateMachineStateResult { tree_path, state }` |
 | `set_blend_tree_node` | `tree_path, node_name, node_type` | `BlendTreeNodeResult { tree_path, node, node_type }` |
+| `list_animations` | `node_path` | `AnimationList { player_path, animations[] }` (`read_only`) |
+| `get_animation` | `node_path, animation_name` | `AnimationDetail { name, length, tracks[]{type, path, keys[]{time, value}} }` (`read_only`) |
 
 `create_animation` adds a default `AnimationLibrary` ("") if absent and rejects a
 duplicate name. `add_animation_track` returns the new track index; `track_type` is one
 of value/position_3d/rotation_3d/scale_3d/method/bezier/audio/animation. `insert_keyframe`
 accepts Godot string forms for `value` (e.g. `"Vector2(10, 20)"`, coerced via `str_to_var`).
 `add_state_machine_state` requires an `AnimationNodeStateMachine` root; `set_blend_tree_node`
-requires an `AnimationNodeBlendTree` root and an `AnimationNode` `node_type`.
+requires an `AnimationNodeBlendTree` root and an `AnimationNode` `node_type`. `list_animations`
+and `get_animation` (#218) are the `read_only` inverses of the writers — `get_animation`
+returns each track's keyframes (values JSON-coerced) for snapshot/rollback.
 
 #### 3D scene (issue #40) — category: `scene_3d` (gated off by default)
 

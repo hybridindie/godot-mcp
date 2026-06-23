@@ -46,6 +46,27 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                 cmd.id,
                 {"tree_path": p["tree_path"], "node": p["node_name"], "node_type": p["node_type"]},
             )
+        case "cmd_list_animations":
+            return ResponseEnvelope.success(
+                cmd.id, {"player_path": p["node_path"], "animations": ["idle", "walk"]}
+            )
+        case "cmd_get_animation":
+            if p["animation_name"] == "missing":
+                return ResponseEnvelope.failure(cmd.id, "RESOURCE_NOT_FOUND", "No animation.")
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "name": p["animation_name"],
+                    "length": 2.0,
+                    "tracks": [
+                        {
+                            "type": "value",
+                            "path": "Sprite2D:position",
+                            "keys": [{"time": 0.5, "value": {"x": 10.0, "y": 20.0}}],
+                        }
+                    ],
+                },
+            )
     return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
 
 
@@ -154,3 +175,42 @@ async def test_dry_run_sends_no_mutation() -> None:
         )
     assert result.structured_content["dry_run"] is True
     assert "cmd_create_animation" not in _commands(conn)
+
+
+async def test_list_and_get_animation_reads() -> None:
+    # #218: read tools so animation writers become invertible (G4).
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "animation"})
+        listed = await client.call_tool("list_animations", {"node_path": "AnimationPlayer"})
+        detail = await client.call_tool(
+            "get_animation", {"node_path": "AnimationPlayer", "animation_name": "walk"}
+        )
+    assert listed.structured_content["animations"] == ["idle", "walk"]
+    data = detail.structured_content
+    assert data["name"] == "walk" and data["length"] == 2.0
+    track = data["tracks"][0]
+    assert track["type"] == "value" and track["path"] == "Sprite2D:position"
+    assert track["keys"][0] == {"time": 0.5, "value": {"x": 10.0, "y": 20.0}}
+    assert "cmd_list_animations" in _commands(conn) and "cmd_get_animation" in _commands(conn)
+
+
+async def test_get_animation_missing_is_structured_error() -> None:
+    server, _ = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "animation"})
+        result = await client.call_tool(
+            "get_animation",
+            {"node_path": "AnimationPlayer", "animation_name": "missing"},
+            raise_on_error=False,
+        )
+    assert result.is_error
+
+
+async def test_animation_reads_are_read_only() -> None:
+    server, _ = _build()
+    async with Client(server) as client:
+        await client.call_tool("enable_toolset", {"category": "animation"})
+        tools = {t.name: t for t in await client.list_tools()}
+    assert tools["list_animations"].meta["safety_class"] == "read_only"
+    assert tools["get_animation"].meta["safety_class"] == "read_only"

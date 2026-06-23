@@ -7,6 +7,7 @@ extends RefCounted
 ## returns a response body (without id) via the router's _ok / _fail builders.
 
 const Inspect := preload("res://addons/godot_mcp/scene_inspect.gd")
+const AnimRead := preload("res://addons/godot_mcp/animation_read.gd")
 
 var _router: MCPCommandRouter
 
@@ -22,6 +23,8 @@ func register(handlers: Dictionary) -> void:
 	handlers["cmd_create_animation_tree"] = _cmd_create_animation_tree
 	handlers["cmd_insert_keyframe"] = _cmd_insert_keyframe
 	handlers["cmd_set_blend_tree_node"] = _cmd_set_blend_tree_node
+	handlers["cmd_list_animations"] = _cmd_list_animations
+	handlers["cmd_get_animation"] = _cmd_get_animation
 
 
 # -- handlers ----------------------------------------------------------------
@@ -215,3 +218,31 @@ func _resolve_player_animation(params: Dictionary) -> Dictionary:
 	if not player.has_animation(anim_name):
 		return _router._fail("RESOURCE_NOT_FOUND", "No animation '%s' on the AnimationPlayer." % anim_name)
 	return {"ok": true, "animation": player.get_animation(anim_name)}
+
+
+# -- read tools (rollback enabler G4, issue #218) ----------------------------
+
+func _cmd_list_animations(params: Dictionary) -> Dictionary:
+	var found := _router._resolve(params.get("node_path", ""))
+	if not found["ok"]:
+		return found
+	var player: Node = found["node"]
+	if not (player is AnimationPlayer):
+		return _router._fail("VALIDATION_ERROR", "Node is not an AnimationPlayer.")
+	return _router._ok({
+		"player_path": str(params.get("node_path")),
+		"animations": AnimRead.names(player),
+	})
+
+
+func _cmd_get_animation(params: Dictionary) -> Dictionary:
+	var found := _router._resolve(params.get("node_path", ""))
+	if not found["ok"]:
+		return found
+	var player: Node = found["node"]
+	if not (player is AnimationPlayer):
+		return _router._fail("VALIDATION_ERROR", "Node is not an AnimationPlayer.")
+	var anim_name := str(params.get("animation_name", ""))
+	if not player.has_animation(anim_name):
+		return _router._fail("RESOURCE_NOT_FOUND", "No animation '%s' on the AnimationPlayer." % anim_name)
+	return _router._ok(AnimRead.serialize(anim_name, player.get_animation(anim_name)))

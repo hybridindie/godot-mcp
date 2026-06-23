@@ -89,6 +89,21 @@ async def _run() -> None:
         )
         assert key["time"] == 0.5
 
+        # Read it back (#218): list + get_animation invert the writers above.
+        listed = await _ok(bridge, "cmd_list_animations", {"node_path": "AnimationPlayer"})
+        assert "walk" in listed["animations"]
+        detail = await _ok(
+            bridge, "cmd_get_animation", {"node_path": "AnimationPlayer", "animation_name": "walk"}
+        )
+        assert detail["name"] == "walk" and detail["length"] == 2.0
+        rt = detail["tracks"][0]
+        assert rt["type"] == "value" and rt["path"] == "Sprite2D:position"
+        assert rt["keys"][0]["time"] == 0.5 and rt["keys"][0]["value"] == {"x": 10.0, "y": 20.0}
+        missing = await bridge.send(
+            "cmd_get_animation", {"node_path": "AnimationPlayer", "animation_name": "nope"}
+        )
+        assert missing.ok is False and missing.error == "RESOURCE_NOT_FOUND"
+
         # AnimationTree with a state-machine root + a state
         tree = await _ok(
             bridge,
