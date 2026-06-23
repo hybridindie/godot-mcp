@@ -95,7 +95,11 @@ def _iter_registered_tools(mcp: FastMCP) -> Iterator[Any]:
     access is guarded so a future FastMCP internals change degrades to a no-op
     rather than breaking server startup.
     """
-    from fastmcp.tools import Tool
+    try:
+        from fastmcp.tools import Tool
+    except ImportError:
+        logger.warning("fastmcp.tools.Tool not importable; skipping safety annotations")
+        return
 
     for provider in getattr(mcp, "providers", []):
         for component in getattr(provider, "_components", {}).values():
