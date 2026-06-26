@@ -95,8 +95,10 @@ func _cmd_set_resource_property(params: Dictionary) -> Dictionary:
 	var new_value: Variant = Coerce.from_json(params.get("value"), prop_type)
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Set %s.%s" % [path.get_file(), property])
-	ur.add_do_method(self, "_set_and_save_resource", path, property, new_value)
-	ur.add_undo_method(self, "_set_and_save_resource", path, property, old_value)
+	# _set_and_save_resource lives on the router, not this handler — target _router
+	# so the UndoRedo actually invokes it (else the set silently never runs).
+	ur.add_do_method(_router, "_set_and_save_resource", path, property, new_value)
+	ur.add_undo_method(_router, "_set_and_save_resource", path, property, old_value)
 	ur.commit_action()
 	return _router._ok({
 		"resource_path": path,
