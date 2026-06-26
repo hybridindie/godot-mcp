@@ -1024,6 +1024,9 @@ separate game project.
 | `script_edit` | `script_path`, `node_path` | Write, attach, and verify a script: write_script → attach_script → get_parse_errors |
 | `debug_scene` | `scene_path`, `script_path` | Systematic debugging: debug_workflow, get_parse_errors, run_and_capture, analyze_signal_flow, find_unused_resources, detect_circular_dependencies |
 | `troubleshoot` | `error_message`, `scene_path`, `script_path` | Interpret a specific error message, find the source, and suggest fixes |
+| `author_resource` | `resource_kind`, `save_path` | Author a resource — TileSet, MeshLibrary, Theme, Shader, or custom `.tres` — routing to the right toolset per `resource_kind` |
+| `export_build` | `preset`, `output_path` | Export a platform build: discover presets, check templates, `export_project`, verify exit code |
+| `batch_refactor` | `node_type`, `property`, `value` | Change a property across many nodes safely: find targets, preview with `dry_run`, apply, plus a cross-scene variant |
 
 Prompts are discoverable via `list_prompts()` and renderable via `render_prompt(name, arguments={...})`.
 

@@ -21,6 +21,7 @@ A **generic, game-agnostic** [Model Context Protocol](https://modelcontextprotoc
   - [Safety Classes](#safety-classes)
   - [Version Gating](#version-gating)
   - [Workflow Patterns](#workflow-patterns)
+  - [Prompts & Skills](#prompts--skills)
   - [Error Handling](#error-handling)
 - [Live Runtime & The Probe Autoload](#live-runtime--the-probe-autoload)
 - [All Toolsets](#all-toolsets)
@@ -376,6 +377,15 @@ list_export_presets()
 export_project(preset="Web", output_path="builds/web")
 ```
 
+### Prompts & Skills
+
+Beyond the tool surface, two layers help an agent drive the server well:
+
+- **MCP prompts** — step-numbered workflow recipes the server exposes over MCP. Clients that surface prompts (Claude Code, etc.) show them as slash commands, e.g. `/mcp__godot-mcp__build_scene`. Shipped: `toolset_discovery`, `build_scene`, `play_test`, `script_edit`, `debug_scene`, `troubleshoot`, `author_resource`, `export_build`, `batch_refactor`. Discover with `list_prompts()`; render with `render_prompt(name, arguments={...})`.
+- **Claude skills** ([`skills/`](skills/README.md)) — optional, Claude-specific. Unlike prompts, a skill *auto-triggers* when the agent recognizes a matching task (no slash command), then routes to the prompts and tools. Copy a skill directory into `~/.claude/skills/` (personal) or your project's `.claude/skills/` (shared). Shipped: `godot-mcp-getting-started`, `godot-mcp-build-a-scene`, `godot-mcp-playtest-and-debug`.
+
+Both stay pure to the generic Godot surface — no game-specific vocabulary.
+
 ### Error Handling
 
 All errors are **structured** — never Python tracebacks. The agent can parse them and recover:
@@ -642,7 +652,9 @@ mcp_server/                      # FastMCP server (Python 3.11+)
   tools/                         # @mcp.tool() handlers (thin delegation)
   resources/                     # godot://… read-only resource handlers
   models/                        # Pydantic typed I/O models
-  prompts/                       # reserved (no prompts shipped yet)
+  prompts/                       # @mcp.prompt() workflow recipes (slash commands)
+
+skills/                          # optional Claude skills (auto-trigger) — see skills/README.md
 
 tests/
   contract/                      # envelope shapes + tool schemas (fake bridge)

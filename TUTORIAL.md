@@ -31,8 +31,13 @@ The server exposes **workflow prompts** that the LLM can discover and use:
 | `script_edit` | When writing, attaching, and iterating on GDScript |
 | `debug_scene` | When something is broken and you want a systematic diagnosis |
 | `troubleshoot` | When you see an error and need help interpreting it |
+| `author_resource` | When authoring a TileSet, MeshLibrary, Theme, Shader, or custom `.tres` |
+| `export_build` | When exporting a build for a target platform |
+| `batch_refactor` | When changing one property across many nodes safely |
 
 The LLM can discover these via `list_prompts()` and render them via `get_prompt(name)` or `render_prompt(name)`. Not all clients expose prompts to the user, but the ones that do (Claude Code, etc.) will surface them as templates.
+
+> **Claude skills:** if you use Claude, the [`skills/`](skills/README.md) directory ships skills that auto-trigger on a matching task (no slash command needed) and route to these prompts and tools — copy them into `~/.claude/skills/` or your project's `.claude/skills/`. See [`skills/README.md`](skills/README.md).
 
 ### 3. Tool Docstrings
 
