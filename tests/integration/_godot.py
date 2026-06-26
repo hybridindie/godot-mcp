@@ -36,13 +36,29 @@ def find_godot() -> str | None:
 GODOT_BIN = find_godot()
 
 
+# Engine-side watchdog: Godot quits after this many main-loop iterations no matter
+# what, so an orphaned headless run (parent pytest killed mid-smoke, where the
+# subprocess timeout can never fire) self-terminates instead of leaking. Far above
+# any legit smoke's frame budget (the heaviest quits itself after ~3 frames), and an
+# idle/errored loop burns through it near-instantly, so normal runs are unaffected.
+QUIT_AFTER_FRAMES = 1800
+
+
 def run_godot(args: list[str], timeout: int = 120) -> subprocess.CompletedProcess[str]:
     """Run the Godot binary against the addon project and capture output.
 
-    ``args`` are appended after ``--headless --path <godot project>``.
+    ``args`` are appended after ``--headless --quit-after <n> --path <godot project>``.
     """
     assert GODOT_BIN is not None, "run_godot called without a Godot binary"
-    cmd = [GODOT_BIN, "--headless", "--path", str(GODOT_PROJECT), *args]
+    cmd = [
+        GODOT_BIN,
+        "--headless",
+        "--quit-after",
+        str(QUIT_AFTER_FRAMES),
+        "--path",
+        str(GODOT_PROJECT),
+        *args,
+    ]
     return subprocess.run(
         cmd,
         capture_output=True,
