@@ -77,7 +77,10 @@ async def _run() -> None:
         mat = await _ok(
             bridge,
             "cmd_set_particle_material",
-            {"node_path": "FX", "properties": {"spread": 33.0, "initial_velocity_min": 25.0}},
+            # orbit_velocity_min round-trips through the editor's property list;
+            # initial_velocity_* are settable but the editor renderer omits them from
+            # the read (a Godot editor-vs-headless property-exposure quirk, see #263).
+            {"node_path": "FX", "properties": {"spread": 33.0, "orbit_velocity_min": 25.0}},
         )
         assert mat["properties"]["spread"] == 33.0
 
@@ -92,7 +95,7 @@ async def _run() -> None:
         read = await _ok(bridge, "cmd_get_particle_material", {"node_path": "FX"})
         assert read["has_material"] is True
         assert read["properties"]["spread"] == 33.0
-        assert read["properties"]["initial_velocity_min"] == 25.0
+        assert read["properties"]["orbit_velocity_min"] == 25.0
         assert read["color_ramp"] is not None
         assert len(read["color_ramp"]["offsets"]) == 3 and len(read["color_ramp"]["colors"]) == 3
 
