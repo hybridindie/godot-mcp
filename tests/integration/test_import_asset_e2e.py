@@ -73,7 +73,9 @@ async def _run() -> None:
         # Check import status.
         status = await _ok(bridge, "cmd_get_import_status", {"target_path": IMPORTED_PNG})
         assert status["imported"] is True
-        assert status.get("type") == "Texture2D"
+        # Godot imports a PNG as a CompressedTexture2D (a Texture2D subtype); accept
+        # either the base or the concrete imported type.
+        assert (status.get("type") or "").endswith("Texture2D")
 
         # Create a texture resource to use as material input.
         await _ok(

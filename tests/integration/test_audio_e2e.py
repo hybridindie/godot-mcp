@@ -117,7 +117,9 @@ async def _run() -> None:
             "cmd_add_audio_player", {"parent_path": ".", "player_type": "Node2D"}
         )
         assert bad_player.ok is False and bad_player.error == "VALIDATION_ERROR"
-        dup_bus = await bridge.send("cmd_add_audio_bus", {"name": "Music"})
+        # "Master" always exists, so re-adding it is the duplicate case (Music was
+        # already removed above, so adding it again would NOT be a duplicate).
+        dup_bus = await bridge.send("cmd_add_audio_bus", {"name": "Master"})
         assert dup_bus.ok is False and dup_bus.error == "VALIDATION_ERROR"
         unknown_bus = await bridge.send(
             "cmd_add_audio_bus_effect", {"bus": "Nope", "effect_type": "AudioEffectReverb"}
