@@ -57,19 +57,19 @@ async def _run() -> None:
             {
                 "shader_path": SHADER,
                 "node_type": "VisualShaderNodeColorConstant",
-                "node_id": 1,
+                "node_id": 2,
                 "position": [100.0, 200.0],
             },
         )
         assert added["added"] is True
-        assert added["node_id"] == 1
+        assert added["node_id"] == 2
 
         connected = await _ok(
             bridge,
             "cmd_connect_shader_nodes",
             {
                 "shader_path": SHADER,
-                "from_node": 1,
+                "from_node": 2,
                 "from_port": 0,
                 "to_node": 0,
                 "to_port": 0,
@@ -80,10 +80,10 @@ async def _run() -> None:
         # G6 (#219): read the graph back — mode, the added node, and the connection.
         graph = await _ok(bridge, "cmd_read_visual_shader", {"shader_path": SHADER})
         assert graph["mode"] == "canvas_item"
-        node1 = next(n for n in graph["nodes"] if n["id"] == 1)
+        node1 = next(n for n in graph["nodes"] if n["id"] == 2)
         assert node1["type"] == "VisualShaderNodeColorConstant"
         assert node1["position"] == {"x": 100.0, "y": 200.0}
-        assert {"from_node": 1, "from_port": 0, "to_node": 0, "to_port": 0} in graph["connections"]
+        assert {"from_node": 2, "from_port": 0, "to_node": 0, "to_port": 0} in graph["connections"]
 
         types = await _ok(bridge, "cmd_list_shader_node_types", {})
         assert any(t.startswith("VisualShaderNode") for t in types["types"])

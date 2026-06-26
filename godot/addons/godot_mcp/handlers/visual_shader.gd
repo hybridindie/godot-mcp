@@ -86,8 +86,9 @@ func _cmd_add_shader_node(params: Dictionary) -> Dictionary:
 
 	if not path.begins_with("res://"):
 		return _router._fail("VALIDATION_ERROR", "shader_path must start with res://.")
-	if node_id < 0:
-		return _router._fail("VALIDATION_ERROR", "'node_id' must be >= 0.")
+	# Godot reserves node ids 0 (output) and 1; add_node requires id >= 2.
+	if node_id < 2:
+		return _router._fail("VALIDATION_ERROR", "'node_id' must be >= 2 (0 and 1 are reserved).")
 	if not ClassDB.class_exists(node_type):
 		return _router._fail("VALIDATION_ERROR", "Unknown node type '%s'." % node_type)
 	if not ClassDB.can_instantiate(node_type):
@@ -107,7 +108,8 @@ func _cmd_add_shader_node(params: Dictionary) -> Dictionary:
 	var node: VisualShaderNode = instance
 
 	var mode: int = int(shader.get_mode())
-	if shader.has_node(mode, node_id):
+	# VisualShader has no has_node(); existence is checked via the node-id list.
+	if node_id in shader.get_node_list(mode):
 		return _router._fail("VALIDATION_ERROR", "Node id %d already exists." % node_id)
 
 	var ur := EditorInterface.get_editor_undo_redo()
@@ -169,7 +171,8 @@ func _cmd_set_shader_node_param(params: Dictionary) -> Dictionary:
 		return _router._fail("INTERNAL_ERROR", "Failed to load shader '%s'." % path)
 
 	var mode: int = int(shader.get_mode())
-	if not shader.has_node(mode, node_id):
+	# VisualShader has no has_node(); existence is checked via the node-id list.
+	if node_id not in shader.get_node_list(mode):
 		return _router._fail("VALIDATION_ERROR", "No node with id %d in shader." % node_id)
 	var node: VisualShaderNode = shader.get_node(mode, node_id)
 
