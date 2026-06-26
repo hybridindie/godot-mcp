@@ -73,6 +73,15 @@ SERVER_VS_ADDON = (
     "godot_enable_toolset first."
 )
 
+SAFETY_CONVENTION = (
+    "SAFETY CONVENTION (every mutating tool):\n"
+    "- Mutating tools accept dry_run=True — they report what WOULD change and perform "
+    "nothing. Preview first when unsure.\n"
+    "- Destructive tools (delete/overwrite, e.g. delete_node, reload_scene) require "
+    "confirm=True or they refuse to run; they also support dry_run.\n"
+    "- Read-only tools never mutate and need neither flag."
+)
+
 # The full gating protocol, shared verbatim by the server instructions and the
 # toolset_discovery prompt. Edit the parts above; both surfaces stay in sync.
 TOOLSET_PROTOCOL = "\n\n".join(
@@ -84,6 +93,8 @@ TOOLSET_PROTOCOL = "\n\n".join(
 SERVER_INSTRUCTIONS = (
     "WARNING: You MUST follow the steps below or EVERY tool call will fail.\n\n"
     + TOOLSET_PROTOCOL
+    + "\n\n"
+    + SAFETY_CONVENTION
     + "\n\nDOCUMENTATION:\n"
     + DOC_LINKS
     + "\n\nThis server also exposes workflow prompts (toolset_discovery, build_scene, "
