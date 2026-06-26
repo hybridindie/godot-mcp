@@ -15,6 +15,33 @@ from fastmcp.prompts import Message
 from mcp_server.toolset_protocol import TOOLSET_PROTOCOL
 
 
+def _as_arg(text: str) -> str:
+    """Render a string as a valid quoted literal for a tool-call example.
+
+    ``repr`` picks safe quoting (switching to double quotes when the value
+    contains a single quote), so interpolated user values never break the
+    example syntax we teach the model.
+    """
+    return repr(text)
+
+
+def _as_value(value: str) -> str:
+    """Render a batch ``value`` as it should appear in a call.
+
+    JSON-shaped values (objects, arrays, numbers, booleans, null) render as-is;
+    anything else is treated as a string literal and quoted — so a color like
+    ``#ff0000`` becomes ``'#ff0000'`` rather than the invalid bare ``#ff0000``.
+    """
+    v = value.strip()
+    if v[:1] in "{[" or v.lower() in {"true", "false", "null"}:
+        return v
+    try:
+        float(v)
+    except ValueError:
+        return _as_arg(v)
+    return v
+
+
 def register_prompts(mcp: FastMCP) -> list[str]:
     """Register all workflow prompts on the server.
 
@@ -432,14 +459,14 @@ _AUTHOR_RESOURCE_RECIPES = {
         "  godot_theme_ui_set_stylebox(node_path='./UI/Panel', name='panel', ...)"
     ),
     "shader": (
-        "Author a Shader and apply it to a node:\n\n"
+        "Author a Shader and apply it to a node (use a .gdshader save_path):\n\n"
         "Step 1 — Enable the toolset:\n"
         "  godot_enable_toolset('shader')\n\n"
         "Step 2 — Create the .gdshader file:\n"
-        "  godot_shader_create(shader_path='res://shaders/effect.gdshader', code='...')\n\n"
+        "  godot_shader_create(shader_path='{save_path}', code='...')\n\n"
         "Step 3 — Wrap it in a ShaderMaterial and assign it:\n"
         "  godot_shader_assign_material(node_path='./Sprite2D',\n"
-        "      shader_path='res://shaders/effect.gdshader')\n\n"
+        "      shader_path='{save_path}')\n\n"
         "Step 4 — Tune uniforms:\n"
         "  godot_shader_set_param(node_path='./Sprite2D', name='intensity', value=0.5)"
     ),
@@ -519,7 +546,8 @@ def _register_export_build(mcp: FastMCP) -> str:
                     "  → If templates are missing, install them in Godot "
                     "(Editor → Manage Export Templates) before exporting.\n\n"
                     "Step 4 — Export (runs Godot headless; can be slow):\n"
-                    f"  godot_export_project(preset='{target}', output_path='{output_path}',\n"
+                    f"  godot_export_project(preset={_as_arg(target)}, "
+                    f"output_path={_as_arg(output_path)},\n"
                     "      debug=False, timeout_seconds=300)\n\n"
                     "Step 5 — Verify the result:\n"
                     "  → Check exit_code == 0 and that 'errors' is empty.\n"
@@ -546,25 +574,25 @@ def _register_batch_refactor(mcp: FastMCP) -> str:
         value: str = "",
     ) -> list[Message]:
         """Instruct the agent how to apply a property change across many nodes."""
-        prop = property or "<property, e.g. 'modulate'>"
-        val = value or "<value, JSON-shaped for the target Godot type>"
+        prop = property or "modulate"
+        val = _as_value(value) if value.strip() else "<value, JSON-shaped for the type>"
         return [
             Message(
                 role="user",
                 content=(
-                    f"Set '{prop}' = {val} on every {node_type} in scope, safely.\n\n"
+                    f"Set {_as_arg(prop)} = {val} on every {node_type} in scope, safely.\n\n"
                     "Step 1 — Enable the toolset (add scene_edit if you also create/move "
                     "nodes):\n"
                     "  godot_enable_toolset('batch')\n\n"
                     "Step 2 — Find the targets first, so you know the blast radius:\n"
-                    f"  godot_batch_find_nodes_by_type(node_type='{node_type}')\n\n"
+                    f"  godot_batch_find_nodes_by_type(node_type={_as_arg(node_type)})\n\n"
                     "Step 3 — PREVIEW with dry_run before changing anything:\n"
-                    f"  godot_batch_set_property(property='{prop}', value={val},\n"
-                    f"      node_type='{node_type}', dry_run=True)\n"
+                    f"  godot_batch_set_property(property={_as_arg(prop)}, value={val},\n"
+                    f"      node_type={_as_arg(node_type)}, dry_run=True)\n"
                     "  → Review 'applied' and 'skipped' (nodes lacking the property).\n\n"
                     "Step 4 — Apply once the plan looks right (one undoable action):\n"
-                    f"  godot_batch_set_property(property='{prop}', value={val},\n"
-                    f"      node_type='{node_type}')\n\n"
+                    f"  godot_batch_set_property(property={_as_arg(prop)}, value={val},\n"
+                    f"      node_type={_as_arg(node_type)})\n\n"
                     "Step 5 — For a project-wide change across scene files, use:\n"
                     "  godot_batch_cross_scene_set_property(...)  (also supports dry_run)\n\n"
                     "VALUE SHAPES: Vector2/3 as {'x':1,'y':2} or [1,2]; Color as "

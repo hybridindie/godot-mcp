@@ -126,6 +126,19 @@ def test_author_resource_prompt_parameterized(server: Any) -> None:
     assert "godot_shader_create" in shader_content
 
 
+def test_author_resource_unknown_kind_lists_supported(server: Any) -> None:
+    """An unsupported resource_kind returns guidance naming the supported kinds."""
+    result = asyncio.run(
+        _render_prompt(server, "author_resource", {"resource_kind": "nonsense"})
+    )
+    content = " ".join(str(m.content) for m in result.messages)
+    assert "nonsense" in content
+    # It should steer the model to a valid kind, not a tool-call recipe.
+    for kind in ("tileset", "meshlibrary", "theme", "shader", "custom"):
+        assert kind in content
+    assert "godot_tilemap_create_tileset" not in content
+
+
 def test_export_build_prompt_parameterized(server: Any) -> None:
     """export_build accepts preset/output_path and walks the export toolset."""
     result = asyncio.run(
