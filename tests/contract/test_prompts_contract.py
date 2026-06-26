@@ -40,6 +40,9 @@ def test_prompts_are_registered(server: Any) -> None:
         "play_test",
         "script_edit",
         "troubleshoot",
+        "author_resource",
+        "export_build",
+        "batch_refactor",
     }
     names = asyncio.run(_get_prompt_names(server))
     assert expected <= names, f"Missing prompts: {expected - names}"
@@ -99,6 +102,63 @@ def test_script_edit_prompt_parameterized(server: Any) -> None:
     assert "./Hero" in content
     assert "godot_scripts_write" in content
     assert "godot_scripts_patch" in content
+
+
+def test_author_resource_prompt_parameterized(server: Any) -> None:
+    """author_resource branches on resource_kind and cites the right toolset/tools."""
+    tileset = asyncio.run(
+        _render_prompt(
+            server,
+            "author_resource",
+            {"resource_kind": "tileset", "save_path": "res://tiles/ground.tres"},
+        )
+    )
+    content = " ".join(str(m.content) for m in tileset.messages)
+    assert "res://tiles/ground.tres" in content
+    assert "godot_enable_toolset('tilemap')" in content
+    assert "godot_tilemap_create_tileset" in content
+    assert "godot_tilemap_add_tileset_atlas_source" in content
+
+    # A different kind routes to a different toolset.
+    shader = asyncio.run(_render_prompt(server, "author_resource", {"resource_kind": "shader"}))
+    shader_content = " ".join(str(m.content) for m in shader.messages)
+    assert "godot_enable_toolset('shader')" in shader_content
+    assert "godot_shader_create" in shader_content
+
+
+def test_export_build_prompt_parameterized(server: Any) -> None:
+    """export_build accepts preset/output_path and walks the export toolset."""
+    result = asyncio.run(
+        _render_prompt(
+            server,
+            "export_build",
+            {"preset": "Windows Desktop", "output_path": "res://build/game.exe"},
+        )
+    )
+    content = " ".join(str(m.content) for m in result.messages)
+    assert "Windows Desktop" in content
+    assert "res://build/game.exe" in content
+    assert "godot_enable_toolset('export')" in content
+    assert "godot_export_list_presets" in content
+    assert "godot_export_project" in content
+
+
+def test_batch_refactor_prompt_parameterized(server: Any) -> None:
+    """batch_refactor previews with dry_run before applying across many nodes."""
+    result = asyncio.run(
+        _render_prompt(
+            server,
+            "batch_refactor",
+            {"node_type": "Sprite2D", "property": "modulate", "value": "#ff0000"},
+        )
+    )
+    content = " ".join(str(m.content) for m in result.messages)
+    assert "Sprite2D" in content
+    assert "modulate" in content
+    assert "godot_enable_toolset('batch')" in content
+    assert "godot_batch_find_nodes_by_type" in content
+    assert "godot_batch_set_property" in content
+    assert "dry_run=True" in content
 
 
 def test_troubleshoot_prompt_returns_messages(server: Any) -> None:

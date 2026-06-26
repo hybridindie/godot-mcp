@@ -29,6 +29,9 @@ def register_prompts(mcp: FastMCP) -> list[str]:
         _register_script_edit(mcp),
         _register_debug_scene(mcp),
         _register_troubleshoot(mcp),
+        _register_author_resource(mcp),
+        _register_export_build(mcp),
+        _register_batch_refactor(mcp),
     ]
 
 
@@ -377,3 +380,197 @@ def _register_troubleshoot(mcp: FastMCP) -> str:
         ]
 
     return "troubleshoot"
+
+
+# Per-kind authoring recipes for the author_resource prompt. Each names the toolset
+# to enable and the tool sequence; ``{save_path}`` is filled per call. Keep the tool
+# names in sync with the exposed godot_<toolset>_<action> surface.
+_AUTHOR_RESOURCE_RECIPES = {
+    "tileset": (
+        "Author a TileSet (the resource that makes cells placeable on a TileMapLayer):\n\n"
+        "Step 1 — Enable the toolset:\n"
+        "  godot_enable_toolset('tilemap')\n\n"
+        "Step 2 — Create the TileSet (save it and/or assign to a node):\n"
+        "  godot_tilemap_create_tileset(save_path='{save_path}', tile_size=[16, 16])\n"
+        "  (or node_path='./TileMapLayer' to assign it in-scene)\n\n"
+        "Step 3 — Add an atlas source from an imported texture:\n"
+        "  godot_tilemap_add_tileset_atlas_source(\n"
+        "      tileset_path='{save_path}',\n"
+        "      texture_path='res://art/tiles.png', region_size=[16, 16])\n"
+        "  → returns source_id\n\n"
+        "Step 4 — Create the individual tiles you want to place:\n"
+        "  godot_tilemap_create_tile(\n"
+        "      tileset_path='{save_path}', source_id=<id>, atlas_coords=[0, 0])\n\n"
+        "Step 5 — Place tiles (needs a TileMapLayer in the open scene):\n"
+        "  godot_tilemap_set_cell(node_path='./TileMapLayer', coords=[0, 0],\n"
+        "      source_id=<id>, atlas_coords=[0, 0])"
+    ),
+    "meshlibrary": (
+        "Author a MeshLibrary (the resource a GridMap places cells from):\n\n"
+        "Step 1 — Enable the toolset:\n"
+        "  godot_enable_toolset('scene_3d')\n\n"
+        "Step 2 — Create the MeshLibrary:\n"
+        "  godot_scene_3d_create_mesh_library(save_path='{save_path}')\n\n"
+        "Step 3 — Add an item per mesh (from an imported mesh/scene):\n"
+        "  godot_scene_3d_add_mesh_library_item(\n"
+        "      library_path='{save_path}', mesh_path='res://art/wall.obj')\n"
+        "  → returns the item id\n\n"
+        "Step 4 — Place cells (needs a GridMap in the open scene):\n"
+        "  godot_scene_3d_gridmap_set_cell(\n"
+        "      node_path='./GridMap', cell=[0, 0, 0], item=<id>)"
+    ),
+    "theme": (
+        "Author a Theme (shared styling for Control nodes):\n\n"
+        "Step 1 — Enable the toolset:\n"
+        "  godot_enable_toolset('theme_ui')\n\n"
+        "Step 2 — Create the Theme (assign to a Control; save to share it):\n"
+        "  godot_theme_ui_create(node_path='./UI', save_path='{save_path}')\n\n"
+        "Step 3 — Set styling on nodes that use it:\n"
+        "  godot_theme_ui_set_color(node_path='./UI/Label', name='font_color', "
+        "color='#ffffff')\n"
+        "  godot_theme_ui_set_font_size(node_path='./UI/Label', name='font_size', size=24)\n"
+        "  godot_theme_ui_set_stylebox(node_path='./UI/Panel', name='panel', ...)"
+    ),
+    "shader": (
+        "Author a Shader and apply it to a node:\n\n"
+        "Step 1 — Enable the toolset:\n"
+        "  godot_enable_toolset('shader')\n\n"
+        "Step 2 — Create the .gdshader file:\n"
+        "  godot_shader_create(shader_path='res://shaders/effect.gdshader', code='...')\n\n"
+        "Step 3 — Wrap it in a ShaderMaterial and assign it:\n"
+        "  godot_shader_assign_material(node_path='./Sprite2D',\n"
+        "      shader_path='res://shaders/effect.gdshader')\n\n"
+        "Step 4 — Tune uniforms:\n"
+        "  godot_shader_set_param(node_path='./Sprite2D', name='intensity', value=0.5)"
+    ),
+    "custom": (
+        "Author a custom/built-in Resource (.tres) directly:\n\n"
+        "Step 1 — Enable the toolset:\n"
+        "  godot_enable_toolset('resources_edit')\n\n"
+        "Step 2 — Create the resource of the type you need:\n"
+        "  godot_resources_edit_create_resource(\n"
+        "      type='CurveTexture', resource_path='{save_path}', properties={{}})\n\n"
+        "Step 3 — Edit individual properties later:\n"
+        "  godot_resources_edit_set_resource_property(\n"
+        "      resource_path='{save_path}', property='width', value=256)"
+    ),
+}
+
+
+def _register_author_resource(mcp: FastMCP) -> str:
+    kinds = ", ".join(sorted(_AUTHOR_RESOURCE_RECIPES))
+
+    @mcp.prompt(
+        name="author_resource",
+        description=(
+            "Step-by-step workflow for authoring a Godot resource and the tools to use. "
+            f"Set resource_kind to one of: {kinds}. Covers TileSet, MeshLibrary, Theme, "
+            "Shader, and custom .tres resources."
+        ),
+    )
+    def author_resource(
+        resource_kind: str = "tileset",
+        save_path: str = "res://resources/new_resource.tres",
+    ) -> list[Message]:
+        """Instruct the agent how to author a resource of the requested kind."""
+        recipe = _AUTHOR_RESOURCE_RECIPES.get(resource_kind.lower().strip())
+        if recipe is None:
+            body = (
+                f"Unknown resource_kind '{resource_kind}'. Choose one of: {kinds}.\n"
+                "Re-invoke author_resource with a supported resource_kind."
+            )
+        else:
+            body = recipe.format(save_path=save_path) + (
+                "\n\nSAFETY REMINDER:\n"
+                "- Every step above is a mutating tool; add dry_run=True to preview first.\n"
+                "- Verify with godot_inspection tools (e.g. read the saved .tres) when done."
+            )
+        return [Message(role="user", content=body)]
+
+    return "author_resource"
+
+
+def _register_export_build(mcp: FastMCP) -> str:
+    @mcp.prompt(
+        name="export_build",
+        description=(
+            "Workflow for exporting a project build for a target platform using the "
+            "export toolset: discover presets, check templates, export, verify."
+        ),
+    )
+    def export_build(
+        preset: str = "",
+        output_path: str = "res://build/game",
+    ) -> list[Message]:
+        """Instruct the agent how to export a build for a platform preset."""
+        target = preset or "<your preset, e.g. 'Windows Desktop' / 'Linux/X11' / 'Web'>"
+        return [
+            Message(
+                role="user",
+                content=(
+                    f"Export a build to '{output_path}' using preset: {target}\n\n"
+                    "Step 1 — Enable the toolset:\n"
+                    "  godot_enable_toolset('export')\n\n"
+                    "Step 2 — Discover the presets defined in export_presets.cfg:\n"
+                    "  godot_export_list_presets()\n"
+                    "  → Match the preset name exactly (it is case-sensitive).\n\n"
+                    "Step 3 — Confirm export templates are installed for the target:\n"
+                    "  godot_export_get_info()\n"
+                    "  → If templates are missing, install them in Godot "
+                    "(Editor → Manage Export Templates) before exporting.\n\n"
+                    "Step 4 — Export (runs Godot headless; can be slow):\n"
+                    f"  godot_export_project(preset='{target}', output_path='{output_path}',\n"
+                    "      debug=False, timeout_seconds=300)\n\n"
+                    "Step 5 — Verify the result:\n"
+                    "  → Check exit_code == 0 and that 'errors' is empty.\n"
+                    "  → A non-zero code with no errors usually means a missing template "
+                    "or a bad preset name (re-check Step 2/3)."
+                ),
+            ),
+        ]
+
+    return "export_build"
+
+
+def _register_batch_refactor(mcp: FastMCP) -> str:
+    @mcp.prompt(
+        name="batch_refactor",
+        description=(
+            "Workflow for changing a property across many nodes safely with the batch "
+            "toolset: find targets, preview with dry_run, apply, verify."
+        ),
+    )
+    def batch_refactor(
+        node_type: str = "Node",
+        property: str = "",
+        value: str = "",
+    ) -> list[Message]:
+        """Instruct the agent how to apply a property change across many nodes."""
+        prop = property or "<property, e.g. 'modulate'>"
+        val = value or "<value, JSON-shaped for the target Godot type>"
+        return [
+            Message(
+                role="user",
+                content=(
+                    f"Set '{prop}' = {val} on every {node_type} in scope, safely.\n\n"
+                    "Step 1 — Enable the toolset (add scene_edit if you also create/move "
+                    "nodes):\n"
+                    "  godot_enable_toolset('batch')\n\n"
+                    "Step 2 — Find the targets first, so you know the blast radius:\n"
+                    f"  godot_batch_find_nodes_by_type(node_type='{node_type}')\n\n"
+                    "Step 3 — PREVIEW with dry_run before changing anything:\n"
+                    f"  godot_batch_set_property(property='{prop}', value={val},\n"
+                    f"      node_type='{node_type}', dry_run=True)\n"
+                    "  → Review 'applied' and 'skipped' (nodes lacking the property).\n\n"
+                    "Step 4 — Apply once the plan looks right (one undoable action):\n"
+                    f"  godot_batch_set_property(property='{prop}', value={val},\n"
+                    f"      node_type='{node_type}')\n\n"
+                    "Step 5 — For a project-wide change across scene files, use:\n"
+                    "  godot_batch_cross_scene_set_property(...)  (also supports dry_run)\n\n"
+                    "VALUE SHAPES: Vector2/3 as {'x':1,'y':2} or [1,2]; Color as "
+                    "{'r':1,'g':0,'b':0,'a':1} or '#ff0000'; primitives as-is."
+                ),
+            ),
+        ]
+
+    return "batch_refactor"
