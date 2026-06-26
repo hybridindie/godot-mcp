@@ -439,6 +439,32 @@ func _invalidate_prop_cache(obj: Object) -> void:
 	_prop_cache.erase(obj.get_instance_id())
 
 
+## Shared by handlers that take 1-based bit indices (physics layers/mask,
+## navigation layers). A valid value is an array of ints in [1, 32].
+func _valid_bits(value: Variant) -> bool:
+	if not (value is Array):
+		return false
+	for bit in value:
+		if typeof(bit) not in [TYPE_INT, TYPE_FLOAT]:
+			return false
+		var index := int(bit)
+		if index < 1 or index > 32:
+			return false
+	return true
+
+
+## Fold an array of 1-based bit indices into a bitmask. Out-of-range bits are
+## ignored; validate with _valid_bits first to reject bad input.
+func _bitmask(bits: Variant) -> int:
+	var mask := 0
+	if bits is Array:
+		for bit in bits:
+			var index := int(bit)
+			if index >= 1 and index <= 32:
+				mask |= 1 << (index - 1)
+	return mask
+
+
 func _scene_name(root: Node) -> String:
 	if not root.scene_file_path.is_empty():
 		return root.scene_file_path.get_file()

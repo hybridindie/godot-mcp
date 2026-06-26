@@ -105,17 +105,17 @@ func _cmd_set_physics_layers(params: Dictionary) -> Dictionary:
 	var node: Node = found["node"]
 	if not (node is CollisionObject2D or node is CollisionObject3D):
 		return _router._fail("VALIDATION_ERROR", "Node is not a physics body/area (CollisionObject2D/3D).")
-	if params.get("layers") != null and not _valid_bits(params["layers"]):
+	if params.get("layers") != null and not _router._valid_bits(params["layers"]):
 		return _router._fail("VALIDATION_ERROR", "'layers' must be an array of bit indices in [1, 32].")
-	if params.get("mask") != null and not _valid_bits(params["mask"]):
+	if params.get("mask") != null and not _router._valid_bits(params["mask"]):
 		return _router._fail("VALIDATION_ERROR", "'mask' must be an array of bit indices in [1, 32].")
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Set physics layers on %s" % node.name)
 	if params.get("layers") != null:
-		ur.add_do_property(node, "collision_layer", _bitmask(params["layers"]))
+		ur.add_do_property(node, "collision_layer", _router._bitmask(params["layers"]))
 		ur.add_undo_property(node, "collision_layer", node.collision_layer)
 	if params.get("mask") != null:
-		ur.add_do_property(node, "collision_mask", _bitmask(params["mask"]))
+		ur.add_do_property(node, "collision_mask", _router._bitmask(params["mask"]))
 		ur.add_undo_property(node, "collision_mask", node.collision_mask)
 	ur.commit_action()
 	return _router._ok({
@@ -155,27 +155,5 @@ func _cmd_add_raycast(params: Dictionary) -> Dictionary:
 	ur.add_undo_method(parent, "remove_child", ray)
 	ur.commit_action()
 	return _router._ok({"node_path": Inspect.relative_path(ray, root), "created": true})
-
-
-func _valid_bits(value: Variant) -> bool:
-	if not (value is Array):
-		return false
-	for bit in value:
-		if typeof(bit) not in [TYPE_INT, TYPE_FLOAT]:
-			return false
-		var index := int(bit)
-		if index < 1 or index > 32:
-			return false
-	return true
-
-
-func _bitmask(bits: Variant) -> int:
-	var mask := 0
-	if bits is Array:
-		for bit in bits:
-			var index := int(bit)
-			if index >= 1 and index <= 32:
-				mask |= 1 << (index - 1)
-	return mask
 
 
