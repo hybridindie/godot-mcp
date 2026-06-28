@@ -24,6 +24,10 @@ from mcp_server.models.envelope import CommandEnvelope, ErrorCode, ResponseEnvel
 
 logger = logging.getLogger(__name__)
 
+# How often the stay_connected supervisor polls for a dropped link while connected.
+# Bounds the reconnect latency after the editor closes/restarts; cheap on localhost.
+_SUPERVISE_POLL_SECONDS = 1.0
+
 
 class Connection(Protocol):
     """The minimal transport the bridge needs (a WebSocket connection)."""
@@ -66,10 +70,29 @@ class Bridge:
         self._reader: asyncio.Task[None] | None = None
         self._pending: dict[str, asyncio.Future[ResponseEnvelope]] = {}
         self._counter = 0
+        self._connect_lock = asyncio.Lock()
 
     @property
     def connected(self) -> bool:
         return self._conn is not None
+
+    async def _ensure_connected(self) -> bool:
+        """(Re)connect on demand when disconnected, so a server that started *before*
+        the Godot editor — or one whose link dropped — recovers on the next ``send``
+        instead of staying dead until restart (the common "MCP not connecting in Godot"
+        case). Concurrency-safe: only one connect attempt runs at a time and the others
+        await its outcome. A single best-effort attempt (the next send retries); never
+        raises."""
+        if self._conn is not None:
+            return True
+        async with self._connect_lock:
+            if self._conn is not None:  # another send connected while we waited
+                return True
+            try:
+                await self.connect()
+            except (ConnectionError, OSError, TimeoutError):
+                return False
+            return True
 
     async def connect(self) -> None:
         """Open a single connection and start the response reader."""
@@ -93,6 +116,29 @@ class Bridge:
                 logger.debug("bridge reconnect", extra={"attempt": attempt, "delay": delay})
                 await self._sleep(delay)
 
+    async def stay_connected(self) -> None:
+        """Background supervisor: keep a live link to the addon, (re)connecting with
+        backoff whenever it is down.
+
+        This is what makes the start order not matter: the server commonly boots
+        *before* the Godot editor/addon is listening (the usual "MCP not connecting in
+        Godot" cause), and a single startup connect would then stay dead forever. The
+        supervisor reconnects as soon as the editor appears — and again if the link
+        drops — so ``connected`` reflects reality for preconditions, health, and the
+        dock without any per-call work. Runs until cancelled; only cancellation escapes.
+        """
+        attempt = 0
+        while True:
+            if self._conn is None:
+                if await self._ensure_connected():
+                    attempt = 0
+                else:
+                    delay = compute_delay(self._policy, attempt, self._rand())
+                    attempt += 1
+                    await self._sleep(delay)
+                    continue
+            await self._sleep(_SUPERVISE_POLL_SECONDS)
+
     async def close(self) -> None:
         """Close the connection and fail any in-flight requests."""
         if self._reader is not None:
@@ -114,10 +160,12 @@ class Bridge:
         Returns a structured ``ResponseEnvelope`` for every outcome — including
         a disconnected bridge or a timed-out request — never raising.
         """
-        if self._conn is None:
+        if self._conn is None and not await self._ensure_connected():
             return ResponseEnvelope.failure(
                 "-", ErrorCode.BRIDGE_DISCONNECTED, "Godot bridge is not connected."
             )
+        conn = self._conn
+        assert conn is not None  # _ensure_connected() set it (or we returned above)
 
         msg_id = self._next_id()
         envelope = CommandEnvelope(id=msg_id, command=command, params=params or {})
@@ -125,7 +173,7 @@ class Bridge:
         self._pending[msg_id] = future
 
         try:
-            await self._conn.send(envelope.model_dump_json())
+            await conn.send(envelope.model_dump_json())
         except Exception:
             # The transport dropped mid-send: don't leak the waiter or raise.
             self._pending.pop(msg_id, None)

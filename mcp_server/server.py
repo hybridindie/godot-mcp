@@ -11,9 +11,10 @@ missing editor never blocks the server) and closes on shutdown
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastmcp import FastMCP
 
@@ -90,13 +91,20 @@ def create_server(
             logger.info("bridge connected", extra={"url": config.bridge.url})
         except Exception:
             logger.warning(
-                "bridge not connected at startup; continuing (check the editor/addon)",
+                "bridge not connected at startup; retrying in the background "
+                "(check the editor/addon)",
                 extra={"url": config.bridge.url},
                 exc_info=True,
             )
+        # Keep (re)connecting in the background so the editor start order doesn't matter
+        # and a dropped link self-heals — the server often boots before Godot is up.
+        supervisor = asyncio.create_task(bridge.stay_connected())
         try:
             yield
         finally:
+            supervisor.cancel()
+            with suppress(asyncio.CancelledError):
+                await supervisor
             await bridge.close()
 
     mcp = FastMCP(

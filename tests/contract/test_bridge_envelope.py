@@ -19,6 +19,7 @@ from mcp_server.models.envelope import CommandEnvelope, ResponseEnvelope
 from tests.fakes import (
     FakeAddonConnection,
     connector_for,
+    flaky_connector,
     immediate_sleep,
     ping_responder,
 )
@@ -108,8 +109,14 @@ async def test_timeout_returns_timeout_envelope() -> None:
 
 
 async def test_send_without_connection_is_structured_error() -> None:
-    bridge = Bridge(BridgeConfig())  # never connected
-    resp = await bridge.send("ping")
+    # Addon unreachable: the lazy reconnect attempt fails, so send returns a structured
+    # BRIDGE_DISCONNECTED (never raises). A failing fake connector keeps this hermetic —
+    # the default real-socket connector would otherwise reach a live editor on :9080.
+    bridge = Bridge(
+        BridgeConfig(),
+        connector=flaky_connector(fail_times=99, connection=FakeAddonConnection()),
+    )
+    resp = await bridge.send("cmd_ping")
     assert resp.ok is False
     assert resp.error == "BRIDGE_DISCONNECTED"
 
