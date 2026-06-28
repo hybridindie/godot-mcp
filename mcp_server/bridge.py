@@ -23,6 +23,7 @@ import asyncio
 import json
 import logging
 from collections.abc import Awaitable, Callable
+from contextlib import suppress
 from typing import Any, Protocol
 from urllib.parse import urlparse
 
@@ -98,6 +99,9 @@ class Bridge:
         self._reader: asyncio.Task[None] | None = None
         self._pending: dict[str, asyncio.Future[ResponseEnvelope]] = {}
         self._counter = 0
+        # Serialises peer adoption so two near-simultaneous editor connections can't
+        # race to swap _conn/_reader and leave two readers resolving futures (#276 review).
+        self._attach_lock = asyncio.Lock()
 
     @property
     def connected(self) -> bool:
@@ -134,17 +138,26 @@ class Bridge:
 
     async def _attach(self, conn: Connection) -> None:
         """Adopt ``conn`` as the active peer, replacing and failing out any previous one,
-        and start its response reader."""
-        if self._conn is not None:
-            old = self._conn
-            self._conn = None
-            if self._reader is not None:
-                self._reader.cancel()
-            self._fail_pending("BRIDGE_DISCONNECTED", "Replaced by a new editor connection.")
-            await old.close()
-        self._conn = conn
-        self._reader = asyncio.create_task(self._read_loop(conn))
-        logger.debug("bridge peer connected")
+        and start its response reader.
+
+        Serialised by ``_attach_lock`` so concurrent editor connections can't interleave,
+        and the replaced peer's reader is **fully stopped** (awaited after cancel) before
+        the new one adopts ``self._conn`` — otherwise a dying read loop could resolve a
+        future the new peer now owns (#276 review)."""
+        async with self._attach_lock:
+            if self._conn is not None:
+                old, old_reader = self._conn, self._reader
+                self._conn = None
+                self._reader = None
+                if old_reader is not None:
+                    old_reader.cancel()
+                    with suppress(asyncio.CancelledError):
+                        await old_reader
+                self._fail_pending("BRIDGE_DISCONNECTED", "Replaced by a new editor connection.")
+                await old.close()
+            self._conn = conn
+            self._reader = asyncio.create_task(self._read_loop(conn))
+            logger.debug("bridge peer connected")
 
     async def close(self) -> None:
         """Stop listening, drop the peer, and fail any in-flight requests."""

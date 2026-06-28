@@ -80,4 +80,7 @@ async def serve_and_await_editor(bridge: object, attempts: int = 120, delay: flo
         if bridge.connected:  # type: ignore[attr-defined]
             return True
         await asyncio.sleep(delay)
+    # Timed out: callers raise before their `finally: bridge.close()`, so release the
+    # listener here or its port leaks and breaks the rest of the suite (#276 review).
+    await bridge.close()  # type: ignore[attr-defined]
     return False
