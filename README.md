@@ -251,14 +251,14 @@ want **several** clients on the same live editor (e.g. Claude Code *and* the
 HTTP service and have every client connect to it instead of each spawning its own:
 
 ```bash
-scripts/serve-http.sh            # http://127.0.0.1:9090/mcp/  + editor bridge :9080
+scripts/serve-http.sh            # http://127.0.0.1:9090/mcp  + editor bridge :9080
 ```
 
-Clients then point at `http://127.0.0.1:9090/mcp/` (FastMCP's Streamable HTTP
+Clients then point at `http://127.0.0.1:9090/mcp` (FastMCP's Streamable HTTP
 mount). Claude Code, via `.mcp.json`:
 
 ```json
-{ "mcpServers": { "godot": { "type": "http", "url": "http://127.0.0.1:9090/mcp/" } } }
+{ "mcpServers": { "godot": { "type": "http", "url": "http://127.0.0.1:9090/mcp" } } }
 ```
 
 ---
