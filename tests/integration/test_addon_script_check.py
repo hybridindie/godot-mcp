@@ -44,10 +44,35 @@ def test_all_addon_scripts_compile() -> None:
         res = _res_path(gd)
         result = run_godot(["--check-only", "--script", res])
         output = f"{result.stdout}\n{result.stderr}"
-        if any(marker in output for marker in _FAIL_MARKERS):
-            detail = "\n".join(
-                line for line in output.splitlines() if any(m in line for m in _FAIL_MARKERS)
+        # Primary signal: Godot prints "Parse Error"/"Failed to load script" but still
+        # exits 0 on a compile error (see test_gate_catches_a_broken_script), so the
+        # markers — not the exit code — are what catch a broken script. A non-zero exit
+        # is treated as a failure too, to catch a crash / missing-script / bad invocation
+        # that wouldn't print a known marker.
+        if result.returncode != 0 or any(marker in output for marker in _FAIL_MARKERS):
+            detail = (
+                "\n".join(
+                    line for line in output.splitlines() if any(m in line for m in _FAIL_MARKERS)
+                )
+                or f"exit code {result.returncode} with no recognized marker"
             )
             failures.append(f"{res}:\n{detail}")
 
     assert not failures, "addon scripts failed --check-only:\n\n" + "\n\n".join(failures)
+
+
+def test_gate_catches_a_broken_script() -> None:
+    """Negative control: a script with a real parse error trips the markers — proving the
+    gate isn't a silent no-op. (Godot's --check-only exits 0 even here, which is exactly
+    why test_all_addon_scripts_compile keys off the markers, not the exit code.)"""
+    bad = GODOT_PROJECT / "tests" / "_tmp_broken_check.gd"
+    bad.write_text("extends Node\nfunc _ready() ->:\n\tpass\n", encoding="utf-8")
+    try:
+        result = run_godot(["--check-only", "--script", _res_path(bad)])
+        output = f"{result.stdout}\n{result.stderr}"
+        assert any(marker in output for marker in _FAIL_MARKERS), (
+            f"the gate did not flag a deliberately-broken script:\n{output}"
+        )
+    finally:
+        bad.unlink(missing_ok=True)
+        (bad.parent / (bad.name + ".uid")).unlink(missing_ok=True)
