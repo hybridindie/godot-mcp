@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable
 
+from mcp_server.bridge import Connection
 from mcp_server.models.envelope import CommandEnvelope, ResponseEnvelope
 
 # A responder maps a received command to a response, or None to stay silent
@@ -115,7 +116,7 @@ class _NullServer:
 
 
 async def null_serve(
-    handler: Callable[[object], Awaitable[None]], host: str, port: int
+    handler: Callable[[Connection], Awaitable[None]], host: str, port: int
 ) -> _NullServer:
     """A ``serve`` that binds nothing and accepts no peer — for the 'editor absent'
     case (the bridge listens but stays disconnected), with no real socket."""
