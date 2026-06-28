@@ -238,10 +238,28 @@ The server exposes two transports:
 
 | Transport | Use case | How to connect |
 |-----------|----------|----------------|
-| `stdio` | Claude Code, OpenCode, any local agent | `uv run godot-mcp` |
-| `http` | Remote or web-based clients | `GODOT_MCP_TRANSPORT=http uv run godot-mcp` |
+| `stdio` | A single local agent (Claude Code, OpenCode) | `uv run godot-mcp` |
+| `http` | Shared service; remote or web-based clients | `scripts/serve-http.sh` |
 
-`stdio` is the default and what most AI coding assistants expect. The server reads JSON-RPC from stdin and writes to stdout.
+`stdio` is the default and what most AI coding assistants expect: the client
+spawns its own server subprocess and they speak JSON-RPC over stdin/stdout.
+
+**Service mode (one server, many clients).** The bridge to the editor is a
+single connection — only one server process can own it at a time. So when you
+want **several** clients on the same live editor (e.g. Claude Code *and* the
+[godot-agents](https://github.com/hybridindie/godot-agents) project), run **one**
+HTTP service and have every client connect to it instead of each spawning its own:
+
+```bash
+scripts/serve-http.sh            # http://127.0.0.1:9090/mcp/  + editor bridge :9080
+```
+
+Clients then point at `http://127.0.0.1:9090/mcp/` (FastMCP's Streamable HTTP
+mount). Claude Code, via `.mcp.json`:
+
+```json
+{ "mcpServers": { "godot": { "type": "http", "url": "http://127.0.0.1:9090/mcp/" } } }
+```
 
 ---
 
