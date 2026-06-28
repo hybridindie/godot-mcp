@@ -5,11 +5,13 @@ authoritative for the **transport** and the **JSON envelope**; the tool/resource
 surface is specified in [`tool-contracts.md`](tool-contracts.md). The grounding rules in
 [`../.claude/rules/`](../.claude/rules/) govern *how* code on each side is written.
 
-> Status: the bridge is implemented (issue #3). Server side: `mcp_server/bridge.py`
-> (async client, `id` correlation, timeout, backoff reconnect) over the envelope models
-> in `mcp_server/models/envelope.py`. Addon side: `mcp_bridge.gd` (`TCPServer` +
-> `WebSocketPeer`) routing through `command_router.gd`. `ping` → `{pong: true}` is the
-> health check. Higher-level `cmd_*` handlers and MCP tools build on this contract.
+> Status: the bridge is implemented (issue #3) with the connection direction inverted
+> (#276): the **server listens, the editor connects out**. Server side:
+> `mcp_server/bridge.py` (async WebSocket *listener*, `id` correlation, timeout) over the
+> envelope models in `mcp_server/models/envelope.py`. Addon side: `mcp_bridge.gd`
+> (`WebSocketPeer` *client* that connects out and reconnects with backoff) routing through
+> `command_router.gd`. `cmd_ping` → `{pong: true}` is the health check. Higher-level
+> `cmd_*` handlers and MCP tools build on this contract.
 
 ## The four-layer transport chain
 
@@ -18,37 +20,44 @@ Every agent action crosses all four layers:
 ```mermaid
 flowchart TD
     AI["AI client (Claude Code / OpenCode / any stdio MCP client)"]
-    SRV["FastMCP server (Python, mcp_server/)<br/>WebSocket client · owns safety + Pydantic models"]
-    ADDON["Godot EditorPlugin (GDScript, godot/addons/godot_mcp/)<br/>WebSocket server (TCPServer→WebSocketPeer) · only layer touching Godot"]
+    SRV["FastMCP server (Python, mcp_server/)<br/>WebSocket listener · owns safety + Pydantic models"]
+    ADDON["Godot EditorPlugin (GDScript, godot/addons/godot_mcp/)<br/>WebSocket client (connects out, reconnects) · only layer touching Godot"]
     PROJ["Live Godot project"]
     AI -->|"stdio (MCP protocol)"| SRV
-    SRV -->|"WebSocket — localhost, default ws://localhost:9080"| ADDON
+    ADDON ==>|"WebSocket connect — localhost, default ws://127.0.0.1:9080"| SRV
+    SRV -.->|"{id, command, params}"| ADDON
     ADDON -->|"Godot Editor API"| PROJ
-    PROJ -.->|"result envelope"| ADDON
     ADDON -.->|"{id, ok, result, error}"| SRV
     SRV -.->|"typed tool result"| AI
 ```
 
-Solid arrows are the request path the **server initiates**; dashed arrows are the response envelopes flowing back.
+The bold arrow is the **transport** connection the editor initiates (and reconnects);
+once it is up, the **server still initiates every command** (dashed `{id, command, …}`)
+and the addon responds — the request/response direction is unchanged, only who dials.
 
-- **MCP server** (`mcp_server/`) is the WebSocket **client** and the AI-facing stdio
+- **MCP server** (`mcp_server/`) is the WebSocket **listener** and the AI-facing stdio
   server. It owns all safety, permission, and precondition logic and the Pydantic domain
-  models. It holds no Godot logic.
-- **Godot addon** (`godot/addons/godot_mcp/`) is the WebSocket **server** (a `TCPServer`
-  upgraded to `WebSocketPeer`). It is the only code that touches the Godot Editor API.
+  models. It holds no Godot logic. It binds the bridge port and waits for the editor.
+- **Godot addon** (`godot/addons/godot_mcp/`) is the WebSocket **client**: a
+  `WebSocketPeer` that connects out to the server and reconnects with backoff (the editor
+  is the party that comes and goes, so it owns reconnection — #276). It is the only code
+  that touches the Godot Editor API.
 
-Direction of control: the **server initiates** every request; the addon responds. The
+Direction of control: the **server initiates** every command; the addon responds. The
 addon never pushes unsolicited commands. (Editor-event streaming, if added later, will be
 a separate, explicitly-versioned channel.)
 
 ## Transport
 
-- **URL:** `ws://localhost:9080` by default. Configurable on both sides; never hard-coded
-  in library code. localhost-only, **no auth in v1**.
+- **URL:** `ws://127.0.0.1:9080` by default. Configurable on both sides (server:
+  `GODOT_MCP_BRIDGE_URL`; addon: same env var) — never hard-coded in library code.
+  localhost-only, **no auth in v1**.
 - **Framing:** one JSON object per WebSocket text message. UTF-8.
-- **Connection lifecycle:** the addon listens; the server connects. On bridge failure the
-  server reconnects with **exponential backoff** (start ~200 ms, jittered, capped). A
-  `ping` → `pong` exchange is the liveness health check.
+- **Connection lifecycle:** the **server listens; the editor (addon) connects out and
+  reconnects** with **exponential backoff** (start ~500 ms, capped) whenever the link is
+  down — so editor start order doesn't matter and a restart self-heals (#276). At most one
+  active peer; a new connection replaces the old. A `cmd_ping` → `{pong: true}` exchange is
+  the liveness health check.
 - **Concurrency:** many requests may be in flight; each response is matched to its request
   by `id`. Correlation is concurrency-safe — no shared mutable per-request state. The
   editor is a single writer, so mutating commands are effectively serialized by the addon.

@@ -14,7 +14,7 @@ from mcp_server.bridge import Bridge
 from mcp_server.config import ServerConfig
 from mcp_server.safety import grouped_by_safety_class
 from mcp_server.server import create_server
-from tests.fakes import FakeAddonConnection, connector_for, flaky_connector
+from tests.fakes import FakeAddonConnection, connector_for, null_serve
 
 pytestmark = pytest.mark.asyncio
 
@@ -46,21 +46,14 @@ async def test_health_check_reports_connected_bridge() -> None:
     assert payload["bridge_url"] == ServerConfig().bridge.url
 
 
-async def test_health_check_reports_disconnected_when_godot_absent(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    # A connector that always fails ⇒ startup connect fails ⇒ disconnected, and the
-    # failure is logged at WARNING (not silently swallowed) so it is diagnosable.
-    bridge = Bridge(
-        ServerConfig().bridge,
-        connector=flaky_connector(fail_times=99, connection=FakeAddonConnection()),
-    )
+async def test_health_check_reports_disconnected_when_editor_absent() -> None:
+    # The bridge is listening but no editor has connected to it yet ⇒ the server boots
+    # fine and health reports disconnected (it never blocks on the editor being up).
+    bridge = Bridge(ServerConfig().bridge, serve=null_serve)
     server = _server_with_bridge(bridge)
-    with caplog.at_level("WARNING", logger="mcp_server.server"):
-        async with Client(server) as client:
-            result = await client.call_tool("godot_health_check", {})
+    async with Client(server) as client:
+        result = await client.call_tool("godot_health_check", {})
     assert result.structured_content["bridge_connected"] is False
-    assert any("bridge not connected" in r.message for r in caplog.records)
 
 
 async def test_list_tools_by_safety_class_groups_health_check() -> None:

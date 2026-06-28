@@ -1,12 +1,20 @@
-"""Async WebSocket client to the Godot addon — the one path Python uses to talk
-to Godot (issue #3).
+"""WebSocket bridge to the Godot addon — the one path Python uses to talk to Godot
+(issue #3; direction inverted in #276).
 
-Every request carries an ``id`` and resolves to its own correlated response;
-many may be in flight concurrently. Timeouts and reconnect backoff are driven by
-an injected ``sleep`` so behaviour is deterministic under test
-(see .claude/rules/async-patterns.md). A failed or absent connection yields a
-structured ``ResponseEnvelope`` (``BRIDGE_DISCONNECTED`` / ``TIMEOUT``), never an
-exception escaping to the caller.
+The MCP server is the **listener**: ``serve()`` binds the bridge port and waits for the
+Godot addon (now the WebSocket *client*) to connect and reconnect to it. The editor is
+the party that comes and goes, so it owns reconnection (see docs/architecture.md). A new
+peer connection replaces the old one; the server keeps at most one active peer.
+
+Every request carries an ``id`` and resolves to its own correlated response; many may be
+in flight concurrently. Timeouts are driven by an injected ``sleep`` so behaviour is
+deterministic under test (see .claude/rules/async-patterns.md). A failed or absent peer
+yields a structured ``ResponseEnvelope`` (``BRIDGE_DISCONNECTED`` / ``TIMEOUT``), never
+an exception escaping to the caller.
+
+Tests inject a ``connector`` (a source for the fake addon peer); ``serve()``/``connect()``
+then *attach* that peer instead of binding a socket, so the envelope contract can be
+exercised with no editor and no sockets.
 """
 
 from __future__ import annotations
@@ -14,11 +22,10 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import random
 from collections.abc import Awaitable, Callable
 from typing import Any, Protocol
+from urllib.parse import urlparse
 
-from mcp_server.backoff import BackoffPolicy, compute_delay
 from mcp_server.config import BridgeConfig
 from mcp_server.models.envelope import CommandEnvelope, ErrorCode, ResponseEnvelope
 
@@ -26,42 +33,67 @@ logger = logging.getLogger(__name__)
 
 
 class Connection(Protocol):
-    """The minimal transport the bridge needs (a WebSocket connection)."""
+    """The minimal transport the bridge needs (an accepted WebSocket peer)."""
 
     async def send(self, message: str) -> None: ...
     async def recv(self) -> str | bytes: ...
     async def close(self) -> None: ...
 
 
+class Server(Protocol):
+    """The minimal listener handle the bridge needs (what ``serve`` returns)."""
+
+    def close(self) -> None: ...
+    async def wait_closed(self) -> None: ...
+
+
+# A connector yields the peer to adopt (the fake addon, in tests). Production binds a
+# real listener instead and adopts whatever connects, so connector is None there.
 Connector = Callable[[str], Awaitable[Connection]]
+# A serve function: start listening, dispatching each accepted peer to ``handler``.
+Serve = Callable[[Callable[[Connection], Awaitable[None]], str, int], Awaitable[Server]]
 Sleep = Callable[[float], Awaitable[None]]
 
 
-async def _default_connector(url: str) -> Connection:
-    # Imported lazily so importing this module performs no I/O and does not hard
-    # require the websockets package until an actual connection is made.
-    from websockets.asyncio.client import connect
+def _bind_target(url: str) -> tuple[str, int]:
+    """Host/port to bind from the configured bridge URL. ``localhost`` is normalised to
+    ``127.0.0.1`` so the addon's IPv4 connect can never miss an IPv6-only listener."""
+    parsed = urlparse(url)
+    host = parsed.hostname or "127.0.0.1"
+    if host == "localhost":
+        host = "127.0.0.1"
+    return host, parsed.port or 9080
 
-    return await connect(url)
+
+async def _default_serve(
+    handler: Callable[[Connection], Awaitable[None]], host: str, port: int
+) -> Server:
+    # Imported lazily so importing this module performs no I/O and does not hard-require
+    # the websockets package until the listener is actually started.
+    from websockets.asyncio.server import serve
+
+    async def _on_connect(ws: Any) -> None:
+        await handler(ws)
+
+    return await serve(_on_connect, host, port)
 
 
 class Bridge:
-    """A reconnecting, request/response WebSocket client to the addon."""
+    """A request/response WebSocket **listener** the Godot addon connects to."""
 
     def __init__(
         self,
         config: BridgeConfig | None = None,
         *,
+        serve: Serve | None = None,
         connector: Connector | None = None,
         sleep: Sleep = asyncio.sleep,
-        rand: Callable[[], float] = random.random,
-        policy: BackoffPolicy | None = None,
     ) -> None:
         self._config = config or BridgeConfig()
-        self._connector = connector or _default_connector
+        self._serve = serve or _default_serve
+        self._connector = connector
         self._sleep = sleep
-        self._rand = rand
-        self._policy = policy or BackoffPolicy()
+        self._server: Server | None = None
         self._conn: Connection | None = None
         self._reader: asyncio.Task[None] | None = None
         self._pending: dict[str, asyncio.Future[ResponseEnvelope]] = {}
@@ -71,36 +103,61 @@ class Bridge:
     def connected(self) -> bool:
         return self._conn is not None
 
-    async def connect(self) -> None:
-        """Open a single connection and start the response reader."""
-        self._conn = await self._connector(self._config.url)
-        self._reader = asyncio.create_task(self._read_loop(self._conn))
-        logger.debug("bridge connected", extra={"url": self._config.url})
+    async def serve(self) -> None:
+        """Start listening for the addon to connect (it is the client now). Idempotent.
 
-    async def connect_with_retry(self, max_attempts: int | None = None) -> None:
-        """Connect, retrying on failure with exponential backoff + full jitter."""
-        attempt = 0
-        while True:
-            try:
-                await self.connect()
-                return
-            except (ConnectionError, OSError, TimeoutError):
-                attempt += 1
-                if max_attempts is not None and attempt >= max_attempts:
-                    logger.error("bridge connect gave up", extra={"attempts": attempt})
-                    raise
-                delay = compute_delay(self._policy, attempt - 1, self._rand())
-                logger.debug("bridge reconnect", extra={"attempt": attempt, "delay": delay})
-                await self._sleep(delay)
+        With an injected ``connector`` (tests) the peer it yields is attached directly
+        instead of binding a socket — the addon "connecting" to the listener."""
+        if self._connector is not None:
+            await self.connect()
+            return
+        if self._server is not None:
+            return
+        host, port = _bind_target(self._config.url)
+        self._server = await self._serve(self._handle_peer, host, port)
+        logger.info("bridge listening", extra={"host": host, "port": port})
+
+    async def connect(self) -> None:
+        """Attach the peer from the injected ``connector`` (test/compat seam — simulates
+        the addon connecting to the listener)."""
+        if self._connector is None:
+            raise RuntimeError("connect() requires an injected connector; production uses serve()")
+        await self._attach(await self._connector(self._config.url))
+
+    async def _handle_peer(self, conn: Connection) -> None:
+        """Per-connection handler for the real listener: adopt the peer and stay until it
+        disconnects, so ``websockets`` keeps the connection open for the read loop."""
+        await self._attach(conn)
+        reader = self._reader
+        if reader is not None:
+            await reader
+
+    async def _attach(self, conn: Connection) -> None:
+        """Adopt ``conn`` as the active peer, replacing and failing out any previous one,
+        and start its response reader."""
+        if self._conn is not None:
+            old = self._conn
+            self._conn = None
+            if self._reader is not None:
+                self._reader.cancel()
+            self._fail_pending("BRIDGE_DISCONNECTED", "Replaced by a new editor connection.")
+            await old.close()
+        self._conn = conn
+        self._reader = asyncio.create_task(self._read_loop(conn))
+        logger.debug("bridge peer connected")
 
     async def close(self) -> None:
-        """Close the connection and fail any in-flight requests."""
+        """Stop listening, drop the peer, and fail any in-flight requests."""
         if self._reader is not None:
             self._reader.cancel()
             self._reader = None
         if self._conn is not None:
             await self._conn.close()
             self._conn = None
+        if self._server is not None:
+            self._server.close()
+            await self._server.wait_closed()
+            self._server = None
         self._fail_pending("BRIDGE_DISCONNECTED", "Bridge closed.")
 
     async def send(
@@ -109,14 +166,15 @@ class Bridge:
         params: dict[str, Any] | None = None,
         timeout: float | None = None,
     ) -> ResponseEnvelope:
-        """Send a command and await its correlated response.
+        """Send a command to the connected editor and await its correlated response.
 
-        Returns a structured ``ResponseEnvelope`` for every outcome — including
-        a disconnected bridge or a timed-out request — never raising.
+        Returns a structured ``ResponseEnvelope`` for every outcome — no peer connected
+        or a timed-out request included — never raising.
         """
-        if self._conn is None:
+        conn = self._conn
+        if conn is None:
             return ResponseEnvelope.failure(
-                "-", ErrorCode.BRIDGE_DISCONNECTED, "Godot bridge is not connected."
+                "-", ErrorCode.BRIDGE_DISCONNECTED, "Godot is not connected to the bridge."
             )
 
         msg_id = self._next_id()
@@ -125,14 +183,15 @@ class Bridge:
         self._pending[msg_id] = future
 
         try:
-            await self._conn.send(envelope.model_dump_json())
+            await conn.send(envelope.model_dump_json())
         except Exception:
             # The transport dropped mid-send: don't leak the waiter or raise.
             self._pending.pop(msg_id, None)
             if not future.done():
                 future.cancel()
-            self._conn = None
-            self._fail_pending("BRIDGE_DISCONNECTED", "Bridge connection lost.")
+            if self._conn is conn:
+                self._conn = None
+            self._fail_pending("BRIDGE_DISCONNECTED", "Editor connection lost.")
             return ResponseEnvelope.failure(
                 msg_id, ErrorCode.BRIDGE_DISCONNECTED, "Lost connection to Godot while sending."
             )
@@ -181,9 +240,10 @@ class Bridge:
         except asyncio.CancelledError:
             raise
         except Exception:
-            logger.debug("bridge reader stopped; connection closed")
-            self._conn = None
-            self._fail_pending("BRIDGE_DISCONNECTED", "Bridge connection lost.")
+            logger.debug("bridge reader stopped; editor disconnected")
+            if self._conn is conn:
+                self._conn = None
+            self._fail_pending("BRIDGE_DISCONNECTED", "Editor connection lost.")
 
     def _resolve(self, raw: str) -> None:
         try:

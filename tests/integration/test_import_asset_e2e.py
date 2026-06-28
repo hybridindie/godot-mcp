@@ -7,6 +7,7 @@ texture resources. Skipped without Godot.
 from __future__ import annotations
 
 import asyncio
+import os
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -15,11 +16,11 @@ import pytest
 
 from mcp_server.bridge import Bridge
 from mcp_server.config import BridgeConfig
-from tests.integration._godot import GODOT_BIN, GODOT_PROJECT
+from tests.integration._godot import GODOT_BIN, GODOT_PROJECT, serve_and_await_editor
 
 pytestmark = pytest.mark.skipif(GODOT_BIN is None, reason="Godot binary not installed")
 
-BRIDGE_URL = "ws://localhost:9080"
+BRIDGE_URL = "ws://127.0.0.1:9097"
 IMPORTED_PNG = "res://tmp_e2e_import.png"
 ALBEDO_TEX = "res://tmp_e2e_albedo.tres"
 MATERIAL = "res://tmp_e2e_material.tres"
@@ -41,14 +42,8 @@ async def _ok(bridge: Bridge, command: str, params: dict[str, Any]) -> dict[str,
 
 async def _run() -> None:
     bridge = Bridge(BridgeConfig(url=BRIDGE_URL))
-    for _ in range(60):
-        try:
-            await bridge.connect()
-            break
-        except Exception:
-            await asyncio.sleep(0.5)
-    else:
-        raise AssertionError("could not connect to the addon bridge")
+    if not await serve_and_await_editor(bridge):
+        raise AssertionError("the addon never connected to the bridge")
 
     try:
         # Import a real file from outside the project into res://.
@@ -104,6 +99,7 @@ def test_live_asset_import_workflow() -> None:
         [GODOT_BIN, "--headless", "--editor", "--path", str(GODOT_PROJECT)],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
+        env={**os.environ, "GODOT_MCP_BRIDGE_URL": BRIDGE_URL},
     )
     try:
         asyncio.run(_run())

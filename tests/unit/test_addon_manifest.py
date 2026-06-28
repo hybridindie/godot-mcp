@@ -96,9 +96,11 @@ def test_bridge_uses_websocket_transport() -> None:
     source = bridge.read_text()
     assert "@tool" in source
     assert "class_name MCPBridge" in source
-    # The verified Godot 4 server-side transport primitives.
-    assert "TCPServer" in source, "bridge must use TCPServer"
+    # The bridge is a WebSocket *client* now (#276): it connects out to the server's
+    # listener and reconnects, rather than running a TCPServer.
     assert "WebSocketPeer" in source, "bridge must use WebSocketPeer"
+    assert "connect_to_url" in source, "bridge must connect out as a client"
+    assert "TCPServer" not in source, "bridge no longer listens (direction inverted, #276)"
 
 
 def test_plugin_wires_the_bridge() -> None:

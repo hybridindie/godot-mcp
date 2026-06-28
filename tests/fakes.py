@@ -97,7 +97,9 @@ class FakeAddonConnection:
 def connector_for(
     connection: FakeAddonConnection,
 ) -> Callable[[str], Awaitable[FakeAddonConnection]]:
-    """A bridge connector that always returns the given fake connection."""
+    """A bridge connector that yields the given fake addon peer — i.e. the addon
+    connecting to the (now server-side) bridge listener. ``serve()``/``connect()``
+    attach it, so contract tests exercise a connected bridge with no socket."""
 
     async def _connect(url: str) -> FakeAddonConnection:
         return connection
@@ -105,22 +107,19 @@ def connector_for(
     return _connect
 
 
-def flaky_connector(
-    fail_times: int, connection: FakeAddonConnection
-) -> Callable[[str], Awaitable[FakeAddonConnection]]:
-    """A connector that raises ``ConnectionError`` ``fail_times`` times, then connects.
+class _NullServer:
+    """A listener handle no addon ever connects to (stays disconnected)."""
 
-    Drives the reconnect/backoff path deterministically.
-    """
-    attempts = {"n": 0}
+    def close(self) -> None: ...
+    async def wait_closed(self) -> None: ...
 
-    async def _connect(url: str) -> FakeAddonConnection:
-        if attempts["n"] < fail_times:
-            attempts["n"] += 1
-            raise ConnectionError("addon not reachable")
-        return connection
 
-    return _connect
+async def null_serve(
+    handler: Callable[[object], Awaitable[None]], host: str, port: int
+) -> _NullServer:
+    """A ``serve`` that binds nothing and accepts no peer — for the 'editor absent'
+    case (the bridge listens but stays disconnected), with no real socket."""
+    return _NullServer()
 
 
 async def immediate_sleep(_seconds: float) -> None:
@@ -160,4 +159,3 @@ def make_addon_responder(
         )
 
     return _responder
-

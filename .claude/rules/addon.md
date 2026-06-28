@@ -23,7 +23,7 @@ ANTI-PATTERN: writing GDScript against a remembered 3.x or early-4.x API without
 MUST:
 - All addon scripts carry `@tool`. The entry script extends `EditorPlugin`.
 - `_enter_tree()` / `_exit_tree()` set up and tear down cleanly — enabling/disabling the plugin never crashes or leaks the editor.
-- A `TCPServer` + `WebSocketPeer` accepts the local server connection; incoming envelopes go through a single **command router** to handlers.
+- A `WebSocketPeer` **client** connects out to the MCP server's bridge listener and reconnects with backoff (the editor owns reconnection — #276); incoming command envelopes go through a single **command router** to handlers.
 - Command handlers are named `cmd_<verb>_<noun>` (the matching MCP tool drops the `cmd_` prefix). One handler does one thing.
 - The status dock is **read-only** — it reflects connection state, project/scene/selected-node, and a recent-command log. It never mutates the project.
 

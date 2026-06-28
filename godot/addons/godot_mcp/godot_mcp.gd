@@ -42,7 +42,13 @@ func _enter_tree() -> void:
 	_bridge.connection_changed.connect(_on_connection_changed)
 	_bridge.command_received.connect(_dock.log_command)
 	add_child(_bridge)
-	_bridge.start()
+	# Connect out to the MCP server's bridge listener (#276). The URL is overridable via
+	# GODOT_MCP_BRIDGE_URL (no hard-coded endpoint per .claude/rules/architecture.md);
+	# defaults to ws://127.0.0.1:9080.
+	var bridge_url := OS.get_environment("GODOT_MCP_BRIDGE_URL")
+	if bridge_url.is_empty():
+		bridge_url = MCPBridge.DEFAULT_URL
+	_bridge.start(bridge_url)
 
 	# Live editor state: refresh on selection and scene changes.
 	_selection = EditorInterface.get_selection()

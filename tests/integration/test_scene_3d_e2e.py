@@ -9,6 +9,7 @@ a ``.tres`` exercises the ``mesh_path`` + file-backed-library path.
 from __future__ import annotations
 
 import asyncio
+import os
 import subprocess
 from typing import Any
 
@@ -16,11 +17,11 @@ import pytest
 
 from mcp_server.bridge import Bridge
 from mcp_server.config import BridgeConfig
-from tests.integration._godot import GODOT_BIN, GODOT_PROJECT
+from tests.integration._godot import GODOT_BIN, GODOT_PROJECT, serve_and_await_editor
 
 pytestmark = pytest.mark.skipif(GODOT_BIN is None, reason="Godot binary not installed")
 
-BRIDGE_URL = "ws://localhost:9080"
+BRIDGE_URL = "ws://127.0.0.1:9097"
 SCRATCH = "res://tmp_e2e_scene_3d.tscn"
 MESH = "res://tmp_e2e_box.tres"
 MESHLIB = "res://tmp_e2e_meshlib.tres"
@@ -61,14 +62,8 @@ async def _wait_scene_open(bridge: Bridge) -> None:
 
 async def _run() -> None:
     bridge = Bridge(BridgeConfig(url=BRIDGE_URL))
-    for _ in range(60):
-        try:
-            await bridge.connect()
-            break
-        except Exception:
-            await asyncio.sleep(0.5)
-    else:
-        raise AssertionError("could not connect to the addon bridge")
+    if not await serve_and_await_editor(bridge):
+        raise AssertionError("the addon never connected to the bridge")
 
     try:
         await _ok(bridge, "cmd_create_scene", {"root_type": "Node3D", "scene_path": SCRATCH})
@@ -213,6 +208,7 @@ def test_live_scene_3d() -> None:
         [GODOT_BIN, "--headless", "--editor", "--path", str(GODOT_PROJECT)],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
+        env={**os.environ, "GODOT_MCP_BRIDGE_URL": BRIDGE_URL},
     )
     try:
         asyncio.run(_run())

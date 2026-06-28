@@ -66,3 +66,18 @@ def run_godot(args: list[str], timeout: int = 120) -> subprocess.CompletedProces
         timeout=timeout,
         check=False,
     )
+
+
+async def serve_and_await_editor(bridge: object, attempts: int = 120, delay: float = 0.5) -> bool:
+    """Inverted-bridge e2e setup (#276): start the server's listener, then wait for the
+    Godot addon (the client) to connect out to it. The editor is launched separately by
+    the caller; the addon reconnects with backoff, so launch order doesn't matter.
+    Returns whether the editor connected within the budget."""
+    import asyncio
+
+    await bridge.serve()  # type: ignore[attr-defined]
+    for _ in range(attempts):
+        if bridge.connected:  # type: ignore[attr-defined]
+            return True
+        await asyncio.sleep(delay)
+    return False

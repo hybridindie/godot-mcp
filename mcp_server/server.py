@@ -82,16 +82,17 @@ def create_server(
 
     @asynccontextmanager
     async def lifespan(_server: FastMCP) -> AsyncIterator[None]:
-        # Best-effort connect: if Godot isn't running, start anyway and report
-        # disconnected via health_check rather than failing to boot — but log the
-        # failure so a wrong URL / missing addon is diagnosable.
+        # Start the bridge listener; the Godot addon connects (and reconnects) to it
+        # (#276). Best-effort: if the port can't be bound (another server owns it), boot
+        # anyway and report disconnected via health_check rather than failing — but log
+        # it so the conflict is diagnosable.
         try:
-            await bridge.connect()
-            logger.info("bridge connected", extra={"url": config.bridge.url})
-        except Exception:
+            await bridge.serve()
+            logger.info("bridge listening for the editor", extra={"url": config.bridge.url})
+        except OSError:
             logger.warning(
-                "bridge not connected at startup; continuing (check the editor/addon)",
-                extra={"url": config.bridge.url},
+                "bridge could not bind %s (another server may own it); continuing",
+                config.bridge.url,
                 exc_info=True,
             )
         try:

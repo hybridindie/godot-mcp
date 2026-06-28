@@ -7,6 +7,7 @@ synthesize input and confirm the running game acknowledges each injected event.
 from __future__ import annotations
 
 import asyncio
+import os
 import subprocess
 from typing import Any
 
@@ -14,11 +15,11 @@ import pytest
 
 from mcp_server.bridge import Bridge
 from mcp_server.config import BridgeConfig
-from tests.integration._godot import GODOT_BIN, GODOT_PROJECT
+from tests.integration._godot import GODOT_BIN, GODOT_PROJECT, serve_and_await_editor
 
 pytestmark = pytest.mark.skipif(GODOT_BIN is None, reason="Godot binary not installed")
 
-BRIDGE_URL = "ws://localhost:9080"
+BRIDGE_URL = "ws://127.0.0.1:9097"
 SCRATCH = "res://tmp_e2e_input_sim.tscn"
 SCRATCH_FILE = GODOT_PROJECT / "tmp_e2e_input_sim.tscn"
 PROJECT_GODOT = GODOT_PROJECT / "project.godot"
@@ -62,14 +63,8 @@ async def _wait_injected(bridge: Bridge, at_least: int) -> int:
 
 async def _run() -> None:
     bridge = Bridge(BridgeConfig(url=BRIDGE_URL))
-    for _ in range(60):
-        try:
-            await bridge.connect()
-            break
-        except Exception:
-            await asyncio.sleep(0.5)
-    else:
-        raise AssertionError("could not connect to the addon bridge")
+    if not await serve_and_await_editor(bridge):
+        raise AssertionError("the addon never connected to the bridge")
 
     try:
         await _ok(bridge, "cmd_create_scene", {"root_type": "Node2D", "scene_path": SCRATCH})
@@ -108,13 +103,9 @@ async def _run() -> None:
         # validation: empty key, unknown mouse button, and a malformed sequence event
         bad_key = await bridge.send("cmd_simulate_key", {"key": ""})
         assert bad_key.ok is False and bad_key.error == "VALIDATION_ERROR"
-        bad_button = await bridge.send(
-            "cmd_simulate_mouse", {"x": 0, "y": 0, "button": "nope"}
-        )
+        bad_button = await bridge.send("cmd_simulate_mouse", {"x": 0, "y": 0, "button": "nope"})
         assert bad_button.ok is False and bad_button.error == "VALIDATION_ERROR"
-        bad_seq = await bridge.send(
-            "cmd_play_input_sequence", {"events": [{"type": "bogus"}]}
-        )
+        bad_seq = await bridge.send("cmd_play_input_sequence", {"events": [{"type": "bogus"}]})
         assert bad_seq.ok is False and bad_seq.error == "VALIDATION_ERROR"
 
         await _ok(bridge, "cmd_stop_scene", {})
@@ -129,6 +120,7 @@ def test_live_input_sim() -> None:
         [GODOT_BIN, "--headless", "--editor", "--path", str(GODOT_PROJECT)],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
+        env={**os.environ, "GODOT_MCP_BRIDGE_URL": BRIDGE_URL},
     )
     try:
         asyncio.run(_run())
