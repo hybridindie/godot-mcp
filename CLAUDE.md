@@ -37,13 +37,16 @@ The defining feature is a **four-layer transport chain** (issue #3). Every agent
 ```mermaid
 flowchart TD
     AI["AI client (Claude Code / OpenCode / any stdio MCP client)"]
-    SRV["FastMCP server (Python, mcp_server/)"]
-    ADDON["Godot EditorPlugin (GDScript, godot/addons/godot_mcp/)"]
+    SRV["FastMCP server (Python, mcp_server/) — WebSocket listener"]
+    ADDON["Godot EditorPlugin (GDScript, godot/addons/godot_mcp/) — WebSocket client (connects out, reconnects)"]
     PROJ["Live Godot project"]
     AI -->|"stdio (MCP protocol)"| SRV
-    SRV -->|"WebSocket — localhost, default ws://localhost:9080"| ADDON
+    ADDON ==>|"WebSocket connect (editor dials), default ws://127.0.0.1:9080"| SRV
+    SRV -.->|"{id, command, params}"| ADDON
     ADDON -->|"Godot Editor API"| PROJ
 ```
+
+The editor **dials** the connection (bold) and reconnects; the server still **initiates every command** (dashed). The bridge inversion (#276) changed only who connects, not the request/response direction.
 
 - **MCP server** (`mcp_server/`, Python 3.11+, FastMCP) — the AI-facing entry point over stdio. Exposes **tools**, **resources** (`godot://...` URIs, issue #11), and **prompts** (workflow templates, issue #12). It owns all safety/permission logic and Pydantic domain models; it holds **no** Godot logic itself — it forwards to the addon over the WebSocket bridge.
 - **Godot addon** (`godot/addons/godot_mcp/`, GDScript, Godot 4.4+) — an `EditorPlugin` (`@tool`) whose `WebSocketPeer` **client** connects out to the server's bridge listener and reconnects with backoff (#276), routes incoming command envelopes to `cmd_*` handlers that call the Godot Editor API, and shows a status dock. This is the *only* layer that touches Godot.
@@ -62,7 +65,7 @@ docs/                      architecture.md (bridge contract), tool-contracts.md
 
 These span many files and are the things easiest to get wrong:
 
-- **JSON envelopes** (issue #3) — versioned from day one. Command: `{ id, command, params }`. Response: `{ id, ok, result, error }`. Requests correlate by `id`. The bridge reconnects with exponential backoff; `ping`→`pong` is the health check.
+- **JSON envelopes** (issue #3) — versioned from day one. Command: `{ id, command, params }`. Response: `{ id, ok, result, error }`. Requests correlate by `id`. The addon (WebSocket client) reconnects to the server's listener with exponential backoff (#276); `cmd_ping`→`{pong}` is the health check.
 - **Structured errors, never stack traces** — failures return `{ ok: false, error, hint }`. Preconditions return a richer form: `{ ok: false, error: "PRECONDITION_FAILED", hint, required }` (issue #14). Errors must be actionable for an agent with no human in the loop.
 - **Tool safety classes** (issue #14) — every tool is tagged `read_only` | `mutating` | `destructive` | `runtime`. `mutating`/`destructive` tools take `dry_run: bool = False`; `destructive` tools require `confirm=True`. Common preconditions: `require_active_scene`, `require_bridge_connected`, `require_node_exists(path)`. All safety logic lives in the MCP layer, **not** the addon.
 - **UndoRedo for every mutation** (issue #6) — all create/rename/delete/set operations in the addon must register with `EditorUndoRedoManager`.
@@ -86,7 +89,7 @@ The scaffold (issue #1) is in place: `uv`-managed Python package, the addon unde
   - `uv run ruff check .` — lint; `uv run mypy` — type check.
   - `./.claude/hooks/check-no-skipped-tests.sh` — zero-skip suite-health gate.
 - Server entrypoint: `uv run godot-mcp` runs the live FastMCP server over stdio (or HTTP via `GODOT_MCP_TRANSPORT=http`, default `127.0.0.1:9090`). `godot_health_check`, `godot_get_server_info` (capability snapshot), and the toolset-gating tools are all shipped.
-- The addon is enabled via Godot's *Project Settings → Plugins* (open the `godot/` folder as a project); the bridge defaults to `ws://localhost:9080` (configurable). No auth in v1 (localhost-only).
+- The addon is enabled via Godot's *Project Settings → Plugins* (open the `godot/` folder as a project); the addon connects out to the server's bridge listener (default `ws://127.0.0.1:9080`, configurable via `GODOT_MCP_BRIDGE_URL` on both sides) and reconnects automatically. No auth in v1 (localhost-only).
 - Clients register the server as a local stdio MCP command: Claude Code via `.mcp.json` / `claude mcp add`, OpenCode via `opencode.json` (concrete examples in `README.md`).
 
 ## Output and Responses

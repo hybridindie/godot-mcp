@@ -56,15 +56,17 @@ Every agent action crosses a four-layer chain:
 flowchart TD
     AI["AI client<br/>Claude Code · OpenCode · Cursor · any stdio MCP client"]
     SRV["FastMCP server · Python 3.11+ · <code>mcp_server/</code><br/>Pydantic schemas · safety classes · preconditions · no Godot logic"]
-    ADDON["Godot addon · GDScript · <code>godot/addons/godot_mcp/</code><br/>EditorPlugin: TCPServer + WebSocketPeer · routes cmd_* envelopes"]
+    ADDON["Godot addon · GDScript · <code>godot/addons/godot_mcp/</code><br/>EditorPlugin: WebSocketPeer client (connects out, reconnects) · routes cmd_* envelopes"]
     PROJ["Live Godot project"]
     AI -->|"stdio · MCP protocol (JSON-RPC)"| SRV
-    SRV -->|"WebSocket · ws://localhost:9080"| ADDON
+    ADDON ==>|"WebSocket connect (editor dials) · ws://127.0.0.1:9080"| SRV
+    SRV -.->|"{id, command, params}"| ADDON
     ADDON -->|"Godot Editor API"| PROJ
-    PROJ -.->|"result"| ADDON
     ADDON -.->|"{id, ok, result, error, hint}"| SRV
     SRV -.->|"typed tool result"| AI
 ```
+
+The **editor dials** the connection (bold arrow) and reconnects on its own; the **server still drives every command** (dashed `{id, command, …}`). Those two directions are decoupled — the bridge inversion (#276) only changed who connects.
 
 A single tool call — `godot_scene_edit_create_node` — travels the full chain and back:
 
@@ -131,7 +133,7 @@ cp -r godot/addons/godot_mcp /path/to/your/project/addons/
 
 Then in Godot: **Project → Project Settings → Plugins → godot_mcp → Enable**.
 
-A status dock appears (bottom panel). It shows connection state, project name, active scene, and selected node. The bridge listens on `ws://localhost:9080` by default.
+A status dock appears (bottom panel). It shows connection state, project name, active scene, and selected node. The addon connects out to the MCP server's bridge listener (`ws://127.0.0.1:9080` by default) and reconnects automatically — so editor and server can start in either order.
 
 ### 3. Configure your MCP client
 
@@ -225,7 +227,7 @@ Then enable the plugin in Project Settings.
 
 **What the addon provides:**
 - **Status dock** — read-only panel showing bridge state, project info, active scene, selected node, and recent commands
-- **WebSocket bridge** — listens on `ws://localhost:9080` (configurable)
+- **WebSocket bridge** — a client that connects out to the MCP server's listener at `ws://127.0.0.1:9080` (configurable) and reconnects with backoff
 - **Command router** — handles 80+ `cmd_*` commands that call the Godot Editor API
 - **Debugger plugin** — captures the `godot_mcp:` debugger channel for live game inspection
 - **Runtime probe** — `mcp_runtime_probe.gd`, an autoload you add to your game for live input/profiling
@@ -581,7 +583,7 @@ All configuration is optional and passed via environment variables:
 | `GODOT_MCP_TRANSPORT` | `stdio` | `stdio` or `http` |
 | `GODOT_MCP_HTTP_HOST` | `127.0.0.1` | HTTP bind host |
 | `GODOT_MCP_HTTP_PORT` | `9090` | HTTP bind port |
-| `GODOT_MCP_BRIDGE_URL` | `ws://localhost:9080` | Godot addon WebSocket URL |
+| `GODOT_MCP_BRIDGE_URL` | `ws://127.0.0.1:9080` | Bridge endpoint — the server **binds** it (listener) and the addon **connects** to it; set the same value on both sides |
 | `GODOT_MCP_GODOT_BIN` | auto-discovered | Godot executable for `godot_runtime_run_and_capture` / `godot_export_project` |
 | `GODOT_MCP_PROJECT_DIR` | connected editor's project | Project directory for runner, export, and analysis |
 | `GODOT_MCP_LOG_LEVEL` | `INFO` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) — JSON to stderr |
@@ -592,9 +594,9 @@ All configuration is optional and passed via environment variables:
 ## Troubleshooting
 
 ### "Godot bridge is not connected"
-- Ensure Godot is running with the **godot_mcp addon enabled** (status dock visible).
-- Check that nothing else is using port `9080`.
-- Check the Godot Output panel for WebSocket errors.
+- Ensure Godot is running with the **godot_mcp addon enabled** (status dock visible). The addon connects out to the server and reconnects automatically, so start order doesn't matter — give it a moment after either side starts.
+- Check that nothing else is using port `9080` (the **server** binds it; the addon dials in).
+- Check the Godot Output panel for WebSocket errors, and confirm both sides agree on `GODOT_MCP_BRIDGE_URL` if you changed it.
 
 ### "Toolset requires Godot 4.4+"
 - Upgrade to Godot 4.4 or newer. The addon checks version on enable.
@@ -631,7 +633,7 @@ godot/
   addons/godot_mcp/
     plugin.cfg                   # addon manifest (name, version, Godot 4.4+)
     godot_mcp.gd                 # EditorPlugin entry: dock, bridge, debugger
-    mcp_bridge.gd                # TCPServer + WebSocketPeer (receives envelopes)
+    mcp_bridge.gd                # WebSocketPeer client — connects out, reconnects, receives envelopes
     command_router.gd            # dispatches cmd_* → Godot API handlers
     mcp_dock.gd                  # read-only status dock
     scene_inspect.gd             # JSON-safe scene tree / node serialization
@@ -642,7 +644,7 @@ godot/
 mcp_server/                      # FastMCP server (Python 3.11+)
   main.py                        # stdio / Streamable-HTTP entrypoint
   server.py                      # server factory: bridge + all tool registrations
-  bridge.py                      # async WebSocket client (id correlation, timeout, reconnect)
+  bridge.py                      # async WebSocket listener (id correlation, timeout; the addon dials in)
   toolsets.py                    # gated toolset system
   categories.py                  # toolset tag constants
   safety.py                      # safety classes, preconditions, dry_run/confirm

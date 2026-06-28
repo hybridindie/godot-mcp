@@ -11,8 +11,8 @@ FastMCP runs an async server. The WebSocket bridge is the one place latency and 
 
 - All `@mcp.tool()` / `@mcp.resource()` handlers are `async def`. Never call `asyncio.run()` inside the server — the runtime owns the loop.
 - No blocking synchronous I/O inside `async def` (wrap unavoidable sync calls in an executor, with a comment).
-- The bridge client sets an explicit timeout on every request; a request that outlives its timeout resolves to a `TIMEOUT` envelope (see [[error-handling]]), it does not hang.
-- Reconnect on bridge failure with exponential backoff (start ~200ms, jitter, capped). A `ping`→`pong` health check confirms liveness.
+- The bridge sets an explicit timeout on every request; a request that outlives its timeout resolves to a `TIMEOUT` envelope (see [[error-handling]]), it does not hang.
+- The server **listens** for the editor and accepts one active peer (a new connection replaces the old); reconnection lives on the **addon** side, which dials out and retries with exponential backoff (#276). A `cmd_ping`→`{pong}` exchange confirms liveness. A send with no connected peer resolves to a `BRIDGE_DISCONNECTED` envelope, it does not hang.
 - Request/response correlation by `id` is concurrency-safe — many in-flight commands, each resolved to its own waiter. No shared mutable state across requests.
 - Pydantic-typed boundaries in and out (see [[mcp-tools]]).
 

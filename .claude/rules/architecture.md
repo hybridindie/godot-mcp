@@ -37,5 +37,5 @@ MUST:
 
 ANTI-PATTERNS:
 - A second code path to Godot that bypasses the bridge envelope.
-- Hard-coded bridge URL/port inside library code (read from config; default `ws://localhost:9080`).
+- Hard-coded bridge URL/port inside library code (read from config / `GODOT_MCP_BRIDGE_URL`; default `ws://127.0.0.1:9080`).
 - `datetime.now()` / ambient time without injection.
