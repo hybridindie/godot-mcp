@@ -7,15 +7,15 @@ requires-python = ">=3.11"
 license = { file = "LICENSE" }
 dependencies = [
     # The MCP framework (PrefectHQ/fastmcp). Capped below 4.0: 2.x→3.x had breaking
-    # API changes and the server is validated on the 3.3 line (issue #228).
-    "fastmcp>=3.3,<4",
+    # API changes and the server is validated on the 3.4 line (issue #228).
+    "fastmcp>=3.4,<4",
     # WebSocket transport for the addon/server bridge (issue #3).
-    "websockets>=13.0",
+    "websockets>=16.0",
     # Domain models and typed tool I/O (issue #7).
-    "pydantic>=2.0",
+    "pydantic>=2.13",
     "pypng>=0.20",
     # URL download for asset import (issue #108).
-    "httpx>=0.27",
+    "httpx>=0.28",
 ]
 
 [project.scripts]
@@ -23,16 +23,16 @@ godot-mcp = "mcp_server.main:main"
 
 [dependency-groups]
 dev = [
-    "pytest>=8.0",
-    "pytest-asyncio>=0.24",
-    "mypy>=1.11",
-    "ruff>=0.6",
+    "pytest>=9.1",
+    "pytest-asyncio>=1.4",
+    "mypy>=2.1",
+    "ruff>=0.15",
     # Evals track to the unified "Godot AI" MLflow experiment via the SDK
-    # (evals are dev/CI tooling, not shipped server deps). Server matches 3.13.0.
-    "mlflow>=3.0",
+    # (evals are dev/CI tooling, not shipped server deps). Server matches 3.14.0.
+    "mlflow>=3.14",
     # The shared MLflow instance uses an S3 artifact store; boto3 (+ AWS creds
     # in the environment) is needed to upload run artifacts.
-    "boto3>=1.34",
+    "boto3>=1.43",
 ]
 
 [build-system]
