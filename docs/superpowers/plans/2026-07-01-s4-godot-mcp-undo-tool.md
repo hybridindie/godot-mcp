@@ -80,10 +80,18 @@ func _cmd_undo(params: Dictionary) -> Dictionary:
 	var count: int = int(params.get("count", 1))
 	if count < 1:
 		return _fail("INVALID_PARAM", "count must be >= 1")
+	var dry_run: bool = bool(params.get("dry_run", false))
 	var manager := EditorInterface.get_editor_undo_redo()
 	var root := EditorInterface.get_edited_scene_root()
 	var history_id: int = manager.get_object_history_id(root) if root != null else EditorUndoRedoManager.GLOBAL_HISTORY
 	var ur := manager.get_history_undo_redo(history_id)
+	var has_undo := ur != null and ur.has_undo()
+	var next_action := ur.get_current_action_name() if has_undo else ""
+	if dry_run:
+		# Preview only — the editor UndoRedo API can't report stack depth without
+		# popping, so a dry-run reports whether an undo is available and the next
+		# action's name, and performs nothing.
+		return _ok({"dry_run": true, "requested": count, "has_undo": has_undo, "would_undo_next": next_action})
 	var undone := 0
 	var last_action := ""
 	while undone < count:
@@ -92,7 +100,7 @@ func _cmd_undo(params: Dictionary) -> Dictionary:
 		last_action = ur.get_current_action_name()
 		ur.undo()
 		undone += 1
-	return _ok({"undone": undone, "requested": count, "last_action": last_action})
+	return _ok({"undone": undone, "requested": count, "last_action": last_action, "dry_run": false})
 ```
 
 (`cmd_undo` succeeds with `undone == 0` on an empty history rather than failing — an empty-history undo is a no-op, not an error; the caller decides. The Python tool turns `undone == 0` into a structured signal — Task 3. Replace `get_object_history_id`/`get_history_undo_redo`/`GLOBAL_HISTORY` with whatever Task 1 confirmed if they differ.)
@@ -149,9 +157,26 @@ async def test_godot_undo_forwards_cmd_undo_with_count() -> None:
     async with Client(_build(conn)) as client:
         result = await client.call_tool("godot_undo", {"count": 2})
     assert conn.last_command().command == "cmd_undo"
-    assert conn.last_command().params == {"count": 2}
+    assert conn.last_command().params == {"count": 2, "dry_run": False}
     assert result.structured_content["undone"] == 2
     assert result.structured_content["nothing_to_undo"] is False
+
+
+async def test_godot_undo_dry_run_previews_without_undoing() -> None:
+    def _preview(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_undo":
+            return ResponseEnvelope.success(
+                cmd.id,
+                {"dry_run": True, "requested": 1, "has_undo": True, "would_undo_next": "Create Node"},
+            )
+        return None
+
+    conn = FakeAddonConnection(responder=_preview)
+    async with Client(_build(conn)) as client:
+        result = await client.call_tool("godot_undo", {"dry_run": True})
+    assert conn.last_command().params == {"count": 1, "dry_run": True}
+    assert result.structured_content["would_undo_next"] == "Create Node"
+    assert "nothing_to_undo" not in result.structured_content  # not added on a dry-run
 
 
 async def test_godot_undo_reports_nothing_to_undo() -> None:
@@ -189,17 +214,20 @@ from mcp_server.tools._route import route
 
 def register_undo(mcp: FastMCP, bridge: Bridge) -> None:
     @mcp.tool(meta=MUTATING, tags={CORE_TAG})
-    async def godot_undo(count: int = 1) -> dict[str, Any]:
+    async def godot_undo(count: int = 1, dry_run: bool = False) -> dict[str, Any]:
         """Undo the last ``count`` editor actions on the current scene's history.
 
-        Returns ``{undone, requested, last_action, nothing_to_undo}``. Undoing an
-        empty history is a no-op (``undone == 0``, ``nothing_to_undo == True``), not
-        an error — the reversibility ledger decides what that means.
+        With ``dry_run=True``, previews (``has_undo`` + ``would_undo_next``) without
+        undoing. Otherwise returns ``{undone, requested, last_action,
+        nothing_to_undo}``. Undoing an empty history is a no-op (``undone == 0``,
+        ``nothing_to_undo == True``), not an error — the reversibility ledger decides
+        what that means.
         """
         if count < 1:
             raise ToolError("count must be >= 1")  # structured, pre-bridge (see Task 4)
-        result = await route(bridge, "cmd_undo", {"count": count})
-        result["nothing_to_undo"] = result.get("undone", 0) == 0
+        result = await route(bridge, "cmd_undo", {"count": count, "dry_run": dry_run})
+        if not dry_run:
+            result["nothing_to_undo"] = result.get("undone", 0) == 0
         return result
 ```
 
