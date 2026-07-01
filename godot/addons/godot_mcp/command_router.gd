@@ -95,6 +95,9 @@ func _init() -> void:
 	# tool drops the cmd_ prefix); see docs/architecture.md.
 	_handlers["cmd_ping"] = _cmd_ping
 	_handlers["cmd_get_project_info"] = _cmd_get_project_info
+	# Core: pop the current scene's undo history N steps (S4). Lives on the router
+	# (not a domain handler) because it drives EditorUndoRedoManager directly.
+	_handlers["cmd_undo"] = _cmd_undo
 	# Meta-command: execute a batch of sub-commands in one frame (issue #167).
 	# Lives on the router (not a domain handler) because it re-dispatches via _route.
 	_handlers["cmd_run_commands"] = _cmd_run_commands
@@ -190,6 +193,39 @@ func _route(envelope: Dictionary) -> Dictionary:
 
 func _cmd_ping(_params: Dictionary) -> Dictionary:
 	return _ok({"pong": true})
+
+
+## Undo the last `count` editor actions on the current scene's history (S4).
+## Succeeds with `undone == 0` on an empty history (an empty-history undo is a
+## no-op, not an error — the caller/reversibility ledger decides what that means).
+## The undo-trigger path (get_object_history_id / get_history_undo_redo /
+## GLOBAL_HISTORY) is the assumed form pending the Task-1 live spike; swap in
+## whatever that confirms if it differs.
+func _cmd_undo(params: Dictionary) -> Dictionary:
+	var count: int = int(params.get("count", 1))
+	if count < 1:
+		return _fail("INVALID_PARAM", "count must be >= 1")
+	var dry_run: bool = bool(params.get("dry_run", false))
+	var manager := EditorInterface.get_editor_undo_redo()
+	var root := EditorInterface.get_edited_scene_root()
+	var history_id: int = manager.get_object_history_id(root) if root != null else EditorUndoRedoManager.GLOBAL_HISTORY
+	var ur := manager.get_history_undo_redo(history_id)
+	var has_undo := ur != null and ur.has_undo()
+	var next_action := ur.get_current_action_name() if has_undo else ""
+	if dry_run:
+		# Preview only — the editor UndoRedo API can't report stack depth without
+		# popping, so a dry-run reports whether an undo is available and the next
+		# action's name, and performs nothing.
+		return _ok({"dry_run": true, "requested": count, "has_undo": has_undo, "would_undo_next": next_action})
+	var undone := 0
+	var last_action := ""
+	while undone < count:
+		if ur == null or not ur.has_undo():
+			break
+		last_action = ur.get_current_action_name()
+		ur.undo()
+		undone += 1
+	return _ok({"undone": undone, "requested": count, "last_action": last_action, "dry_run": false})
 
 
 ## Execute a batch of sub-commands in a single frame and return one response body
