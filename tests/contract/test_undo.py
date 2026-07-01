@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import pytest
 from fastmcp import Client, FastMCP
+from fastmcp.exceptions import ToolError
 
 from mcp_server.bridge import Bridge
 from mcp_server.config import ServerConfig
@@ -79,3 +80,12 @@ async def test_godot_undo_reports_nothing_to_undo() -> None:
         result = await client.call_tool("godot_undo", {})
     assert result.structured_content["undone"] == 0
     assert result.structured_content["nothing_to_undo"] is True
+
+
+async def test_godot_undo_rejects_nonpositive_count() -> None:
+    conn = FakeAddonConnection(responder=_undo_responder(undone=0))
+    with pytest.raises(ToolError, match="count"):
+        async with Client(_build(conn)) as client:
+            await client.call_tool("godot_undo", {"count": 0})
+    # cmd_undo was never sent (only bootstrap commands, if any, reached the fake)
+    assert all(CommandEnvelope.model_validate_json(m).command != "cmd_undo" for m in conn.sent)
