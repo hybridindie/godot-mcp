@@ -16,33 +16,39 @@
 
 ## File structure
 
-- **Modify** `godot/addons/godot_mcp/command_router.gd` — register `_handlers["cmd_undo"]` and add `func _cmd_undo(params)`.
-- **Create** `mcp_server/tools/undo.py` — `register_undo(mcp, bridge)` exposing the `godot_undo` core tool. (New small module, mirrors `tools/health.py`; keeps the core surface focused.)
-- **Modify** `mcp_server/main.py` — call `register_undo(...)` alongside the other core registrations.
-- **Create** `tests/contract/test_undo.py` — contract tests for the tool (forwarding + error surface) using the bridge fake.
-- **Modify** `tests/contract/test_run_commands.py` (or add `tests/contract/test_undo_smoke.py`) — a live-editor `run_commands` smoke: mutate → `cmd_undo` → assert reverted. Marked/skipped when no live editor, consistent with existing smoke handling.
+- **Modify** `godot/addons/godot_mcp/command_router.gd` — register `_handlers["cmd_undo"]` and add `func _cmd_undo(params)` (returning via the file's `_ok(...)` / `_fail(...)` helpers).
+- **Create** `mcp_server/tools/undo.py` — `register_undo(mcp, bridge)` exposing the `godot_undo` core tool. New small module, mirrors `tools/health.py` (same `@mcp.tool(meta=..., tags={CORE_TAG})` shape).
+- **Modify** `mcp_server/server.py` — call `register_undo(mcp, bridge)` inside `create_server`, alongside `register_health(...)` (~line 126). **Not** `main.py` — `main.py` only calls `create_server`; all `register_*` calls live in `create_server`.
+- **Create** `tests/contract/test_undo.py` — contract tests using the **real** fake harness: `FakeAddonConnection(responder=...)` + `connector_for` + `Bridge` + `create_server` + `Client(server)`, asserting via `result.structured_content` and `conn.last_command()` (see `tests/contract/test_inspection.py` for the exact pattern).
+- **Add** a live-editor `run_commands` smoke (in `tests/contract/test_undo.py` or `tests/contract/test_undo_smoke.py`): mutate → `cmd_undo` → assert reverted. Skipped when no live editor, consistent with existing live smokes.
 
 ---
 
 ## Task 1: Spike — confirm the exact undo API in a live editor
 
-The 4.7 `EditorUndoRedoManager` surface is ambiguous from docs alone (it may expose `undo()`/`has_undo()` directly, or require `get_history_undo_redo(id).undo()`), and *which* history id holds the agent's scene edits must be confirmed. Resolve this empirically before writing the handler — do **not** guess.
+`EditorInterface.get_editor_undo_redo()` is already used and proven in this file (`command_router.gd:307`), so the *accessor* is not in doubt. What is uncertain in 4.7 is the **undo-trigger path**: whether `EditorUndoRedoManager` exposes `undo()`/`has_undo()` directly or requires `get_history_undo_redo(id).undo()`, whether `get_object_history_id(...)` exists, and *which* history id holds the agent's scene edits. Confirm those specifics empirically before writing the handler — do **not** guess.
 
 - [ ] **Step 1: Drive a probe through `run_commands` in a live editor.** With the addon connected, send a `run_commands` batch that (a) creates a node, then (b) runs this probe and returns the observations:
 
 ```gdscript
 var m := EditorInterface.get_editor_undo_redo()
 var root := EditorInterface.get_edited_scene_root()
-var hid := m.get_object_history_id(root)          # confirm this method exists + returns the scene history
-var ur := m.get_history_undo_redo(hid)            # -> UndoRedo
-return {
-    "has_direct_undo": m.has_method("undo"),       # does EditorUndoRedoManager expose undo() itself?
-    "history_id": hid,
-    "ur_is_null": ur == null,
-    "ur_has_undo": ur != null and ur.has_undo(),
-    "ur_action_name": (ur.get_current_action_name() if ur != null else ""),
+var out := {
+    "has_direct_undo": m.has_method("undo"),               # does EditorUndoRedoManager expose undo() itself?
+    "has_get_object_history_id": m.has_method("get_object_history_id"),
+    "has_get_history_undo_redo": m.has_method("get_history_undo_redo"),
 }
+if m.has_method("get_object_history_id") and m.has_method("get_history_undo_redo"):
+    var hid: int = m.get_object_history_id(root) if root != null else 0
+    var ur := m.get_history_undo_redo(hid)                 # -> UndoRedo
+    out["history_id"] = hid
+    out["ur_is_null"] = ur == null
+    out["ur_has_undo"] = ur != null and ur.has_undo()
+    out["ur_action_name"] = (ur.get_current_action_name() if ur != null else "")
+return out
 ```
+
+Check `has_method` first so the probe never crashes on a renamed API; the returned booleans tell you which undo-trigger form to use in Task 2.
 
 - [ ] **Step 2: Record the verified call.** Write the confirmed snippet into this plan (below Task 2) as the canonical undo call: either `m.undo()` (if `has_direct_undo` and it targets the scene history) **or** `m.get_history_undo_redo(m.get_object_history_id(root)).undo()`. Note the exact history-id source for a scene with and without an edited root (fall back to `EditorUndoRedoManager.GLOBAL_HISTORY` when `root == null`).
 
@@ -67,13 +73,13 @@ git commit -m "docs(s4): record verified editor undo API from live-editor spike"
 	_handlers["cmd_undo"] = _cmd_undo
 ```
 
-- [ ] **Step 2: Implement `_cmd_undo`.** Add near the other `_cmd_*` handlers. Match the **return shape of existing handlers in this file** (return the plain result `Dictionary`; the router wraps it into the `{id, ok, result, error}` envelope — verify against `_cmd_get_project_info`):
+- [ ] **Step 2: Implement `_cmd_undo`.** Add near the other `_cmd_*` handlers. Handlers in this file return through the `_ok(result: Dictionary)` / `_fail(code, hint)` helpers (verified: `_cmd_get_project_info` returns `_ok({...})` at `command_router.gd:238`; `_ok`/`_fail` defined at ~`:494`/`:498`). Use the undo-trigger form confirmed by Task 1 — the snippet below assumes `get_history_undo_redo(...).undo()`:
 
 ```gdscript
 func _cmd_undo(params: Dictionary) -> Dictionary:
 	var count: int = int(params.get("count", 1))
 	if count < 1:
-		return {"error": "INVALID_PARAM", "hint": "count must be >= 1"}
+		return _fail("INVALID_PARAM", "count must be >= 1")
 	var manager := EditorInterface.get_editor_undo_redo()
 	var root := EditorInterface.get_edited_scene_root()
 	var history_id: int = manager.get_object_history_id(root) if root != null else EditorUndoRedoManager.GLOBAL_HISTORY
@@ -86,10 +92,10 @@ func _cmd_undo(params: Dictionary) -> Dictionary:
 		last_action = ur.get_current_action_name()
 		ur.undo()
 		undone += 1
-	return {"undone": undone, "requested": count, "last_action": last_action}
+	return _ok({"undone": undone, "requested": count, "last_action": last_action})
 ```
 
-(`cmd_undo` reports `undone` rather than erroring on an empty history — an empty-history undo is a no-op, not a failure; the caller decides. The Python tool converts `undone == 0` into a structured signal — Task 3.)
+(`cmd_undo` succeeds with `undone == 0` on an empty history rather than failing — an empty-history undo is a no-op, not an error; the caller decides. The Python tool turns `undone == 0` into a structured signal — Task 3. Replace `get_object_history_id`/`get_history_undo_redo`/`GLOBAL_HISTORY` with whatever Task 1 confirmed if they differ.)
 
 - [ ] **Step 3: Track the addon change.** No test runs here yet (GDScript is exercised by the Task 5 smoke). Commit:
 
@@ -104,67 +110,100 @@ git commit -m "feat(addon): cmd_undo handler pops the scene undo history N steps
 
 **Files:** Create `mcp_server/tools/undo.py`; Test `tests/contract/test_undo.py`
 
-- [ ] **Step 1: Write the failing contract test.** Mirror an existing contract test's fake-bridge setup (see `tests/contract/test_run_commands.py` for the fake wiring and `tests/fakes.py`).
+- [ ] **Step 1: Write the failing contract test.** Use the **real** harness (copy the shape of `tests/contract/test_inspection.py`): a `_responder(cmd) -> ResponseEnvelope | None` keyed on `cmd.command`, a `FakeAddonConnection(responder=...)`, `connector_for`, `Bridge`, `create_server`, and `Client(server)`; assert payload via `result.structured_content` and the sent command via `conn.last_command()`.
 
 ```python
 # tests/contract/test_undo.py
+from __future__ import annotations
+
 import pytest
-from tests.fakes import FakeBridge, build_test_server  # match the helpers used by test_run_commands.py
+from fastmcp import Client, FastMCP
 
-@pytest.mark.asyncio
-async def test_godot_undo_forwards_cmd_undo_with_count():
-    bridge = FakeBridge(result={"undone": 2, "requested": 2, "last_action": "Create Node"})
-    server = build_test_server(bridge)  # registers core tools incl. register_undo
-    result = await server.call_tool("godot_undo", {"count": 2})
-    assert bridge.last_command == "cmd_undo"
-    assert bridge.last_params == {"count": 2}
-    assert result["undone"] == 2
+from mcp_server.bridge import Bridge
+from mcp_server.config import ServerConfig
+from mcp_server.models.envelope import CommandEnvelope, ResponseEnvelope
+from mcp_server.server import create_server
+from tests.fakes import FakeAddonConnection, connector_for
 
-@pytest.mark.asyncio
-async def test_godot_undo_reports_nothing_to_undo():
-    bridge = FakeBridge(result={"undone": 0, "requested": 1, "last_action": ""})
-    server = build_test_server(bridge)
-    result = await server.call_tool("godot_undo", {})
-    assert result["undone"] == 0
-    assert result["nothing_to_undo"] is True
+pytestmark = pytest.mark.asyncio
+
+
+def _undo_responder(undone: int):
+    def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_undo":
+            return ResponseEnvelope.success(
+                cmd.id,
+                {"undone": undone, "requested": cmd.params.get("count", 1), "last_action": "Create Node"},
+            )
+        return None  # bootstrap commands (cmd_ping/cmd_get_project_info) auto-answered by the fake
+    return _responder
+
+
+def _build(conn: FakeAddonConnection) -> FastMCP:
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    return create_server(ServerConfig(), bridge=bridge)
+
+
+async def test_godot_undo_forwards_cmd_undo_with_count() -> None:
+    conn = FakeAddonConnection(responder=_undo_responder(undone=2))
+    async with Client(_build(conn)) as client:
+        result = await client.call_tool("godot_undo", {"count": 2})
+    assert conn.last_command().command == "cmd_undo"
+    assert conn.last_command().params == {"count": 2}
+    assert result.structured_content["undone"] == 2
+    assert result.structured_content["nothing_to_undo"] is False
+
+
+async def test_godot_undo_reports_nothing_to_undo() -> None:
+    conn = FakeAddonConnection(responder=_undo_responder(undone=0))
+    async with Client(_build(conn)) as client:
+        result = await client.call_tool("godot_undo", {})
+    assert result.structured_content["undone"] == 0
+    assert result.structured_content["nothing_to_undo"] is True
 ```
 
-> Adjust the imports/harness calls to match whatever `tests/contract/test_run_commands.py` actually uses — reuse that file's exact pattern rather than inventing helpers.
+> Returning `None` from `_responder` for a non-`cmd_undo` command lets the fake's built-in bootstrap answer `cmd_ping`/`cmd_get_project_info` (see `FakeAddonConnection.send`), so the responder only handles what the test cares about.
 
 - [ ] **Step 2: Run it, verify it fails.**
 
 Run: `uv run pytest tests/contract/test_undo.py -q`
 Expected: FAIL (`godot_undo` not registered / module missing).
 
-- [ ] **Step 3: Implement the tool.**
+- [ ] **Step 3: Implement the tool.** Mirror `tools/health.py` — a core tool carries `tags={CORE_TAG}` so the #224 naming lands it as `godot_undo` and the gating model keeps it always-on (a tag-less tool would be mis-gated).
 
 ```python
 # mcp_server/tools/undo.py
-"""Core `godot_undo` tool: pop the editor undo history N steps (#S4)."""
+"""Core `godot_undo` tool: pop the editor undo history N steps (S4)."""
 from __future__ import annotations
 
+from typing import Any
+
 from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
 
 from mcp_server.bridge import Bridge
+from mcp_server.categories import CORE_TAG
 from mcp_server.safety import MUTATING
 from mcp_server.tools._route import route
 
 
 def register_undo(mcp: FastMCP, bridge: Bridge) -> None:
-    @mcp.tool(meta=MUTATING)  # core tool: no toolset tag -> always-on
-    async def godot_undo(count: int = 1) -> dict:
+    @mcp.tool(meta=MUTATING, tags={CORE_TAG})
+    async def godot_undo(count: int = 1) -> dict[str, Any]:
         """Undo the last ``count`` editor actions on the current scene's history.
 
         Returns ``{undone, requested, last_action, nothing_to_undo}``. Undoing an
         empty history is a no-op (``undone == 0``, ``nothing_to_undo == True``), not
         an error — the reversibility ledger decides what that means.
         """
+        if count < 1:
+            raise ToolError("count must be >= 1")  # structured, pre-bridge (see Task 4)
         result = await route(bridge, "cmd_undo", {"count": count})
         result["nothing_to_undo"] = result.get("undone", 0) == 0
         return result
 ```
 
-- [ ] **Step 4: Register it.** In `mcp_server/main.py`, alongside the other core registrations, add `from mcp_server.tools.undo import register_undo` and `register_undo(mcp, bridge)`.
+- [ ] **Step 4: Register it.** In `mcp_server/server.py`, inside `create_server`, add `from mcp_server.tools.undo import register_undo` (with the other tool imports) and `register_undo(mcp, bridge)` next to `register_health(mcp, bridge, config)`.
 
 - [ ] **Step 5: Run the test, verify it passes.**
 
@@ -174,36 +213,37 @@ Expected: PASS.
 - [ ] **Step 6: Commit.**
 
 ```bash
-git add mcp_server/tools/undo.py mcp_server/main.py tests/contract/test_undo.py
+git add mcp_server/tools/undo.py mcp_server/server.py tests/contract/test_undo.py
 git commit -m "feat(server): godot_undo core tool forwarding to cmd_undo"
 ```
 
 ---
 
-## Task 4: Preflight validation for `cmd_undo`
+## Task 4: `count >= 1` guard (test the tool-body precondition)
 
-**Files:** wherever command param validation lives (find via `grep -rn "cmd_run_commands" mcp_server/` — the preflight validator `_preflight_validate` in `_route.py` or a validation registry).
+The guard is already in the tool body (Task 3, Step 3: `if count < 1: raise ToolError(...)`) — a `ToolError` raised **before** the bridge round-trip. This task just pins it with a test. (Chosen over extending the `_route.py` `_preflight_validate` registry, whose validators are keyed by command name and shaped for path-containment — a tool-body guard is simpler and equally pre-bridge.)
 
-- [ ] **Step 1: Failing test** — `godot_undo(count=0)` raises a structured `ToolError` ("count must be >= 1"), not a bridge round-trip.
+- [ ] **Step 1: Failing test** — `godot_undo(count=0)` raises `ToolError` and never reaches the bridge. Add to `tests/contract/test_undo.py`:
 
 ```python
-@pytest.mark.asyncio
-async def test_godot_undo_rejects_nonpositive_count():
-    bridge = FakeBridge(result={})
-    server = build_test_server(bridge)
-    with pytest.raises(Exception) as exc:  # ToolError
-        await server.call_tool("godot_undo", {"count": 0})
-    assert "count" in str(exc.value)
-    assert bridge.last_command is None  # never reached the bridge
+from fastmcp.exceptions import ToolError
+
+async def test_godot_undo_rejects_nonpositive_count() -> None:
+    conn = FakeAddonConnection(responder=_undo_responder(undone=0))
+    with pytest.raises(ToolError, match="count"):
+        async with Client(_build(conn)) as client:
+            await client.call_tool("godot_undo", {"count": 0})
+    # cmd_undo was never sent (only bootstrap commands, if any, reached the fake)
+    assert all(
+        CommandEnvelope.model_validate_json(m).command != "cmd_undo" for m in conn.sent
+    )
 ```
 
-- [ ] **Step 2:** Run → FAIL.
-- [ ] **Step 3:** Add a `count >= 1` precondition for `cmd_undo` following the existing validation pattern (the GDScript handler already guards, but preflight keeps it a structured `ToolError` and avoids the round-trip).
-- [ ] **Step 4:** Run → PASS.
-- [ ] **Step 5: Commit.**
+- [ ] **Step 2:** Run → confirm PASS (the guard already exists from Task 3). If it fails, the guard is missing — add `if count < 1: raise ToolError("count must be >= 1")` at the top of `godot_undo`.
+- [ ] **Step 3: Commit.**
 
 ```bash
-git add -A && git commit -m "feat(server): preflight-validate godot_undo count >= 1"
+git add tests/contract/test_undo.py && git commit -m "test(server): godot_undo rejects count < 1 pre-bridge"
 ```
 
 ---
