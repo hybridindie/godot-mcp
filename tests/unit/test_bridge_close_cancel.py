@@ -32,7 +32,7 @@ class _CancellingServer:
 async def test_close_tolerates_cancelled_wait_closed() -> None:
     bridge = Bridge(BridgeConfig())
     server = _CancellingServer()
-    bridge._server = server  # type: ignore[assignment]
+    bridge._server = server
     pending: asyncio.Future[object] = asyncio.get_running_loop().create_future()
     bridge._pending["1"] = pending  # type: ignore[assignment]
 
@@ -41,5 +41,5 @@ async def test_close_tolerates_cancelled_wait_closed() -> None:
     assert server.closed is True
     assert bridge._server is None
     resp = pending.result()
-    assert resp.ok is False  # type: ignore[attr-defined]
-    assert resp.error == ErrorCode.BRIDGE_DISCONNECTED  # type: ignore[attr-defined]
+    assert resp.ok is False
+    assert resp.error == ErrorCode.BRIDGE_DISCONNECTED
