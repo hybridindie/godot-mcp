@@ -58,6 +58,7 @@ from mcp_server.tools.shader import register_shader
 from mcp_server.tools.testing import register_testing
 from mcp_server.tools.theme_ui import register_theme_ui
 from mcp_server.tools.tilemap import register_tilemap
+from mcp_server.tools.undo import register_undo
 from mcp_server.tools.visual_shader import register_visual_shader
 from mcp_server.toolset_protocol import SERVER_INSTRUCTIONS
 from mcp_server.toolsets import ToolsetManager, register_toolset_tools
@@ -124,6 +125,7 @@ def create_server(
     install_tool_naming(mcp)
 
     register_health(mcp, bridge, config)
+    register_undo(mcp, bridge)
     register_inspection(mcp, bridge)
     register_mutation(mcp, bridge, approval)
     register_scene_session(mcp, bridge, approval)
