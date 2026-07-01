@@ -36,5 +36,5 @@ def register_undo(mcp: FastMCP, bridge: Bridge) -> None:
         if not dry_run:
             result["nothing_to_undo"] = result.get("undone", 0) == 0
         # UndoResult(**result) validates the addon payload and drops mode-irrelevant
-        # (None) keys on serialization (see UndoResult.model_dump).
+        # (None) keys on serialization (see UndoResult's @model_serializer).
         return UndoResult(**result)
