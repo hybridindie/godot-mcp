@@ -927,6 +927,20 @@ internal `request_id` (constant across its poll), so the addon dispatches exactl
 full-Control scan per call and never returns a prior identical-filter request's stale
 result. The `rect` pairs with `godot_input_simulate_mouse` to click located UI.
 
+### Editor history — `mutating` (category: `core`)
+
+| Tool | Params | Returns | Safety |
+|------|--------|---------|--------|
+| `godot_undo` | `count: int = 1, dry_run: bool = False` | `UndoResult { dry_run, requested, undone?, last_action?, nothing_to_undo?, has_undo?, would_undo_next? }` | `mutating` |
+
+`godot_undo` undoes up to `count` actions on the current scene's undo history (falls
+back to the global history when no scene is open). A real undo returns
+`{ undone, requested, last_action, nothing_to_undo }`; undoing an empty history is a
+no-op (`undone == 0`, `nothing_to_undo == True`), not an error. `dry_run=True` previews
+instead — `{ has_undo, would_undo_next }` — and performs nothing. Each response carries
+only its mode's keys (a dry-run never emits `nothing_to_undo`). `count < 1` is a
+structured `ToolError`.
+
 ### Diagnostics & debug workflow — `read_only` (category: `core`)
 
 | Tool | Params | Returns | Notes |

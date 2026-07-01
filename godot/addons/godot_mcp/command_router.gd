@@ -204,18 +204,18 @@ func _cmd_ping(_params: Dictionary) -> Dictionary:
 func _cmd_undo(params: Dictionary) -> Dictionary:
 	var count: int = int(params.get("count", 1))
 	if count < 1:
-		return _fail("INVALID_PARAM", "count must be >= 1")
+		return _fail("VALIDATION_ERROR", "count must be >= 1")
 	var dry_run: bool = bool(params.get("dry_run", false))
 	var manager := EditorInterface.get_editor_undo_redo()
 	var root := EditorInterface.get_edited_scene_root()
 	var history_id: int = manager.get_object_history_id(root) if root != null else EditorUndoRedoManager.GLOBAL_HISTORY
 	var ur := manager.get_history_undo_redo(history_id)
-	var has_undo := ur != null and ur.has_undo()
-	var next_action := ur.get_current_action_name() if has_undo else ""
 	if dry_run:
 		# Preview only — the editor UndoRedo API can't report stack depth without
 		# popping, so a dry-run reports whether an undo is available and the next
 		# action's name, and performs nothing.
+		var has_undo := ur != null and ur.has_undo()
+		var next_action := ur.get_current_action_name() if has_undo else ""
 		return _ok({"dry_run": true, "requested": count, "has_undo": has_undo, "would_undo_next": next_action})
 	var undone := 0
 	var last_action := ""
