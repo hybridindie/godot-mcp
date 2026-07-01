@@ -8,6 +8,8 @@ previews on ``dry_run``, and rejects ``count < 1`` pre-bridge.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import pytest
 from fastmcp import Client, FastMCP
 from fastmcp.exceptions import ToolError
@@ -21,7 +23,7 @@ from tests.fakes import FakeAddonConnection, connector_for
 pytestmark = pytest.mark.asyncio
 
 
-def _undo_responder(undone: int):
+def _undo_responder(undone: int) -> Callable[[CommandEnvelope], ResponseEnvelope | None]:
     def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
         if cmd.command == "cmd_undo":
             return ResponseEnvelope.success(
