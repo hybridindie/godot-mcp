@@ -160,16 +160,23 @@ class Bridge:
             logger.debug("bridge peer connected")
 
     async def close(self) -> None:
-        """Stop listening, drop the peer, and fail any in-flight requests."""
+        """Stop listening, drop the peer, and fail any in-flight requests.
+
+        Runs on the lifespan-teardown path, so a Ctrl-C / shutdown can cancel the task
+        while we await the peer's or listener's close. Suppress that ``CancelledError``
+        so teardown still completes (server dropped, pending requests failed) instead of
+        escaping as a traceback — the process is already on its way down."""
         if self._reader is not None:
             self._reader.cancel()
             self._reader = None
         if self._conn is not None:
-            await self._conn.close()
+            with suppress(asyncio.CancelledError):
+                await self._conn.close()
             self._conn = None
         if self._server is not None:
             self._server.close()
-            await self._server.wait_closed()
+            with suppress(asyncio.CancelledError):
+                await self._server.wait_closed()
             self._server = None
         self._fail_pending("BRIDGE_DISCONNECTED", "Bridge closed.")
 

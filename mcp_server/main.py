@@ -25,10 +25,15 @@ def main() -> None:
     logger.info("starting godot-mcp", extra={"transport": config.transport})
 
     server = create_server(config)
-    if config.transport == "http":
-        server.run(transport="http", host=config.host, port=config.port)
-    else:
-        server.run(transport="stdio")
+    try:
+        if config.transport == "http":
+            server.run(transport="http", host=config.host, port=config.port)
+        else:
+            server.run(transport="stdio")
+    except KeyboardInterrupt:
+        # Ctrl-C is the ordinary way to stop a long-lived server; exit quietly rather
+        # than dumping the runtime's shutdown traceback to the console.
+        logger.info("godot-mcp interrupted; shutting down")
 
 
 if __name__ == "__main__":
