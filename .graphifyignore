@@ -35,9 +35,26 @@ godot/tests/
 # Generated graph output + its extraction cache.
 graphify-out/
 
-# CI / harness / agent meta — not the product.
+# CI / harness / agent meta — not the product. But KEEP the grounding rules
+# (.claude/rules/*.md — the addon / architecture / mcp-tools / error-handling
+# constitution): durable design rationale the graph wants (parity with
+# godot-agents). Re-include via the leaf pattern — a fully-excluded parent dir
+# can't be re-included, so exclude .claude/* then negate rules/.
 .github/
-.claude/
+.claude/*
+!.claude/rules/
+
+# Historic process artifacts — step-by-step implementation-plan checklists
+# (parity with godot-agents, which excludes docs/superpowers/plans/).
+docs/superpowers/plans/
 
 # Generated dependency lock (huge, not architecturally meaningful).
 uv.lock
+
+# Build / editor / OS junk (mostly .gitignored already; explicit for parity).
+**/.DS_Store
+**/__pycache__/
+*.pyc
+.venv/
+*.uid
+*.import
