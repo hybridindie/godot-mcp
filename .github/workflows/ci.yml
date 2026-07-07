@@ -10,12 +10,12 @@ on:
 jobs:
   python:
     name: server (lint · types · tests)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, hybridindie]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v8.3.1
         with:
           enable-cache: true
 
