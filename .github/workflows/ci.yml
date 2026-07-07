@@ -7,6 +7,12 @@ on:
     branches: [main]
   pull_request:
 
+# Cancel a superseded run when a new commit lands on the same ref (iterative PR
+# pushes) — only the latest commit's CI matters, so this saves runner minutes (#309).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   python:
     name: server (lint · types · tests)
