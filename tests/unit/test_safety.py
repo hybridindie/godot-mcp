@@ -118,6 +118,9 @@ async def test_require_active_scene_fails_when_closed() -> None:
         await require_active_scene(bridge)
     assert exc.value.required == "active_scene"
     assert exc.value.error == "PRECONDITION_FAILED"
+    # The hint must name the recovery path so an agent (no human) can act (#304).
+    hint = exc.value.args[0]
+    assert "create_scene" in hint and "open_scene" in hint and "list_scenes" in hint
     await bridge.close()
 
 

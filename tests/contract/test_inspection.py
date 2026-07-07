@@ -120,6 +120,27 @@ def _populated(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                 cmd.id,
                 {"node_path": cmd.params["node_path"], "groups": ["enemies", "spawnable"]},
             )
+        case "cmd_list_scenes":
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "scenes": [
+                        {
+                            "path": "res://main.tscn",
+                            "is_main": True,
+                            "is_open": True,
+                            "is_active": True,
+                        },
+                        {
+                            "path": "res://enemy.tscn",
+                            "is_main": False,
+                            "is_open": False,
+                            "is_active": False,
+                        },
+                    ],
+                    "main_scene": "res://main.tscn",
+                },
+            )
     return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected command")
 
 
@@ -131,6 +152,8 @@ def _empty(cmd: CommandEnvelope) -> ResponseEnvelope | None:
             return ResponseEnvelope.success(cmd.id, {"tree": None})
         case "cmd_get_selected_node":
             return ResponseEnvelope.success(cmd.id, {"selected": None})
+        case "cmd_list_scenes":
+            return ResponseEnvelope.success(cmd.id, {"scenes": [], "main_scene": None})
     return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected command")
 
 
@@ -154,6 +177,27 @@ async def test_get_active_scene() -> None:
         result = await client.call_tool("godot_inspection_get_active_scene", {})
     assert result.structured_content["is_open"] is True
     assert result.structured_content["name"] == "main.tscn"
+
+
+async def test_list_scenes() -> None:
+    async with Client(_build(FakeAddonConnection(responder=_populated))) as client:
+        result = await client.call_tool("godot_inspection_list_scenes", {})
+    sc = result.structured_content
+    assert sc["main_scene"] == "res://main.tscn"
+    assert [s["path"] for s in sc["scenes"]] == ["res://main.tscn", "res://enemy.tscn"]
+    main = sc["scenes"][0]
+    assert main["is_main"] is True and main["is_open"] is True and main["is_active"] is True
+    other = sc["scenes"][1]
+    assert other["is_main"] is False and other["is_open"] is False
+
+
+async def test_list_scenes_empty_project() -> None:
+    # A net-new project (no scenes yet) returns an empty list, not an error — the agent
+    # reads this as "create a scene", not "fail".
+    async with Client(_build(FakeAddonConnection(responder=_empty))) as client:
+        result = await client.call_tool("godot_inspection_list_scenes", {})
+    assert result.structured_content["scenes"] == []
+    assert result.structured_content["main_scene"] is None
 
 
 async def test_get_scene_tree_passes_max_depth() -> None:

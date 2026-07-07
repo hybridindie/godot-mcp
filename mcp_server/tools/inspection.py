@@ -19,6 +19,7 @@ from mcp_server.models.inspection import (
     NodeProperty,
     NodePropertyList,
     ProjectInfo,
+    ScenesResult,
     SceneTree,
     SelectedNode,
 )
@@ -45,6 +46,21 @@ def register_inspection(mcp: FastMCP, bridge: Bridge) -> None:
         when no scene is open (not an error).
         """
         return ActiveScene(**await route(bridge, "cmd_get_active_scene"))
+
+    @mcp.tool(meta=READ_ONLY, tags=INSPECTION)
+    async def list_scenes() -> ScenesResult:
+        """List the project's scene files (``res://*.tscn``) and their editor state —
+        which is the ``main_scene``, which are open, and which is active.
+
+        Call this to decide, when no scene is open, whether to OPEN an existing scene
+        (a modification / enhancement / bugfix of something already there) or CREATE a
+        net-new one:
+          - no scenes at all -> the project is empty; create_scene(root_type, path).
+          - exactly one scene -> open_scene(that path).
+          - several scenes -> open the one the request targets, or ask which to use.
+        Returns an empty ``scenes`` list for a project with no scenes yet (not an error).
+        """
+        return ScenesResult(**await route(bridge, "cmd_list_scenes"))
 
     @mcp.tool(meta=READ_ONLY, tags=INSPECTION)
     async def get_scene_tree(max_depth: MaxDepth = -1, lightweight: bool = False) -> SceneTree:

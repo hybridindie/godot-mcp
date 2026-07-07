@@ -29,6 +29,25 @@ class ActiveScene(BaseModel):
     name: str | None = None
 
 
+class SceneEntry(BaseModel):
+    """One project scene file and its editor state (#304)."""
+
+    path: str
+    is_main: bool = False  # the project's configured main scene
+    is_open: bool = False  # currently open in an editor tab
+    is_active: bool = False  # the currently edited (foreground) scene
+
+
+class ScenesResult(BaseModel):
+    """The project's scene files + which is main, for open-vs-create decisions (#304).
+
+    ``scenes`` is empty for a project with no scenes yet (a net-new signal, not an error).
+    """
+
+    scenes: list[SceneEntry] = Field(default_factory=list)
+    main_scene: str | None = None
+
+
 class SceneNode(BaseModel):
     """A node in the recursive scene-tree serialization.
 

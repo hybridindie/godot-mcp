@@ -164,7 +164,10 @@ async def require_active_scene(bridge: Bridge) -> None:
     _raise_if_failed(response)
     if not (response.result or {}).get("is_open"):
         raise PreconditionError(
-            "No scene is currently open. Open a scene before this action.",
+            "No scene is open. Recover, don't fail: call list_scenes() to see the "
+            "project's scenes — then open_scene(path) to edit an existing one, or "
+            "create_scene(root_type, scene_path) to start a new one (create_scene works "
+            "with no scene open). Re-run this action once a scene is open.",
             required="active_scene",
         )
 

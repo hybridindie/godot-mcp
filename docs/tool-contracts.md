@@ -159,14 +159,16 @@ never a Python traceback. The structured precondition shape (matching the bridge
 {
   "ok": false,
   "error": "PRECONDITION_FAILED",
-  "hint": "No scene is currently open. Open a scene before creating nodes.",
+  "hint": "No scene is open. Recover, don't fail: call list_scenes() … then open_scene(path) or create_scene(root_type, scene_path).",
   "required": "active_scene"
 }
 ```
 
 - `require_bridge_connected(bridge)` — Godot reachable (else `BRIDGE_DISCONNECTED`,
   `required="bridge_connected"`).
-- `require_active_scene(bridge)` — a scene is open (`required="active_scene"`).
+- `require_active_scene(bridge)` — a scene is open (`required="active_scene"`). Its hint
+  names the recovery path (`list_scenes` → `open_scene` / `create_scene`) so an agent
+  can act on the failure rather than treating no-scene as a dead-end (#304).
 - `require_node_exists(bridge, path)` — the target node path resolves (else
   `RESOURCE_NOT_FOUND`, `required="node_exists"`).
 - `require_confirmation(confirm, action)` — destructive guard (`required="confirm"`).
@@ -195,6 +197,7 @@ states return an empty model (`is_open=False` / `tree=None` / `selected=None`), 
 |------|--------|---------|----------------|
 | `godot_inspection_get_project_info` | — | `ProjectInfo { name, godot_version, main_scene?, autoloads, input_actions }` | `cmd_get_project_info` |
 | `godot_inspection_get_active_scene` | — | `ActiveScene { is_open, path?, name? }` | `cmd_get_active_scene` |
+| `godot_inspection_list_scenes` | — | `ScenesResult { scenes: [SceneEntry { path, is_main, is_open, is_active }], main_scene? }` | `cmd_list_scenes` |
 | `godot_inspection_get_scene_tree` | `max_depth: int = -1, lightweight: bool = False` | `SceneTree { tree: SceneNode? }` | `cmd_get_scene_tree` |
 | `godot_inspection_get_selected_node` | — | `SelectedNode { selected: NodeInfo? }` | `cmd_get_selected_node` |
 | `godot_inspection_get_node_properties` | `node_path: str` | `NodeInfo { node_path, type, script?, properties, children }` | `cmd_get_node_properties` |

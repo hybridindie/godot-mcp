@@ -125,6 +125,7 @@ def test_router_registers_inspection_commands() -> None:
     for command in (
         "cmd_get_project_info",
         "cmd_get_active_scene",
+        "cmd_list_scenes",
         "cmd_get_scene_tree",
         "cmd_get_selected_node",
         "cmd_get_node_properties",
