@@ -14,8 +14,11 @@ dependencies = [
     # Domain models and typed tool I/O (issue #7).
     "pydantic>=2.13",
     "pypng>=0.20",
-    # URL download for asset import (issue #108).
-    "httpx>=0.28",
+    # URL download for asset import (issue #108) + approval-webhook POST (issue #153).
+    # httpx2 is a drop-in fork of httpx with the same public API; FastMCP 4.0 uses it
+    # exclusively, and standardizing here keeps our httpx exception handlers live code
+    # (FastMCP raises httpx2 exceptions, so `except httpx.` would silently never match).
+    "httpx2>=2.9",
 ]
 
 [project.scripts]

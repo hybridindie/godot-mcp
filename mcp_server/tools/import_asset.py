@@ -77,10 +77,10 @@ async def _download_url(url: str) -> str:
     entire payload in memory. Raises ``ToolError`` on network or HTTP failure.
     """
     try:
-        import httpx
+        import httpx2 as httpx
     except ImportError as exc:
         raise ToolError(
-            "INTERNAL_ERROR: httpx is not installed. "
+            "INTERNAL_ERROR: httpx2 is not installed. "
             "Install it to enable URL download support."
         ) from exc
 

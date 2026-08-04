@@ -21,7 +21,7 @@ from enum import StrEnum
 from functools import wraps
 from typing import TYPE_CHECKING, Any
 
-import httpx
+import httpx2 as httpx
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 from mcp.types import ToolAnnotations
