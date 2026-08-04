@@ -15,7 +15,9 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import fastmcp_tasks  # noqa: F401  — importing enables Client-side task support (issue #315)
 from fastmcp import FastMCP
+from fastmcp_tasks import TasksExtension
 
 from mcp_server.bridge import Bridge
 from mcp_server.config import ServerConfig
@@ -120,6 +122,14 @@ def create_server(
             }
         },
     )
+    # Background-tasks spike (issue #315): register the in-process TasksExtension
+    # so tools marked ``task=True`` can return a handle immediately instead of
+    # holding the MCP request open for the whole (potentially long) bridge op. The
+    # in-memory single-process backend is sufficient for a local dev tool. No tool
+    # is marked ``task=True`` yet — see tests/contract/test_background_tasks.py for
+    # the spike finding (ctx-progress calls are incompatible with the detached task
+    # session) that blocks adopting tasks for the four long-running tools as-is.
+    mcp.add_extension(TasksExtension())
     # Expose every tool as godot_<toolset>_<action> (issue #224). Installed before any
     # registration so tools register under their final name; tag-based gating is unaffected.
     install_tool_naming(mcp)
@@ -172,7 +182,7 @@ def create_server(
     register_diagnostics(mcp, bridge, config, manager)
 
     # Register workflow prompts (instruction templates for the agent).
-    prompt_names = register_prompts(mcp)
+    prompt_names = register_prompts(mcp, bridge)
 
     # Derive standard MCP annotations (readOnlyHint/destructiveHint/...) from each
     # tool's safety_class, for every tool incl. gated-off ones (issue #220).
