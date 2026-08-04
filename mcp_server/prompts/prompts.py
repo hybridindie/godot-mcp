@@ -12,6 +12,8 @@ from __future__ import annotations
 from fastmcp import FastMCP
 from fastmcp.prompts import Message
 
+from mcp_server.bridge import Bridge
+from mcp_server.prompts.completion import register_completion
 from mcp_server.toolset_protocol import TOOLSET_PROTOCOL
 
 
@@ -42,13 +44,17 @@ def _as_value(value: str) -> str:
     return v
 
 
-def register_prompts(mcp: FastMCP) -> list[str]:
+def register_prompts(mcp: FastMCP, bridge: Bridge) -> list[str]:
     """Register all workflow prompts on the server.
 
     Returns the registered prompt names so the caller can advertise them without
     introspecting FastMCP internals (#231/#233). Each registrant returns the name
     it registered, so the list stays in lockstep with the actual prompts.
+
+    Also registers the argument-completion handler (#314) — registering it here
+    advertises the completions capability at negotiation.
     """
+    register_completion(mcp, bridge)
     return [
         _register_toolset_discovery(mcp),
         _register_build_scene(mcp),
