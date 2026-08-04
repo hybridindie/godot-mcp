@@ -21,7 +21,7 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-import httpx
+import httpx2 as httpx
 
 from evals.correction import format_correction
 from evals.history import COMPRESSION_THRESHOLD, char_len, compress_history

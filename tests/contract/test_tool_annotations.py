@@ -43,14 +43,14 @@ async def test_every_classified_tool_carries_annotations() -> None:
         assert ann is not None, f"{tool.name} ({safety_class}) has no MCP annotations"
 
         if safety_class == "read_only":
-            assert ann.readOnlyHint is True, tool.name
-            assert ann.idempotentHint is True, tool.name
+            assert ann.read_only_hint is True, tool.name
+            assert ann.idempotent_hint is True, tool.name
         elif safety_class == "destructive":
-            assert ann.readOnlyHint is False, tool.name
-            assert ann.destructiveHint is True, tool.name
+            assert ann.read_only_hint is False, tool.name
+            assert ann.destructive_hint is True, tool.name
         elif safety_class in ("mutating", "runtime"):
-            assert ann.readOnlyHint is False, tool.name
-            assert ann.destructiveHint is False, tool.name
+            assert ann.read_only_hint is False, tool.name
+            assert ann.destructive_hint is False, tool.name
 
     # Make sure the assertions above actually ran for each class.
     assert seen["read_only"] > 0
@@ -69,4 +69,4 @@ async def test_annotations_visible_on_public_surface() -> None:
 
     health = tools["godot_health_check"]
     assert health.annotations is not None
-    assert health.annotations.readOnlyHint is True
+    assert health.annotations.read_only_hint is True

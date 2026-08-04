@@ -41,7 +41,7 @@ async def test_static_resources_are_listable() -> None:
     server, _ = _build()
     async with Client(server) as client:
         uris = {str(r.uri) for r in await client.list_resources()}
-        templates = {t.uriTemplate for t in await client.list_resource_templates()}
+        templates = {t.uri_template for t in await client.list_resource_templates()}
     assert {
         "godot://project/info",
         "godot://scene/current",

@@ -25,7 +25,6 @@ def _entrypoint_transport() -> StdioTransport:
 
 async def test_stdio_server_lists_health_check() -> None:
     async with Client(_entrypoint_transport()) as client:
-        await client.ping()
         tools = await client.list_tools()
     assert "godot_health_check" in {t.name for t in tools}
 

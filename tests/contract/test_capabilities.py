@@ -35,7 +35,7 @@ async def test_capabilities_derived_from_live_registry() -> None:
     async with Client(server) as client:
         prompt_names = {p.name for p in await client.list_prompts()}
         resource_uris = {str(r.uri) for r in await client.list_resources()}
-        template_uris = {t.uriTemplate for t in await client.list_resource_templates()}
+        template_uris = {t.uri_template for t in await client.list_resource_templates()}
 
     assert set(caps["prompts"]) == prompt_names
     assert set(caps["resources"]) == resource_uris | template_uris

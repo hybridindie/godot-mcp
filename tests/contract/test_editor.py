@@ -66,6 +66,6 @@ async def test_capture_returns_image_content() -> None:
     image_blocks = [b for b in result.content if type(b).__name__ == "ImageContent"]
     assert image_blocks, f"expected an image content block, got {result.content}"
     block = image_blocks[0]
-    assert block.mimeType == "image/png"
+    assert block.mime_type == "image/png"
     # The returned data decodes to the same PNG bytes the addon supplied.
     assert base64.b64decode(block.data).startswith(b"\x89PNG\r\n\x1a\n")
