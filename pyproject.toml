@@ -10,7 +10,7 @@ dependencies = [
     # 2.x→3.x had breaking API changes (#228); the v3→v4 transition is lower-risk
     # for this server (stateless, no ctx.elicit, no session state, canonical imports
     # already in place). Beta pin per the upgrade guide; follow stable 4.x when it ships.
-    "fastmcp==4.0.0b1",
+    "fastmcp[tasks]==4.0.0b1",
     # WebSocket transport for the addon/server bridge (issue #3).
     "websockets>=16.0",
     # Domain models and typed tool I/O (issue #7).
@@ -47,9 +47,13 @@ build-backend = "hatchling.build"
 # FastMCP 4.0 beta pinning: fastmcp is a thin wrapper over fastmcp-slim at the
 # same version. uv won't infer the slim prerelease from the wrapper prerelease,
 # so constrain it alongside (per the upgrade guide). The rest of the graph
-# stays on stable releases. Add fastmcp-tasks==4.0.0b1 here if #315 adopts tasks.
+# stays on stable releases. The background-tasks spike (#315) adds fastmcp-tasks
+# at the same prerelease; fastmcp-slim 4.0.0b1 already depends on the *final*
+# mcp-types 2.0.0 / mcp 2.0.0 (not the 2.0.0b2 prerelease the upgrade guide lists —
+# that pin is unsatisfiable: slim declares mcp-types>=2.0.0 which excludes b2),
+# so only fastmcp-tasks needs the prerelease pin here.
 [tool.uv]
-constraint-dependencies = ["fastmcp-slim==4.0.0b1"]
+constraint-dependencies = ["fastmcp-slim==4.0.0b1", "fastmcp-tasks==4.0.0b1"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["mcp_server"]
