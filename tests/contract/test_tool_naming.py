@@ -12,13 +12,14 @@ from mcp_server.categories import CORE_TAG
 from mcp_server.config import ServerConfig
 from mcp_server.server import create_server
 from mcp_server.tool_naming import _category, godot_tool_name
+from tests.helpers import list_all_tools
 
 pytestmark = pytest.mark.asyncio
 
 
 async def test_every_tool_is_godot_named_and_consistent() -> None:
     mcp = create_server(ServerConfig())
-    tools = await mcp._list_tools()
+    tools = await list_all_tools(mcp)
     assert tools, "no tools registered"
 
     names: list[str] = []

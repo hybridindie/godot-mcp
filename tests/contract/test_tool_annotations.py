@@ -16,6 +16,7 @@ from mcp_server.bridge import Bridge
 from mcp_server.config import ServerConfig
 from mcp_server.server import create_server
 from tests.fakes import FakeAddonConnection, connector_for, make_addon_responder
+from tests.helpers import list_all_tools
 
 pytestmark = pytest.mark.asyncio
 
@@ -29,8 +30,8 @@ def _server() -> FastMCP:
 
 async def test_every_classified_tool_carries_annotations() -> None:
     server = _server()
-    # _list_tools returns ALL registered tools, including toolset-gated ones.
-    tools = await server._list_tools()
+    # list_all_tools returns ALL registered tools, including toolset-gated ones.
+    tools = await list_all_tools(server)
     assert tools, "expected a non-empty tool surface"
 
     seen = {"read_only": 0, "mutating": 0, "destructive": 0, "runtime": 0}

@@ -65,42 +65,37 @@ class ServerDiagnostics(BaseModel):
     next_steps: list[str]
 
 
-def _count_tools_by_tag(mcp: FastMCP, tag: str) -> int:
-    """Count registered tools carrying a given category tag."""
+async def _count_tools_by_tag(mcp: FastMCP, tag: str) -> int:
+    """Count registered tools carrying a given category tag.
+
+    Uses the public ``mcp.local_provider.list_tools()`` (FastMCP 4.0), which
+    returns the full set including toolset-gated (disabled) tools — matching the
+    diagnostics contract that reports a toolset's total tool count regardless of
+    whether it is currently enabled.
+    """
     count = 0
-    # Tools are stored in the local provider's _components dict under 'tool:{name}@' keys.
-    components = getattr(getattr(mcp, "_local_provider", None), "_components", {})
-    for key, component in components.items():
-        if not key.startswith("tool:"):
-            continue
-        if tag in (getattr(component, "tags", set())):
+    for tool in await mcp.local_provider.list_tools():
+        if tag in (getattr(tool, "tags", set())):
             count += 1
     return count
 
 
-def _list_prompts(mcp: FastMCP) -> list[str]:
-    """Return names of all registered prompts."""
-    names: list[str] = []
-    components = getattr(getattr(mcp, "_local_provider", None), "_components", {})
-    for key, component in components.items():
-        if not key.startswith("prompt:"):
-            continue
-        name = getattr(component, "name", "")
-        if name:
-            names.append(name)
-    return names
+async def _list_prompts(mcp: FastMCP) -> list[str]:
+    """Return names of all registered prompts via the public ``mcp.list_prompts()``."""
+    return [p.name for p in await mcp.list_prompts() if p.name]
 
 
-def _list_resources(mcp: FastMCP) -> list[str]:
-    """Return URIs of all registered resources."""
-    uris: list[str] = []
-    components = getattr(getattr(mcp, "_local_provider", None), "_components", {})
-    for key, component in components.items():
-        if not key.startswith("resource:"):
-            continue
-        uri = getattr(component, "uri", "")
-        if uri:
-            uris.append(str(uri))
+async def _list_resources(mcp: FastMCP) -> list[str]:
+    """Return URIs of all registered resources via the public ``mcp.list_resources()``.
+
+    Includes both static resources and resource templates: static resources
+    expose a concrete ``uri``; templates expose a ``uri_template``. The
+    capabilities snapshot merges both, so callers see the complete resource
+    surface advertised over the wire.
+    """
+    uris: list[str] = [str(r.uri) for r in await mcp.list_resources() if r.uri]
+    templates = await mcp.list_resource_templates()
+    uris.extend(t.uri_template for t in templates if t.uri_template)
     return uris
 
 
@@ -151,8 +146,7 @@ COMMON_ERRORS: list[dict[str, str]] = [
     {
         "symptom": "ToolError: unknown tool",
         "cause": "The toolset containing that tool is not enabled.",
-        "fix": "Call enable_toolset(\"scene_edit\") "
-        "or the relevant category before using the tool.",
+        "fix": 'Call enable_toolset("scene_edit") or the relevant category before using the tool.',
     },
     {
         "symptom": "BRIDGE_DISCONNECTED",
@@ -192,7 +186,7 @@ COMMON_ERRORS: list[dict[str, str]] = [
 ]
 
 
-def _build_toolset_summaries(mcp: FastMCP, manager: ToolsetManager) -> list[ToolsetSummary]:
+async def _build_toolset_summaries(mcp: FastMCP, manager: ToolsetManager) -> list[ToolsetSummary]:
     """Build summaries with live tool counts for every known toolset."""
     summaries: list[ToolsetSummary] = []
     for info in manager.status():
@@ -201,7 +195,7 @@ def _build_toolset_summaries(mcp: FastMCP, manager: ToolsetManager) -> list[Tool
                 name=info.name,
                 enabled=info.enabled,
                 description=info.description,
-                tool_count=_count_tools_by_tag(mcp, info.name),
+                tool_count=await _count_tools_by_tag(mcp, info.name),
                 min_godot=info.min_godot,
             )
         )
@@ -225,14 +219,12 @@ def _next_steps(bridge_connected: bool, active_scene: str | None) -> list[str]:
         steps.append("No scene is open. Open or create a scene before editing nodes.")
     else:
         steps.append(f"Active scene: {active_scene}. Ready for scene editing.")
-    steps.append(
-        "For live testing, register MCPRuntimeProbe as an autoload, "
-        "then play_scene()."
-    )
+    steps.append("For live testing, register MCPRuntimeProbe as an autoload, then play_scene().")
     return steps
 
 
 # -- registration -----------------------------------------------------------
+
 
 def register_diagnostics(
     mcp: FastMCP,
@@ -259,9 +251,9 @@ def register_diagnostics(
             contract_version=CONTRACT_VERSION,
             min_compatible_contract=MIN_COMPATIBLE_CONTRACT,
             transport=config.transport,
-            toolsets=_build_toolset_summaries(mcp, manager),
-            prompts=_list_prompts(mcp),
-            resources=_list_resources(mcp),
+            toolsets=await _build_toolset_summaries(mcp, manager),
+            prompts=await _list_prompts(mcp),
+            resources=await _list_resources(mcp),
             bridge=bridge_diag,
             active_scene=active_scene,
             common_errors=COMMON_ERRORS,
