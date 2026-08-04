@@ -24,7 +24,6 @@ from mcp_server.prompts import register_prompts
 from mcp_server.resources.context import register_resources
 from mcp_server.runtime import GodotRunner, Runner
 from mcp_server.safety import ApprovalGate, apply_safety_annotations, register_safety_tools
-from mcp_server.tool_naming import install_tool_naming
 from mcp_server.tools.analysis import register_analysis
 from mcp_server.tools.animation import register_animation
 from mcp_server.tools.audio import register_audio
@@ -62,6 +61,7 @@ from mcp_server.tools.undo import register_undo
 from mcp_server.tools.visual_shader import register_visual_shader
 from mcp_server.toolset_protocol import SERVER_INSTRUCTIONS
 from mcp_server.toolsets import ToolsetManager, register_toolset_tools
+from mcp_server.transforms import godot_tool_transform
 
 logger = logging.getLogger(__name__)
 
@@ -120,9 +120,6 @@ def create_server(
             }
         },
     )
-    # Expose every tool as godot_<toolset>_<action> (issue #224). Installed before any
-    # registration so tools register under their final name; tag-based gating is unaffected.
-    install_tool_naming(mcp)
 
     register_health(mcp, bridge, config)
     register_undo(mcp, bridge)
@@ -177,6 +174,12 @@ def create_server(
     # Derive standard MCP annotations (readOnlyHint/destructiveHint/...) from each
     # tool's safety_class, for every tool incl. gated-off ones (issue #220).
     apply_safety_annotations(mcp)
+
+    # Expose every tool as godot_<toolset>_<action> (issue #312). FastMCP 4.0's
+    # ToolTransform renames tools as they flow to clients and reverse-maps public
+    # names to the original handler on call_tool. Built after every register_*
+    # so the rename map (and its reverse) cover the whole surface.
+    mcp.add_transform(godot_tool_transform(mcp))
 
     # Fill the capabilities snapshot from the live registry so it can never drift
     # from the real toolset / prompt / resource catalog (issue #231).

@@ -72,7 +72,7 @@ These span many files and are the things easiest to get wrong:
 - **JSON-safe serialization** — the scene tree and node properties must serialize to JSON-safe types only (no Godot objects). Large trees support a `max_depth` parameter.
 - **Type coercion** (issue #6) — Godot types (`Vector2/3`, `Color`, `Rect2`, `NodePath`) are coerced to/from JSON in a dedicated `type_coerce.gd` helper, not inline.
 - **Read-only vs. mutating split** — read-only context is exposed both as tools (issue #5) and as `godot://` resources (issue #11); mutations only ever go through tools.
-- **Naming** — `snake_case` for all domain/data fields and Pydantic models; addon command handlers are `cmd_<verb>_<noun>`. Every MCP tool is exposed as `godot_<toolset>_<action>` (issue #224) — the prefix *is* the gating toolset (always-on `core`/meta tools are `godot_<action>`); the mapping is applied centrally in `mcp_server/tool_naming.py` and enforced by `tests/contract/test_tool_naming.py`.
+- **Naming** — `snake_case` for all domain/data fields and Pydantic models; addon command handlers are `cmd_<verb>_<noun>`. Every MCP tool is exposed as `godot_<toolset>_<action>` (issue #224) — the prefix *is* the gating toolset (always-on `core`/meta tools are `godot_<action>`); the mapping is applied centrally in `mcp_server/transforms.py` (via FastMCP 4.0's `ToolTransform`, issue #312) and enforced by `tests/contract/test_tool_naming.py`.
 
 ## Game-agnostic scope
 

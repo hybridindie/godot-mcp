@@ -17,6 +17,7 @@ from typing import Any
 import pytest
 
 from mcp_server.server import create_server
+from tests.helpers import list_all_tools
 
 # Tool-call-shaped references in skill bodies, e.g. ``godot_runtime_play_scene(``.
 # The trailing ``(`` avoids matching plugin/path tokens like ``addons/godot_mcp/``.
@@ -85,7 +86,7 @@ def test_skill_tool_references_exist() -> None:
     or imagined tool), which would silently fail at call time.
     """
     server: Any = create_server()
-    tool_names = {t.name for t in asyncio.run(server._list_tools())}
+    tool_names = {t.name for t in asyncio.run(list_all_tools(server))}
     unknown: dict[str, set[str]] = {}
     for skill in _skill_dirs():
         text = (skill / "SKILL.md").read_text(encoding="utf-8")
