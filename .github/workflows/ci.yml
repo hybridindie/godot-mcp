@@ -42,3 +42,8 @@ jobs:
 
       - name: Tests (pytest)
         run: uv run pytest -q
+
+      - name: camelCase regression gate (compat bridge off)
+        env:
+          FASTMCP_MCP_CAMELCASE_COMPAT: "false"
+        run: uv run pytest -q
