@@ -19,6 +19,7 @@ import fastmcp_tasks  # noqa: F401  — importing enables Client-side task suppo
 from fastmcp import FastMCP
 from fastmcp_tasks import TasksExtension
 
+from mcp_server.approval_middleware import ApprovalMiddleware
 from mcp_server.bridge import Bridge
 from mcp_server.capabilities import STATIC_CAPABILITY, apply_capability
 from mcp_server.config import ServerConfig
@@ -82,6 +83,8 @@ def create_server(
     bridge = bridge or Bridge(config.bridge)
     runner = runner or GodotRunner(config)
     # Human-in-the-loop approval gate (issue #153); no-op unless a webhook is set.
+    # Centralized at the tools/call boundary via ApprovalMiddleware (issue #330) so
+    # the ``approval`` parameter no longer threads through register modules.
     approval = approval or ApprovalGate.from_config(config)
 
     @asynccontextmanager
@@ -113,6 +116,9 @@ def create_server(
         # from the live registry after registration; see capabilities.apply_capability.
         experimental_capabilities={"godot_mcp": dict(STATIC_CAPABILITY)},
     )
+    # Centralize the webhook ApprovalGate at the tools/call boundary (issue #330).
+    # No-op unless a webhook is configured; dry_run short-circuits in the middleware.
+    mcp.add_middleware(ApprovalMiddleware(approval))
     # Background-tasks spike (issue #315): register the in-process TasksExtension
     # so tools marked ``task=True`` can return a handle immediately instead of
     # holding the MCP request open for the whole (potentially long) bridge op. The
@@ -125,17 +131,17 @@ def create_server(
     register_health(mcp, bridge, config)
     register_undo(mcp, bridge)
     register_inspection(mcp, bridge)
-    register_mutation(mcp, bridge, approval)
-    register_scene_session(mcp, bridge, approval)
+    register_mutation(mcp, bridge)
+    register_scene_session(mcp, bridge)
     register_node_ops(mcp, bridge)
     register_resource_files(mcp, bridge)
-    register_project_fs(mcp, bridge, approval)
+    register_project_fs(mcp, bridge)
     register_physics(mcp, bridge)
     register_animation(mcp, bridge)
     register_scene_3d(mcp, bridge)
     register_particles(mcp, bridge)
     register_navigation(mcp, bridge)
-    register_audio(mcp, bridge, approval)
+    register_audio(mcp, bridge)
     register_tilemap(mcp, bridge)
     register_theme_ui(mcp, bridge)
     register_shader(mcp, bridge)
@@ -147,7 +153,7 @@ def create_server(
     register_runtime_inspect(mcp, bridge)
     register_import_asset(mcp, bridge)
     register_input_sim(mcp, bridge)
-    register_input_map(mcp, bridge, approval)
+    register_input_map(mcp, bridge)
     register_testing(mcp, bridge, config, runner)
     register_profiling(mcp, bridge)
     register_batch(mcp, bridge)
@@ -157,7 +163,7 @@ def create_server(
     register_export(mcp, bridge, config, runner)
     register_scripts(mcp, bridge, config, runner)
     register_debug_workflow(mcp, bridge, config, runner)
-    register_project_scaffold(mcp, bridge, approval)
+    register_project_scaffold(mcp, bridge)
     register_safety_tools(mcp)
 
     # Gate the tool surface by category, then apply the default exposure (core +

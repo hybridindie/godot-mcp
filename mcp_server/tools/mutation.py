@@ -36,7 +36,6 @@ from mcp_server.models.mutation import (
 from mcp_server.safety import (
     DESTRUCTIVE,
     MUTATING,
-    ApprovalGate,
     enforce_preconditions,
     require_active_scene,
     require_bridge_connected,
@@ -94,10 +93,9 @@ async def _try_set_with_suggestions(
 
 
 def register_mutation(
-    mcp: FastMCP, bridge: Bridge, approval: ApprovalGate | None = None
+    mcp: FastMCP, bridge: Bridge
 ) -> None:
     """Register all eight mutation tools on the server."""
-    approval = approval or ApprovalGate()
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
     @enforce_preconditions
@@ -169,7 +167,6 @@ def register_mutation(
         await require_node_exists(bridge, node_path)
         if not dry_run:
             require_confirmation(confirm, "delete_node")
-            await approval.require("delete_node", "destructive", {"node_path": node_path})
         params = {"node_path": node_path, "confirm": True}
         preview = {"node_path": node_path, "deleted": False}
         return await run_or_preview(

@@ -26,7 +26,6 @@ from mcp_server.safety import (
     DESTRUCTIVE,
     MUTATING,
     READ_ONLY,
-    ApprovalGate,
     enforce_preconditions,
     require_bridge_connected,
     require_confirmation,
@@ -37,10 +36,9 @@ INPUT_MAP = {INPUT_MAP_TAG}
 
 
 def register_input_map(
-    mcp: FastMCP, bridge: Bridge, approval: ApprovalGate | None = None
+    mcp: FastMCP, bridge: Bridge
 ) -> None:
     """Register the input map editing tools."""
-    approval = approval or ApprovalGate()
 
     @mcp.tool(meta=MUTATING, tags=INPUT_MAP)
     @enforce_preconditions
@@ -71,7 +69,6 @@ def register_input_map(
         require_bridge_connected(bridge)
         if not dry_run:
             require_confirmation(confirm, "remove_input_action")
-            await approval.require("remove_input_action", "destructive", {"name": name})
         params = {"name": name, "confirm": True}
         preview = {"name": name, "removed": False}
         return await run_or_preview(
@@ -140,7 +137,6 @@ def register_input_map(
         require_bridge_connected(bridge)
         if not dry_run:
             require_confirmation(confirm, "clear_input_action_events")
-            await approval.require("clear_input_action_events", "destructive", {"action": action})
         params = {"action": action, "confirm": True}
         preview = {"action": action, "cleared": False}
         return await run_or_preview(

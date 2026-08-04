@@ -18,7 +18,6 @@ from mcp_server.categories import PROJECT_SCAFFOLD_TAG
 from mcp_server.models.project_scaffold import ScaffoldProjectResult
 from mcp_server.safety import (
     DESTRUCTIVE,
-    ApprovalGate,
     enforce_preconditions,
     require_confirmation,
 )
@@ -41,10 +40,9 @@ _SCAFFOLD_TYPES: set[str] = {
 
 
 def register_project_scaffold(
-    mcp: FastMCP, bridge: Bridge, approval: ApprovalGate | None = None
+    mcp: FastMCP, bridge: Bridge
 ) -> None:
     """Register the project scaffold tool."""
-    approval = approval or ApprovalGate()
 
     @mcp.tool(meta=DESTRUCTIVE, tags=PROJECT_SCAFFOLD)
     @enforce_preconditions
@@ -68,7 +66,6 @@ def register_project_scaffold(
             )
         if not dry_run:
             require_confirmation(confirm, "scaffold_project")
-            await approval.require("scaffold_project", "destructive", {"type": type})
         params: dict[str, str] = {
             "type": type,
             "project_name": project_name or type,

@@ -32,7 +32,6 @@ from mcp_server.safety import (
     DESTRUCTIVE,
     MUTATING,
     READ_ONLY,
-    ApprovalGate,
     enforce_preconditions,
     require_bridge_connected,
     require_confirmation,
@@ -43,9 +42,8 @@ from mcp_server.tools._route import route, run_or_preview
 AUDIO = {AUDIO_TAG}
 
 
-def register_audio(mcp: FastMCP, bridge: Bridge, approval: ApprovalGate | None = None) -> None:
+def register_audio(mcp: FastMCP, bridge: Bridge) -> None:
     """Register the audio tools."""
-    approval = approval or ApprovalGate()
 
     @mcp.tool(meta=MUTATING, tags=AUDIO)
     @enforce_preconditions
@@ -129,7 +127,6 @@ def register_audio(mcp: FastMCP, bridge: Bridge, approval: ApprovalGate | None =
         require_bridge_connected(bridge)
         if not dry_run:
             require_confirmation(confirm, "remove_audio_bus")
-            await approval.require("remove_audio_bus", "destructive", {"bus": bus})
         params = {"bus": bus, "confirm": True}
         preview = {"name": bus, "index": -1, "removed": False}
         return await run_or_preview(
@@ -149,9 +146,6 @@ def register_audio(mcp: FastMCP, bridge: Bridge, approval: ApprovalGate | None =
         require_bridge_connected(bridge)
         if not dry_run:
             require_confirmation(confirm, "remove_audio_bus_effect")
-            await approval.require(
-                "remove_audio_bus_effect", "destructive", {"bus": bus, "effect_index": effect_index}
-            )
         params = {"bus": bus, "effect_index": effect_index, "confirm": True}
         preview = {"bus": bus, "bus_index": -1, "effect_index": effect_index, "removed": False}
         return await run_or_preview(

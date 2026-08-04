@@ -25,7 +25,6 @@ from mcp_server.safety import (
     DESTRUCTIVE,
     MUTATING,
     READ_ONLY,
-    ApprovalGate,
     enforce_preconditions,
     require_active_scene,
     require_bridge_connected,
@@ -38,10 +37,9 @@ SCENE_EDIT = {SCENE_EDIT_TAG}
 
 
 def register_scene_session(
-    mcp: FastMCP, bridge: Bridge, approval: ApprovalGate | None = None
+    mcp: FastMCP, bridge: Bridge
 ) -> None:
     """Register scene session tools in the scene_edit toolset."""
-    approval = approval or ApprovalGate()
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
     @enforce_preconditions
@@ -69,7 +67,6 @@ def register_scene_session(
         require_bridge_connected(bridge)
         if not dry_run:
             require_confirmation(confirm, "reload_scene")
-            await approval.require("reload_scene", "destructive", {"scene_path": scene_path})
         params: dict[str, Any] = {"scene_path": scene_path, "confirm": True}
         preview = {"scene_path": scene_path, "reloaded": False}
         return await run_or_preview(

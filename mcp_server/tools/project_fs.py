@@ -29,7 +29,6 @@ from mcp_server.safety import (
     DESTRUCTIVE,
     MUTATING,
     READ_ONLY,
-    ApprovalGate,
     enforce_preconditions,
     require_bridge_connected,
     require_confirmation,
@@ -39,7 +38,7 @@ from mcp_server.tools._route import route, run_or_preview, validate_or_raise
 PROJECT = {PROJECT_TAG}
 
 
-def register_project_fs(mcp: FastMCP, bridge: Bridge, approval: ApprovalGate) -> None:
+def register_project_fs(mcp: FastMCP, bridge: Bridge) -> None:
     """Register the project & filesystem tools."""
 
     @mcp.tool(meta=READ_ONLY, tags=PROJECT)
@@ -127,7 +126,6 @@ def register_project_fs(mcp: FastMCP, bridge: Bridge, approval: ApprovalGate) ->
             await validate_or_raise(bridge, "cmd_delete_resource_file", params)
             return DeleteResourceFileResult(path=path, deleted=False, dry_run=True)
         require_confirmation(confirm, "delete_resource_file")
-        await approval.require("delete_resource_file", "destructive", params)
         return DeleteResourceFileResult(
             **await route(bridge, "cmd_delete_resource_file", params)
         )
