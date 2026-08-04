@@ -3,26 +3,23 @@
 Centralizes the few FastMCP internals the suite still needs so a future
 internals shift is a one-line fix here rather than a sweep across N files.
 
-Specifically: enumerating *all* registered tools (including toolset-gated /
-disabled ones) is required by several contract tests. FastMCP's public
-``mcp.list_tools()`` filters out disabled tools; the public
-``mcp.local_provider.list_tools()`` returns the full set (filtering happens at
-the server level, not the provider level — see FastMCP 4.0 ``LocalProvider``).
+``list_all_tools`` is the transform-aware replacement for ``server._list_tools()``:
+it applies the server-level ``ToolTransform`` (so tools carry their public
+``godot_`` names) but skips the enabled filter, yielding the *full* registered
+surface — including toolset-gated tools — for contract checks that must cover
+every tool, not just the default-exposed ones (issue #313/#324).
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from fastmcp import FastMCP
+from fastmcp.server.providers.base import Provider
+from fastmcp.tools.base import Tool
 
-if TYPE_CHECKING:
-    from fastmcp import FastMCP
+
+async def list_all_tools(server: FastMCP) -> list[Tool]:
+    """All registered tools with server-level transforms applied (no enabled filter)."""
+    return list(await Provider.list_tools(server))
 
 
-async def list_all_tools(mcp: FastMCP) -> list[Any]:
-    """Return every registered tool, including toolset-gated (disabled) ones.
-
-    Uses the public ``FastMCP.local_provider`` surface (FastMCP 4.0): the local
-    provider's ``list_tools()`` returns the unfiltered set; the server-level
-    ``FastMCP.list_tools()`` is what applies the enabled/disabled filter.
-    """
-    return list(await mcp.local_provider.list_tools())
+__all__ = ["list_all_tools"]

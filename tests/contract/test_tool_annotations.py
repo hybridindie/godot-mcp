@@ -30,7 +30,8 @@ def _server() -> FastMCP:
 
 async def test_every_classified_tool_carries_annotations() -> None:
     server = _server()
-    # list_all_tools returns ALL registered tools, including toolset-gated ones.
+    # list_all_tools returns ALL registered tools (with server transforms applied),
+    # including toolset-gated ones the public list_tools() filters out.
     tools = await list_all_tools(server)
     assert tools, "expected a non-empty tool surface"
 
