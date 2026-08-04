@@ -15,6 +15,7 @@ from fastmcp import Client, FastMCP
 from fastmcp.exceptions import ToolError
 
 from mcp_server.server import create_server
+from tests.helpers import list_all_tools
 
 # Params that must be bounded wherever they appear (a lower bound at minimum).
 BOUNDED_PARAMS = {
@@ -52,7 +53,7 @@ def test_targeted_numeric_params_declare_bounds() -> None:
     server = create_server()
     import asyncio
 
-    tools = asyncio.run(server._list_tools())
+    tools = asyncio.run(list_all_tools(server))
     missing_min: list[str] = []
     missing_max: list[str] = []
     checked = 0

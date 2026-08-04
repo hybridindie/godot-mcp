@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from fastmcp.exceptions import ToolError
 
@@ -25,6 +27,13 @@ from tests.fakes import FakeAddonConnection, Responder, connector_for
 
 # asyncio_mode=auto handles the async tests; no module-wide mark (it would warn on
 # the synchronous tests below).
+
+
+async def _collect(agen: Any) -> list[Any]:
+    out: list[Any] = []
+    async for item in agen:
+        out.append(item)
+    return out
 
 
 def test_safety_meta_constants() -> None:
@@ -55,6 +64,8 @@ def test_annotations_for_safety_class_mapping() -> None:
 
 
 def test_apply_safety_annotations_respects_explicit_override() -> None:
+    import asyncio
+
     from fastmcp import FastMCP
     from mcp.types import ToolAnnotations
 
@@ -74,10 +85,10 @@ def test_apply_safety_annotations_respects_explicit_override() -> None:
 
     apply_safety_annotations(mcp)
 
-    # Read back via the component registry the production code uses.
+    # Read back via the public provider surface the production code uses.
     from mcp_server.safety import _iter_registered_tools
 
-    by_name = {t.name: t for t in _iter_registered_tools(mcp)}
+    by_name = {t.name: t for t in asyncio.run(_collect(_iter_registered_tools(mcp)))}
     assert by_name["derived"].annotations is not None
     assert by_name["derived"].annotations.read_only_hint is True
     # An explicit annotation set at registration is preserved, not overwritten.

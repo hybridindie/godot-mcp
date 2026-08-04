@@ -15,7 +15,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import Awaitable, Callable, Iterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
 from functools import wraps
@@ -86,34 +86,23 @@ def annotations_for_safety_class(safety_class: str) -> ToolAnnotations | None:
     return ToolAnnotations(read_only_hint=False, destructive_hint=False)
 
 
-def _iter_registered_tools(mcp: FastMCP) -> Iterator[Any]:
+async def _iter_registered_tools(mcp: FastMCP) -> AsyncIterator[Any]:
     """Yield every registered tool object, including toolset-gated (disabled) ones.
 
-    FastMCP's public ``list_tools()`` filters out disabled tools, but annotations
-    must be applied to *all* tools so they are already correct the moment a gated
-    toolset is enabled. We read the providers' component registry directly; the
-    access is guarded so a future FastMCP internals change degrades to a no-op
-    rather than breaking server startup.
+    FastMCP's server-level ``list_tools()`` filters out disabled tools, but
+    annotations must be applied to *all* tools so they are already correct the
+    moment a gated toolset is enabled. FastMCP 4.0 exposes the local provider
+    as the public ``mcp.local_provider`` attribute, and its ``list_tools()``
+    returns the unfiltered set (filtering happens at the server level, not the
+    provider level — see ``LocalProvider.list_tools``).
     """
-    try:
-        from fastmcp.tools import Tool
-    except ImportError:
-        logger.warning("fastmcp.tools.Tool not importable; skipping safety annotations")
-        return
-
-    for provider in getattr(mcp, "providers", []):
-        for component in getattr(provider, "_components", {}).values():
-            if isinstance(component, Tool):
-                yield component
+    for tool in await mcp.local_provider.list_tools():
+        yield tool
 
 
-def apply_safety_annotations(mcp: FastMCP) -> None:
-    """Set standard MCP ``annotations`` on every tool from its ``safety_class``.
-
-    Call once after all tools are registered. An annotation set explicitly at
-    registration is preserved (treated as an intentional override).
-    """
-    for tool in _iter_registered_tools(mcp):
+async def _apply_safety_annotations_async(mcp: FastMCP) -> None:
+    """Async implementation; ``apply_safety_annotations`` runs this on a loop."""
+    async for tool in _iter_registered_tools(mcp):
         if tool.annotations is not None:
             continue
         safety_class = (tool.meta or {}).get("safety_class")
@@ -122,6 +111,40 @@ def apply_safety_annotations(mcp: FastMCP) -> None:
         annotations = annotations_for_safety_class(safety_class)
         if annotations is not None:
             tool.annotations = annotations
+
+
+def apply_safety_annotations(mcp: FastMCP) -> None:
+    """Set standard MCP ``annotations`` on every tool from its ``safety_class``.
+
+    Call once after all tools are registered. An annotation set explicitly at
+    registration is preserved (treated as an intentional override).
+
+    Enumerates tools via the public async ``mcp.local_provider.list_tools()``
+    (FastMCP 4.0). Run on a worker thread with its own event loop so this works
+    whether ``create_server`` is called from sync code or from inside an async
+    test's running loop.
+    """
+    import asyncio
+    import threading
+
+    done = threading.Event()
+    result: list[BaseException | None] = [None]
+
+    def _runner() -> None:
+        loop = asyncio.new_event_loop()
+        try:
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(_apply_safety_annotations_async(mcp))
+        except BaseException as exc:  # noqa: BLE001 - re-raised on caller thread
+            result[0] = exc
+        finally:
+            loop.close()
+            done.set()
+
+    threading.Thread(target=_runner, daemon=True).start()
+    done.wait()
+    if result[0] is not None:
+        raise result[0]
 
 
 class PreconditionError(Exception):
@@ -216,9 +239,7 @@ def parse_approval_response(payload: Any) -> ApprovalResponse:
         return ApprovalResponse(approved=False, reason="malformed approval response")
 
 
-async def post_approval(
-    url: str, request: ApprovalRequest, timeout: float
-) -> ApprovalResponse:
+async def post_approval(url: str, request: ApprovalRequest, timeout: float) -> ApprovalResponse:
     """Default poster: POST the request as JSON and parse the verdict.
 
     Only transport-level failures (timeout, connection) propagate — those are the
@@ -301,9 +322,7 @@ class ApprovalGate:
         if response.approved:
             logger.info("approval granted", extra={"action": action})
             return
-        logger.info(
-            "approval denied", extra={"action": action, "reason": response.reason}
-        )
+        logger.info("approval denied", extra={"action": action, "reason": response.reason})
         raise PreconditionError(
             response.reason or f"'{action}' was denied by the human approver.",
             required="human_approval",
