@@ -78,12 +78,12 @@ def annotations_for_safety_class(safety_class: str) -> ToolAnnotations | None:
         return None
     if cls is SafetyClass.READ_ONLY:
         # Reads never mutate and are repeatable with no additional effect.
-        return ToolAnnotations(readOnlyHint=True, idempotentHint=True)
+        return ToolAnnotations(read_only_hint=True, idempotent_hint=True)
     if cls is SafetyClass.DESTRUCTIVE:
-        return ToolAnnotations(readOnlyHint=False, destructiveHint=True)
+        return ToolAnnotations(read_only_hint=False, destructive_hint=True)
     # mutating (reversible via UndoRedo) and runtime (controls execution):
     # state-changing but not destructive.
-    return ToolAnnotations(readOnlyHint=False, destructiveHint=False)
+    return ToolAnnotations(read_only_hint=False, destructive_hint=False)
 
 
 def _iter_registered_tools(mcp: FastMCP) -> Iterator[Any]:

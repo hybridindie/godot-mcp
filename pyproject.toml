@@ -6,9 +6,11 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
 dependencies = [
-    # The MCP framework (PrefectHQ/fastmcp). Capped below 4.0: 2.x→3.x had breaking
-    # API changes and the server is validated on the 3.4 line (issue #228).
-    "fastmcp>=3.4,<4",
+    # The MCP framework (PrefectHQ/fastmcp). Pinned to the 4.0 beta (issue #311):
+    # 2.x→3.x had breaking API changes (#228); the v3→v4 transition is lower-risk
+    # for this server (stateless, no ctx.elicit, no session state, canonical imports
+    # already in place). Beta pin per the upgrade guide; follow stable 4.x when it ships.
+    "fastmcp==4.0.0b1",
     # WebSocket transport for the addon/server bridge (issue #3).
     "websockets>=16.0",
     # Domain models and typed tool I/O (issue #7).
@@ -41,6 +43,13 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+# FastMCP 4.0 beta pinning: fastmcp is a thin wrapper over fastmcp-slim at the
+# same version. uv won't infer the slim prerelease from the wrapper prerelease,
+# so constrain it alongside (per the upgrade guide). The rest of the graph
+# stays on stable releases. Add fastmcp-tasks==4.0.0b1 here if #315 adopts tasks.
+[tool.uv]
+constraint-dependencies = ["fastmcp-slim==4.0.0b1"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["mcp_server"]

@@ -39,16 +39,16 @@ def test_annotations_for_safety_class_mapping() -> None:
     from mcp_server.safety import annotations_for_safety_class
 
     ro = annotations_for_safety_class("read_only")
-    assert ro is not None and ro.readOnlyHint is True and ro.idempotentHint is True
+    assert ro is not None and ro.read_only_hint is True and ro.idempotent_hint is True
 
     mut = annotations_for_safety_class("mutating")
-    assert mut is not None and mut.readOnlyHint is False and mut.destructiveHint is False
+    assert mut is not None and mut.read_only_hint is False and mut.destructive_hint is False
 
     dest = annotations_for_safety_class("destructive")
-    assert dest is not None and dest.readOnlyHint is False and dest.destructiveHint is True
+    assert dest is not None and dest.read_only_hint is False and dest.destructive_hint is True
 
     run = annotations_for_safety_class("runtime")
-    assert run is not None and run.readOnlyHint is False and run.destructiveHint is False
+    assert run is not None and run.read_only_hint is False and run.destructive_hint is False
 
     assert annotations_for_safety_class("unclassified") is None
     assert annotations_for_safety_class("bogus") is None
@@ -67,7 +67,7 @@ def test_apply_safety_annotations_respects_explicit_override() -> None:
         """doc"""
         return "x"
 
-    @mcp.tool(meta=READ_ONLY, annotations=ToolAnnotations(title="Custom", readOnlyHint=False))
+    @mcp.tool(meta=READ_ONLY, annotations=ToolAnnotations(title="Custom", read_only_hint=False))
     async def overridden() -> str:
         """doc"""
         return "x"
@@ -79,10 +79,10 @@ def test_apply_safety_annotations_respects_explicit_override() -> None:
 
     by_name = {t.name: t for t in _iter_registered_tools(mcp)}
     assert by_name["derived"].annotations is not None
-    assert by_name["derived"].annotations.readOnlyHint is True
+    assert by_name["derived"].annotations.read_only_hint is True
     # An explicit annotation set at registration is preserved, not overwritten.
     assert by_name["overridden"].annotations.title == "Custom"
-    assert by_name["overridden"].annotations.readOnlyHint is False
+    assert by_name["overridden"].annotations.read_only_hint is False
 
 
 async def _connected(responder: Responder) -> Bridge:
