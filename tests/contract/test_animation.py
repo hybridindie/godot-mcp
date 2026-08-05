@@ -53,6 +53,11 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
         case "cmd_get_animation":
             if p["animation_name"] == "missing":
                 return ResponseEnvelope.failure(cmd.id, "RESOURCE_NOT_FOUND", "No animation.")
+            if p["animation_name"] == "run":
+                return ResponseEnvelope.success(
+                    cmd.id,
+                    {"name": "run", "length": 1.0, "loop_mode": "linear", "tracks": []},
+                )
             return ResponseEnvelope.success(
                 cmd.id,
                 {
@@ -218,3 +223,23 @@ async def test_animation_reads_are_read_only() -> None:
         tools = {t.name: t for t in await client.list_tools()}
     assert tools["godot_animation_list_animations"].meta["safety_class"] == "read_only"
     assert tools["godot_animation_get"].meta["safety_class"] == "read_only"
+
+
+async def test_get_animation_includes_loop_mode() -> None:
+    server, _ = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "animation"})
+        result = await client.call_tool(
+            "godot_animation_get", {"node_path": "AnimationPlayer", "animation_name": "run"}
+        )
+    assert result.structured_content["loop_mode"] == "linear"
+
+
+async def test_get_animation_loop_mode_defaults_to_none() -> None:
+    server, _ = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "animation"})
+        result = await client.call_tool(
+            "godot_animation_get", {"node_path": "AnimationPlayer", "animation_name": "walk"}
+        )
+    assert result.structured_content["loop_mode"] == "none"

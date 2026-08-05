@@ -22,6 +22,12 @@ const _TYPE_NAMES := {
 	Animation.TYPE_ANIMATION: "animation",
 }
 
+const _LOOP_MODE_NAMES := {
+	Animation.LOOP_NONE: "none",
+	Animation.LOOP_LINEAR: "linear",
+	Animation.LOOP_PINGPONG: "pingpong",
+}
+
 
 ## All animation names on a player (across its libraries), as plain strings.
 static func names(player: AnimationPlayer) -> Array:
@@ -46,4 +52,9 @@ static func serialize(anim_name: String, animation: Animation) -> Dictionary:
 			"path": String(animation.track_get_path(i)),
 			"keys": keys,
 		})
-	return {"name": anim_name, "length": animation.length, "tracks": tracks}
+	return {
+		"name": anim_name,
+		"length": animation.length,
+		"loop_mode": _LOOP_MODE_NAMES.get(animation.loop_mode, "none"),
+		"tracks": tracks,
+	}

@@ -15,8 +15,9 @@ func _initialize() -> void:
 	var lib := AnimationLibrary.new()
 	player.add_animation_library("", lib)
 
-	var anim := Animation.new()
+	var 	anim := Animation.new()
 	anim.length = 2.0
+	anim.loop_mode = Animation.LOOP_LINEAR
 	var ti := anim.add_track(Animation.TYPE_VALUE)
 	anim.track_set_path(ti, NodePath("Sprite2D:position"))
 	anim.track_insert_key(ti, 0.5, Vector2(10, 20))
@@ -32,6 +33,7 @@ func _initialize() -> void:
 	var detail: Dictionary = AnimRead.serialize("walk", anim)
 	_eq(failures, "name", detail.get("name"), "walk")
 	_eq(failures, "length", detail.get("length"), 2.0)
+	_eq(failures, "loop_mode", detail.get("loop_mode"), "linear")
 	var tracks: Array = detail.get("tracks")
 	if tracks.size() != 1:
 		failures.append("track count: %s" % str(tracks))

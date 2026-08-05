@@ -39,6 +39,7 @@ class AnimationDetail(BaseModel):
 
     name: str
     length: float = 0.0
+    loop_mode: str = "none"
     tracks: list[AnimationTrack] = Field(default_factory=list)
 
 
