@@ -720,7 +720,7 @@ We follow an issue-driven workflow. Read [`CLAUDE.md`](CLAUDE.md) and the path-s
 ## Resources
 
 - [Model Context Protocol spec](https://modelcontextprotocol.io)
-- [FastMCP docs](https://github.com/PrefectHQ/fastmcp)
+- [FastMCP docs](https://gofastmcp.com)
 - [Godot 4.4 docs](https://docs.godotengine.org/en/4.4/)
 - [Project issues](https://github.com/hybridindie/godot-mcp/issues)
 - [`docs/tool-contracts.md`](docs/tool-contracts.md) — the authoritative per-tool reference

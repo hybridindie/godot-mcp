@@ -21,6 +21,10 @@ FastMCP runs an async server. The WebSocket bridge is the one place latency and 
 - Injectable clock for deterministic tests of timeout/backoff.
 - Document concurrency assumptions when a handler is only safe under single-writer (single editor) semantics.
 
+## Sessionless-era compatibility (FastMCP 4.0)
+
+The server is stateless by design — no `ctx.elicit()`, `ctx.set_state`, or `Middleware.on_initialize` — so it works on the modern sessionless `2026-07-28` protocol (which `fastmcp.Client` negotiates by default in 4.0) without porting. Do not add features that depend on per-session state or server-initiated requests; if a future tool needs a back-channel to the client, use the guard pattern (return an `InputRequiredResult` describing what the tool needs, and the client calls again with the answer) rather than `ctx.elicit()`, which raises on the modern protocol. `ctx.info` / `ctx.report_progress` are safe — they ride the response stream as notifications, not requests — but guard them with `safe_info` / `safe_progress` (`mcp_server/tools/_progress.py`) so they no-op in the detached task session (`task=True`), where `ctx.session` is `None`.
+
 ## Anti-patterns
 
 - A synchronous WebSocket client inside async code.
