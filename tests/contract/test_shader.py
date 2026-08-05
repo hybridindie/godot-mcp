@@ -42,6 +42,21 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
             return ResponseEnvelope.success(
                 cmd.id, {"node_path": p["node_path"], "name": p["name"]}
             )
+        case "cmd_get_shader_param":
+            if p.get("name") == "missing":
+                return ResponseEnvelope.success(
+                    cmd.id,
+                    {
+                        "node_path": p["node_path"],
+                        "name": p["name"],
+                        "value": None,
+                        "exists": False,
+                    },
+                )
+            return ResponseEnvelope.success(
+                cmd.id,
+                {"node_path": p["node_path"], "name": p["name"], "value": 2.0, "exists": True},
+            )
     return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
 
 
@@ -111,3 +126,34 @@ async def test_dry_run_sends_no_mutation() -> None:
         )
     assert result.structured_content["dry_run"] is True
     assert "cmd_create_shader" not in _commands(conn)
+
+
+async def test_get_shader_param_returns_value() -> None:
+    server, _ = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "shader"})
+        result = await client.call_tool(
+            "godot_shader_get_param", {"node_path": "Sprite2D", "name": "strength"}
+        )
+    assert result.structured_content["value"] == 2.0
+    assert result.structured_content["exists"] is True
+
+
+async def test_get_shader_param_nonexistent_returns_exists_false() -> None:
+    server, _ = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "shader"})
+        result = await client.call_tool(
+            "godot_shader_get_param", {"node_path": "Sprite2D", "name": "missing"}
+        )
+    assert result.structured_content["exists"] is False
+
+
+async def test_get_shader_param_is_read_only() -> None:
+    server, _ = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "shader"})
+        grouped = await client.call_tool(
+            "godot_list_tools_by_safety_class", {}
+        )
+    assert "godot_shader_get_param" in grouped.structured_content["read_only"]

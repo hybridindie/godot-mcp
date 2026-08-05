@@ -29,6 +29,7 @@ func _init(router: MCPCommandRouter) -> void:
 func register(handlers: Dictionary) -> void:
 	handlers["cmd_assign_shader_material"] = _cmd_assign_shader_material
 	handlers["cmd_create_shader"] = _cmd_create_shader
+	handlers["cmd_get_shader_param"] = _cmd_get_shader_param
 	handlers["cmd_read_shader"] = _cmd_read_shader
 	handlers["cmd_set_shader_param"] = _cmd_set_shader_param
 
@@ -123,6 +124,34 @@ func _cmd_set_shader_param(params: Dictionary) -> Dictionary:
 	ur.add_undo_method(material, "set_shader_parameter", name, prev)
 	ur.commit_action()
 	return _router._ok({"node_path": str(params.get("node_path")), "name": name})
+
+
+func _cmd_get_shader_param(params: Dictionary) -> Dictionary:
+	var found := _router._resolve(params.get("node_path", ""))
+	if not found["ok"]:
+		return found
+	var node: Node = found["node"]
+	var prop := _material_property_for(node)
+	if prop.is_empty():
+		return _router._fail("VALIDATION_ERROR", "Node has no material slot (not a CanvasItem/GeometryInstance3D).")
+	var material: Variant = node.get(prop)
+	if not (material is ShaderMaterial):
+		return _router._fail("VALIDATION_ERROR", "Node has no ShaderMaterial assigned; assign one first.", "shader_material")
+	var name := str(params.get("name", ""))
+	if name.is_empty():
+		return _router._fail("VALIDATION_ERROR", "'name' must be a non-empty string.")
+	var exists := false
+	for param in material.get_shader_parameter_list():
+		if param.name == name:
+			exists = true
+			break
+	var value: Variant = material.get_shader_parameter(name)
+	return _router._ok({
+		"node_path": str(params.get("node_path")),
+		"name": name,
+		"value": Coerce.to_json(value),
+		"exists": exists,
+	})
 
 
 func _material_property_for(node: Node) -> String:

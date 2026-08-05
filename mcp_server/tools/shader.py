@@ -19,6 +19,7 @@ from mcp_server.defaults import (
 )
 from mcp_server.models.shader import (
     ShaderMaterialResult,
+    ShaderParamReadResult,
     ShaderParamResult,
     ShaderReadResult,
     ShaderResult,
@@ -91,6 +92,16 @@ def register_shader(mcp: FastMCP, bridge: Bridge) -> None:
         return await run_or_preview(
             dry_run, ShaderParamResult, preview, bridge, "cmd_set_shader_param", params
         )
+
+    @mcp.tool(meta=READ_ONLY, tags=SHADER)
+    async def get_shader_param(node_path: str, name: str) -> ShaderParamReadResult:
+        """Read the live value of shader uniform ``name`` on the node's
+        ShaderMaterial — the read-only inverse of ``set_shader_param``. Returns
+        ``exists=False`` when the parameter is not declared on the material.
+        """
+        await require_node_exists(bridge, node_path)
+        params = {"node_path": node_path, "name": name}
+        return ShaderParamReadResult(**await route(bridge, "cmd_get_shader_param", params))
 
     @mcp.tool(meta=READ_ONLY, tags=SHADER)
     async def read_shader(shader_path: str) -> ShaderReadResult:

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel
 
 
@@ -27,3 +29,10 @@ class ShaderParamResult(BaseModel):
     node_path: str
     name: str
     dry_run: bool = False
+
+
+class ShaderParamReadResult(BaseModel):
+    node_path: str
+    name: str
+    value: Any = None
+    exists: bool = False
