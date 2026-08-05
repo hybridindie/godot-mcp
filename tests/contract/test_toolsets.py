@@ -28,7 +28,7 @@ async def _tool_names(client: Client[Any]) -> set[str]:
 
 
 async def test_default_surface_is_core_plus_inspection() -> None:
-    async with Client(_server()) as client:
+    async with Client(_server(), mode="legacy") as client:
         names = await _tool_names(client)
     # core + inspection exposed by default...
     assert {
@@ -43,7 +43,7 @@ async def test_default_surface_is_core_plus_inspection() -> None:
 
 
 async def test_enable_toolset_exposes_scene_edit() -> None:
-    async with Client(_server()) as client:
+    async with Client(_server(), mode="legacy") as client:
         before = await _tool_names(client)
         assert "godot_scene_edit_create_node" not in before
         result = await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
@@ -53,7 +53,7 @@ async def test_enable_toolset_exposes_scene_edit() -> None:
 
 
 async def test_disable_toolset_hides_inspection_again() -> None:
-    async with Client(_server()) as client:
+    async with Client(_server(), mode="legacy") as client:
         assert "godot_inspection_get_scene_tree" in await _tool_names(client)
         await client.call_tool("godot_disable_toolset", {"category": "inspection"})
         names = await _tool_names(client)
@@ -121,7 +121,7 @@ async def test_enable_gated_toolset_on_too_old_godot_fails() -> None:
 
 async def test_enable_unrestricted_toolset_on_old_godot_succeeds() -> None:
     """scripts has no version gate and should enable on any supported version."""
-    async with Client(_server(godot_version="4.3.2-stable")) as client:
+    async with Client(_server(godot_version="4.3.2-stable"), mode="legacy") as client:
         result = await client.call_tool("godot_enable_toolset", {"category": "scripts"})
     assert result.structured_content["enabled"] is True
 
@@ -146,6 +146,6 @@ async def test_enable_gated_toolset_without_bridge_fails() -> None:
 
 async def test_enable_gated_toolset_on_exact_minimum_succeeds() -> None:
     """A 4.4.0 editor satisfies the scene_edit 4.4 requirement."""
-    async with Client(_server(godot_version="4.4.0-stable")) as client:
+    async with Client(_server(godot_version="4.4.0-stable"), mode="legacy") as client:
         result = await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
     assert result.structured_content["enabled"] is True

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from fastmcp import Client, FastMCP
 
@@ -19,7 +21,7 @@ def _build() -> tuple[FastMCP, FakeAddonConnection]:
     return create_server(ServerConfig(), bridge=bridge), conn
 
 
-def _tool_names(client: Client) -> set[str]:
+def _tool_names(client: Client[Any]) -> set[str]:
     """Get tool names the client can see."""
     import asyncio
 
@@ -74,8 +76,12 @@ async def test_list_toolsets_reflects_session_state() -> None:
         await a.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         result_a = await a.call_tool("godot_list_toolsets", {})
         result_b = await b.call_tool("godot_list_toolsets", {})
-        a_scene = next(ts for ts in result_a.structured_content["result"] if ts["name"] == "scene_edit")
-        b_scene = next(ts for ts in result_b.structured_content["result"] if ts["name"] == "scene_edit")
+        a_scene = next(
+            ts for ts in result_a.structured_content["result"] if ts["name"] == "scene_edit"
+        )
+        b_scene = next(
+            ts for ts in result_b.structured_content["result"] if ts["name"] == "scene_edit"
+        )
         assert a_scene["enabled"] is True
         assert b_scene["enabled"] is False
 
@@ -101,4 +107,5 @@ async def test_call_tool_blocked_when_not_enabled_in_session() -> None:
             raise_on_error=False,
         )
         assert result.is_error
-        assert "not enabled" in str(result.content).lower() or "toolset" in str(result.content).lower()
+        msg = str(result.content).lower()
+        assert "not enabled" in msg or "toolset" in msg

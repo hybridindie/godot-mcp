@@ -63,6 +63,7 @@ from mcp_server.tools.theme_ui import register_theme_ui
 from mcp_server.tools.tilemap import register_tilemap
 from mcp_server.tools.undo import register_undo
 from mcp_server.tools.visual_shader import register_visual_shader
+from mcp_server.toolset_middleware import ToolsetMiddleware
 from mcp_server.toolset_protocol import SERVER_INSTRUCTIONS
 from mcp_server.toolsets import ToolsetManager, register_toolset_tools
 from mcp_server.transforms import godot_tool_transform
@@ -178,9 +179,13 @@ def create_server(
     register_project_scaffold(mcp, bridge)
     register_safety_tools(mcp)
 
-    # Gate the tool surface by category, then apply the default exposure (core +
-    # inspection on; scene_edit and future categories off until enabled).
-    manager = ToolsetManager(mcp, bridge=bridge)
+    # Per-session toolset gating (issue #227): each client session has its own
+    # enabled-set so one client enabling a toolset doesn't expose it to another.
+    toolset_mw = ToolsetMiddleware()
+    mcp.add_middleware(toolset_mw)
+
+    # Gate the tool surface by category (per-session via the middleware above).
+    manager = ToolsetManager(mcp, bridge=bridge, middleware=toolset_mw)
     register_toolset_tools(mcp, manager)
     manager.apply_defaults()
 

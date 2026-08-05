@@ -14,8 +14,9 @@ added in later releases (e.g. ``input_map`` needs Godot 4.4+).
 from __future__ import annotations
 
 import re
+from typing import Any
 
-from fastmcp import FastMCP
+from fastmcp import Context, FastMCP
 from fastmcp.exceptions import ToolError
 from pydantic import BaseModel
 
@@ -52,6 +53,7 @@ from mcp_server.categories import (
     VISUAL_SHADER_TAG,
 )
 from mcp_server.safety import READ_ONLY
+from mcp_server.toolset_middleware import ToolsetMiddleware
 
 # Toggleable toolsets (category → agent-facing description). `core` is not here.
 TOOLSETS: dict[str, str] = {
@@ -146,11 +148,11 @@ class ToolsetInfo(BaseModel):
 
 
 class ToolsetManager:
-    """Tracks which toolsets are exposed and drives FastMCP's tag enable/disable.
+    """Tracks which toolsets are exposed per session (issue #227).
 
-    One per server (long-lived, not per-request). For a single stdio client this is
-    simple session state; under shared HTTP it would be process-wide (acceptable in
-    v1 — documented).
+    The enabled set is per-session via :class:`ToolsetMiddleware`; this class
+    handles version checks and toolset metadata. The ``enable``/``disable``
+    methods read/write the session's set through the middleware.
     """
 
     def __init__(
@@ -158,50 +160,75 @@ class ToolsetManager:
         mcp: FastMCP,
         bridge: Bridge | None = None,
         default_enabled: frozenset[str] = DEFAULT_ENABLED,
+        middleware: ToolsetMiddleware | None = None,
     ) -> None:
         self._mcp = mcp
         self._bridge = bridge
-        self._enabled: set[str] = {CORE_TAG} | set(default_enabled)
+        self._default_enabled: set[str] = {CORE_TAG} | set(default_enabled)
         self._godot_version: tuple[int, int] | None = None
+        self._middleware = middleware
 
     def apply_defaults(self) -> None:
-        """Set the initial exposure: enable defaults, gate the rest off.
+        """No-op — per-session gating is handled by ToolsetMiddleware.
 
-        Call once after all tools are registered.
+        Kept for backwards compatibility with server.py's call order.
         """
-        for category in TOOLSETS:
-            if category in self._enabled:
-                self._mcp.enable(tags={category})
-            else:
-                self._mcp.disable(tags={category})
 
-    async def enable(self, category: str) -> ToolsetInfo:
+    async def _ctx(self) -> Any:
+
+        # The Context is available as a FastMCP dependency; tools that call
+        # enable/disable have ``ctx: Context`` injected.
+
+        return None
+
+    async def enable(self, category: str, *, ctx: Any = None) -> ToolsetInfo:
         self._check_toggleable(category)
         await self._require_godot_version(category)
-        self._enabled.add(category)
-        self._mcp.enable(tags={category})
-        return self._info(category)
+        if self._middleware is not None and ctx is not None:
+            enabled = self._middleware.session_enabled(ctx)
+            if enabled is not None:
+                enabled.add(category)
+                self._middleware.set_session_enabled(ctx, enabled)
+        return self._info(category, ctx)
 
-    async def disable(self, category: str) -> ToolsetInfo:
+    async def disable(self, category: str, *, ctx: Any = None) -> ToolsetInfo:
         self._check_toggleable(category)
-        self._enabled.discard(category)
-        self._mcp.disable(tags={category})
-        return self._info(category)
+        if self._middleware is not None and ctx is not None:
+            enabled = self._middleware.session_enabled(ctx)
+            if enabled is not None:
+                enabled.discard(category)
+                self._middleware.set_session_enabled(ctx, enabled)
+        return self._info(category, ctx)
 
-    def status(self) -> list[ToolsetInfo]:
+    def status(self, *, ctx: Any = None) -> list[ToolsetInfo]:
+        enabled = (
+            self._middleware.session_enabled(ctx)
+            if self._middleware is not None and ctx is not None
+            else None
+        )
+        if enabled is None:
+            enabled = set(self._default_enabled)
         core = ToolsetInfo(
             name=CORE_TAG,
             enabled=True,
             description="Always-on diagnostics and toolset management.",
             min_godot=None,
         )
-        return [core, *(self._info(c) for c in TOOLSETS)]
+        return [core, *(self._info(c, ctx, enabled) for c in TOOLSETS)]
 
-    def _info(self, category: str) -> ToolsetInfo:
+    def _info(self, category: str, ctx: Any = None, enabled: set[str] | None = None) -> ToolsetInfo:
+        if enabled is None:
+            enabled = (
+                self._middleware.session_enabled(ctx)
+                if self._middleware is not None and ctx is not None
+                else None
+            )
+            if enabled is None:
+                enabled = set(self._default_enabled)
         req = TOOLSET_MIN_GODOT.get(category)
         return ToolsetInfo(
             name=category,
-            enabled=category in self._enabled,
+            enabled=category in enabled,
             description=TOOLSETS[category],
             min_godot=f"{req[0]}.{req[1]}" if req else None,
         )
@@ -282,20 +309,20 @@ def register_toolset_tools(mcp: FastMCP, manager: ToolsetManager) -> None:
     """Register the always-on toolset introspection/management tools."""
 
     @mcp.tool(meta=READ_ONLY, tags={CORE_TAG})
-    async def list_toolsets() -> list[ToolsetInfo]:
+    async def list_toolsets(*, ctx: Context) -> list[ToolsetInfo]:
         """List the available toolsets (tool categories) and whether each is currently
         enabled. Enable a toolset with enable_toolset before using its tools.
         """
-        return manager.status()
+        return manager.status(ctx=ctx)
 
     @mcp.tool(meta=READ_ONLY, tags={CORE_TAG})
-    async def enable_toolset(category: str) -> ToolsetInfo:
+    async def enable_toolset(category: str, *, ctx: Context) -> ToolsetInfo:
         """Expose a toolset's tools (e.g. "scene_edit") for this session. Returns the
         toolset's new state. Does not change anything in the Godot project.
         """
-        return await manager.enable(category)
+        return await manager.enable(category, ctx=ctx)
 
     @mcp.tool(meta=READ_ONLY, tags={CORE_TAG})
-    async def disable_toolset(category: str) -> ToolsetInfo:
+    async def disable_toolset(category: str, *, ctx: Context) -> ToolsetInfo:
         """Hide a toolset's tools again to keep the active tool surface small."""
-        return await manager.disable(category)
+        return await manager.disable(category, ctx=ctx)
