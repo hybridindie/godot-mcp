@@ -98,7 +98,7 @@ def test_parse_check_errors_ignores_non_parse_script_errors() -> None:
 
 async def test_script_tools_gated_in_scripts_toolset() -> None:
     server, _ = _build()
-    async with Client(server) as client:
+    async with Client(server, mode="legacy") as client:
         assert "godot_scripts_read" not in {t.name for t in await client.list_tools()}
         await client.call_tool("godot_enable_toolset", {"category": "scripts"})
         names = {t.name for t in await client.list_tools()}

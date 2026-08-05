@@ -13,6 +13,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from fastmcp import Client
 
 from mcp_server.config import ServerConfig
 from mcp_server.server import create_server
@@ -61,7 +62,8 @@ async def test_list_all_tools_includes_disabled() -> None:
     """The public helper returns the full set, not just the enabled subset."""
     mcp = create_server(ServerConfig())
     all_tools = await list_all_tools(mcp)
-    enabled = await mcp.list_tools()
+    async with Client(mcp, mode="legacy") as client:
+        enabled = await client.list_tools()
     enabled_names = {t.name for t in enabled}
     all_names = {t.name for t in all_tools}
     assert enabled_names <= all_names

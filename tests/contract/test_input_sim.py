@@ -55,7 +55,7 @@ def _build() -> tuple[FastMCP, FakeAddonConnection]:
 
 async def test_gated_in_input_toolset_with_safety_classes() -> None:
     server, _ = _build()
-    async with Client(server) as client:
+    async with Client(server, mode="legacy") as client:
         assert "godot_input_simulate_key" not in {t.name for t in await client.list_tools()}
         await client.call_tool("godot_enable_toolset", {"category": "input"})
         tools = {t.name: t for t in await client.list_tools()}

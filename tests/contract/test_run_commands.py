@@ -60,7 +60,7 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 
 async def test_run_commands_is_gated_mutating() -> None:
     server, _ = _build()
-    async with Client(server) as client:
+    async with Client(server, mode="legacy") as client:
         before = {t.name for t in await client.list_tools()}
         assert "godot_composite_run_commands" not in before, (
             "run_commands must be gated off by default"

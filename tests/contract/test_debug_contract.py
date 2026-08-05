@@ -6,6 +6,7 @@ import asyncio
 from typing import Any
 
 import pytest
+from fastmcp import Client
 
 from mcp_server.server import create_server
 
@@ -27,16 +28,27 @@ async def _render_prompt(server: Any, name: str, arguments: dict[str, str] | Non
     return await server.render_prompt(name, arguments=arguments)
 
 
+async def _call_tool_via_client(
+    server: Any, name: str, arguments: dict[str, str] | None = None
+) -> str:
+    async with Client(server, mode="legacy") as client:
+        result = await client.call_tool(name, arguments=arguments or {})
+    parts: list[str] = []
+    for item in result.content:
+        parts.append(str(getattr(item, "text", "")))
+    return " ".join(parts)
+
+
 def test_debug_workflow_tool_exists(server: Any) -> None:
     """debug_workflow is registered and callable."""
-    result_text = asyncio.run(_call_tool(server, "godot_debug_workflow"))
+    result_text = asyncio.run(_call_tool_via_client(server, "godot_debug_workflow"))
     assert "findings" in result_text
     assert "suggestions" in result_text
 
 
 def test_debug_workflow_reports_bridge_state(server: Any) -> None:
     """The debug report always includes bridge connectivity."""
-    result_text = asyncio.run(_call_tool(server, "godot_debug_workflow"))
+    result_text = asyncio.run(_call_tool_via_client(server, "godot_debug_workflow"))
     assert "bridge" in result_text
 
 

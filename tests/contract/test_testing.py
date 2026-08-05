@@ -61,7 +61,7 @@ def _solid(w: int, h: int, rgba: tuple[int, int, int, int]) -> str:
 
 async def test_gated_with_safety_classes() -> None:
     server, _ = _build()
-    async with Client(server) as client:
+    async with Client(server, mode="legacy") as client:
         assert "godot_testing_run_test_scenario" not in {t.name for t in await client.list_tools()}
         await client.call_tool("godot_enable_toolset", {"category": "testing"})
         tools = {t.name: t for t in await client.list_tools()}

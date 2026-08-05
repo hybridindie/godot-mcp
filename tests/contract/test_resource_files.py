@@ -61,7 +61,7 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 
 async def test_gated_in_resources_edit_toolset() -> None:
     server, _ = _build()
-    async with Client(server) as client:
+    async with Client(server, mode="legacy") as client:
         assert "godot_resources_edit_create_resource" not in {
             t.name for t in await client.list_tools()
         }

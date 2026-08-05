@@ -12,7 +12,6 @@ from fastmcp import Client, FastMCP
 from mcp_server import __version__
 from mcp_server.bridge import Bridge
 from mcp_server.config import ServerConfig
-from mcp_server.safety import grouped_by_safety_class
 from mcp_server.server import create_server
 from tests.fakes import FakeAddonConnection, connector_for, null_serve
 
@@ -59,5 +58,10 @@ async def test_health_check_reports_disconnected_when_editor_absent() -> None:
 async def test_list_tools_by_safety_class_groups_health_check() -> None:
     bridge = Bridge(ServerConfig().bridge, connector=connector_for(FakeAddonConnection()))
     server = _server_with_bridge(bridge)
-    grouped = await grouped_by_safety_class(server)
+    grouped: dict[str, list[str]] = {}
+    async with Client(server, mode="legacy") as client:
+        tools = await client.list_tools()
+    for tool in tools:
+        safety_class = (tool.meta or {}).get("safety_class", "unclassified")
+        grouped.setdefault(safety_class, []).append(tool.name)
     assert "godot_health_check" in grouped["read_only"]

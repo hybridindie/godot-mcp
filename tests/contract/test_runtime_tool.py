@@ -59,7 +59,7 @@ async def _enable_runtime(client: Client) -> None:  # type: ignore[type-arg]
 async def test_runtime_tool_is_gated_off_by_default() -> None:
     runner = FakeRunner(RunOutput(command=["fake"]))
     server, _ = _build(runner)
-    async with Client(server) as client:
+    async with Client(server, mode="legacy") as client:
         assert "godot_runtime_run_and_capture" not in {t.name for t in await client.list_tools()}
         await _enable_runtime(client)
         assert "godot_runtime_run_and_capture" in {t.name for t in await client.list_tools()}

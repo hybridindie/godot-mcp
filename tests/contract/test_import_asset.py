@@ -66,7 +66,7 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 
 async def test_gated_in_asset_import_toolset() -> None:
     server, _ = _build()
-    async with Client(server) as client:
+    async with Client(server, mode="legacy") as client:
         assert "godot_asset_import_asset" not in {t.name for t in await client.list_tools()}
         await client.call_tool("godot_enable_toolset", {"category": "asset_import"})
         names = {t.name for t in await client.list_tools()}

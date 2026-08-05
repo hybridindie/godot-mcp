@@ -67,7 +67,7 @@ def _build() -> tuple[FastMCP, FakeAddonConnection]:
 
 async def test_gated_read_only_in_runtime_toolset() -> None:
     server, _ = _build()
-    async with Client(server) as client:
+    async with Client(server, mode="legacy") as client:
         assert "godot_runtime_find_ui_elements" not in {t.name for t in await client.list_tools()}
         await client.call_tool("godot_enable_toolset", {"category": "runtime"})
         tools = {t.name: t for t in await client.list_tools()}

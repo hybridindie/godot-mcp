@@ -73,7 +73,7 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 
 async def test_gated_in_debugger_toolset() -> None:
     server, _ = _build()
-    async with Client(server) as client:
+    async with Client(server, mode="legacy") as client:
         assert "godot_debugger_get_stack_frames" not in {t.name for t in await client.list_tools()}
         assert "godot_debugger_evaluate_expression" not in {
             t.name for t in await client.list_tools()

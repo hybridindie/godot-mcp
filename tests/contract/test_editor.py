@@ -37,7 +37,7 @@ def _server() -> FastMCP:
 
 
 async def test_gated_in_editor_toolset() -> None:
-    async with Client(_server()) as client:
+    async with Client(_server(), mode="legacy") as client:
         assert "godot_editor_capture_screenshot" not in {t.name for t in await client.list_tools()}
         await client.call_tool("godot_enable_toolset", {"category": "editor"})
         tools = {t.name: t for t in await client.list_tools()}

@@ -43,7 +43,7 @@ def _build() -> tuple[FastMCP, FakeAddonConnection]:
 
 async def test_gated_in_debugger_toolset() -> None:
     server, _ = _build()
-    async with Client(server) as client:
+    async with Client(server, mode="legacy") as client:
         assert "godot_debugger_set_breakpoint" not in {t.name for t in await client.list_tools()}
         await client.call_tool("godot_enable_toolset", {"category": "debugger"})
         tools = {t.name: t for t in await client.list_tools()}

@@ -51,7 +51,7 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 
 async def test_gated_in_project_scaffold_toolset() -> None:
     server, _ = _build()
-    async with Client(server) as client:
+    async with Client(server, mode="legacy") as client:
         assert "godot_project_scaffold" not in {t.name for t in await client.list_tools()}
         await client.call_tool("godot_enable_toolset", {"category": "project_scaffold"})
         names = {t.name for t in await client.list_tools()}

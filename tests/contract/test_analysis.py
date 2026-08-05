@@ -51,7 +51,7 @@ def _server(project_dir: Path) -> FastMCP:
 
 async def test_gated_read_only_in_analysis_toolset(tmp_path: Path) -> None:
     _make_project(tmp_path)
-    async with Client(_server(tmp_path)) as client:
+    async with Client(_server(tmp_path), mode="legacy") as client:
         assert "godot_analysis_project_stats" not in {t.name for t in await client.list_tools()}
         await client.call_tool("godot_enable_toolset", {"category": "analysis"})
         tools = {t.name: t for t in await client.list_tools()}

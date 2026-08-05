@@ -75,7 +75,7 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 
 async def test_gated_in_audio_toolset_with_safety_classes() -> None:
     server, _ = _build()
-    async with Client(server) as client:
+    async with Client(server, mode="legacy") as client:
         assert "godot_audio_add_bus" not in {t.name for t in await client.list_tools()}
         await client.call_tool("godot_enable_toolset", {"category": "audio"})
         tools = {t.name: t for t in await client.list_tools()}

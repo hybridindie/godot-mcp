@@ -35,7 +35,7 @@ def _build() -> tuple[FastMCP, FakeAddonConnection]:
 
 async def test_gated_read_only_in_profiling_toolset() -> None:
     server, _ = _build()
-    async with Client(server) as client:
+    async with Client(server, mode="legacy") as client:
         assert "godot_profiling_get_editor_performance" not in {
             t.name for t in await client.list_tools()
         }

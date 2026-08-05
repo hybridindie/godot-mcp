@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 
 import pytest
-from fastmcp import FastMCP
+from fastmcp import Client, FastMCP
 
 from mcp_server.server import create_server
 
@@ -23,9 +23,10 @@ def server() -> FastMCP:
 
 async def _call_tool(server: FastMCP, name: str, arguments: dict[str, object] | None = None) -> str:
     """Async helper: call a tool and return its text content as a string."""
-    result = await server.call_tool(name, arguments=arguments or {})
+    async with Client(server, mode="legacy") as client:
+        result = await client.call_tool(name, arguments=arguments or {})
     # result.content is a list of TextContent; extract text from each.
-    parts = []
+    parts: list[str] = []
     for item in result.content:
         parts.append(str(getattr(item, "text", "")))
     return " ".join(parts)

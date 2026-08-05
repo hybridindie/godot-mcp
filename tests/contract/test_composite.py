@@ -81,7 +81,7 @@ async def test_composite_tools_are_gated_mutating() -> None:
         "godot_composite_apply_node_edits",
     )
     server, _ = _build()
-    async with Client(server) as client:
+    async with Client(server, mode="legacy") as client:
         # Gated off by default: absent until the toolset is enabled.
         before = {t.name for t in await client.list_tools()}
         assert before.isdisjoint(names), "composite tools must be gated off by default"

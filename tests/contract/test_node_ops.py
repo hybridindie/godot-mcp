@@ -76,7 +76,7 @@ def _commands(conn: FakeAddonConnection) -> list[str]:
 
 async def test_node_ops_gated_in_scene_edit() -> None:
     server, _ = _build()
-    async with Client(server) as client:
+    async with Client(server, mode="legacy") as client:
         assert "godot_scene_edit_duplicate_node" not in {t.name for t in await client.list_tools()}
         await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         names = {t.name for t in await client.list_tools()}
