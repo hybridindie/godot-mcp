@@ -39,6 +39,28 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
             )
         case "cmd_bake_navigation_mesh":
             return ResponseEnvelope.success(cmd.id, {"node_path": p["node_path"], "baked": True})
+        case "cmd_get_navigation_region":
+            if p["node_path"] == "EmptyRegion":
+                return ResponseEnvelope.success(
+                    cmd.id,
+                    {
+                        "node_path": p["node_path"],
+                        "has_polygon": False,
+                        "outline_count": 0,
+                        "vertex_count": 0,
+                        "polygon_count": 0,
+                    },
+                )
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "node_path": p["node_path"],
+                    "has_polygon": True,
+                    "outline_count": 1,
+                    "vertex_count": 4,
+                    "polygon_count": 1,
+                },
+            )
         case "cmd_set_navigation_layers":
             return ResponseEnvelope.success(
                 cmd.id, {"node_path": p["node_path"], "navigation_layers": 5}
@@ -67,9 +89,16 @@ async def test_gated_in_navigation_toolset() -> None:
         "godot_navigation_setup_agent",
         "godot_navigation_bake_mesh",
         "godot_navigation_set_layers",
+        "godot_navigation_get_region",
     }
     assert expected <= set(tools)
-    assert all(tools[n].meta["safety_class"] == "mutating" for n in expected)
+    assert all(tools[n].meta["safety_class"] == "mutating" for n in {
+        "godot_navigation_setup_region",
+        "godot_navigation_setup_agent",
+        "godot_navigation_bake_mesh",
+        "godot_navigation_set_layers",
+    })
+    assert tools["godot_navigation_get_region"].meta["safety_class"] == "read_only"
 
 
 async def test_region_agent_and_bake() -> None:
@@ -112,3 +141,45 @@ async def test_dry_run_sends_no_mutation() -> None:
         )
     assert result.structured_content["dry_run"] is True
     assert "cmd_bake_navigation_mesh" not in _commands(conn)
+
+
+async def test_get_navigation_region_returns_baked_data() -> None:
+    server, _ = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "navigation"})
+        result = await client.call_tool(
+            "godot_navigation_get_region", {"node_path": "NavigationRegion2D"}
+        )
+    info = result.structured_content
+    assert info["node_path"] == "NavigationRegion2D"
+    assert info["has_polygon"] is True
+    assert info["outline_count"] == 1
+    assert info["vertex_count"] == 4
+    assert info["polygon_count"] == 1
+
+
+async def test_get_navigation_region_reports_empty_when_no_polygon() -> None:
+    server, _ = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "navigation"})
+        result = await client.call_tool(
+            "godot_navigation_get_region", {"node_path": "EmptyRegion"}
+        )
+    info = result.structured_content
+    assert info["has_polygon"] is False
+    assert info["outline_count"] == 0
+    assert info["vertex_count"] == 0
+    assert info["polygon_count"] == 0
+
+
+async def test_get_navigation_region_is_read_only() -> None:
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "navigation"})
+        await client.call_tool(
+            "godot_navigation_get_region", {"node_path": "NavigationRegion2D"}
+        )
+    sent = _commands(conn)
+    assert "cmd_get_navigation_region" in sent
+    # read-only tool must not issue any mutation command
+    assert not any(c.startswith("cmd_set_") or c == "cmd_bake_navigation_mesh" for c in sent)

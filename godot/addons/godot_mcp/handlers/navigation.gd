@@ -15,6 +15,7 @@ func _init(router: MCPCommandRouter) -> void:
 
 func register(handlers: Dictionary) -> void:
 	handlers["cmd_bake_navigation_mesh"] = _cmd_bake_navigation_mesh
+	handlers["cmd_get_navigation_region"] = _cmd_get_navigation_region
 	handlers["cmd_set_navigation_layers"] = _cmd_set_navigation_layers
 	handlers["cmd_setup_navigation_agent"] = _cmd_setup_navigation_agent
 	handlers["cmd_setup_navigation_region"] = _cmd_setup_navigation_region
@@ -99,6 +100,54 @@ func _cmd_bake_navigation_mesh(params: Dictionary) -> Dictionary:
 	else:
 		return _router._fail("VALIDATION_ERROR", "Node is not a NavigationRegion2D/NavigationRegion3D.")
 	return _router._ok({"node_path": str(params.get("node_path")), "baked": true})
+
+
+
+func _cmd_get_navigation_region(params: Dictionary) -> Dictionary:
+	var found := _router._resolve(params.get("node_path", ""))
+	if not found["ok"]:
+		return found
+	var region: Node = found["node"]
+	var path := str(params.get("node_path"))
+	if region is NavigationRegion2D:
+		var navpoly: NavigationPolygon = region.navigation_polygon
+		if navpoly == null:
+			return _router._ok({
+				"node_path": path,
+				"has_polygon": false,
+				"outline_count": 0,
+				"vertex_count": 0,
+				"polygon_count": 0,
+			})
+		return _router._ok({
+			"node_path": path,
+			"has_polygon": true,
+			"outline_count": navpoly.get_outline_count(),
+			"vertex_count": navpoly.get_vertex_count(),
+			"polygon_count": navpoly.get_polygon_count(),
+		})
+	elif region is NavigationRegion3D:
+		var navmesh: NavigationMesh = region.navigation_mesh
+		if navmesh == null:
+			return _router._ok({
+				"node_path": path,
+				"has_polygon": false,
+				"outline_count": 0,
+				"vertex_count": 0,
+				"polygon_count": 0,
+			})
+		var vertex_count := 0
+		if navmesh.has_method("get_vertices"):
+			var verts: PackedVector3Array = navmesh.get_vertices()
+			vertex_count = verts.size()
+		return _router._ok({
+			"node_path": path,
+			"has_polygon": true,
+			"outline_count": 0,
+			"vertex_count": vertex_count,
+			"polygon_count": navmesh.get_polygon_count(),
+		})
+	return _router._fail("VALIDATION_ERROR", "Node is not a NavigationRegion2D/NavigationRegion3D.")
 
 
 

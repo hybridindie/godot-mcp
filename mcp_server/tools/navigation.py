@@ -23,11 +23,12 @@ from mcp_server.models.navigation import (
     BakeNavigationResult,
     NavigationAgentResult,
     NavigationLayersResult,
+    NavigationRegionInfo,
     NavigationRegionResult,
 )
-from mcp_server.safety import MUTATING, enforce_preconditions, require_node_exists
+from mcp_server.safety import MUTATING, READ_ONLY, enforce_preconditions, require_node_exists
 from mcp_server.tools._progress import safe_info, safe_progress
-from mcp_server.tools._route import run_or_preview
+from mcp_server.tools._route import route, run_or_preview
 
 NAVIGATION = {NAVIGATION_TAG}
 
@@ -122,4 +123,18 @@ def register_navigation(mcp: FastMCP, bridge: Bridge) -> None:
         preview = {"node_path": node_path}
         return await run_or_preview(
             dry_run, NavigationLayersResult, preview, bridge, "cmd_set_navigation_layers", params
+        )
+
+    @mcp.tool(meta=READ_ONLY, tags=NAVIGATION)
+    async def get_navigation_region(node_path: str) -> NavigationRegionInfo:
+        """Read back the baked navigation polygon/mesh for the NavigationRegion2D/3D at
+        ``node_path``. Returns ``has_polygon`` plus ``outline_count``, ``vertex_count``,
+        and ``polygon_count`` — a verifier uses these to confirm a bake produced
+        non-empty geometry. For NavigationRegion3D, ``vertex_count`` may be 0 when the
+        engine version does not expose the vertex array.
+        """
+        await require_node_exists(bridge, node_path)
+        params = {"node_path": node_path}
+        return NavigationRegionInfo(
+            **await route(bridge, "cmd_get_navigation_region", params)
         )

@@ -29,3 +29,11 @@ class NavigationLayersResult(BaseModel):
     node_path: str
     navigation_layers: int = 0
     dry_run: bool = False
+
+
+class NavigationRegionInfo(BaseModel):
+    node_path: str
+    has_polygon: bool = False
+    outline_count: int = 0
+    vertex_count: int = 0
+    polygon_count: int = 0

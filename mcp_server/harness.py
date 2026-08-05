@@ -35,6 +35,7 @@ READ_ONLY_COMMANDS: frozenset[str] = frozenset(
         "cmd_get_node_property_list",
         "cmd_find_nodes_by_type",
         "cmd_get_dependencies",
+        "cmd_get_navigation_region",
     }
 )
 
