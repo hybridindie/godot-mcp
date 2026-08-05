@@ -19,14 +19,13 @@ from mcp_server.defaults import (
 from mcp_server.models.runtime import RunCaptureResult
 from mcp_server.runtime import Runner, resolve_project_dir, summarize_run
 from mcp_server.safety import RUNTIME, PreconditionError, enforce_preconditions
+from mcp_server.tools._progress import safe_info, safe_progress
 
 
-def register_runtime(
-    mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner: Runner
-) -> None:
+def register_runtime(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner: Runner) -> None:
     """Register the runtime-loop tool."""
 
-    @mcp.tool(meta=RUNTIME, tags={RUNTIME_TAG})
+    @mcp.tool(meta=RUNTIME, tags={RUNTIME_TAG}, task=True)
     @enforce_preconditions
     async def run_and_capture(
         scene: str | None = None,
@@ -50,13 +49,16 @@ def register_runtime(
                 required="godot_bin",
             )
         project_dir = await resolve_project_dir(bridge, config)
-        await ctx.info(f"Running {scene or 'main scene'} headless (timeout {timeout_seconds:g}s)…")
-        await ctx.report_progress(0, 1)
+        await safe_info(
+            ctx, f"Running {scene or 'main scene'} headless (timeout {timeout_seconds:g}s)…"
+        )
+        await safe_progress(ctx, 0, 1)
         output = await runner.run(project_dir, scene, float(timeout_seconds))
-        await ctx.report_progress(1, 1)
+        await safe_progress(ctx, 1, 1)
         result = summarize_run(output)
-        await ctx.info(
+        await safe_info(
+            ctx,
             f"Run finished: exit={result.exit_code}, "
-            f"{len(result.errors)} error(s), {len(result.warnings)} warning(s)"
+            f"{len(result.errors)} error(s), {len(result.warnings)} warning(s)",
         )
         return result

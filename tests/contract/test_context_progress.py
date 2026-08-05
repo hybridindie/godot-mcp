@@ -78,3 +78,28 @@ async def test_run_tests_streams_progress_and_logs(tmp_path: Path) -> None:
 
     assert progress, "expected at least one progress update from run_tests"
     assert logs, "expected at least one structured log message from run_tests"
+
+
+async def test_safe_progress_noops_on_session_unavailable() -> None:
+    """The guarded progress helpers swallow RuntimeError (detached task session).
+
+    Simulates the ``task=True`` detached-session failure by passing a Context
+    whose ``info``/``report_progress`` raise ``RuntimeError: session is not
+    available``. The tools must complete successfully — the progress calls
+    no-op instead of propagating the error.
+    """
+    from mcp_server.tools._progress import safe_info, safe_progress
+
+    class _BrokenCtx:
+        async def info(self, msg: str, *args: object, **kwargs: object) -> None:
+            raise RuntimeError("session is not available")
+
+        async def report_progress(
+            self, current: float, total: float, *args: object, **kwargs: object
+        ) -> None:
+            raise RuntimeError("session is not available")
+
+    ctx = _BrokenCtx()
+    await safe_info(ctx, "should not raise")
+    await safe_progress(ctx, 0, 1)
+    await safe_progress(ctx, 1, 1)

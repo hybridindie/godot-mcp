@@ -26,6 +26,7 @@ from mcp_server.models.navigation import (
     NavigationRegionResult,
 )
 from mcp_server.safety import MUTATING, enforce_preconditions, require_node_exists
+from mcp_server.tools._progress import safe_info, safe_progress
 from mcp_server.tools._route import run_or_preview
 
 NAVIGATION = {NAVIGATION_TAG}
@@ -84,7 +85,7 @@ def register_navigation(mcp: FastMCP, bridge: Bridge) -> None:
             dry_run, NavigationAgentResult, preview, bridge, "cmd_setup_navigation_agent", params
         )
 
-    @mcp.tool(meta=MUTATING, tags=NAVIGATION)
+    @mcp.tool(meta=MUTATING, tags=NAVIGATION, task=True)
     @enforce_preconditions
     async def bake_navigation_mesh(
         node_path: str, dry_run: bool = False, *, ctx: Context
@@ -97,14 +98,14 @@ def register_navigation(mcp: FastMCP, bridge: Bridge) -> None:
         params = {"node_path": node_path}
         preview = {"node_path": node_path, "baked": False}
         if not dry_run:
-            await ctx.info(f"Baking navigation mesh for {node_path}…")
-            await ctx.report_progress(0, 1)
+            await safe_info(ctx, f"Baking navigation mesh for {node_path}…")
+            await safe_progress(ctx, 0, 1)
         result = await run_or_preview(
             dry_run, BakeNavigationResult, preview, bridge, "cmd_bake_navigation_mesh", params
         )
         if not dry_run:
-            await ctx.report_progress(1, 1)
-            await ctx.info(f"Navigation bake finished for {node_path}")
+            await safe_progress(ctx, 1, 1)
+            await safe_info(ctx, f"Navigation bake finished for {node_path}")
         return result
 
     @mcp.tool(meta=MUTATING, tags=NAVIGATION)

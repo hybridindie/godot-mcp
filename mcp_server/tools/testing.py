@@ -41,9 +41,12 @@ from mcp_server.models.testing import (
 from mcp_server.qa import ImageCompareError, compare_images, evaluate_assertion, random_input_events
 from mcp_server.runtime import Runner, resolve_project_dir
 from mcp_server.safety import READ_ONLY, RUNTIME, PreconditionError
+from mcp_server.tools._progress import safe_info, safe_progress
 from mcp_server.tools._route import poll_ready, route
 
 TESTING = {TESTING_TAG}
+
+
 async def _read_live_value(
     bridge: Bridge, node_path: str, prop: str, timeout_ms: int
 ) -> tuple[Any, str]:
@@ -128,18 +131,18 @@ def register_testing(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
         project_dir = await resolve_project_dir(bridge, config)
         if not _gut_present(project_dir):
             return RunTestsResult(ran=False, framework="gut", framework_absent=True)
-        await ctx.info(f"Running GUT suite in {test_dir} (timeout {timeout_seconds:g}s)…")
-        await ctx.report_progress(0, 1)
+        await safe_info(ctx, f"Running GUT suite in {test_dir} (timeout {timeout_seconds:g}s)…")
+        await safe_progress(ctx, 0, 1)
         output = await runner.run_tests(project_dir, test_dir, timeout=float(timeout_seconds))
-        await ctx.report_progress(1, 1)
+        await safe_progress(ctx, 1, 1)
         if output.timed_out:
-            await ctx.info("Test run timed out")
+            await safe_info(ctx, "Test run timed out")
             return RunTestsResult(
                 ran=True, framework="gut", timed_out=True, raw_summary=output.stdout.strip()[-2000:]
             )
         result = parse_gut_results(output.stdout)
         result.exit_code = output.exit_code
-        await ctx.info(f"Tests finished: {result.passed} passed, {result.failed} failed")
+        await safe_info(ctx, f"Tests finished: {result.passed} passed, {result.failed} failed")
         return result
 
     @mcp.tool(meta=READ_ONLY, tags=TESTING)
