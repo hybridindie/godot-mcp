@@ -21,18 +21,14 @@ The server listens on `http://localhost:9090`.
 ## Bridge networking
 
 Since the bridge inversion (#276) the **server is the listener** and the Godot editor
-connects *in*, so the container must publish the bridge port and bind all interfaces:
+connects *in*, so the container publishes the bridge port and binds all interfaces:
 
 - In the container (compose `environment`): `GODOT_MCP_BRIDGE_URL: ws://0.0.0.0:9080`, and
-  publish it: `ports: ["9080:9080"]`.
+  published: `ports: ["9080:9080"]`.
 - On the host, point the editor's addon at the published port:
   `GODOT_MCP_BRIDGE_URL=ws://127.0.0.1:9080`.
 - Binding `0.0.0.0` relaxes the localhost-only default — only do this on a trusted host.
-
-> The bundled `docker-compose.yml` still carries the pre-inversion
-> `ws://host.docker.internal:9080` and doesn't publish `9080` yet (the server dialed *out*
-> to the host editor under the old direction). Apply the two changes above until the compose
-> fix lands — tracked in [#285](https://github.com/hybridindie/godot-mcp/issues/285).
+  Auth for the HTTP transport is tracked in [#226](https://github.com/hybridindie/godot-mcp/issues/226).
 
 ## Mounting a project
 

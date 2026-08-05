@@ -5,12 +5,15 @@ services:
       dockerfile: docker/Dockerfile
     ports:
       - "9090:9090"
+      - "9080:9080"
     environment:
       GODOT_MCP_TRANSPORT: http
       GODOT_MCP_HTTP_HOST: "0.0.0.0"
       GODOT_MCP_HTTP_PORT: "9090"
-      # Default for a Godot editor running on the Docker host.
-      GODOT_MCP_BRIDGE_URL: ws://host.docker.internal:9080
+      # The server binds the bridge port inside the container so the host editor
+      # can connect in (bridge inversion, #276). Binding 0.0.0.0 relaxes the
+      # localhost-only default — only do this on a trusted host (#226).
+      GODOT_MCP_BRIDGE_URL: ws://0.0.0.0:9080
       # Optional: point at a project directory mounted from the host.
       # GODOT_MCP_PROJECT_DIR: /project
     # volumes:
