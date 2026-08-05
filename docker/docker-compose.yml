@@ -14,6 +14,9 @@ services:
       # can connect in (bridge inversion, #276). Binding 0.0.0.0 relaxes the
       # localhost-only default — only do this on a trusted host (#226).
       GODOT_MCP_BRIDGE_URL: ws://0.0.0.0:9080
+      # Required when binding off-loopback (0.0.0.0): set a bearer token or the
+      # server refuses to start. Clients pass it as `auth=<token>` (#226).
+      # GODOT_MCP_AUTH_TOKEN: set-me
       # Optional: point at a project directory mounted from the host.
       # GODOT_MCP_PROJECT_DIR: /project
     # volumes:

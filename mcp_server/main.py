@@ -22,6 +22,7 @@ def main() -> None:
     """Build the server from the environment and run it on the configured transport."""
     config = ServerConfig.from_env()
     configure_logging(config.log_level)
+    config.validate_http_auth()
     logger.info("starting godot-mcp", extra={"transport": config.transport})
 
     server = create_server(config)

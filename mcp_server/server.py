@@ -107,11 +107,23 @@ def create_server(
         finally:
             await bridge.close()
 
+    # HTTP transport auth (issue #226): a StaticTokenVerifier gates the server
+    # when a token is configured. Loopback without a token is allowed (validated
+    # in main.py); non-loopback requires a token or main.py refuses to start.
+    auth = None
+    if config.auth_token:
+        from fastmcp.server.auth.providers.jwt import StaticTokenVerifier
+
+        auth = StaticTokenVerifier(
+            tokens={config.auth_token: {"client_id": "godot-mcp-client"}},
+        )
+
     mcp = FastMCP(
         SERVER_NAME,
         lifespan=lifespan,
         instructions=SERVER_INSTRUCTIONS,
         website_url="https://github.com/hybridindie/godot-mcp",
+        auth=auth,
         # The dynamic fields (toolset_count / prompts / resources) are filled in
         # from the live registry after registration; see capabilities.apply_capability.
         experimental_capabilities={"godot_mcp": dict(STATIC_CAPABILITY)},

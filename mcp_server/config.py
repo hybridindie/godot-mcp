@@ -74,6 +74,9 @@ class ServerConfig(BaseModel):
     approval_webhook: str | None = None
     approval_timeout: float = 30.0
     approval_fail_open: bool = True
+    # HTTP transport auth (issue #226). Opt-in: loopback HTTP is allowed without a
+    # token; a non-loopback bind requires a token or the server refuses to start.
+    auth_token: str | None = None
 
     @classmethod
     def from_env(cls) -> ServerConfig:
@@ -90,4 +93,25 @@ class ServerConfig(BaseModel):
             approval_timeout=float(os.environ.get("GODOT_MCP_APPROVAL_TIMEOUT", 30.0)),
             approval_fail_open=os.environ.get("GODOT_MCP_APPROVAL_FAIL_OPEN", "true").lower()
             != "false",
+            auth_token=os.environ.get("GODOT_MCP_AUTH_TOKEN"),
         )
+
+    def validate_http_auth(self) -> None:
+        """Refuse a non-loopback HTTP bind unless an auth token is configured.
+
+        Loopback (127.0.0.1 / localhost) is the default and safe without auth.
+        Binding off-loopback exposes unauthenticated code execution (write_script,
+        run_and_capture, export) — require a token or fail fast with a clear error.
+        stdio is never gated (local subprocess).
+        """
+        if self.transport != "http":
+            return
+        if self.auth_token:
+            return
+        host = self.host
+        if host not in ("127.0.0.1", "localhost", "::1", "[::1]"):
+            raise ValueError(
+                f"HTTP transport bound to {host} (non-loopback) without GODOT_MCP_AUTH_TOKEN. "
+                "Binding off-loopback exposes unauthenticated code execution. "
+                "Set GODOT_MCP_AUTH_TOKEN to a bearer token, or bind 127.0.0.1."
+            )

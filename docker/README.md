@@ -28,6 +28,8 @@ connects *in*, so the container publishes the bridge port and binds all interfac
 - On the host, point the editor's addon at the published port:
   `GODOT_MCP_BRIDGE_URL=ws://127.0.0.1:9080`.
 - Binding `0.0.0.0` relaxes the localhost-only default — only do this on a trusted host.
+  The server refuses a non-loopback bind without `GODOT_MCP_AUTH_TOKEN`; clients pass
+  the token as `auth=<token>` (see [#226](https://github.com/hybridindie/godot-mcp/issues/226)).
   Auth for the HTTP transport is tracked in [#226](https://github.com/hybridindie/godot-mcp/issues/226).
 
 ## Mounting a project
