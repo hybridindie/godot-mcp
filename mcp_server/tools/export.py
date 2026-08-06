@@ -21,7 +21,12 @@ from mcp_server.defaults import (
 )
 from mcp_server.models.export import ExportInfoResult, ExportPresetsResult, ExportResult
 from mcp_server.runtime import Runner, resolve_project_dir, summarize_run
-from mcp_server.safety import READ_ONLY, RUNTIME, PreconditionError, enforce_preconditions
+from mcp_server.safety import (
+    READ_ONLY,
+    RUNTIME,
+    enforce_preconditions,
+    require_godot_binary,
+)
 from mcp_server.tools._progress import safe_info, safe_progress
 from mcp_server.tools._route import route
 
@@ -60,11 +65,7 @@ def register_export(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner: 
         — requires export templates installed; returns the exit code and parsed
         errors/warnings. Use a generous ``timeout_seconds`` (exports can be slow).
         """
-        if runner.binary is None:
-            raise PreconditionError(
-                "Godot binary not found. Set GODOT_MCP_GODOT_BIN to your Godot executable.",
-                required="godot_bin",
-            )
+        require_godot_binary(runner.binary)
         presets = ExportPresetsResult(**await route(bridge, "cmd_list_export_presets", {}))
         names = [p.name for p in presets.presets]
         if preset not in names:

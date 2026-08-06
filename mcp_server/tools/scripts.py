@@ -28,7 +28,12 @@ from mcp_server.models.scripts import (
 )
 from mcp_server.output import paginate
 from mcp_server.runtime import Runner, resolve_project_dir
-from mcp_server.safety import MUTATING, READ_ONLY, PreconditionError, enforce_preconditions
+from mcp_server.safety import (
+    MUTATING,
+    READ_ONLY,
+    enforce_preconditions,
+    require_godot_binary,
+)
 from mcp_server.scripts_parse import parse_check_errors
 from mcp_server.tools._route import route, run_or_preview, validate_or_raise
 
@@ -118,11 +123,7 @@ def register_scripts(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
         """Parse-check ``script_path`` and return structured errors (message + line),
         or an empty list when it parses cleanly. Use after writing/patching a script.
         """
-        if runner.binary is None:
-            raise PreconditionError(
-                "Godot binary not found. Set GODOT_MCP_GODOT_BIN to your Godot executable.",
-                required="godot_bin",
-            )
+        require_godot_binary(runner.binary)
         project_dir = await resolve_project_dir(bridge, config)
         output = await runner.check_script(project_dir, script_path, timeout=30.0)
         errors = parse_check_errors(output.stdout + "\n" + output.stderr)

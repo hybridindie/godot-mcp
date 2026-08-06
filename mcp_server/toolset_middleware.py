@@ -9,12 +9,16 @@ client enabling ``scene_edit`` does not expose it to another. Uses
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastmcp.exceptions import ToolError
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 
 from mcp_server.categories import CORE_TAG
+
+if TYPE_CHECKING:
+    from fastmcp import Context
+    from fastmcp.tools.base import Tool
 
 logger = logging.getLogger(__name__)
 
@@ -37,18 +41,16 @@ class ToolsetMiddleware(Middleware):
             default_enabled = DEFAULT_ENABLED
         self._default_enabled: set[str] = {CORE_TAG} | set(default_enabled)
         self._sessions: dict[str, set[str]] = {}
-        self._initialized: set[str] = set()
 
     async def on_initialize(self, context: MiddlewareContext, call_next: Any) -> Any:
         ctx = context.fastmcp_context
         if ctx is not None:
             sid = getattr(ctx, "session_id", None)
             if sid is not None:
-                self._initialized.add(sid)
                 self._sessions.setdefault(sid, set(self._default_enabled))
         return await call_next(context)
 
-    def session_enabled(self, ctx: Any) -> set[str] | None:
+    def session_enabled(self, ctx: Context | None) -> set[str] | None:
         """Return the enabled toolset set for the session behind ``ctx``.
 
         Returns ``None`` when the session was not established via ``on_initialize``
@@ -56,11 +58,11 @@ class ToolsetMiddleware(Middleware):
         client can't maintain per-session state across requests.
         """
         sid = getattr(ctx, "session_id", None)
-        if sid is None or sid not in self._initialized:
+        if sid is None or sid not in self._sessions:
             return None
         return set(self._sessions.setdefault(sid, set(self._default_enabled)))
 
-    def set_session_enabled(self, ctx: Any, enabled: set[str]) -> None:
+    def set_session_enabled(self, ctx: Context | None, enabled: set[str]) -> None:
         """Write the enabled set for the session behind ``ctx``."""
         sid = getattr(ctx, "session_id", None)
         if sid is not None:
@@ -91,20 +93,26 @@ class ToolsetMiddleware(Middleware):
             )
         return await call_next(context)
 
-    def _is_visible(self, tool: Any, enabled: set[str]) -> bool:
-        tags: set[str] = getattr(tool, "tags", set()) or set()
-        if CORE_TAG in tags:
-            return True
-        return bool(tags & enabled)
+    def _is_visible(self, tool: Tool, enabled: set[str]) -> bool:
+        return _tag_visible(getattr(tool, "tags", set()) or set(), enabled)
 
-    async def _is_call_allowed(self, name: str, ctx: Any, enabled: set[str]) -> bool:
-        if ctx is None:
-            return True
+    async def _is_call_allowed(self, name: str, ctx: Context, enabled: set[str]) -> bool:
         try:
             tool = await ctx.fastmcp.get_tool(name)
+        except ToolError:
+            return True
         except Exception:
+            logger.warning(
+                "unexpected error looking up tool %r; allowing call",
+                name,
+                exc_info=True,
+            )
             return True
-        tags: set[str] = getattr(tool, "tags", set()) or set()
-        if CORE_TAG in tags:
-            return True
-        return bool(tags & enabled)
+        return _tag_visible(getattr(tool, "tags", set()) or set(), enabled)
+
+
+def _tag_visible(tags: set[str], enabled: set[str]) -> bool:
+    """Whether a tool with ``tags`` is visible to a session with ``enabled``."""
+    if CORE_TAG in tags:
+        return True
+    return bool(tags & enabled)

@@ -123,10 +123,19 @@ def godot_tool_transform(mcp: Any) -> ToolTransform:
 def _registered_tools(mcp: Any) -> Sequence[Tool]:
     """Synchronously read the tools registered on the server's local provider.
 
-    ``FastMCP._list_tools`` is async, but the local provider's component dict is
-    populated synchronously by the ``register_*`` calls, so this reads it
-    without an event loop. The server built by ``create_server`` has exactly one
-    ``LocalProvider``; this helper is only called there, at build time.
+    ``FastMCP.local_provider.list_tools()`` is async, but ``create_server`` is
+    sync and the transform must be registered before any client connects. The
+    local provider's ``_components`` dict is populated synchronously by the
+    ``register_*`` calls, so this reads it without an event loop.
+
+    **Known fragility:** ``_components`` is a private attribute of
+    ``LocalProvider`` and may change in future FastMCP releases. If it breaks,
+    the fallback is to move ``godot_tool_transform(mcp)`` into the async lifespan
+    (where ``await mcp.local_provider.list_tools()`` is available) and register
+    the transform there. The current approach is chosen because the transform
+    must be in place before the first ``list_tools`` call, which happens during
+    client initialization — the lifespan runs *after* the server object is built
+    but *before* any client connects, so the sync read is safe today.
     """
     from fastmcp.tools.base import Tool
 

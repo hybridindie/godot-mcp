@@ -83,7 +83,7 @@ def test_apply_safety_annotations_respects_explicit_override() -> None:
         """doc"""
         return "x"
 
-    apply_safety_annotations(mcp)
+    asyncio.run(apply_safety_annotations(mcp))
 
     # Read back via the public provider surface the production code uses.
     from mcp_server.safety import _iter_registered_tools

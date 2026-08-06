@@ -18,7 +18,11 @@ from mcp_server.defaults import (
 )
 from mcp_server.models.runtime import RunCaptureResult
 from mcp_server.runtime import Runner, resolve_project_dir, summarize_run
-from mcp_server.safety import RUNTIME, PreconditionError, enforce_preconditions
+from mcp_server.safety import (
+    RUNTIME,
+    enforce_preconditions,
+    require_godot_binary,
+)
 from mcp_server.tools._progress import safe_info, safe_progress
 
 
@@ -43,11 +47,7 @@ def register_runtime(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
         WHEN NOT TO USE: You need to simulate input or inspect live state —
         use play_scene() + get_game_scene_tree() / simulate_key() instead.
         """
-        if runner.binary is None:
-            raise PreconditionError(
-                "Godot binary not found. Set GODOT_MCP_GODOT_BIN to your Godot executable.",
-                required="godot_bin",
-            )
+        require_godot_binary(runner.binary)
         project_dir = await resolve_project_dir(bridge, config)
         await safe_info(
             ctx, f"Running {scene or 'main scene'} headless (timeout {timeout_seconds:g}s)…"

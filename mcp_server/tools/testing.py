@@ -40,7 +40,7 @@ from mcp_server.models.testing import (
 )
 from mcp_server.qa import ImageCompareError, compare_images, evaluate_assertion, random_input_events
 from mcp_server.runtime import Runner, resolve_project_dir
-from mcp_server.safety import READ_ONLY, RUNTIME, PreconditionError
+from mcp_server.safety import READ_ONLY, RUNTIME, require_godot_binary
 from mcp_server.tools._progress import safe_info, safe_progress
 from mcp_server.tools._route import poll_ready, route
 
@@ -123,11 +123,7 @@ def register_testing(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
         WHEN NOT TO USE: there is no test suite — write one first, or use
         run_and_capture / get_parse_errors for a smoke/parse check.
         """
-        if runner.binary is None:
-            raise PreconditionError(
-                "Godot binary not found. Set GODOT_MCP_GODOT_BIN to your Godot executable.",
-                required="godot_bin",
-            )
+        require_godot_binary(runner.binary)
         project_dir = await resolve_project_dir(bridge, config)
         if not _gut_present(project_dir):
             return RunTestsResult(ran=False, framework="gut", framework_absent=True)

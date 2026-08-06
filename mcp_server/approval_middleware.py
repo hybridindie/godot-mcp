@@ -14,14 +14,12 @@ body — it's the tool's own schema-level gate, not the webhook gate.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
+from fastmcp.exceptions import ToolError
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 
 from mcp_server.safety import ApprovalGate, PreconditionError, SafetyClass
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +44,14 @@ class ApprovalMiddleware(Middleware):
             return await call_next(context)
         try:
             tool = await context.fastmcp_context.fastmcp.get_tool(context.message.name)
+        except ToolError:
+            return await call_next(context)
         except Exception:
+            logger.warning(
+                "unexpected error looking up tool %r; skipping approval gate",
+                context.message.name,
+                exc_info=True,
+            )
             return await call_next(context)
         if tool is None:
             return await call_next(context)

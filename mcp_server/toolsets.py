@@ -168,19 +168,6 @@ class ToolsetManager:
         self._godot_version: tuple[int, int] | None = None
         self._middleware = middleware
 
-    def apply_defaults(self) -> None:
-        """No-op — per-session gating is handled by ToolsetMiddleware.
-
-        Kept for backwards compatibility with server.py's call order.
-        """
-
-    async def _ctx(self) -> Any:
-
-        # The Context is available as a FastMCP dependency; tools that call
-        # enable/disable have ``ctx: Context`` injected.
-
-        return None
-
     async def enable(self, category: str, *, ctx: Any = None) -> ToolsetInfo:
         self._check_toggleable(category)
         await self._require_godot_version(category)

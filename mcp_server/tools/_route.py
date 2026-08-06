@@ -4,8 +4,13 @@ Keeps tool handlers thin (delegation only, per .claude/rules/architecture.md): s
 a command, return the result dict on success, or raise a structured ``ToolError`` on
 failure so the agent gets an actionable message instead of a stack trace. When the
 addon returns a precondition-style envelope (carrying ``required``), that field is
-included in the error text so the agent knows what to satisfy — regardless of whether
-the calling tool is decorated with ``@enforce_preconditions`` (read-only tools are not).
+included in the error text so the agent knows what to satisfy.
+
+Convention for ``@enforce_preconditions``: apply it to any tool that can raise
+``PreconditionError`` before calling ``route()`` (e.g. via ``require_godot_binary``,
+``require_bridge_connected``, ``require_active_scene``, ``require_node_exists``).
+Read-only tools that never raise ``PreconditionError`` don't need it; ``route()``
+already shapes addon-side precondition envelopes into ``ToolError``.
 """
 
 from __future__ import annotations

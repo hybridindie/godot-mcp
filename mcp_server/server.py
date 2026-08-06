@@ -104,6 +104,10 @@ def create_server(
                 exc_info=True,
             )
         try:
+            await apply_safety_annotations(mcp)
+        except Exception:
+            logger.warning("failed to apply safety annotations", exc_info=True)
+        try:
             yield
         finally:
             await bridge.close()
@@ -132,13 +136,12 @@ def create_server(
     # Centralize the webhook ApprovalGate at the tools/call boundary (issue #330).
     # No-op unless a webhook is configured; dry_run short-circuits in the middleware.
     mcp.add_middleware(ApprovalMiddleware(approval))
-    # Background-tasks spike (issue #315): register the in-process TasksExtension
-    # so tools marked ``task=True`` can return a handle immediately instead of
-    # holding the MCP request open for the whole (potentially long) bridge op. The
-    # in-memory single-process backend is sufficient for a local dev tool. No tool
-    # is marked ``task=True`` yet — see tests/contract/test_background_tasks.py for
-    # the spike finding (ctx-progress calls are incompatible with the detached task
-    # session) that blocks adopting tasks for the four long-running tools as-is.
+    # Background tasks (issue #315): register the in-process TasksExtension so
+    # tools marked ``task=True`` can return a handle immediately instead of
+    # holding the MCP request open for the whole bridge op. Three long-running
+    # tools are task-enabled (run_and_capture, export_project, bake_navigation_mesh);
+    # their ctx.info/ctx.report_progress calls use safe_info/safe_progress
+    # (tools/_progress.py) to no-op in the detached task session.
     mcp.add_extension(TasksExtension())
 
     register_health(mcp, bridge, config)
@@ -187,7 +190,6 @@ def create_server(
     # Gate the tool surface by category (per-session via the middleware above).
     manager = ToolsetManager(mcp, bridge=bridge, middleware=toolset_mw)
     register_toolset_tools(mcp, manager)
-    manager.apply_defaults()
 
     # Comprehensive diagnostics: toolset counts, bridge state, troubleshooting.
     register_diagnostics(mcp, bridge, config, manager)
@@ -197,7 +199,8 @@ def create_server(
 
     # Derive standard MCP annotations (readOnlyHint/destructiveHint/...) from each
     # tool's safety_class, for every tool incl. gated-off ones (issue #220).
-    apply_safety_annotations(mcp)
+    # Applied inside the async lifespan (see above) since FastMCP 4.0's
+    # local_provider.list_tools() is async.
 
     # Expose every tool as godot_<toolset>_<action> (issue #312). FastMCP 4.0's
     # ToolTransform renames tools as they flow to clients and reverse-maps public

@@ -14,6 +14,7 @@ from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.config import ServerConfig
+from mcp_server.safety import apply_safety_annotations
 from mcp_server.server import create_server
 from tests.fakes import FakeAddonConnection, connector_for, make_addon_responder
 from tests.helpers import list_all_tools
@@ -30,6 +31,7 @@ def _server() -> FastMCP:
 
 async def test_every_classified_tool_carries_annotations() -> None:
     server = _server()
+    await apply_safety_annotations(server)
     # list_all_tools returns ALL registered tools (with server transforms applied),
     # including toolset-gated ones the public list_tools() filters out.
     tools = await list_all_tools(server)

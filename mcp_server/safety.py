@@ -113,38 +113,17 @@ async def _apply_safety_annotations_async(mcp: FastMCP) -> None:
             tool.annotations = annotations
 
 
-def apply_safety_annotations(mcp: FastMCP) -> None:
+async def apply_safety_annotations(mcp: FastMCP) -> None:
     """Set standard MCP ``annotations`` on every tool from its ``safety_class``.
 
     Call once after all tools are registered. An annotation set explicitly at
     registration is preserved (treated as an intentional override).
 
     Enumerates tools via the public async ``mcp.local_provider.list_tools()``
-    (FastMCP 4.0). Run on a worker thread with its own event loop so this works
-    whether ``create_server`` is called from sync code or from inside an async
-    test's running loop.
+    (FastMCP 4.0). Must be called from an async context (e.g. inside the server
+    lifespan or an async test).
     """
-    import asyncio
-    import threading
-
-    done = threading.Event()
-    result: list[BaseException | None] = [None]
-
-    def _runner() -> None:
-        loop = asyncio.new_event_loop()
-        try:
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(_apply_safety_annotations_async(mcp))
-        except BaseException as exc:  # noqa: BLE001 - re-raised on caller thread
-            result[0] = exc
-        finally:
-            loop.close()
-            done.set()
-
-    threading.Thread(target=_runner, daemon=True).start()
-    done.wait()
-    if result[0] is not None:
-        raise result[0]
+    await _apply_safety_annotations_async(mcp)
 
 
 class PreconditionError(Exception):
@@ -210,6 +189,15 @@ async def require_node_exists(bridge: Bridge, node_path: str) -> None:
             error=ErrorCode.RESOURCE_NOT_FOUND,
         )
     _raise_if_failed(response)
+
+
+def require_godot_binary(binary: str | None) -> None:
+    """Fail fast if no Godot binary is available for headless runner tools."""
+    if binary is None:
+        raise PreconditionError(
+            "Godot binary not found. Set GODOT_MCP_GODOT_BIN to your Godot executable.",
+            required="godot_bin",
+        )
 
 
 def require_confirmation(confirm: bool, action: str) -> None:
