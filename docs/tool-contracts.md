@@ -82,15 +82,17 @@ Every tool is tagged with exactly one:
   for agent introspection.
 - Each `safety_class` also drives the tool's **standard MCP `annotations`** (issue #220), set
   for every tool (incl. gated-off ones) at server build so clients render them natively:
-  `read_only` → `readOnlyHint=true, idempotentHint=true`; `destructive` → `destructiveHint=true`;
-  `mutating`/`runtime` → `readOnlyHint=false, destructiveHint=false`. An annotation set
+  `read_only` → `read_only_hint=true, idempotent_hint=true`; `destructive` → `destructive_hint=true`;
+  `mutating`/`runtime` → `read_only_hint=false, destructive_hint=false`. An annotation set
   explicitly at registration is preserved.
 
-### Human-in-the-loop approval (issue #153)
+### Human-in-the-loop approval (issue #153, centralized via middleware #330)
 
 An optional webhook gates `destructive` tools behind a human decision. It is **opt-in**:
 with no webhook configured the gate auto-approves, so evals and headless runs are never
-blocked. Configure via environment:
+blocked. The gate runs at the `tools/call` boundary via `ApprovalMiddleware` (issue #330)
+— no per-tool wiring; any tool tagged `destructive` is automatically routed through the
+webhook. Configure via environment:
 
 | Env var | Default | Meaning |
 |---------|---------|---------|
@@ -334,7 +336,7 @@ Import external files (local paths or HTTP URLs) into a Godot project and assemb
 | `godot_asset_import_create_material_from_textures` | `albedo?, normal?, roughness?, metallic?, ao?, emission?, path?` | `CreateMaterialResult { material_path, created, channels_set }` | `mutating` |
 | `godot_asset_import_get_status` | `target_path: str` | `ImportStatusResult { imported, last_modified?, type? }` | `read_only` |
 
-`godot_asset_import_asset` auto-detects the Godot type from the file extension (`.png`→`Texture2D`, `.glb`→`PackedScene`, `.wav`→`AudioStreamWAV`, etc.). When `source` is an HTTP(S) URL it is downloaded via `httpx` with a 60-second timeout, then copied to `target_path` (must start with `res://`). The response is streamed to disk in 64 KiB chunks to avoid buffering the entire payload in memory. The `options` dict may contain `overwrite` (bool, default `false`) and `import_settings` (dict, e.g. `{"type": "Texture2D", "compress": "lossy"}`). The editor filesystem scan is triggered after copy so Godot imports the file.
+`godot_asset_import_asset` auto-detects the Godot type from the file extension (`.png`→`Texture2D`, `.glb`→`PackedScene`, `.wav`→`AudioStreamWAV`, etc.). When `source` is an HTTP(S) URL it is downloaded via `httpx2` with a 60-second timeout, then copied to `target_path` (must start with `res://`). The response is streamed to disk in 64 KiB chunks to avoid buffering the entire payload in memory. The `options` dict may contain `overwrite` (bool, default `false`) and `import_settings` (dict, e.g. `{"type": "Texture2D", "compress": "lossy"}`). The editor filesystem scan is triggered after copy so Godot imports the file.
 
 `godot_asset_import_create_material_from_textures` creates a `StandardMaterial3D`, assigns every non-empty texture channel that exists in the project, and saves the material as a `.tres`. The default `path` is `res://materials/generated_{rand}.tres`. Only channels with a valid `res://` texture path are included in `channels_set`. Both mutating tools accept `dry_run: bool = False` and echo it in the result (sending no change when true).
 
@@ -399,7 +401,7 @@ Author AnimationPlayer animations and AnimationTree graphs. All `mutating`
 | `godot_animation_add_state_machine_state` | `tree_path, state_name, animation?` | `StateMachineStateResult { tree_path, state }` |
 | `godot_animation_set_blend_tree_node` | `tree_path, node_name, node_type` | `BlendTreeNodeResult { tree_path, node, node_type }` |
 | `godot_animation_list_animations` | `node_path` | `AnimationList { player_path, animations[] }` (`read_only`) |
-| `godot_animation_get` | `node_path, animation_name` | `AnimationDetail { name, length, tracks[]{type, path, keys[]{time, value}} }` (`read_only`) |
+| `godot_animation_get` | `node_path, animation_name` | `AnimationDetail { name, length, loop_mode, tracks[]{type, path, keys[]{time, value}} }` (`read_only`) |
 
 `godot_animation_create` adds a default `AnimationLibrary` ("") if absent and rejects a
 duplicate name. `godot_animation_add_track` returns the new track index; `track_type` is one
@@ -485,6 +487,7 @@ Author navigation — generic over 2D/3D, pass the node type names. All `mutatin
 | `godot_navigation_setup_region` | `parent_path, region_type="NavigationRegion2D", name?, properties?` | `NavigationRegionResult { node_path, region_type, created }` |
 | `godot_navigation_setup_agent` | `parent_path, agent_type="NavigationAgent2D", name?, properties?` | `NavigationAgentResult { node_path, agent_type, created }` |
 | `godot_navigation_bake_mesh` | `node_path` | `BakeNavigationResult { node_path, baked }` |
+| `godot_navigation_get_region` | `node_path` | `NavigationRegionInfo { node_path, has_polygon, outline_count, vertex_count, polygon_count }` (`read_only`) |
 | `godot_navigation_set_layers` | `node_path, layers[]` (1-based bit indices) | `NavigationLayersResult { node_path, navigation_layers }` |
 
 `godot_navigation_setup_region` adds a NavigationRegion2D/3D with an empty navmesh resource
@@ -599,6 +602,7 @@ Author shaders — create/read `.gdshader` files, assign a ShaderMaterial, set u
 | `godot_shader_read` | `shader_path` | `ShaderReadResult { shader_path, code }` (read_only) |
 | `godot_shader_assign_material` | `node_path, shader_path` | `ShaderMaterialResult { node_path, shader_path, material_property }` |
 | `godot_shader_set_param` | `node_path, name, value, param_type?` | `ShaderParamResult { node_path, name }` |
+| `godot_shader_get_param` | `node_path, name` | `ShaderParamReadResult { node_path, name, value, exists }` (`read_only`) |
 
 `godot_shader_create` writes a `res://*.gdshader` file (undo restores the prior content or
 removes it). `godot_shader_assign_material` wraps the shader in a ShaderMaterial and assigns it

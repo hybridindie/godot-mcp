@@ -261,6 +261,14 @@ mount). Claude Code, via `.mcp.json`:
 { "mcpServers": { "godot": { "type": "http", "url": "http://127.0.0.1:9090/mcp" } } }
 ```
 
+For non-loopback binds (e.g. Docker's `0.0.0.0`), set `GODOT_MCP_AUTH_TOKEN` to a
+bearer token — the server refuses to start without one, and clients pass it as
+`auth`:
+
+```json
+{ "mcpServers": { "godot": { "type": "http", "url": "http://0.0.0.0:9090/mcp", "auth": "<token>" } } }
+```
+
 ---
 
 ## Using godot-mcp
@@ -605,7 +613,8 @@ All configuration is optional and passed via environment variables:
 | `GODOT_MCP_GODOT_BIN` | auto-discovered | Godot executable for `godot_runtime_run_and_capture` / `godot_export_project` |
 | `GODOT_MCP_PROJECT_DIR` | connected editor's project | Project directory for runner, export, and analysis |
 | `GODOT_MCP_LOG_LEVEL` | `INFO` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) — JSON to stderr |
-| `GODOT_MCP_APPROVAL_WEBHOOK` | unset | Optional human-in-the-loop approval webhook for destructive tools (`ApprovalGate`) |
+| `GODOT_MCP_APPROVAL_WEBHOOK` | unset | Optional human-in-the-loop approval webhook for destructive tools (`ApprovalMiddleware`) |
+| `GODOT_MCP_AUTH_TOKEN` | unset | Bearer token for HTTP transport auth; **required** for non-loopback binds |
 
 ---
 

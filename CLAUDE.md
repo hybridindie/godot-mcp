@@ -72,7 +72,7 @@ These span many files and are the things easiest to get wrong:
 - **JSON-safe serialization** — the scene tree and node properties must serialize to JSON-safe types only (no Godot objects). Large trees support a `max_depth` parameter.
 - **Type coercion** (issue #6) — Godot types (`Vector2/3`, `Color`, `Rect2`, `NodePath`) are coerced to/from JSON in a dedicated `type_coerce.gd` helper, not inline.
 - **Read-only vs. mutating split** — read-only context is exposed both as tools (issue #5) and as `godot://` resources (issue #11); mutations only ever go through tools.
-- **Naming** — `snake_case` for all domain/data fields and Pydantic models; addon command handlers are `cmd_<verb>_<noun>`. Every MCP tool is exposed as `godot_<toolset>_<action>` (issue #224) — the prefix *is* the gating toolset (always-on `core`/meta tools are `godot_<action>`); the mapping is applied centrally in `mcp_server/transforms.py` (via FastMCP 4.0's `ToolTransform`, issue #312) and enforced by `tests/contract/test_tool_naming.py`.
+- **Naming** — `snake_case` for all domain/data fields and Pydantic models; addon command handlers are `cmd_<verb>_<noun>`. Every MCP tool is exposed as `godot_<toolset>_<action>` (issue #224) — the prefix *is* the gating toolset (always-on `core`/meta tools are `godot_<action>`); the mapping is applied centrally in `mcp_server/transforms.py` (via FastMCP 4.0's `ToolTransform`, issue #312) and enforced by `tests/contract/test_tool_transform.py`.
 
 ## Game-agnostic scope
 
@@ -82,7 +82,7 @@ godot-mcp deliberately ships **no** game vocabulary — no Tower/Enemy/Wave mode
 
 The scaffold (issue #1) is in place: `uv`-managed Python package, the addon under `godot/`, docs, and CI.
 
-- Godot **4.4+** (floor), **validated on 4.7-stable** (the `godot/` project declares `config/features=PackedStringArray("4.7")`); Python **3.11+**; **FastMCP** (PrefectHQ/fastmcp) as the MCP framework, managed with **uv**. Always verify Godot APIs against the current docs for the pinned version (via `context7` or `docs.godotengine.org`) rather than from memory — see [[addon]].
+- Godot **4.4+** (floor), **validated on 4.7-stable** (the `godot/` project declares `config/features=PackedStringArray("4.7")`); Python **3.11+**; **FastMCP 4.0** (PrefectHQ/fastmcp, pinned to the 4.0 beta), managed with **uv**. Always verify Godot APIs against the current docs for the pinned version (via `context7` or `docs.godotengine.org`) rather than from memory — see [[addon]].
 - **Dev commands** (run from repo root, mirrored by `.github/workflows/ci.yml`):
   - `uv sync` — create the venv and install runtime + dev deps.
   - `uv run pytest -q` — full suite; single file `uv run pytest tests/unit/test_smoke.py`; single test `uv run pytest tests/unit/test_smoke.py::test_version_is_calver`.
