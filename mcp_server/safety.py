@@ -247,13 +247,20 @@ async def post_approval(url: str, request: ApprovalRequest, timeout: float) -> A
 @dataclass
 class ApprovalGate:
     """Optional human approval for destructive (and, if wired, mutating/runtime)
-    tools (issue #153).
+    tools (issue #153, extended by #346).
 
     Opt-in: with ``webhook_url`` unset the gate auto-approves, so evals and
     headless runs are never blocked. When set, :meth:`require` POSTs an
-    :class:`ApprovalRequest` and raises ``PreconditionError(APPROVAL_DENIED)`` on
-    a denial. An unreachable/slow webhook approves when ``fail_open`` (default)
+    :class:`ApprovalRequest` and raises ``PreconditionError(APPROVAL_DENIED)``
+    on a denial. An unreachable/slow webhook approves when ``fail_open`` (default)
     or denies when not. Every decision is logged.
+
+    The guard pattern (issue #346) adds a third mode: when ``require_approval``
+    is set and no webhook is configured, mutating/destructive tools return an
+    ``InputRequiredResult`` (an elicitation the client fulfils and re-calls),
+    rather than raising. This is durable (no server-side state) and works on
+    the sessionless protocol godot-mcp uses by design. See
+    ``.opencode/rules/async-patterns.md``.
     """
 
     webhook_url: str | None = None
@@ -261,6 +268,7 @@ class ApprovalGate:
     fail_open: bool = True
     poster: ApprovalPoster = field(default=post_approval)
     clock: Callable[[], float] = field(default=time.time)
+    require_approval: bool = False
 
     @classmethod
     def from_config(cls, config: ServerConfig) -> ApprovalGate:
@@ -268,6 +276,7 @@ class ApprovalGate:
             webhook_url=config.approval_webhook,
             timeout=config.approval_timeout,
             fail_open=config.approval_fail_open,
+            require_approval=config.approval_require,
         )
 
     async def require(
@@ -277,7 +286,12 @@ class ApprovalGate:
         params: dict[str, Any],
         task_context: str | None = None,
     ) -> None:
-        """Block ``action`` unless the webhook approves it. No-op without a webhook."""
+        """Block ``action`` unless the webhook approves it. No-op without a webhook.
+
+        The guard pattern (``require_approval=True`` + no webhook) is handled by
+        :class:`~mcp_server.approval_middleware.ApprovalMiddleware`, which returns
+        an ``InputRequiredResult`` before reaching this method.
+        """
         if not self.webhook_url:
             return  # opt-in: no webhook configured → auto-approve
 

@@ -74,6 +74,12 @@ class ServerConfig(BaseModel):
     approval_webhook: str | None = None
     approval_timeout: float = 30.0
     approval_fail_open: bool = True
+    # Guard-pattern approval (issue #346). Opt-in: with no webhook, a
+    # mutating/destructive tool returns an InputRequiredResult (an elicitation
+    # the client fulfils and re-calls) instead of raising. Durable + stateless;
+    # see .opencode/rules/async-patterns.md. Ignored when a webhook is set
+    # (the webhook path keeps its existing raise-on-deny behavior).
+    approval_require: bool = False
     # HTTP transport auth (issue #226). Opt-in: loopback HTTP is allowed without a
     # token; a non-loopback bind requires a token or the server refuses to start.
     auth_token: str | None = None
@@ -93,6 +99,8 @@ class ServerConfig(BaseModel):
             approval_timeout=float(os.environ.get("GODOT_MCP_APPROVAL_TIMEOUT", 30.0)),
             approval_fail_open=os.environ.get("GODOT_MCP_APPROVAL_FAIL_OPEN", "true").lower()
             != "false",
+            approval_require=os.environ.get("GODOT_MCP_APPROVAL_REQUIRE", "").lower()
+            in ("1", "true", "yes"),
             auth_token=os.environ.get("GODOT_MCP_AUTH_TOKEN"),
         )
 

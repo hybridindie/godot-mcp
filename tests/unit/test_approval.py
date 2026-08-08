@@ -108,6 +108,13 @@ async def test_from_config_reads_fields() -> None:
     assert gate.webhook_url == "http://hook"
     assert gate.timeout == 5.0
     assert gate.fail_open is False
+    assert gate.require_approval is False
+
+
+async def test_from_config_reads_require_approval() -> None:
+    config = ServerConfig(approval_require=True)
+    gate = ApprovalGate.from_config(config)
+    assert gate.require_approval is True
 
 
 async def test_from_config_without_webhook_is_noop() -> None:
