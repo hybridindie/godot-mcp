@@ -1,0 +1,70 @@
+# Consolidated GitHub Actions runner pool for hybridindie/godot-mcp.
+#
+# Generic Linux runner — serves the [self-hosted, linux, hybridindie] jobs:
+# the ci workflow's server job (lint · types · tests) and the eval workflow's
+# variant job. Uses the stock actions-runner image (no Godot, no GPU).
+#
+# Replaces the prior hybridindie-godot-mcp-linux RunnerDeployment (identical
+# shape, same cache PVC name). Applied to the ci namespace.
+#
+#   kubectl apply -f k8s/runner-deployment-linux.yml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hybridindie-godot-mcp-linux-cache
+  namespace: ci
+  labels:
+    app.kubernetes.io/component: cache
+    app.kubernetes.io/name: actions-runner
+spec:
+  accessModes: [ReadWriteMany]
+  storageClassName: nfs-client
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: actions.summerwind.dev/v1alpha1
+kind: RunnerDeployment
+metadata:
+  name: hybridindie-godot-mcp-linux
+  namespace: ci
+  labels:
+    app.kubernetes.io/component: runner-pool
+    app.kubernetes.io/name: actions-runner
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: runner-pool
+        app.kubernetes.io/name: actions-runner
+    spec:
+      ephemeral: true
+      image: summerwind/actions-runner:v2.336.0-ubuntu-24.04
+      labels:
+        - self-hosted
+        - linux
+        - hybridindie
+      nodeSelector:
+        kubernetes.io/os: linux
+      repository: hybridindie/godot-mcp
+      resources:
+        limits:
+          cpu: "2"
+          memory: 4Gi
+        requests:
+          cpu: 500m
+          memory: 1Gi
+      securityContext:
+        fsGroup: 1001
+      tolerations:
+        - effect: NoSchedule
+          key: node.kubernetes.io/unschedulable
+          operator: Exists
+      volumeMounts:
+        - mountPath: /runner/_work/_cache
+          name: cache
+      volumes:
+        - name: cache
+          persistentVolumeClaim:
+            claimName: hybridindie-godot-mcp-linux-cache

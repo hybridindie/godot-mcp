@@ -1,0 +1,73 @@
+# Godot-capable GitHub Actions runner for hybridindie/godot-mcp.
+#
+# Serves the [self-hosted, godot] jobs — the e2e workflow (live-editor suites).
+# Uses a custom image (ghcr.io/hybridindie/godot-mcp-runner:4.7) built FROM the
+# stock actions-runner image with the Godot 4.7 editor binary baked in at
+# /opt/godot/godot (the e2e workflow's default GODOT_BIN path).
+#
+# Built by .github/workflows/runner-image.yml. No GPU required — the e2e suites
+# run Godot headless (--headless --editor). The eval workflow's GPU pool is a
+# separate concern (the dormant hybridindie-godot-eval RunnerDeployment).
+#
+#   kubectl apply -f k8s/runner-deployment-godot.yml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hybridindie-godot-mcp-godot-cache
+  namespace: ci
+  labels:
+    app.kubernetes.io/component: cache
+    app.kubernetes.io/name: actions-runner
+spec:
+  accessModes: [ReadWriteMany]
+  storageClassName: nfs-client
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: actions.summerwind.dev/v1alpha1
+kind: RunnerDeployment
+metadata:
+  name: hybridindie-godot-mcp-godot
+  namespace: ci
+  labels:
+    app.kubernetes.io/component: godot-runner
+    app.kubernetes.io/name: actions-runner
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: godot-runner
+        app.kubernetes.io/name: actions-runner
+    spec:
+      ephemeral: true
+      image: ghcr.io/hybridindie/godot-mcp-runner:4.7
+      labels:
+        - self-hosted
+        - linux
+        - hybridindie
+        - godot
+      nodeSelector:
+        kubernetes.io/os: linux
+      repository: hybridindie/godot-mcp
+      resources:
+        limits:
+          cpu: "2"
+          memory: 4Gi
+        requests:
+          cpu: 500m
+          memory: 1Gi
+      securityContext:
+        fsGroup: 1001
+      tolerations:
+        - effect: NoSchedule
+          key: node.kubernetes.io/unschedulable
+          operator: Exists
+      volumeMounts:
+        - mountPath: /runner/_work/_cache
+          name: cache
+      volumes:
+        - name: cache
+          persistentVolumeClaim:
+            claimName: hybridindie-godot-mcp-godot-cache
