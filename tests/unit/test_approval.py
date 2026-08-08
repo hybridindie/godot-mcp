@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 
 import pytest
+from mcp.types import ElicitRequestFormParams
 
 from mcp_server.approval_middleware import APPROVE_KEY, _build_input_required
 from mcp_server.config import ServerConfig
@@ -164,7 +165,9 @@ async def test_build_input_required_request_state_carries_tool_and_params() -> N
         "mutating",
         {"parent_path": ".", "node_type": "Node2D", "node_name": "Player"},
     )
-    payload = json.loads(result.input_required.request_state)
+    state = result.input_required.request_state
+    assert state is not None  # narrowed for mypy
+    payload = json.loads(state)
     assert payload["tool"] == "godot_scene_edit_create_node"
     assert payload["safety_class"] == "mutating"
     assert payload["params"] == {
@@ -180,9 +183,11 @@ async def test_build_input_required_elicitation_asks_approve() -> None:
     result = _build_input_required(
         "godot_scene_edit_delete_node", "destructive", {"node_path": "Enemy"}
     )
-    requests = result.input_required.input_requests or {}
-    assert APPROVE_KEY in requests
-    params = requests[APPROVE_KEY].params
+    requests = result.input_required.input_requests
+    assert requests is not None  # narrowed for mypy
+    request = requests[APPROVE_KEY]
+    params = request.params
+    assert isinstance(params, ElicitRequestFormParams)  # form-mode elicitation
     # The schema requires a single boolean "approve" field.
     schema = params.requested_schema
     assert schema["properties"]["approve"]["type"] == "boolean"
