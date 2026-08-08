@@ -8,8 +8,11 @@ poster is injected, so this is a pure unit test — no network.
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
+from mcp_server.approval_middleware import APPROVE_KEY, _build_input_required
 from mcp_server.config import ServerConfig
 from mcp_server.models.approval import ApprovalRequest, ApprovalResponse
 from mcp_server.safety import (
@@ -147,3 +150,40 @@ async def test_malformed_response_denies_even_when_fail_open() -> None:
             action="godot_scene_edit_delete_node", safety_class="destructive", params={}
         )
     assert exc.value.error == "APPROVAL_DENIED"
+
+
+# --- guard pattern (issue #346) -------------------------------------------
+
+
+async def test_build_input_required_request_state_carries_tool_and_params() -> None:
+    # The durable round-trip depends on InputRequiredResult.request_state carrying
+    # the tool name, safety_class, and params so a stateless client can re-call
+    # the tool with the decision on the next round (issue #346).
+    result = _build_input_required(
+        "godot_scene_edit_create_node",
+        "mutating",
+        {"parent_path": ".", "node_type": "Node2D", "node_name": "Player"},
+    )
+    payload = json.loads(result.input_required.request_state)
+    assert payload["tool"] == "godot_scene_edit_create_node"
+    assert payload["safety_class"] == "mutating"
+    assert payload["params"] == {
+        "parent_path": ".",
+        "node_type": "Node2D",
+        "node_name": "Player",
+    }
+
+
+async def test_build_input_required_elicitation_asks_approve() -> None:
+    # The elicitation request under APPROVE_KEY carries a yes/no schema the
+    # client renders; its answer arrives in ctx.input_responses[APPROVE_KEY].
+    result = _build_input_required(
+        "godot_scene_edit_delete_node", "destructive", {"node_path": "Enemy"}
+    )
+    requests = result.input_required.input_requests or {}
+    assert APPROVE_KEY in requests
+    params = requests[APPROVE_KEY].params
+    # The schema requires a single boolean "approve" field.
+    schema = params.requested_schema
+    assert schema["properties"]["approve"]["type"] == "boolean"
+    assert schema["required"] == ["approve"]
