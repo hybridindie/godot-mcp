@@ -1,7 +1,7 @@
 """Exponential backoff with full jitter for bridge reconnect (issue #3).
 
 Pure functions over an injected random factor so reconnect timing is
-deterministic in tests (see .claude/rules/async-patterns.md).
+deterministic in tests (see .opencode/rules/async-patterns.md).
 """
 
 from __future__ import annotations

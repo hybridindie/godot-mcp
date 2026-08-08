@@ -8,7 +8,7 @@ get them all back in ~one frame instead of N.
 
 These run in the **client/harness process** (the eval runner, a scripted client) —
 they are NOT MCP tools and hold no server state, so the server's tool handlers stay
-thin (see ``.claude/rules/architecture.md``). Mutations are deliberately excluded:
+thin (see ``.opencode/rules/architecture.md``). Mutations are deliberately excluded:
 the editor is a single writer, so writes must stay ordered — batch those with the
 ``run_commands`` tool (issue #167) instead.
 """

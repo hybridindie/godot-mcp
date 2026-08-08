@@ -6,7 +6,7 @@ structured summary of errors/warnings/output.
 
 Architectural note: this is the one place the server launches a Godot *process*
 directly rather than going through the editor bridge (cf. Article II in
-.claude/rules/architecture.md). That is deliberate — running the game for
+.opencode/rules/architecture.md). That is deliberate — running the game for
 verification is process execution, not editor control, and Godot exposes no public
 GDScript API to read the editor's Output/error log. The bridge remains the only
 path for *editor* control; this runner is an isolated, injected concern.

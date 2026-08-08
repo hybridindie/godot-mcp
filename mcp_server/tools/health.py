@@ -2,7 +2,7 @@
 
 A ``read_only`` tool: it reports server identity/version and whether the Godot
 bridge is currently connected. Thin delegation — the handler just assembles a
-typed model from injected state (see .claude/rules/architecture.md).
+typed model from injected state (see .opencode/rules/architecture.md).
 """
 
 from __future__ import annotations

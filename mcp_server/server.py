@@ -6,7 +6,7 @@ transport-agnostic — ``main.py`` chooses stdio (default) or Streamable HTTP.
 
 No I/O happens at import time; the bridge connects on startup (best-effort, so a
 missing editor never blocks the server) and closes on shutdown
-(see .claude/rules/async-patterns.md).
+(see .opencode/rules/async-patterns.md).
 """
 
 from __future__ import annotations

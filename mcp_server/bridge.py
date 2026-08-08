@@ -8,7 +8,7 @@ peer connection replaces the old one; the server keeps at most one active peer.
 
 Every request carries an ``id`` and resolves to its own correlated response; many may be
 in flight concurrently. Timeouts are driven by an injected ``sleep`` so behaviour is
-deterministic under test (see .claude/rules/async-patterns.md). A failed or absent peer
+deterministic under test (see .opencode/rules/async-patterns.md). A failed or absent peer
 yields a structured ``ResponseEnvelope`` (``BRIDGE_DISCONNECTED`` / ``TIMEOUT``), never
 an exception escaping to the caller.
 

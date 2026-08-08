@@ -3,7 +3,7 @@
 # observed. graphify reads os.environ but never loads .env itself, and shells
 # spawned by tooling don't auto-source it; without these vars graphify's
 # backend auto-detect returns None and it falls back to the uninstalled default
-# model (qwen2.5-coder:7b). See .claude/rules/graphify.md.
+# model (qwen2.5-coder:7b). See .opencode/rules/graphify.md.
 #
 # Usage:  scripts/graphify.sh <graphify-args...>
 #   e.g.  scripts/graphify.sh label . --update

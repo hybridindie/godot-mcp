@@ -1,7 +1,7 @@
 """Tool safety: classes, preconditions, confirmation, and dry-run (issue #14).
 
 All safety/permission logic lives here, never in the addon
-(see .claude/rules/mcp-tools.md). Tools are tagged with a ``safety_class`` via the
+(see .opencode/rules/mcp-tools.md). Tools are tagged with a ``safety_class`` via the
 ``READ_ONLY`` / ``MUTATING`` / ``DESTRUCTIVE`` / ``RUNTIME`` meta constants.
 
 Preconditions raise a typed :class:`PreconditionError`; the

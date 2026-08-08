@@ -1,4 +1,59 @@
 {
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "bash": {
+      "*": "allow",
+      "git commit *": "ask",
+      "git push *": "ask",
+      "rm *": "ask"
+    },
+    "websearch": "allow",
+    "webfetch": "allow"
+  },
+  "instructions": [
+    "AGENTS.md",
+    ".opencode/rules/architecture.md",
+    ".opencode/rules/mcp-tools.md",
+    ".opencode/rules/error-handling.md",
+    ".opencode/rules/async-patterns.md",
+    ".opencode/rules/addon.md",
+    ".opencode/rules/testing.md",
+    ".opencode/rules/workflow.md",
+    ".opencode/rules/enforcement.md",
+    ".opencode/rules/graphify.md"
+  ],
+  "mcp": {
+    "context7": {
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp",
+      "enabled": true
+    },
+    "mlflow": {
+      "type": "local",
+      "command": ["uv", "run", "python", "-m", "mlflow.mcp.server"],
+      "enabled": true,
+      "environment": {
+        "MLFLOW_TRACKING_URI": "https://mlflow.johndstudios.net",
+        "MLFLOW_MCP_TOOLS": "all"
+      },
+      "timeout": 10000
+    }
+  },
+  "references": {
+    "godot-agents": {
+      "path": "../godot-agents",
+      "description": "The agent orchestrator that consumes this server's MCP tool surface. godot-agents pins godot-mcp's exact tool names, param keys, toolset categories, and response envelope. Consult it as a downstream consumer when a tool/param/envelope change might break callers, or when checking how a tool is actually invoked in practice."
+    }
+  },
+  "watcher": {
+    "ignore": [
+      "graphify-out/**",
+      ".venv/**",
+      "godot/.godot/**",
+      "uv.lock",
+      "node_modules/**"
+    ]
+  },
   "plugin": [
     ".opencode/plugins/graphify.js"
   ]

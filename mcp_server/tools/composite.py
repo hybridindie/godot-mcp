@@ -5,7 +5,7 @@ that the addon executes as a single ``UndoRedo`` action — fewer LLM turns, les
 latency, and one atomic undo. They are opt-in (gated under the ``composite``
 toolset); the individual ``scene_edit`` tools still work unchanged.
 
-Thin wrappers per .claude/rules/architecture.md: validate/preconditions, route
+Thin wrappers per .opencode/rules/architecture.md: validate/preconditions, route
 to the addon ``cmd_*`` handler, return a typed model.
 """
 

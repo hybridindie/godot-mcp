@@ -11,7 +11,7 @@ extends Node
 ##
 ## API verified against the Godot 4 docs (class_websocketpeer): WebSocketPeer
 ## connect_to_url / poll / get_ready_state (STATE_CONNECTING/OPEN/CLOSING/CLOSED) /
-## get_available_packet_count / get_packet / send_text (see .claude/rules/addon.md).
+## get_available_packet_count / get_packet / send_text (see .opencode/rules/addon.md).
 
 ## Mirrors MCPStatusDock.ConnectionStatus ordering so the plugin can map directly.
 enum Status { DISCONNECTED, CONNECTING, CONNECTED }

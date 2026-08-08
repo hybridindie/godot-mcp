@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to AI agent harnesses (OpenCode and any MCP-capable client) when working with code in this repository.
 
 ## Current state
 
@@ -10,7 +10,7 @@ The planned ecosystem is **feature-complete**: the engine (scaffold #1, addon + 
 
 ## Grounding rules
 
-The constitutional rules live in `.claude/rules/` and are the source of truth for *how* to build here. Each is path-scoped (frontmatter `paths:`) so it surfaces on the files it governs. Read the relevant rule before writing code in that area:
+The constitutional rules live in `.opencode/rules/` and are the source of truth for *how* to build here. Each is path-scoped (frontmatter `paths:`) so it surfaces on the files it governs. Read the relevant rule before writing code in that area:
 
 | Rule | Article | Governs |
 |------|---------|---------|
@@ -87,7 +87,7 @@ The scaffold (issue #1) is in place: `uv`-managed Python package, the addon unde
   - `uv sync` — create the venv and install runtime + dev deps.
   - `uv run pytest -q` — full suite; single file `uv run pytest tests/unit/test_smoke.py`; single test `uv run pytest tests/unit/test_smoke.py::test_version_is_calver`.
   - `uv run ruff check .` — lint; `uv run mypy` — type check.
-  - `./.claude/hooks/check-no-skipped-tests.sh` — zero-skip suite-health gate.
+  - `./.opencode/hooks/check-no-skipped-tests.sh` — zero-skip suite-health gate.
 - Server entrypoint: `uv run godot-mcp` runs the live FastMCP server over stdio (or HTTP via `GODOT_MCP_TRANSPORT=http`, default `127.0.0.1:9090`). `godot_health_check`, `godot_get_server_info` (capability snapshot), and the toolset-gating tools are all shipped.
 - The addon is enabled via Godot's *Project Settings → Plugins* (open the `godot/` folder as a project); the addon connects out to the server's bridge listener (default `ws://127.0.0.1:9080`, configurable via `GODOT_MCP_BRIDGE_URL` on both sides) and reconnects automatically. No auth in v1 (localhost-only).
 - Clients register the server as a local stdio MCP command: Claude Code via `.mcp.json` / `claude mcp add`, OpenCode via `opencode.json` (concrete examples in `README.md`).

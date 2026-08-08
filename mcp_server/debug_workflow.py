@@ -1,7 +1,7 @@
 """Debug-workflow service: aggregate read-only diagnostics into one report.
 
 The ``debug_workflow`` tool is a thin delegator (per
-.claude/rules/architecture.md — tool bodies hold no domain logic); all the work
+.opencode/rules/architecture.md — tool bodies hold no domain logic); all the work
 lives here as small, independently testable pieces:
 
 - ``collect_parse_errors`` / ``collect_scene_tree`` / ``collect_run`` /

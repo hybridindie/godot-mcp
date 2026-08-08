@@ -5,7 +5,7 @@ extends RefCounted
 ##
 ## Pure dispatch + structured errors; every outcome is a JSON-safe response
 ## envelope — { id, ok, result } or { id, ok:false, error, hint[, required] } —
-## never a raw error or crash (see .claude/rules/error-handling.md).
+## never a raw error or crash (see .opencode/rules/error-handling.md).
 ##
 ## Handlers receive the params dict and return a response *body* (without id) via
 ## the _ok / _fail builders; handle() stamps the id. Read-only inspection

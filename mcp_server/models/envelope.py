@@ -4,7 +4,7 @@ Command (server → addon): ``{ id, command, params }``.
 Response (addon → server): ``{ id, ok, result }`` or
 ``{ id, ok: false, error, hint[, required] }``.
 
-See docs/architecture.md and .claude/rules/error-handling.md. Error codes are a
+See docs/architecture.md and .opencode/rules/error-handling.md. Error codes are a
 closed set — never invent ad-hoc strings.
 """
 

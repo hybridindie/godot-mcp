@@ -4,7 +4,7 @@
 boundary: the bridge sends a command JSON, the fake validates it, runs a
 ``responder`` to produce a response envelope, and queues it for ``recv()``.
 This exercises the real envelope shapes and ``id`` correlation with no sockets
-and no running editor (per .claude/rules/testing.md).
+and no running editor (per .opencode/rules/testing.md).
 """
 
 from __future__ import annotations

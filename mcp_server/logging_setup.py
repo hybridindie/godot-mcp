@@ -2,7 +2,7 @@
 
 Logs are emitted as one JSON object per line to **stderr**. Under the stdio
 transport, stdout is the MCP protocol channel — writing logs there would corrupt
-it — so logging must never touch stdout (see .claude/rules/error-handling.md for
+it — so logging must never touch stdout (see .opencode/rules/error-handling.md for
 the structured-logging requirement).
 """
 

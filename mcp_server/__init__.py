@@ -8,7 +8,7 @@ models; it holds no Godot logic itself.
 See ``docs/architecture.md`` for the bridge contract.
 """
 
-# CalVer, kept in sync with pyproject.toml and .claude/rules/enforcement.md.
+# CalVer, kept in sync with pyproject.toml and .opencode/rules/enforcement.md.
 __version__ = "2026.06.01"
 
 # Tool-contract / compatibility version — a monotonic integer, deliberately

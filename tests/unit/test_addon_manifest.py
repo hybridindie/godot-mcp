@@ -5,7 +5,7 @@ parts that are statically checkable: the ``plugin.cfg`` manifest is well-formed
 and points at a real ``@tool extends EditorPlugin`` script, the project enables
 the plugin, and the addon version stays in lockstep with the Python package
 (both CalVer). Loading the plugin in the Godot 4.4 editor is the addon-side
-preflight (see .claude/rules/workflow.md).
+preflight (see .opencode/rules/workflow.md).
 """
 
 from __future__ import annotations

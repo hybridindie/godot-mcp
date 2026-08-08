@@ -292,7 +292,7 @@ git add -A && git commit -m "test(s4): live smoke — create_node then cmd_undo 
 
 ## Task 6: Preflight + PR
 
-- [ ] **Step 1:** Full preflight per repo rules: `uv run pytest -q`, `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy`, `./.claude/hooks/check-no-skipped-tests.sh`.
+- [ ] **Step 1:** Full preflight per repo rules: `uv run pytest -q`, `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy`, `./.opencode/hooks/check-no-skipped-tests.sh`.
 - [ ] **Step 2:** Update `docs/tool-contracts.md` — add `godot_undo` to the core tool surface (safety class `mutating`, `count` param, returns `{undone, requested, last_action, nothing_to_undo}`).
 - [ ] **Step 3:** Open the PR (`closes` the S4 tracking issue once filed). Wait for Qodo review, address comments, merge.
 

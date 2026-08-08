@@ -1,4 +1,4 @@
-# CI gates — kept in sync with .claude/rules/enforcement.md.
+# CI gates — kept in sync with .opencode/rules/enforcement.md.
 # Suite health (zero skips) · lint (ruff) · type check (mypy) · tests (pytest).
 name: ci
 
@@ -32,7 +32,7 @@ jobs:
         run: uv sync --frozen
 
       - name: Zero-skip scan (suite health)
-        run: ./.claude/hooks/check-no-skipped-tests.sh
+        run: ./.opencode/hooks/check-no-skipped-tests.sh
 
       - name: Lint (ruff)
         run: uv run ruff check .

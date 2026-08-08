@@ -1,7 +1,7 @@
 """Debug workflow tool: thin delegator to the debug-workflow service.
 
 Aggregates several read-only diagnostics into one call. All logic lives in
-``mcp_server.debug_workflow`` (per .claude/rules/architecture.md — tool bodies
+``mcp_server.debug_workflow`` (per .opencode/rules/architecture.md — tool bodies
 are delegation only); this module just registers and wires the tool.
 """
 

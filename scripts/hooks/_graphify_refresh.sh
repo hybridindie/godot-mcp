@@ -6,7 +6,7 @@
 #
 # AST-only + LLM-free (~1-2s); output (graphify-out/) is gitignored, so this
 # creates no commit churn. Re-clustering resets community labels to placeholders
-# — run `scripts/graphify.sh label .` to refresh names. See .claude/rules/graphify.md.
+# — run `scripts/graphify.sh label .` to refresh names. See .opencode/rules/graphify.md.
 #
 # Best-effort: never fails a commit. Self-contained so it works whether git
 # invokes it as post-commit, post-merge, or directly.

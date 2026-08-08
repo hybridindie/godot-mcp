@@ -3,7 +3,7 @@
 The bridge is the core seam, so these pin the wire contract — command shape,
 ``id`` correlation, structured error pass-through, timeout, and the
 disconnected case — against a fake addon peer (no sockets, no editor).
-See .claude/rules/testing.md and docs/architecture.md.
+See .opencode/rules/testing.md and docs/architecture.md.
 """
 
 from __future__ import annotations

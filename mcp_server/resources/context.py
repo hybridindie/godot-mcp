@@ -2,7 +2,7 @@
 
 Addressable `godot://…` snapshots so an agent can reference project/scene/node
 state without a tool call each time. Resources are read-only and return JSON
-strings; mutations always go through tools (see .claude/rules/mcp-tools.md).
+strings; mutations always go through tools (see .opencode/rules/mcp-tools.md).
 
 Only the **generic** resources are implemented here. The game-specific ones in the
 issue (`godot://game/towers|enemies|waves|domain`) depend on a game's domain model

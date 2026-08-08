@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Suite-health gate (.claude/rules/testing.md, enforcement.md): zero unconditional
+# Suite-health gate (.opencode/rules/testing.md, enforcement.md): zero unconditional
 # skips. No @pytest.mark.skip, no xfail, no bare pytest.skip(). Conditional skipif on a
 # genuine environmental precondition is allowed.
 #

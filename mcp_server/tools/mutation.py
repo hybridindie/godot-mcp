@@ -7,7 +7,7 @@ The first set of editor *changes* an agent can make. Every tool:
 - routes to a UndoRedo-wrapped ``cmd_*`` addon handler.
 
 All editor work + UndoRedo lives in the addon; all safety lives here
-(see .claude/rules/architecture.md and safety.py).
+(see .opencode/rules/architecture.md and safety.py).
 """
 
 from __future__ import annotations

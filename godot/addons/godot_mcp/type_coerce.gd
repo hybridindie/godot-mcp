@@ -4,7 +4,7 @@ extends RefCounted
 ## JSON-safe coercion of Godot types (issue #5; extended for write/roundtrip in #6).
 ##
 ## Everything crossing the bridge must be JSON-safe — no Godot objects
-## (see .claude/rules/addon.md). This is the single place that knows how Godot
+## (see .opencode/rules/addon.md). This is the single place that knows how Godot
 ## types map to JSON; never coerce inline. Read direction (Godot → JSON) only for
 ## now; from_json() lands with the mutation tools (#6).
 ##

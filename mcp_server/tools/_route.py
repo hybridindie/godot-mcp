@@ -1,6 +1,6 @@
 """Bridge → tool routing helper (issue #5).
 
-Keeps tool handlers thin (delegation only, per .claude/rules/architecture.md): send
+Keeps tool handlers thin (delegation only, per .opencode/rules/architecture.md): send
 a command, return the result dict on success, or raise a structured ``ToolError`` on
 failure so the agent gets an actionable message instead of a stack trace. When the
 addon returns a precondition-style envelope (carrying ``required``), that field is

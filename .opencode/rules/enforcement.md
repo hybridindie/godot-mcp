@@ -12,7 +12,7 @@ These rules are the project's grounding contract. A change that violates one is 
 | Gate | Blocks on |
 |------|-----------|
 | Workflow ([[workflow]]) | A skipped step — no issue, test-after-code, bundled drive-by fix, unaddressed review comment |
-| Suite health ([[testing]]) | Any failing/erroring test or forbidden skip. Add `.claude/hooks/check-no-skipped-tests.sh` when the test harness lands |
+| Suite health ([[testing]]) | Any failing/erroring test or forbidden skip. Run `./.opencode/hooks/check-no-skipped-tests.sh` (wired into CI) |
 | Type check | New `mypy` / type errors in changed Python |
 | Lint | `ruff` errors |
 | Bridge contract ([[error-handling]]) | An envelope shape change without a contract-test update |

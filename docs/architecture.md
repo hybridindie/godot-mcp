@@ -3,7 +3,7 @@
 This document is the contract for the seam between the two halves of godot-mcp. It is
 authoritative for the **transport** and the **JSON envelope**; the tool/resource/prompt
 surface is specified in [`tool-contracts.md`](tool-contracts.md). The grounding rules in
-[`../.claude/rules/`](../.claude/rules/) govern *how* code on each side is written.
+[`../.opencode/rules/`](../.opencode/rules/) govern *how* code on each side is written.
 
 > Status: the bridge is implemented (issue #3) with the connection direction inverted
 > (#276): the **server listens, the editor connects out**. Server side:

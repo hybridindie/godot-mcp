@@ -1,7 +1,7 @@
 """Bridge configuration (issue #3).
 
 The bridge URL and request timeout are configuration, never hard-coded in
-library code (see .claude/rules/architecture.md). Defaults are localhost-only
+library code (see .opencode/rules/architecture.md). Defaults are localhost-only
 with no auth, per the v1 design.
 """
 

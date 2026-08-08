@@ -43,7 +43,7 @@ func _enter_tree() -> void:
 	_bridge.command_received.connect(_dock.log_command)
 	add_child(_bridge)
 	# Connect out to the MCP server's bridge listener (#276). The URL is overridable via
-	# GODOT_MCP_BRIDGE_URL (no hard-coded endpoint per .claude/rules/architecture.md);
+	# GODOT_MCP_BRIDGE_URL (no hard-coded endpoint per .opencode/rules/architecture.md);
 	# defaults to ws://127.0.0.1:9080.
 	var bridge_url := OS.get_environment("GODOT_MCP_BRIDGE_URL")
 	if bridge_url.is_empty():

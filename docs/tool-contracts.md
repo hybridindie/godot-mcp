@@ -3,8 +3,8 @@
 The MCP surface is the product: agents call it with no human in the loop, so the types,
 safety classes, and preconditions *are* the API. This document specifies that surface. The
 underlying transport and envelope are in [`architecture.md`](architecture.md); the binding
-rules are [`../.claude/rules/mcp-tools.md`](../.claude/rules/mcp-tools.md) and
-[`../.claude/rules/error-handling.md`](../.claude/rules/error-handling.md).
+rules are [`../.opencode/rules/mcp-tools.md`](../.opencode/rules/mcp-tools.md) and
+[`../.opencode/rules/error-handling.md`](../.opencode/rules/error-handling.md).
 
 > **For user-facing setup instructions, see [`README.md`](../README.md).** This document is the
 > authoritative per-tool reference for implementers and agents.
@@ -997,7 +997,7 @@ until enabled. These meta-tools are always available:
 `godot_enable_toolset`/`godot_disable_toolset` reject unknown categories and `core` with a
 structured `ToolError`. They change tool *exposure* only — never the Godot project
 — so they are `read_only`. The default-off-for-new-categories rule means the live
-surface stays small as the catalog grows (see `.claude/rules/mcp-tools.md`).
+surface stays small as the catalog grows (see `.opencode/rules/mcp-tools.md`).
 
 ## Resources
 

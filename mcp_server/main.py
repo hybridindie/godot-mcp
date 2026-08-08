@@ -4,7 +4,7 @@ Run with ``uv run godot-mcp`` (or ``python -m mcp_server.main``). Transport
 defaults to stdio; set ``GODOT_MCP_TRANSPORT=http`` (with ``GODOT_MCP_HTTP_HOST`` /
 ``GODOT_MCP_HTTP_PORT``) for a long-lived HTTP server. The FastMCP runtime owns
 the event loop — we never call ``asyncio.run`` here
-(see .claude/rules/async-patterns.md).
+(see .opencode/rules/async-patterns.md).
 """
 
 from __future__ import annotations
