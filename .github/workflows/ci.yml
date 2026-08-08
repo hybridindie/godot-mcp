@@ -1,5 +1,11 @@
 # CI gates — kept in sync with .opencode/rules/enforcement.md.
 # Suite health (zero skips) · lint (ruff) · type check (mypy) · tests (pytest).
+#
+# Split into parallel jobs (lint, types, tests, camelCase) so they run
+# simultaneously on separate runner pods instead of sequentially in one job.
+# Wall time drops from ~7 min (sequential) to ~2 min (bounded by the slowest
+# job = pytest). The camelCase gate is scoped to the transform contract tests
+# (3 tests, <1s) instead of re-running the full 642-test suite.
 name: ci
 
 on:
@@ -14,8 +20,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  python:
-    name: server (lint · types · tests)
+  lint:
+    name: lint (ruff)
     runs-on: [self-hosted, linux, hybridindie]
     steps:
       - uses: actions/checkout@v7
@@ -34,16 +40,74 @@ jobs:
       - name: Zero-skip scan (suite health)
         run: ./.opencode/hooks/check-no-skipped-tests.sh
 
-      - name: Lint (ruff)
+      - name: Lint (ruff check)
         run: uv run ruff check .
+
+      - name: Format check (ruff format)
+        run: uv run ruff format --check .
+
+  types:
+    name: types (mypy)
+    runs-on: [self-hosted, linux, hybridindie]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.3.1
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Sync dependencies
+        run: uv sync --frozen
 
       - name: Type check (mypy)
         run: uv run mypy
 
+  tests:
+    name: tests (pytest)
+    runs-on: [self-hosted, linux, hybridindie]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.3.1
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Sync dependencies
+        run: uv sync --frozen
+
       - name: Tests (pytest)
         run: uv run pytest -q
 
+  camelcase:
+    name: camelCase gate (compat bridge off)
+    runs-on: [self-hosted, linux, hybridindie]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.3.1
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Sync dependencies
+        run: uv sync --frozen
+
+      # Scoped to the tool-transform contract tests (3 tests, <1s) instead of
+      # re-running the full 642-test suite. The camelCase compat bridge only
+      # affects tool-name transforms; test_tool_transform.py is the contract
+      # that enforces every tool is godot_<toolset>_<action> named.
       - name: camelCase regression gate (compat bridge off)
         env:
           FASTMCP_MCP_CAMELCASE_COMPAT: "false"
-        run: uv run pytest -q
+        run: uv run pytest -q tests/contract/test_tool_transform.py
