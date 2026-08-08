@@ -45,8 +45,6 @@ spec:
       image: ghcr.io/hybridindie/godot-mcp-runner:4.7
       labels:
         - self-hosted
-        - linux
-        - hybridindie
         - godot
       nodeSelector:
         kubernetes.io/os: linux
