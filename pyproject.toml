@@ -6,7 +6,10 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
 dependencies = [
-    # The MCP framework (PrefectHQ/fastmcp). Pinned to the 4.0 beta (issue #311):
+    # The MCP framework (PrefectHQ/fastmcp). Pinned to the 4.0 beta (issue #311).
+    # 4.0.0b1 already ships the modern-protocol guard pattern (InputRequiredResult,
+    # InputRequiredToolResult, Context.input_responses / request_state) needed by
+    # the durable-approval work (issue #346) — no upgrade required.
     # 2.x→3.x had breaking API changes (#228); the v3→v4 transition is lower-risk
     # for this server (stateless, no ctx.elicit, no session state, canonical imports
     # already in place). Beta pin per the upgrade guide; follow stable 4.x when it ships.
