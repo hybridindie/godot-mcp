@@ -77,10 +77,10 @@ def _original_handler_name(tool: Tool) -> str:
     handler is reachable via ``parent_tool``. Before the transform is applied,
     tools are untransformed and ``fn.__name__`` is the handler name directly.
     """
-    name: str = str(tool.fn.__name__)
+    name: str = str(tool.fn.__name__)  # type: ignore[attr-defined]
     while name == "_forward" and hasattr(tool, "parent_tool"):
         tool = tool.parent_tool
-        name = str(tool.fn.__name__)
+        name = str(tool.fn.__name__)  # type: ignore[attr-defined]
     return name
 
 
