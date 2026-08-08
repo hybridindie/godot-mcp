@@ -33,12 +33,17 @@ RUN sudo apt-get update \
         libwayland-client0 libwayland-server0 \
     && sudo rm -rf /var/lib/apt/lists/* \
     && sudo mkdir -p /opt/godot \
-    && curl -fsSL -o /tmp/godot.zip \
+    && curl -fsSL -o /tmp/${GODOT_ASSET} \
         "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/${GODOT_ASSET}" \
-    && sudo unzip -o /tmp/godot.zip -d /opt/godot \
+    # Supply-chain: verify the download against Godot's published SHA512 checksum
+    # before extracting/executing. Never run an unverified binary.
+    && curl -fsSL -o /tmp/SHA512-SUMS.txt \
+        "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/SHA512-SUMS.txt" \
+    && (cd /tmp && awk -v f="${GODOT_ASSET}" '$2==f' SHA512-SUMS.txt | sha512sum -c -) \
+    && sudo unzip -o /tmp/${GODOT_ASSET} -d /opt/godot \
     && sudo chmod +x /opt/godot/Godot_v${GODOT_VERSION}_linux.x86_64 \
     && sudo ln -sf /opt/godot/Godot_v${GODOT_VERSION}_linux.x86_64 /opt/godot/godot \
-    && rm -f /tmp/godot.zip
+    && rm -f /tmp/${GODOT_ASSET} /tmp/SHA512-SUMS.txt
 
 # Sanity: the binary runs headless and reports the expected version. xvfb-run
 # wraps it so the display driver probe succeeds in the headless build env.
