@@ -13,6 +13,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GODOT_PROJECT = REPO_ROOT / "godot"
 
@@ -34,6 +36,30 @@ def find_godot() -> str | None:
 
 
 GODOT_BIN = find_godot()
+
+
+def _has_display() -> bool:
+    """Whether a display server is available for play sessions.
+
+    macOS always has a display (CoreGraphics). Linux needs ``$DISPLAY`` set
+    (a real X11/Wayland session or an xvfb wrapper). A headless CI container
+    has neither, so play-session tests skip there — they're dev-machine tests
+    that need a running game window, not something ``--headless`` can provide.
+    """
+    import sys
+
+    if sys.platform == "darwin":
+        return True
+    return bool(os.environ.get("DISPLAY"))
+
+
+# A pytest marker for tests that need a display (play sessions, runtime
+# inspection, input simulation, profiling, input recording). Skip in headless
+# CI; run on a dev machine with a real Godot editor and display.
+needs_display = pytest.mark.skipif(
+    not _has_display(),
+    reason="Play-session test — needs a display server (run on a dev machine, not headless CI)",
+)
 
 
 # Engine-side watchdog: Godot quits after this many main-loop iterations no matter

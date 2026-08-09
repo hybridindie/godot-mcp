@@ -15,9 +15,12 @@ import pytest
 
 from mcp_server.bridge import Bridge
 from mcp_server.config import BridgeConfig
-from tests.integration._godot import GODOT_BIN, GODOT_PROJECT, serve_and_await_editor
+from tests.integration._godot import GODOT_BIN, GODOT_PROJECT, needs_display, serve_and_await_editor
 
-pytestmark = pytest.mark.skipif(GODOT_BIN is None, reason="Godot binary not installed")
+pytestmark = [
+    pytest.mark.skipif(GODOT_BIN is None, reason="Godot binary not installed"),
+    needs_display,
+]
 
 BRIDGE_URL = "ws://127.0.0.1:9097"
 SCRATCH = "res://tmp_e2e_runtime_inspect.tscn"
