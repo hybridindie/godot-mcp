@@ -78,8 +78,8 @@ def test_dock_script_exists_and_is_tool() -> None:
 def test_plugin_wires_the_dock() -> None:
     source = (ADDON_DIR / "godot_mcp.gd").read_text()
     assert "MCPStatusDock" in source, "plugin must instantiate the typed dock"
-    assert "add_control_to_dock" in source, "plugin must add the dock to an editor dock slot"
-    assert "remove_control_from_docks" in source, "plugin must remove the dock on _exit_tree"
+    assert "add_control_to_bottom_panel" in source, "plugin must add the dock to the bottom panel"
+    assert "remove_control_from_bottom_panel" in source, "plugin must remove the dock on _exit_tree"
 
 
 def test_command_router_exists() -> None:

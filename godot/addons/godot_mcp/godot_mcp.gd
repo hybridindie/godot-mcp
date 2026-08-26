@@ -8,18 +8,22 @@ extends EditorPlugin
 ## reflects connection state + recent commands in the dock. All safety/preconditions
 ## live in the MCP server, not here.
 ##
-## API note: add_control_to_dock()/remove_control_from_docks() are deprecated as
-## of Godot 4.6 in favour of EditorDock/add_dock(), but EditorDock does not exist
-## in 4.4/4.5 and this project targets 4.4+, so the broadly-compatible API is the
-## correct choice here.
+## API note: add_control_to_bottom_panel() is deprecated as of Godot 4.6 in
+## favour of EditorDock/add_dock() with DOCK_SLOT_BOTTOM, but EditorDock does
+## not exist in 4.4/4.5 and this project targets 4.4+, so the broadly-
+## compatible API is the correct choice here. The bottom panel is the natural
+## home for a status/log display (alongside Output and Debug), not a tab
+## competing with Scene/Import in the dock area.
 
 const PLUGIN_NAME := "godot_mcp"
-# Minimum supported Godot version. The addon is built for 4.4+ (UID sidecars, the
-# 4.4-compatible add_control_to_dock choice) and is validated against 4.6.x.
+# Minimum supported Godot version. The addon is built for 4.4+ (UID sidecards,
+# the 4.4-compatible add_control_to_bottom_panel choice) and is validated
+# against 4.6.x.
 const MIN_GODOT_MAJOR := 4
 const MIN_GODOT_MINOR := 4
 
 var _dock: MCPStatusDock
+var _dock_button: Button
 var _bridge: MCPBridge
 var _debugger: MCPDebugger
 var _selection: EditorSelection
@@ -28,7 +32,7 @@ var _selection: EditorSelection
 func _enter_tree() -> void:
 	_warn_if_unsupported_version()
 	_dock = MCPStatusDock.new()
-	add_control_to_dock(DOCK_SLOT_LEFT_UR, _dock)
+	_dock_button = add_control_to_bottom_panel(_dock, "MCP")
 
 	# Capture the godot_mcp debugger channel from played games (issue #66), and give the
 	# router a handle so runtime-inspection handlers can read the cached live state.
@@ -75,9 +79,10 @@ func _exit_tree() -> void:
 		_debugger = null
 
 	if _dock != null:
-		remove_control_from_docks(_dock)
+		remove_control_from_bottom_panel(_dock)
 		_dock.queue_free()
 		_dock = null
+		_dock_button = null
 
 
 func _get_plugin_name() -> String:
