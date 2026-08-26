@@ -1,5 +1,5 @@
 [project]
-name = "godot-mcp"
+name = "godot-editor-mcp"
 version = "2026.08.26b1"
 description = "MCP server that drives a live Godot editor for AI-driven game development"
 readme = "README.md"
@@ -53,7 +53,7 @@ Issues = "https://github.com/hybridindie/godot-mcp/issues"
 Changelog = "https://github.com/hybridindie/godot-mcp/releases"
 
 [project.scripts]
-godot-mcp = "mcp_server.main:main"
+godot-editor-mcp = "mcp_server.main:main"
 
 [dependency-groups]
 dev = [
