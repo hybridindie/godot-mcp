@@ -74,7 +74,6 @@ func _init() -> void:
 	# --- Command stats ---
 	var stats_title := Label.new()
 	stats_title.text = "Command statistics"
-	stats_title.add_theme_font_size_override("font_size", 12)
 	add_child(stats_title)
 	_cmd_count_value = _add_field("Total:")
 	_last_cmd_value = _add_field("Last:")
@@ -82,11 +81,9 @@ func _init() -> void:
 	# --- Recent commands log ---
 	var log_title := Label.new()
 	log_title.text = "Recent commands"
-	log_title.add_theme_font_size_override("font_size", 12)
 	add_child(log_title)
 	_log_value = Label.new()
 	_log_value.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_log_value.add_theme_font_size_override("font_size", 11)
 	add_child(_log_value)
 
 	# Sensible defaults before the plugin pushes real state.
@@ -105,10 +102,8 @@ func _add_field(caption: String) -> Label:
 	var row := HBoxContainer.new()
 	var caption_label := Label.new()
 	caption_label.text = caption
-	caption_label.add_theme_font_size_override("font_size", 12)
 	var value_label := Label.new()
 	value_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	value_label.add_theme_font_size_override("font_size", 12)
 	row.add_child(caption_label)
 	row.add_child(value_label)
 	add_child(row)
