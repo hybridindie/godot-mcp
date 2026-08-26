@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-CALVER = re.compile(r"^\d{4}\.\d{2}\.\d{2}(?:[-.]?(?:\d+|[abrc]\d+))?$")
+CALVER = re.compile(r"^\d{4}\.\d{2}\.\d{2}(?:[-.]?(?:\d+|(?:a|b|rc)\d+))?$")
 
 
 def test_package_imports() -> None:
