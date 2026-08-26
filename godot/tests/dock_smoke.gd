@@ -18,7 +18,7 @@ func _initialize() -> void:
 	var failures: Array[String] = []
 	var dock := MCPDockScript.new()
 
-	# Connection status reflects in the label.
+	# === Connection status ===
 	dock.set_connection_status(MCPDockScript.ConnectionStatus.CONNECTED)
 	_expect(failures, "connection", dock.displayed_connection(), "Connected")
 	dock.set_connection_status(MCPDockScript.ConnectionStatus.CONNECTING)
@@ -26,7 +26,7 @@ func _initialize() -> void:
 	dock.set_connection_status(MCPDockScript.ConnectionStatus.DISCONNECTED)
 	_expect(failures, "disconnected", dock.displayed_connection(), "Disconnected")
 
-	# Project / scene / selected node reflect live values.
+	# === Project / scene / selected node ===
 	dock.set_project_path("res://demo")
 	_expect(failures, "project", dock.displayed_project(), "res://demo")
 	dock.set_active_scene("Main")
@@ -34,13 +34,34 @@ func _initialize() -> void:
 	dock.set_selected_node("Player")
 	_expect(failures, "selected", dock.displayed_selected(), "Player")
 
-	# Empty values fall back to a readable placeholder.
+	# === Empty values fall back to a readable placeholder ===
 	dock.set_active_scene("")
 	_expect(failures, "scene_placeholder", dock.displayed_scene(), "(none)")
 	dock.set_selected_node("")
 	_expect(failures, "selected_placeholder", dock.displayed_selected(), "(none)")
 
-	# Recent-command log keeps only the last 10 entries.
+	# === Enabled toolsets ===
+	dock.set_enabled_toolsets(PackedStringArray(["core", "scene_edit", "testing"]))
+	_expect(failures, "toolsets", dock.displayed_toolsets(), "core, scene_edit, testing")
+	# Empty toolsets shows placeholder
+	dock.set_enabled_toolsets(PackedStringArray())
+	_expect(failures, "toolsets_empty", dock.displayed_toolsets(), "(none)")
+
+	# === Command statistics: total, last exec, last latency ===
+	dock.set_command_stats(42, 15.3, 8.7)
+	_expect(failures, "cmd_count", dock.displayed_command_count(), "42")
+	# Last exec and latency are formatted as "X.X ms"
+	if not dock.displayed_last_exec().contains("15.3"):
+		failures.append("last_exec: expected '15.3 ms', got %s" % dock.displayed_last_exec())
+	if not dock.displayed_last_latency().contains("8.7"):
+		failures.append("last_latency: expected '8.7 ms', got %s" % dock.displayed_last_latency())
+	# Zero exec/latency shows placeholder
+	dock.set_command_stats(0, 0.0, 0.0)
+	_expect(failures, "cmd_count_zero", dock.displayed_command_count(), "0")
+	_expect(failures, "last_exec_zero", dock.displayed_last_exec(), "(none)")
+	_expect(failures, "last_latency_zero", dock.displayed_last_latency(), "(none)")
+
+	# === Recent-command log keeps only the last 10 entries ===
 	for i in range(15):
 		dock.log_command("cmd_%d" % i)
 	var recent := dock.get_recent_commands()
@@ -56,6 +77,14 @@ func _initialize() -> void:
 		failures.append("log label missing newest entry 'cmd_14'")
 	if dock.displayed_log().contains("cmd_4"):
 		failures.append("log label still shows evicted entry 'cmd_4'")
+
+	# === Command count increments on log_command ===
+	if dock.get_command_count() != 15:
+		failures.append("command_count: expected 15, got %d" % dock.get_command_count())
+
+	# === Timestamp format: entries start with [HH:MM:SS] ===
+	if not recent[0].begins_with("["):
+		failures.append("timestamp_format: expected '[HH:MM:SS] ...', got %s" % recent[0])
 
 	dock.free()
 

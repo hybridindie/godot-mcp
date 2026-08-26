@@ -224,5 +224,13 @@ func displayed_command_count() -> String:
 	return _cmd_count_value.text
 
 
+func displayed_last_exec() -> String:
+	return _last_exec_value.text
+
+
+func displayed_last_latency() -> String:
+	return _last_latency_value.text
+
+
 func displayed_log() -> String:
 	return _log_value.text
