@@ -1,12 +1,13 @@
 # godot-mcp Skills
 
-godot-mcp ships four AI skills that give your agent expert knowledge when
+godot-mcp ships three AI skills that give your agent expert knowledge when
 building Godot games through the MCP tools. Two categories:
 
 - **MCP workflow skills** — step-by-step recipes for calling the tools
-  correctly (enable toolsets, build scenes, play-test and debug).
+  correctly (enable toolsets, play-test and debug).
 - **Engine knowledge skill** — Godot 4.x engine rules and common-bug
-  prevention (rendering, physics, autoloads, GDScript gotchas).
+  prevention (rendering, physics, autoloads, GDScript gotchas, scene
+  authoring).
 
 Install them once and your agent has the right guidance at the right time.
 
@@ -56,16 +57,15 @@ If you prefer not to use the script:
 ```bash
 # opencode:
 ln -s "$(pwd)/skills/godot-expert" ~/.config/opencode/skills/godot-expert
-ln -s "$(pwd)/skills/godot-mcp-getting-started" ~/.config/opencode/skills/godot-mcp-getting-started
-ln -s "$(pwd)/skills/godot-mcp-build-a-scene" ~/.config/opencode/skills/godot-mcp-build-a-scene
-ln -s "$(pwd)/skills/godot-mcp-playtest-and-debug" ~/.config/opencode/skills/godot-mcp-playtest-and-debug
+ln -s "$(pwd)/skills/godot-getting-started" ~/.config/opencode/skills/godot-getting-started
+ln -s "$(pwd)/skills/godot-playtest-and-debug" ~/.config/opencode/skills/godot-playtest-and-debug
 ```
 
 ---
 
 ## Skills
 
-### godot-mcp-getting-started
+### godot-getting-started
 
 **Purpose:** Connect to and drive a Godot editor through the godot-mcp
 server. Read this once at the start of any Godot session — it prevents the
@@ -88,31 +88,7 @@ editor", "godot-mcp tools aren't showing up", "unknown tool from godot",
 
 ---
 
-### godot-mcp-build-a-scene
-
-**Purpose:** Step-by-step recipe for building or editing a Godot scene
-through the MCP tools — create a scene, add and position nodes, attach
-GDScript, add collision, then save and verify.
-
-**Triggers on:** "build a Godot scene", "add a node in Godot", "create a
-scene", "attach a script to a node", "set up a player scene", "edit the
-scene tree".
-
-**What it teaches:**
-- Enabling the `scene_edit`, `scripts`, and `physics` toolsets
-- Creating or opening a scene
-- Adding and positioning nodes (parent paths, typed property values)
-- Attaching GDScript to nodes
-- Adding collision (CollisionShape2D + shape resources)
-- Saving and verifying (scene tree + parse errors)
-- Safety preview with `dry_run` and `confirm`
-
-**When to use:** When scaffolding a new scene or modifying the node tree
-of an existing one.
-
----
-
-### godot-mcp-playtest-and-debug
+### godot-playtest-and-debug
 
 **Purpose:** Run, inspect, and debug a live Godot game through the MCP
 tools — play a scene, read the running scene tree, sample live properties,
@@ -146,7 +122,8 @@ blocked by overlays, enemies not spawning, parse errors, and more.
 
 **Triggers on:** "build a Godot game", "sprite not showing", "input not
 working", "enemy not spawning", "GDScript parse error", "collision setup",
-"autoload not working", "scene file format".
+"autoload not working", "scene file format", "build a scene", "create a
+scene", "attach a script".
 
 **What it teaches (10 sections):**
 1. **Node types & rendering** — Control vs Node2D, Polygon2D for
@@ -182,7 +159,8 @@ working", "enemy not spawning", "GDScript parse error", "collision setup",
 
 **When to use:** Whenever building or debugging a Godot game — especially
 when something isn't rendering, input isn't working, or a script won't
-parse.
+parse. Also covers scene scaffolding (create scene, add nodes, attach
+scripts, add collision, save and verify).
 
 ---
 
@@ -211,22 +189,19 @@ They guide the agent's decisions when it uses the MCP tools.
 ```
 User: "Build a survivors game in Godot"
   │
-  ├─ godot-mcp-getting-started activates    ← "how to connect to Godot"
+  ├─ godot-getting-started activates          ← "how to connect to Godot"
   │   └─ agent enables toolsets, verifies bridge
   │
-  ├─ godot-expert activates                  ← "how to build in Godot"
+  ├─ godot-expert activates                    ← "how to build in Godot"
   │   └─ agent uses Polygon2D not ColorRect, checks z-order, etc.
   │
-  ├─ godot-mcp-build-a-scene activates       ← "how to scaffold a scene"
-  │   └─ agent creates scene, adds nodes, attaches scripts
-  │
-  └─ godot-mcp-playtest-and-debug activates  ← "how to test it"
+  └─ godot-playtest-and-debug activates         ← "how to test it"
       └─ agent plays the scene, inspects, simulates input
 ```
 
-The workflow skills (`getting-started`, `build-a-scene`,
-`playtest-and-debug`) teach **how to call the tools**. The engine skill
-(`godot-expert`) teaches **why things break**. Use them together.
+The workflow skills (`getting-started`, `playtest-and-debug`) teach
+**how to call the tools**. The engine skill (`godot-expert`) teaches
+**why things break**. Use them together.
 
 ## Creating new skills
 
@@ -262,17 +237,15 @@ The workflow skills (`getting-started`, `build-a-scene`,
 ```
 skills/
 ├── README.md                          # This file
-├── godot-mcp-getting-started/         # MCP workflow: bridge + toolsets + safety
+├── godot-getting-started/             # MCP workflow: bridge + toolsets + safety
 │   └── SKILL.md                       # 46 lines
-├── godot-mcp-build-a-scene/           # MCP workflow: scene scaffolding recipe
-│   └── SKILL.md                       # 64 lines
-├── godot-mcp-playtest-and-debug/      # MCP workflow: runtime + debug recipe
+├── godot-playtest-and-debug/           # MCP workflow: runtime + debug recipe
 │   └── SKILL.md                       # 62 lines
-└── godot-expert/                      # Engine knowledge: Godot 4.x expert rules
+└── godot-expert/                       # Engine knowledge: Godot 4.x expert rules
     ├── SKILL.md                       # 567 lines (10 sections)
     └── references/                    # 7 specialized guides
         ├── ui-hud.md                  # 170 lines
-        ├── physics-collision.md       # 138 lines
+        ├── physics-collision.md        # 138 lines
         ├── testing-gut.md             # 203 lines
         ├── scene-authoring.md          # 173 lines
         ├── autoload-architecture.md   # 214 lines

@@ -1,9 +1,9 @@
 ---
-name: godot-mcp-getting-started
+name: godot-getting-started
 description: Connect to and drive a Godot editor through the godot-mcp server. Use at the start of any Godot task via godot-mcp — it teaches the toolset-gating model (enable a toolset before its tools exist), the dry_run/confirm safety convention, and how to verify the bridge. Triggers on "use godot-mcp", "drive Godot", "control the Godot editor", "godot-mcp tools aren't showing up", "unknown tool from godot", "set up godot-mcp".
 ---
 
-# godot-mcp: getting started
+# godot: getting started
 
 godot-mcp exposes the Godot editor (inspection, scene edits, scripts, runtime) over MCP. Tools are named `godot_<toolset>_<action>`. Read this once at the start of a Godot session — it prevents the two most common failures: missing tools and unconfirmed destructive edits.
 
@@ -37,7 +37,7 @@ Quick map: edit scenes → `scene_edit` · scripts → `scripts` · live play �
 
 ## 4. Use the built-in workflow prompts
 
-The server ships step-by-step recipes as MCP prompts (slash commands like `/mcp__godot-mcp__build_scene`): `toolset_discovery`, `build_scene`, `play_test`, `script_edit`, `debug_scene`, `troubleshoot`. Reach for them, or use the companion skills `godot-mcp-build-a-scene` and `godot-mcp-playtest-and-debug`.
+The server ships step-by-step recipes as MCP prompts (slash commands like `/mcp__godot-mcp__build_scene`): `toolset_discovery`, `build_scene`, `play_test`, `script_edit`, `debug_scene`, `troubleshoot`. Reach for them, or use the companion skills `godot-playtest-and-debug` and `godot-expert`.
 
 ## When something fails
 

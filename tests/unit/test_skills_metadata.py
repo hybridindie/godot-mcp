@@ -27,9 +27,9 @@ SKILLS_DIR = Path(__file__).resolve().parents[2] / "skills"
 
 # The skills we ship. Keep in lockstep with the directories under skills/.
 EXPECTED_SKILLS = {
-    "godot-mcp-getting-started",
-    "godot-mcp-build-a-scene",
-    "godot-mcp-playtest-and-debug",
+    "godot-getting-started",
+    "godot-playtest-and-debug",
+    "godot-expert",
 }
 
 
@@ -62,6 +62,11 @@ def test_expected_skills_present() -> None:
         assert (SKILLS_DIR / name / "SKILL.md").is_file(), f"{name}/SKILL.md missing"
 
 
+# Skills that are engine knowledge, not tool workflows — exempt from the
+# toolset-gating assertion (they teach Godot rules, not MCP tool calls).
+NON_WORKFLOW_SKILLS = {"godot-expert"}
+
+
 @pytest.mark.parametrize("skill_name", sorted(EXPECTED_SKILLS))
 def test_skill_frontmatter_and_body(skill_name: str) -> None:
     """Each SKILL.md has valid frontmatter and teaches toolset gating."""
@@ -75,8 +80,10 @@ def test_skill_frontmatter_and_body(skill_name: str) -> None:
 
     body = text[text.find("\n---", 3) + 4 :]
     assert body.strip(), "SKILL.md must have a body after the frontmatter"
-    # Every workflow on this server begins with enabling the right toolset.
-    assert "godot_enable_toolset" in body, "skill body must show the toolset-gating step"
+    # Every workflow skill begins with enabling the right toolset. Engine
+    # knowledge skills (godot-expert) teach Godot rules, not tool calls.
+    if skill_name not in NON_WORKFLOW_SKILLS:
+        assert "godot_enable_toolset" in body, "skill body must show the toolset-gating step"
 
 
 def test_skill_tool_references_exist() -> None:

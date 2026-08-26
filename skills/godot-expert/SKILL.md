@@ -10,9 +10,8 @@ Every rule below was learned the hard way — by hitting the bug, debugging it,
 and writing a test to pin it.
 
 **Companion skills** (read these first for the MCP workflow, not the engine rules):
-- `godot-mcp-getting-started` — bridge connection, toolset gating, safety classes
-- `godot-mcp-build-a-scene` — step-by-step scene scaffolding recipe
-- `godot-mcp-playtest-and-debug` — runtime play-test, input simulation, debugging
+- `godot-getting-started` — bridge connection, toolset gating, safety classes
+- `godot-playtest-and-debug` — runtime play-test, input simulation, debugging
 
 This skill covers the **engine knowledge** that prevents bugs. Those skills
 cover **how to call the tools**. Use them together.

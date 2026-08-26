@@ -410,7 +410,7 @@ export_project(preset="Web", output_path="builds/web")
 Beyond the tool surface, two layers help an agent drive the server well:
 
 - **MCP prompts** — step-numbered workflow recipes the server exposes over MCP. Clients that surface prompts (Claude Code, etc.) show them as slash commands, e.g. `/mcp__godot-mcp__build_scene`. Shipped: `toolset_discovery`, `build_scene`, `play_test`, `script_edit`, `debug_scene`, `troubleshoot`, `author_resource`, `export_build`, `batch_refactor`. Discover with `list_prompts()`; render with `render_prompt(name, arguments={...})`.
-- **Claude skills** ([`skills/`](skills/README.md)) — optional, Claude-specific. Unlike prompts, a skill *auto-triggers* when the agent recognizes a matching task (no slash command), then routes to the prompts and tools. Copy a skill directory into `~/.claude/skills/` (personal) or your project's `.claude/skills/` (shared). Shipped: `godot-mcp-getting-started`, `godot-mcp-build-a-scene`, `godot-mcp-playtest-and-debug`.
+- **AI skills** ([`skills/`](skills/README.md)) — optional, client-agnostic. Unlike prompts, a skill *auto-triggers* when the agent recognizes a matching task (no slash command), then routes to the prompts and tools. Install with `./scripts/install-skills.sh` (opencode, Claude, or custom target). Shipped: `godot-getting-started`, `godot-playtest-and-debug`, `godot-expert` (engine knowledge + 7 reference guides).
 
 Both stay pure to the generic Godot surface — no game-specific vocabulary.
 

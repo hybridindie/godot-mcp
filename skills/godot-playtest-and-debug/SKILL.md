@@ -1,11 +1,11 @@
 ---
-name: godot-mcp-playtest-and-debug
+name: godot-playtest-and-debug
 description: Run, inspect, and debug a live Godot game through the godot-mcp server — play a scene in the editor, read the running scene tree, sample properties, simulate input, assert state, and diagnose errors. Use when the user wants to play-test, reproduce a bug, or debug runtime behavior in Godot via godot-mcp. Triggers on "play-test in Godot", "run the game and check", "simulate input in Godot", "why does my Godot game crash", "debug the running scene", "inspect the live game".
 ---
 
-# godot-mcp: play-test and debug
+# godot: play-test and debug
 
-Drive a live game session with the `runtime`, `input`, and `testing` toolsets, and diagnose failures. Godot must be open with the addon enabled (see `godot-mcp-getting-started`). The server's `/mcp__godot-mcp__play_test`, `/mcp__godot-mcp__debug_scene`, and `/mcp__godot-mcp__troubleshoot` prompts cover the parameterized flows.
+Drive a live game session with the `runtime`, `input`, and `testing` toolsets, and diagnose failures. Godot must be open with the addon enabled (see `godot-getting-started`). The server's `/mcp__godot-mcp__play_test`, `/mcp__godot-mcp__debug_scene`, and `/mcp__godot-mcp__troubleshoot` prompts cover the parameterized flows.
 
 ## 1. Enable the toolsets
 
