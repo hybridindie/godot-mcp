@@ -1,0 +1,7 @@
+{
+  "dirs": ["res://tests/unit"],
+  "should_maximize": false,
+  "should_exit": true,
+  "log_level": 1,
+  "opacity": 100
+}

@@ -1,0 +1,16 @@
+[gd_scene format=3 uid="uid://ijuiitnwqf1a"]
+
+[ext_resource type="Script" path="res://scripts/enemy.gd" id="1_7p1mj"]
+
+[node name="enemy" type="CharacterBody2D" unique_id=1779466307]
+collision_layer = 2
+script = ExtResource("1_7p1mj")
+
+[node name="Body" type="ColorRect" parent="." unique_id=1430641607]
+offset_left = -14.0
+offset_top = -14.0
+offset_right = 14.0
+offset_bottom = 14.0
+color = Color(0.9, 0.2, 0.2, 1)
+
+[node name="Collision" type="CollisionShape2D" parent="." unique_id=949603583]

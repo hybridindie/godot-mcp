@@ -1,0 +1,9 @@
+# GUT is a third-party testing addon — install via:
+#   gh api repos/bitwes/Gut/zipball/v9.7.1 > /tmp/gut.zip
+#   unzip /tmp/gut.zip -d /tmp/gut-src
+#   cp -R /tmp/gut-src/bitwes-Gut-*/addons/gut examples/survivors/addons/
+addons/gut/
+addons/gut
+
+# godot_mcp is a symlink to the source addon — don't commit the symlink target
+# (it resolves to ../../../godot/addons/godot_mcp at runtime)

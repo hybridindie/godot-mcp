@@ -1,0 +1,87 @@
+[gd_scene format=3 uid="uid://b5mosf1awod8s"]
+
+[ext_resource type="Script" uid="uid://cmxy4qkc2scxo" path="res://scripts/world.gd" id="1_jyhfs"]
+[ext_resource type="Script" path="res://scripts/player.gd" id="1_sugp2"]
+[ext_resource type="Script" path="res://scripts/hud.gd" id="2_jyhfs"]
+[ext_resource type="Script" path="res://scripts/game_over.gd" id="3_tbgi4"]
+
+[node name="main" type="Node2D" unique_id=1377237278]
+script = ExtResource("1_jyhfs")
+
+[node name="Player" type="CharacterBody2D" parent="." unique_id=1120767797 groups=["player"]]
+collision_mask = 18
+script = ExtResource("1_sugp2")
+
+[node name="Body" type="ColorRect" parent="Player" unique_id=1897659121]
+offset_left = -16.0
+offset_top = -16.0
+offset_right = 16.0
+offset_bottom = 16.0
+color = Color(0.2, 0.8, 1, 1)
+
+[node name="Collision" type="CollisionShape2D" parent="Player" unique_id=2000036587]
+
+[node name="Camera" type="Camera2D" parent="Player" unique_id=169784900]
+
+[node name="HUD" type="CanvasLayer" parent="." unique_id=1978382390]
+script = ExtResource("2_jyhfs")
+
+[node name="HealthBar" type="ProgressBar" parent="HUD" unique_id=1253179509]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 220.0
+offset_bottom = 47.0
+value = 100.0
+
+[node name="XPBar" type="ProgressBar" parent="HUD" unique_id=1058712266]
+offset_left = 20.0
+offset_top = 50.0
+offset_right = 220.0
+offset_bottom = 77.0
+
+[node name="ScoreLabel" type="Label" parent="HUD" unique_id=153987354]
+offset_left = 20.0
+offset_top = 70.0
+offset_right = 21.0
+offset_bottom = 93.0
+text = "Score: 0"
+
+[node name="WaveLabel" type="Label" parent="HUD" unique_id=1783537015]
+offset_left = 20.0
+offset_top = 100.0
+offset_right = 21.0
+offset_bottom = 123.0
+text = "Wave: 1"
+
+[node name="GameOverScreen" type="Control" parent="HUD" unique_id=1096748573]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("3_tbgi4")
+
+[node name="BG" type="ColorRect" parent="HUD/GameOverScreen" unique_id=1612086538]
+layout_mode = 0
+color = Color(0, 0, 0, 0.7)
+
+[node name="VB" type="VBoxContainer" parent="HUD/GameOverScreen" unique_id=407600277]
+layout_mode = 0
+offset_left = -100.0
+offset_top = -60.0
+offset_right = -100.0
+offset_bottom = -60.0
+
+[node name="Label" type="Label" parent="HUD/GameOverScreen/VB" unique_id=1606813339]
+layout_mode = 2
+text = "GAME OVER"
+horizontal_alignment = 1
+
+[node name="Button" type="Button" parent="HUD/GameOverScreen/VB" unique_id=884367692]
+layout_mode = 2
+text = "Restart"
+
+[node name="Background" type="TileMapLayer" parent="." unique_id=1422003654]
+
+[node name="Obstacles" type="Node2D" parent="." unique_id=1711318538]

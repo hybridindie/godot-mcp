@@ -1,0 +1,17 @@
+[gd_scene format=3 uid="uid://crr3bj2mvx5sl"]
+
+[ext_resource type="Script" path="res://scripts/projectile.gd" id="1_c8fcr"]
+
+[node name="projectile" type="Area2D" unique_id=725326549]
+collision_layer = 4
+collision_mask = 2
+script = ExtResource("1_c8fcr")
+
+[node name="Body" type="ColorRect" parent="." unique_id=1199296936]
+offset_left = -6.0
+offset_top = -2.0
+offset_right = 6.0
+offset_bottom = 2.0
+color = Color(1, 0.9, 0.2, 1)
+
+[node name="Collision" type="CollisionShape2D" parent="." unique_id=1641765703]
