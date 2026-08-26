@@ -32,15 +32,20 @@ def _counts(text: str) -> tuple[int, int, int] | None:
     if passing and failing:
         p, f = int(passing.group(1)), int(failing.group(1))
         return p, f, p + f
-    # GUT 9.7+ omits the "Failing Tests" line when there are zero failures.
-    # If we have a passing count but no failing line, assume 0 failures.
-    if passing:
-        p = int(passing.group(1))
-        return p, 0, p
+    # The "X of Y tests failed" fallback is checked before the passing-only
+    # inference so that a GUT variant with a passing count but no "Failing
+    # Tests" line (yet still reporting failures via this fallback) is not
+    # misread as a clean run.
     of_y = _OF_Y_RE.search(text)
     if of_y:
         failed, total = int(of_y.group(1)), int(of_y.group(2))
         return total - failed, failed, total
+    # GUT 9.7+ omits the "Failing Tests" line when there are zero failures.
+    # If we have a passing count but no failing line and no "of Y" fallback,
+    # assume 0 failures.
+    if passing:
+        p = int(passing.group(1))
+        return p, 0, p
     return None
 
 
