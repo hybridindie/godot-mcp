@@ -1,6 +1,6 @@
 @tool
 class_name MCPStatusDock
-extends VBoxContainer
+extends HBoxContainer
 ## godot-mcp status dock — read-only editor presence (issue #2).
 ##
 ## A dumb, editor-independent Control: it holds no Godot Editor API knowledge and
@@ -8,9 +8,11 @@ extends VBoxContainer
 ## through the public setters below. Keeping it editor-free makes it verifiable
 ## headlessly (see godot/tests/dock_smoke.gd).
 ##
-## Displays: color-coded connection status, server/Godot version, bridge URL,
-## active scene, selected node, enabled toolsets, command statistics (total +
-## last time), and a recent-command log.
+## Layout: two columns for the wide bottom panel.
+##   Left:  connection status (color dot + text), server/Godot version, bridge URL,
+##          project, scene, selected node, enabled toolsets.
+##   Right: command statistics (total, last exec time, last latency), recent
+##          command log (last N entries with timestamps).
 
 enum ConnectionStatus { DISCONNECTED, CONNECTING, CONNECTED }
 
@@ -30,6 +32,7 @@ const _CONNECTION_COLOR := {
 	ConnectionStatus.CONNECTED: Color(0.3, 0.8, 0.3),
 }
 
+# --- Left column widgets ---
 var _status_dot: ColorRect
 var _connection_value: Label
 var _version_value: Label
@@ -38,9 +41,14 @@ var _project_value: Label
 var _scene_value: Label
 var _selected_value: Label
 var _toolsets_value: Label
+
+# --- Right column widgets ---
 var _cmd_count_value: Label
-var _last_cmd_value: Label
+var _last_exec_value: Label
+var _last_latency_value: Label
 var _log_value: Label
+
+# --- State ---
 var _recent: PackedStringArray = PackedStringArray()
 var _command_count := 0
 var _last_command_time := ""
@@ -50,9 +58,15 @@ func _init() -> void:
 	# Build the UI eagerly so the dock is usable whether or not it is in the tree
 	# (the headless test exercises it detached from any scene tree).
 	name = "MCP"
-	add_theme_constant_override("separation", 6)
+	add_theme_constant_override("separation", 16)
 
-	# --- Status header (large color dot + connection text) ---
+	# === LEFT COLUMN ===
+	var left_col := VBoxContainer.new()
+	left_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left_col.add_theme_constant_override("separation", 4)
+	add_child(left_col)
+
+	# Status header (large color dot + connection text)
 	var status_row := HBoxContainer.new()
 	status_row.add_theme_constant_override("separation", 8)
 	_status_dot = ColorRect.new()
@@ -62,30 +76,37 @@ func _init() -> void:
 	_connection_value = Label.new()
 	_connection_value.text = "Disconnected"
 	status_row.add_child(_connection_value)
-	add_child(status_row)
+	left_col.add_child(status_row)
 
-	# --- Info fields ---
-	_version_value = _add_field("Server:")
-	_bridge_value = _add_field("Bridge:")
-	_project_value = _add_field("Project:")
-	_scene_value = _add_field("Scene:")
-	_selected_value = _add_field("Selected:")
-	_toolsets_value = _add_field("Toolsets:")
+	_version_value = _add_field(left_col, "Server:")
+	_bridge_value = _add_field(left_col, "Bridge:")
+	_project_value = _add_field(left_col, "Project:")
+	_scene_value = _add_field(left_col, "Scene:")
+	_selected_value = _add_field(left_col, "Selected:")
+	_toolsets_value = _add_field(left_col, "Toolsets:")
 
-	# --- Command stats ---
+	# === RIGHT COLUMN ===
+	var right_col := VBoxContainer.new()
+	right_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right_col.add_theme_constant_override("separation", 4)
+	add_child(right_col)
+
+	# Command statistics
 	var stats_title := Label.new()
-	stats_title.text = "Command statistics"
-	add_child(stats_title)
-	_cmd_count_value = _add_field("Total:")
-	_last_cmd_value = _add_field("Last:")
+	stats_title.text = "Command Statistics"
+	right_col.add_child(stats_title)
+	_cmd_count_value = _add_field(right_col, "Total:")
+	_last_exec_value = _add_field(right_col, "Last exec:")
+	_last_latency_value = _add_field(right_col, "Latency:")
 
-	# --- Recent commands log ---
+	# Recent commands log
 	var log_title := Label.new()
-	log_title.text = "Recent commands"
-	add_child(log_title)
+	log_title.text = "Recent Commands"
+	right_col.add_child(log_title)
 	_log_value = Label.new()
 	_log_value.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	add_child(_log_value)
+	_log_value.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	right_col.add_child(_log_value)
 
 	# Sensible defaults before the plugin pushes real state.
 	set_connection_status(ConnectionStatus.DISCONNECTED)
@@ -94,12 +115,12 @@ func _init() -> void:
 	set_project_path("")
 	set_active_scene("")
 	set_selected_node("")
-	set_enabled_toolsets([])
-	set_command_stats(0, "")
+	set_enabled_toolsets(PackedStringArray())
+	set_command_stats(0, 0.0, 0.0)
 
 
-## Add a "label: value" row and return the value Label for later updates.
-func _add_field(caption: String) -> Label:
+## Add a "label: value" row to a container and return the value Label for later updates.
+func _add_field(parent: Container, caption: String) -> Label:
 	var row := HBoxContainer.new()
 	var caption_label := Label.new()
 	caption_label.text = caption
@@ -107,7 +128,7 @@ func _add_field(caption: String) -> Label:
 	value_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(caption_label)
 	row.add_child(value_label)
-	add_child(row)
+	parent.add_child(row)
 	return value_label
 
 
@@ -143,20 +164,21 @@ func set_enabled_toolsets(toolsets: PackedStringArray) -> void:
 		_toolsets_value.text = ", ".join(toolsets)
 
 
-func set_command_stats(count: int, last_time: String) -> void:
+func set_command_stats(count: int, last_exec_ms: float, last_latency_ms: float) -> void:
 	_cmd_count_value.text = str(count)
-	_last_cmd_value.text = last_time if not last_time.is_empty() else PLACEHOLDER
+	_last_exec_value.text = "%.1f ms" % last_exec_ms if last_exec_ms > 0.0 else PLACEHOLDER
+	_last_latency_value.text = "%.1f ms" % last_latency_ms if last_latency_ms > 0.0 else PLACEHOLDER
 
 
 ## Append a command to the recent log, keeping only the last MAX_LOG_ENTRIES.
 func log_command(entry: String) -> void:
-	_recent.append(entry)
+	var timestamp := Time.get_time_string_from_system().substr(0, 8)
+	_recent.append("[%s] %s" % [timestamp, entry])
 	while _recent.size() > MAX_LOG_ENTRIES:
 		_recent.remove_at(0)
 	_log_value.text = "\n".join(_recent)
 	_command_count += 1
-	_last_command_time = Time.get_time_string_from_system()
-	set_command_stats(_command_count, _last_command_time)
+	_last_command_time = timestamp
 
 
 func get_recent_commands() -> PackedStringArray:

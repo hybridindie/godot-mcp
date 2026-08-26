@@ -47,8 +47,11 @@ func _initialize() -> void:
 	if recent.size() != 10:
 		failures.append("log size: expected 10, got %d" % recent.size())
 	else:
-		_expect(failures, "log_first", recent[0], "cmd_5")
-		_expect(failures, "log_last", recent[9], "cmd_14")
+		# Entries are now "[HH:MM:SS] cmd_N" — check the command part.
+		if not recent[0].ends_with(" cmd_5"):
+			failures.append("log_first: expected '... cmd_5', got %s" % recent[0])
+		if not recent[9].ends_with(" cmd_14"):
+			failures.append("log_last: expected '... cmd_14', got %s" % recent[9])
 	if not dock.displayed_log().contains("cmd_14"):
 		failures.append("log label missing newest entry 'cmd_14'")
 	if dock.displayed_log().contains("cmd_4"):

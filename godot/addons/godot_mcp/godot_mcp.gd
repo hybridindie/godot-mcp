@@ -58,6 +58,7 @@ func _enter_tree() -> void:
 	_bridge = MCPBridge.new(router)
 	_bridge.connection_changed.connect(_on_connection_changed)
 	_bridge.command_received.connect(_dock.log_command)
+	_bridge.command_completed.connect(_on_command_completed)
 	add_child(_bridge)
 	_bridge.start(_bridge_url())
 
@@ -208,3 +209,9 @@ func _server_version_label() -> String:
 	if _server_version.is_empty():
 		return godot_ver
 	return "%s / %s" % [_server_version, godot_ver]
+
+
+## Handle command completion: update the dock's command statistics with
+## execution time and round-trip latency from the bridge.
+func _on_command_completed(command: String, exec_ms: float, latency_ms: float) -> void:
+	_dock.set_command_stats(_dock.get_command_count(), exec_ms, latency_ms)
