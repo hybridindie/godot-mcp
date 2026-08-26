@@ -5,6 +5,23 @@ description = "MCP server that drives a live Godot editor for AI-driven game dev
 readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
+authors = [{ name = "John Doh", email = "johnd@johndstudios.net" }]
+keywords = ["godot", "mcp", "ai", "game-development", "model-context-protocol", "editor-automation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Games/Entertainment",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
+]
 dependencies = [
     # The MCP framework (PrefectHQ/fastmcp). Pinned to the 4.0 beta (issue #311).
     # 4.0.0b3 picks up the tool-title default (PrefectHQ/fastmcp#4694 — some clients
@@ -27,6 +44,13 @@ dependencies = [
     # (FastMCP raises httpx2 exceptions, so `except httpx.` would silently never match).
     "httpx2>=2.9",
 ]
+
+[project.urls]
+Homepage = "https://github.com/hybridindie/godot-mcp"
+Repository = "https://github.com/hybridindie/godot-mcp"
+Documentation = "https://github.com/hybridindie/godot-mcp#readme"
+Issues = "https://github.com/hybridindie/godot-mcp/issues"
+Changelog = "https://github.com/hybridindie/godot-mcp/releases"
 
 [project.scripts]
 godot-mcp = "mcp_server.main:main"
