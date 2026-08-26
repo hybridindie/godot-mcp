@@ -65,4 +65,3 @@ func test_game_over_signal_no_longer_exists() -> void:
 	var sigs := _gm.get_signal_list()
 	for sig in sigs:
 		assert_ne(sig["name"], "game_over", "game_over signal should be removed; use state_changed")
-		break
