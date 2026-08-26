@@ -23,29 +23,37 @@ signal wave_changed(w: int)
 func _ready() -> void:
 	_change_state(State.MENU)
 
+func _get_world() -> Node2D:
+	# Spawn entities under the main scene root (a Node2D) so Polygon2D renders.
+	# The current scene is always a Node2D in this project.
+	var scene: Node = get_tree().current_scene
+	if scene is Node2D:
+		return scene as Node2D
+	return null
+
 func _physics_process(delta: float) -> void:
 	if state != State.PLAYING:
 		return
 	var player: Node2D = get_tree().get_first_node_in_group("player")
 	if player == null:
 		return
-	# Wave progression
+	var world: Node2D = _get_world()
+	if world == null:
+		return
 	wave_timer += delta
 	if wave_timer >= wave_duration:
 		wave_timer = 0.0
 		wave += 1
 		spawn_interval = max(0.3, spawn_interval * 0.85)
 		wave_changed.emit(wave)
-	# Spawning
 	spawn_timer += delta
 	if spawn_timer >= spawn_interval:
 		spawn_timer = 0.0
-		_spawn_enemy(player)
-	# Auto-shoot toward nearest enemy
+		_spawn_enemy(player, world)
 	shoot_timer += delta
 	if shoot_timer >= shoot_interval:
 		shoot_timer = 0.0
-		_shoot(player)
+		_shoot(player, world)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
@@ -72,12 +80,12 @@ func _change_state(new_state: State) -> void:
 			get_tree().paused = true
 	state_changed.emit(state)
 
-func _spawn_enemy(player: Node2D) -> void:
+func _spawn_enemy(player: Node2D, world: Node2D) -> void:
 	var angle := randf() * TAU
 	var dist := 600.0
 	var pos := player.global_position + Vector2.from_angle(angle) * dist
 	var enemy := ENEMY_SCENE.instantiate()
-	add_child(enemy)
+	world.add_child(enemy)
 	enemy.global_position = pos
 	enemy.max_health = 30.0 + wave * 10.0
 	enemy.health = enemy.max_health
@@ -85,12 +93,12 @@ func _spawn_enemy(player: Node2D) -> void:
 	enemy.xp_value = 1
 	enemy.enemy_died.connect(_on_enemy_died)
 
-func _shoot(player: Node2D) -> void:
+func _shoot(player: Node2D, world: Node2D) -> void:
 	var nearest: Node2D = _find_nearest_enemy(player.global_position)
 	if nearest == null:
 		return
 	var proj := PROJECTILE_SCENE.instantiate()
-	add_child(proj)
+	world.add_child(proj)
 	proj.global_position = player.global_position
 	var dir: Vector2 = (nearest.global_position - player.global_position).normalized()
 	proj.launch(dir)
@@ -108,24 +116,23 @@ func _find_nearest_enemy(pos: Vector2) -> Node2D:
 func _on_enemy_died(pos: Vector2, xp_val: int) -> void:
 	score += 10
 	score_changed.emit(score)
-	var gem := XP_GEM_SCENE.instantiate()
-	add_child(gem)
-	gem.global_position = pos
+	var world: Node2D = _get_world()
+	if world:
+		var gem := XP_GEM_SCENE.instantiate()
+		world.add_child(gem)
+		gem.global_position = pos
 
 func start_game() -> void:
-	# Clear leftover enemies, gems, projectiles
 	for e in get_tree().get_nodes_in_group("enemies"):
 		e.queue_free()
 	for g in get_tree().get_nodes_in_group("xp_gems"):
 		g.queue_free()
-	# Reset state
 	score = 0
 	wave = 1
 	spawn_timer = 0.0
 	spawn_interval = 2.0
 	wave_timer = 0.0
 	shoot_timer = 0.0
-	# Reset player
 	var player: Node2D = get_tree().get_first_node_in_group("player")
 	if player:
 		player.health = 100.0

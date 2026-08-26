@@ -1,11 +1,7 @@
 extends GutTest
 
-# Tests for the world generator — tile grid dimensions, obstacle count,
+# Tests for the world generator — infinite tile grid, obstacle count,
 # obstacle collision layers, spawn area clearance, deterministic seeding.
-#
-# We instantiate the main scene (which runs world.gd _ready) and inspect the
-# generated children. The main scene includes the Player + HUD too, so we
-# verify those don't interfere.
 
 var _main: Node2D
 
@@ -20,15 +16,22 @@ func after_each() -> void:
 	_main.free()
 
 
-func test_background_has_checkerboard_tiles() -> void:
-	# GRID_RADIUS=20, so the grid is 40x40 = 1600 tiles.
+func test_background_has_tile_pool() -> void:
+	# Tile pool size is computed from the viewport at _ready time.
+	# In headless mode the viewport is small, so just verify it's non-empty
+	# and matches the expected pool formula.
 	var bg: Node = _main.get_node("Background")
 	assert_not_null(bg, "Background node should exist")
-	var tile_count := bg.get_child_count()
-	assert_eq(tile_count, 1600, "Should generate 40x40 = 1600 background tiles")
+	var count := bg.get_child_count()
+	assert_gt(count, 0, "Tile pool should have tiles")
+	# Pool = (rx*2+1) * (ry*2+1) — verify it's a perfect grid product
+	var world: Node2D = _main
+	var rx: int = world._view_radius_x
+	var ry: int = world._view_radius_y
+	assert_eq(count, (rx * 2 + 1) * (ry * 2 + 1), "Tile pool should match viewport-derived grid size")
 
 
-func test_tiles_are_color_rects() -> void:
+func test_tiles_are_polygon2d() -> void:
 	var bg: Node = _main.get_node("Background")
 	var first: Node = bg.get_child(0)
 	assert_eq(first.get_class(), "Polygon2D", "Background children should be Polygon2D tiles")
@@ -67,7 +70,6 @@ func test_obstacles_have_collision_layer_16() -> void:
 
 
 func test_obstacles_avoid_spawn_area() -> void:
-	# No obstacle should be within 200px of the origin (player spawn).
 	var obstacles: Node = _main.get_node("Obstacles")
 	for i in range(obstacles.get_child_count()):
 		var body: StaticBody2D = obstacles.get_child(i) as StaticBody2D
@@ -87,7 +89,7 @@ func test_obstacles_have_collision_shapes() -> void:
 		assert_true(has_col, "Obstacle %d should have a CollisionShape2D" % i)
 
 
-func test_obstacles_have_color_rect_visuals() -> void:
+func test_obstacles_have_polygon2d_visuals() -> void:
 	var obstacles: Node = _main.get_node("Obstacles")
 	for i in range(obstacles.get_child_count()):
 		var body: StaticBody2D = obstacles.get_child(i) as StaticBody2D
@@ -100,7 +102,6 @@ func test_obstacles_have_color_rect_visuals() -> void:
 
 
 func test_obstacle_generation_is_deterministic() -> void:
-	# Re-instantiate the scene and compare obstacle positions.
 	var scene: PackedScene = load("res://scenes/main.tscn")
 	var main2: Node2D = scene.instantiate() as Node2D
 	add_child(main2)

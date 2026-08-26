@@ -1,7 +1,7 @@
 extends GutTest
 
 # Tests for the projectile script — launch direction, speed, lifetime,
-# damage on enemy contact, no damage on non-enemies, self-destruct on hit.
+# max range, damage on enemy contact, no damage on non-enemies.
 
 var _proj: Area2D
 
@@ -9,7 +9,6 @@ var _proj: Area2D
 func before_each() -> void:
 	_proj = Area2D.new()
 	_proj.set_script(load("res://scripts/projectile.gd"))
-	# CollisionShape2D is required for Area2D body_entered to fire.
 	var col := CollisionShape2D.new()
 	var shape := RectangleShape2D.new()
 	shape.size = Vector2(12, 4)
@@ -28,6 +27,14 @@ func test_projectile_starts_with_default_damage() -> void:
 
 func test_projectile_starts_with_default_lifetime() -> void:
 	assert_eq(_proj.lifetime, 2.0, "Default lifetime is 2 seconds")
+
+
+func test_projectile_has_max_range() -> void:
+	assert_eq(_proj.MAX_RANGE, 400.0, "Max range should be 400 pixels")
+
+
+func test_projectile_starts_with_zero_distance() -> void:
+	assert_eq(_proj._distance_traveled, 0.0, "Distance traveled starts at 0")
 
 
 func test_projectile_starts_facing_right() -> void:
@@ -56,8 +63,12 @@ func test_lifetime_decreases_in_physics_process() -> void:
 	assert_lt(_proj.lifetime, initial, "Lifetime should decrease after _physics_process")
 
 
+func test_distance_increases_in_physics_process() -> void:
+	_proj._physics_process(0.1)
+	assert_gt(_proj._distance_traveled, 0.0, "Distance should increase after moving")
+
+
 func test_on_body_entered_enemy_takes_damage() -> void:
-	# Create a fake enemy: CharacterBody2D in the "enemies" group with a damage var.
 	var enemy := CharacterBody2D.new()
 	enemy.add_to_group("enemies")
 	enemy.set("health", 30.0)
@@ -71,11 +82,8 @@ func test_on_body_entered_enemy_takes_damage() -> void:
 
 
 func test_on_body_entered_non_enemy_is_ignored() -> void:
-	# A non-enemy body should not be damaged or cause self-destruct.
 	var npc := CharacterBody2D.new()
 	add_child(npc)
-	watch_signals(_proj)
 	_proj._on_body_entered(npc)
-	# Projectile should still be valid (not freed) — check it's still in the tree.
 	assert_true(is_instance_valid(_proj), "Projectile should survive hitting a non-enemy")
 	npc.free()

@@ -5,10 +5,12 @@ extends Control
 
 func _ready() -> void:
 	visible = true
+	# Don't let the overlay block input from reaching GameManager._unhandled_input.
+	# The Button still receives clicks because it has its own mouse_filter.
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var gm := get_node_or_null("/root/GameManager")
 	if gm:
 		gm.state_changed.connect(_on_state_changed)
-		# Sync to the current state — the signal may have fired before we connected.
 		_on_state_changed(gm.state)
 	button.pressed.connect(_on_button)
 
@@ -19,7 +21,7 @@ func _on_state_changed(new_state: int) -> void:
 		1:  # PLAYING
 			_hide()
 		2:  # PAUSED
-			_show("PAUSED", "", "Resume")
+			_show("PAUSED", "Press ESC or click Resume", "Resume")
 		3:  # GAME_OVER
 			var gm := get_node_or_null("/root/GameManager")
 			if gm:
