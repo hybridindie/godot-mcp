@@ -16,17 +16,17 @@ extends EditorPlugin
 ## competing with Scene/Import in the dock area.
 
 const PLUGIN_NAME := "godot_mcp"
-# Minimum supported Godot version. The addon is built for 4.4+ (UID sidecards,
-# the 4.4-compatible add_control_to_bottom_panel choice) and is validated
-# against 4.6.x.
 const MIN_GODOT_MAJOR := 4
 const MIN_GODOT_MINOR := 4
+const REFRESH_INTERVAL := 2.0  # seconds between connection-status polls
 
 var _dock: MCPStatusDock
 var _dock_button: Button
 var _bridge: MCPBridge
 var _debugger: MCPDebugger
 var _selection: EditorSelection
+var _refresh_timer: Timer
+var _server_version := ""
 
 
 func _enter_tree() -> void:
@@ -34,8 +34,10 @@ func _enter_tree() -> void:
 	_dock = MCPStatusDock.new()
 	_dock_button = add_control_to_bottom_panel(_dock, "MCP")
 
-	# Capture the godot_mcp debugger channel from played games (issue #66), and give the
-	# router a handle so runtime-inspection handlers can read the cached live state.
+	# Feed static info the dock can show immediately.
+	_dock.set_server_version(_server_version_label())
+	_dock.set_bridge_url(_bridge_url())
+
 	_debugger = MCPDebugger.new()
 	add_debugger_plugin(_debugger)
 	var router := MCPCommandRouter.new()
@@ -46,23 +48,30 @@ func _enter_tree() -> void:
 	_bridge.connection_changed.connect(_on_connection_changed)
 	_bridge.command_received.connect(_dock.log_command)
 	add_child(_bridge)
-	# Connect out to the MCP server's bridge listener (#276). The URL is overridable via
-	# GODOT_MCP_BRIDGE_URL (no hard-coded endpoint per .opencode/rules/architecture.md);
-	# defaults to ws://127.0.0.1:9080.
-	var bridge_url := OS.get_environment("GODOT_MCP_BRIDGE_URL")
-	if bridge_url.is_empty():
-		bridge_url = MCPBridge.DEFAULT_URL
-	_bridge.start(bridge_url)
+	_bridge.start(_bridge_url())
 
 	# Live editor state: refresh on selection and scene changes.
 	_selection = EditorInterface.get_selection()
 	_selection.selection_changed.connect(_on_selection_changed)
 	scene_changed.connect(_on_scene_changed)
 
+	# Auto-refresh: poll connection status periodically so a dropped
+	# connection is visible without an editor action.
+	_refresh_timer = Timer.new()
+	_refresh_timer.wait_time = REFRESH_INTERVAL
+	_refresh_timer.autostart = true
+	_refresh_timer.timeout.connect(_on_refresh_timer)
+	add_child(_refresh_timer)
+
 	_refresh_all()
 
 
 func _exit_tree() -> void:
+	if _refresh_timer != null:
+		_refresh_timer.stop()
+		_refresh_timer.queue_free()
+		_refresh_timer = null
+
 	if _selection != null and _selection.selection_changed.is_connected(_on_selection_changed):
 		_selection.selection_changed.disconnect(_on_selection_changed)
 	if scene_changed.is_connected(_on_scene_changed):
@@ -105,6 +114,8 @@ func _warn_if_unsupported_version() -> void:
 ## Push the full current editor state into the dock (used on enable).
 func _refresh_all() -> void:
 	_dock.set_project_path(ProjectSettings.globalize_path("res://"))
+	_dock.set_bridge_url(_bridge_url())
+	_dock.set_server_version(_server_version_label())
 	_on_scene_changed(EditorInterface.get_edited_scene_root())
 	_on_selection_changed()
 
@@ -123,6 +134,14 @@ func _on_selection_changed() -> void:
 	_dock.set_selected_node(nodes[0].name if not nodes.is_empty() else "")
 
 
+func _on_refresh_timer() -> void:
+	# Sync the dock's connection status with the bridge's actual state.
+	# The bridge emits connection_changed on transitions, but if the server
+	# process dies the bridge may not fire the signal — this poll catches that.
+	if _bridge != null:
+		_dock.set_connection_status(_bridge.get_status() as MCPStatusDock.ConnectionStatus)
+
+
 ## Human-readable name for the active scene: its file name, else the root node
 ## name, else empty (the dock renders empty as a placeholder).
 func _scene_label(scene_root: Node) -> String:
@@ -131,3 +150,24 @@ func _scene_label(scene_root: Node) -> String:
 	if not scene_root.scene_file_path.is_empty():
 		return scene_root.scene_file_path.get_file()
 	return scene_root.name
+
+
+## The bridge URL from GODOT_MCP_BRIDGE_URL or the default ws://127.0.0.1:9080.
+func _bridge_url() -> String:
+	var url := OS.get_environment("GODOT_MCP_BRIDGE_URL")
+	if url.is_empty():
+		url = MCPBridge.DEFAULT_URL
+	return url
+
+
+## Server version label: "godot-mcp <version> / Godot <version>".
+func _server_version_label() -> String:
+	# The Python package version is sent by the server on connection; the addon
+	# doesn't know it directly, but it knows the Godot version.
+	var gv := Engine.get_version_info()
+	var godot_ver := "Godot %d.%d.%s" % [int(gv.get("major", 0)), int(gv.get("minor", 0)), str(gv.get("patch", ""))]
+	# The server version is populated when the bridge connects (via cmd_get_project_info).
+	# Until then, show the Godot version only.
+	if _server_version.is_empty():
+		return godot_ver
+	return "%s / %s" % [_server_version, godot_ver]

@@ -59,6 +59,10 @@ func is_connected_to_server() -> bool:
 	return _status == Status.CONNECTED
 
 
+func get_status() -> Status:
+	return _status
+
+
 ## Open a fresh peer and start the non-blocking connect. _process drives the rest.
 func _open() -> int:
 	_peer = WebSocketPeer.new()
