@@ -13,15 +13,18 @@ func _ready() -> void:
 func _draw_background() -> void:
 	for x in range(-GRID_RADIUS, GRID_RADIUS):
 		for y in range(-GRID_RADIUS, GRID_RADIUS):
-			var rect := ColorRect.new()
-			rect.size = Vector2(TILE_SIZE, TILE_SIZE)
-			rect.position = Vector2(x * TILE_SIZE, y * TILE_SIZE)
+			var tile := Polygon2D.new()
+			var s := float(TILE_SIZE)
+			tile.polygon = PackedVector2Array([
+				Vector2(0, 0), Vector2(s, 0), Vector2(s, s), Vector2(0, s)
+			])
+			tile.position = Vector2(x * TILE_SIZE, y * TILE_SIZE)
 			var dark := (x + y) % 2 == 0
 			if dark:
-				rect.color = Color(0.10, 0.12, 0.16, 1.0)
+				tile.color = Color(0.10, 0.12, 0.16, 1.0)
 			else:
-				rect.color = Color(0.14, 0.16, 0.20, 1.0)
-			$Background.add_child(rect)
+				tile.color = Color(0.14, 0.16, 0.20, 1.0)
+			$Background.add_child(tile)
 
 func _place_obstacles() -> void:
 	var rng := RandomNumberGenerator.new()
@@ -35,21 +38,20 @@ func _place_obstacles() -> void:
 			)
 			if pos.length() > 200.0:
 				break
-		var w := rng.randi_range(OBSTACLE_MIN_SIZE, OBSTACLE_MAX_SIZE)
-		var h := rng.randi_range(OBSTACLE_MIN_SIZE, OBSTACLE_MAX_SIZE)
+		var w := float(rng.randi_range(OBSTACLE_MIN_SIZE, OBSTACLE_MAX_SIZE))
+		var h := float(rng.randi_range(OBSTACLE_MIN_SIZE, OBSTACLE_MAX_SIZE))
 		var body := StaticBody2D.new()
 		body.position = pos
 		body.collision_layer = 16
 		body.collision_mask = 0
-		var rect := ColorRect.new()
-		rect.size = Vector2(w, h)
-		rect.offset_left = -w / 2.0
-		rect.offset_top = -h / 2.0
-		rect.offset_right = w / 2.0
-		rect.offset_bottom = h / 2.0
+		var poly := Polygon2D.new()
+		poly.polygon = PackedVector2Array([
+			Vector2(-w / 2.0, -h / 2.0), Vector2(w / 2.0, -h / 2.0),
+			Vector2(w / 2.0, h / 2.0), Vector2(-w / 2.0, h / 2.0)
+		])
 		var shade := rng.randf_range(0.25, 0.45)
-		rect.color = Color(shade, shade * 0.8, shade * 0.6, 1.0)
-		body.add_child(rect)
+		poly.color = Color(shade, shade * 0.8, shade * 0.6, 1.0)
+		body.add_child(poly)
 		var col := CollisionShape2D.new()
 		var shape := RectangleShape2D.new()
 		shape.size = Vector2(w, h)

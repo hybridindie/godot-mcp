@@ -31,16 +31,16 @@ func test_background_has_checkerboard_tiles() -> void:
 func test_tiles_are_color_rects() -> void:
 	var bg: Node = _main.get_node("Background")
 	var first: Node = bg.get_child(0)
-	assert_eq(first.get_class(), "ColorRect", "Background children should be ColorRects")
+	assert_eq(first.get_class(), "Polygon2D", "Background children should be Polygon2D tiles")
 
 
 func test_tiles_use_two_colors() -> void:
 	var bg: Node = _main.get_node("Background")
 	var colors: Array = []
 	for i in range(min(bg.get_child_count(), 100)):
-		var rect: ColorRect = bg.get_child(i) as ColorRect
-		if rect:
-			var c: Color = rect.color
+		var poly: Polygon2D = bg.get_child(i) as Polygon2D
+		if poly:
+			var c: Color = poly.color
 			if not colors.has(c):
 				colors.append(c)
 	assert_gte(colors.size(), 2, "Checkerboard should have at least 2 distinct colors")
@@ -91,12 +91,12 @@ func test_obstacles_have_color_rect_visuals() -> void:
 	var obstacles: Node = _main.get_node("Obstacles")
 	for i in range(obstacles.get_child_count()):
 		var body: StaticBody2D = obstacles.get_child(i) as StaticBody2D
-		var has_rect := false
+		var has_poly := false
 		for child in body.get_children():
-			if child is ColorRect:
-				has_rect = true
+			if child is Polygon2D:
+				has_poly = true
 				break
-		assert_true(has_rect, "Obstacle %d should have a ColorRect visual" % i)
+		assert_true(has_poly, "Obstacle %d should have a Polygon2D visual" % i)
 
 
 func test_obstacle_generation_is_deterministic() -> void:

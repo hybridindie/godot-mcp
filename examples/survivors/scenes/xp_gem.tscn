@@ -2,15 +2,17 @@
 
 [ext_resource type="Script" path="res://scripts/xp_gem.gd" id="1_2i32e"]
 
+[sub_resource type="RectangleShape2D" id="Rect_gem"]
+size = Vector2(10, 10)
+
 [node name="xp_gem" type="Area2D" unique_id=1397065500]
 collision_layer = 8
+collision_mask = 1
 script = ExtResource("1_2i32e")
 
-[node name="Body" type="ColorRect" parent="." unique_id=1118157392]
-offset_left = -5.0
-offset_top = -5.0
-offset_right = 5.0
-offset_bottom = 5.0
+[node name="Body" type="Polygon2D" parent="." unique_id=1118157492]
+polygon = PackedVector2Array(-5, -5, 5, -5, 5, 5, -5, 5)
 color = Color(0.3, 1, 0.3, 1)
 
-[node name="Collision" type="CollisionShape2D" parent="." unique_id=400176400]
+[node name="Collision" type="CollisionShape2D" parent="." unique_id=400276400]
+shape = SubResource("Rect_gem")
