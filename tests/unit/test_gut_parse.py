@@ -84,3 +84,41 @@ def test_unparseable_output_is_safe() -> None:
     assert r.ran is True
     assert r.passed == 0 and r.failed == 0 and r.total == 0
     assert r.failures == []
+
+
+# GUT 9.7+ omits the "Failing Tests" line when all tests pass (no failures to
+# report). The parser must still extract the passing count in that case.
+_GUT_97_ALL_PASS = """\
+Godot Engine v4.7.2.stable.official
+res://tests/unit/test_player.gd
+* test_player_starts_with_full_health
+6/6 passed.
+res://tests/unit/test_game_manager.gd
+* test_game_starts_in_menu_state
+8/8 passed.
+
+==============================================
+= Run Summary
+==============================================
+
+Totals
+------
+Scripts               3
+Tests                24
+Passing Tests        24
+Asserts              48
+Time              6.455s
+
+
+---- All tests passed! ----
+"""
+
+
+def test_parses_gut_97_no_failing_line() -> None:
+    # Regression: GUT 9.7 omits "Failing Tests" when zero failures.
+    r = parse_gut_results(_GUT_97_ALL_PASS)
+    assert r.ran is True
+    assert r.passed == 24
+    assert r.failed == 0
+    assert r.total == 24
+    assert r.failures == []
