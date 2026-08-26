@@ -157,22 +157,26 @@ func _on_refresh_timer() -> void:
 
 
 ## Set the bottom-bar button icon to a colored dot reflecting connection status.
+## In Godot 4.7, add_control_to_bottom_panel returns a legacy dummy Button
+## that isn't rendered — the real tab is managed by EditorDock. So we also
+## update the dock's internal status dot (which is always visible when the
+## panel is open). The button icon is set as a best-effort for 4.4/4.5 where
+## the button is the real tab toggle.
 func _update_button_icon(status: MCPBridge.Status) -> void:
-	if _dock_button == null:
-		return
 	var color: Color = _STATUS_COLORS.get(status, Color.GRAY)
-	# Generate a 16x16 circle texture on the fly.
-	var size := 16
-	var radius := 6.0
-	var img := Image.create_empty(size, size, false, Image.FORMAT_RGBA8)
-	img.fill(Color(0, 0, 0, 0))
-	var center := Vector2(size / 2.0, size / 2.0)
-	for x in range(size):
-		for y in range(size):
-			if Vector2(x, y).distance_to(center) <= radius:
-				img.set_pixel(x, y, color)
-	var tex := ImageTexture.create_from_image(img)
-	_dock_button.icon = tex
+	# Best-effort: set the legacy button icon (works on 4.4/4.5, no-op on 4.7).
+	if _dock_button != null:
+		var size := 16
+		var radius := 6.0
+		var img := Image.create_empty(size, size, false, Image.FORMAT_RGBA8)
+		img.fill(Color(0, 0, 0, 0))
+		var center := Vector2(size / 2.0, size / 2.0)
+		for x in range(size):
+			for y in range(size):
+				if Vector2(x, y).distance_to(center) <= radius:
+					img.set_pixel(x, y, color)
+		var tex := ImageTexture.create_from_image(img)
+		_dock_button.icon = tex
 
 
 ## Human-readable name for the active scene: its file name, else the root node

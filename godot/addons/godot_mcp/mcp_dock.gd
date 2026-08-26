@@ -52,10 +52,11 @@ func _init() -> void:
 	name = "MCP"
 	add_theme_constant_override("separation", 6)
 
-	# --- Status header (color dot + connection text) ---
+	# --- Status header (large color dot + connection text) ---
 	var status_row := HBoxContainer.new()
+	status_row.add_theme_constant_override("separation", 8)
 	_status_dot = ColorRect.new()
-	_status_dot.custom_minimum_size = Vector2(12, 12)
+	_status_dot.custom_minimum_size = Vector2(16, 16)
 	_status_dot.color = _CONNECTION_COLOR[ConnectionStatus.DISCONNECTED]
 	status_row.add_child(_status_dot)
 	_connection_value = Label.new()
