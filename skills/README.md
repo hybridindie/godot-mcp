@@ -1,31 +1,58 @@
-# godot-mcp skills
+# godot-mcp Skills
 
-Optional [Claude](https://claude.com/claude-code) **skills** that help an agent drive the godot-mcp server well. Unlike the server's MCP **prompts** (which a user invokes as slash commands), a skill auto-triggers when the agent recognizes a matching task from its `description` — so the guidance reaches the model without anyone typing a command. They are Claude-specific; other MCP clients should use the server's prompts instead.
-
-These skills stay pure to the raw godot-mcp surface (toolsets, prompts, tools) — no game-specific or agent-workflow logic.
-
-## Skills
-
-| Skill | Use it for |
-|-------|-----------|
-| `godot-mcp-getting-started` | Connect/verify the bridge, the toolset-gating model, the `dry_run`/`confirm` safety convention |
-| `godot-mcp-build-a-scene` | Scaffold/edit a scene: nodes, scripts, collision, save & verify |
-| `godot-mcp-playtest-and-debug` | Play a live scene, inspect/sample, simulate input, assert, and diagnose errors |
+Expert knowledge skills that ship with godot-mcp. Install them into your AI
+client (opencode, Claude, etc.) so the agent has Godot expert guidance when
+building games through the MCP tools.
 
 ## Install
 
-Copy the skill directories to either location:
-
-- **Personal (all projects):** `~/.claude/skills/`
-- **Project (shared with a repo):** `<your-project>/.claude/skills/`
-
 ```bash
-# from this repo root, into your personal skills dir
-cp -R skills/godot-mcp-* ~/.claude/skills/
+# opencode (default — symlinks into ~/.config/opencode/skills/):
+./scripts/install-skills.sh
+
+# Claude:
+./scripts/install-skills.sh --target ~/.claude/skills
+
+# Copy instead of symlink (standalone, no repo dependency):
+./scripts/install-skills.sh --copy
 ```
 
-Each skill is a self-contained directory with a `SKILL.md`. After copying, the agent picks them up automatically; no MCP server change is required.
+## Available skills
 
-## Relationship to the server's prompts
+### godot-expert
 
-Skills route to the same gated toolsets and the built-in workflow prompts (`build_scene`, `play_test`, `debug_scene`, `troubleshoot`, `author_resource`, `export_build`, `batch_refactor`, …). The prompts remain the canonical, client-agnostic recipes; the skills are the autonomous Claude front door.
+Expert Godot 4.x game development knowledge for building through the MCP tools.
+Encodes the engine rules, node-type constraints, rendering order, autoload
+lifecycle, and common bugs — every lesson learned the hard way.
+
+**Reference guides:**
+
+| File | Topic |
+|------|-------|
+| `references/ui-hud.md` | CanvasLayer vs Node2D, Control layout, mouse_filter trap, overlay pattern |
+| `references/physics-collision.md` | Body types, collision layers/masks, CollisionShape2D, contact detection |
+| `references/testing-gut.md` | GUT setup, test patterns, gotchas, MCP run_tests tool |
+| `references/scene-authoring.md` | .tscn format, ext/sub resources, disk vs bridge editing |
+| `references/autoload-architecture.md` | Autoload lifecycle, children-rendering trap, state machines, signal contracts |
+| `references/scene-templates.md` | Ready-to-use .tscn templates (player, enemy, projectile, main scene) |
+| `references/common-bugs.md` | 11 documented bugs with symptom/root cause/fix |
+
+## Structure
+
+```
+skills/
+└── godot-expert/
+    ├── SKILL.md              # Main skill (loaded by the client)
+    └── references/           # Specialized guides (loaded on demand)
+        ├── ui-hud.md
+        ├── physics-collision.md
+        ├── testing-gut.md
+        ├── scene-authoring.md
+        ├── autoload-architecture.md
+        ├── scene-templates.md
+        └── common-bugs.md
+```
+
+Each skill has a YAML frontmatter (`name`, `description`) that tells the
+client when to activate it. The client loads `SKILL.md` into context when
+the skill triggers, and the agent reads reference files as needed.
