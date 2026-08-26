@@ -1,8 +1,8 @@
 # godot-mcp Skills
 
-Expert knowledge skills that ship with godot-mcp. Install them into your AI
-client (opencode, Claude, etc.) so the agent has Godot expert guidance when
-building games through the MCP tools.
+Expert knowledge and workflow skills that ship with godot-mcp. Install them
+into your AI client (opencode, Claude, etc.) so the agent has Godot expert
+guidance when building games through the MCP tools.
 
 ## Install
 
@@ -19,13 +19,24 @@ building games through the MCP tools.
 
 ## Available skills
 
-### godot-expert
+### MCP workflow skills (how to use the tools)
 
-Expert Godot 4.x game development knowledge for building through the MCP tools.
-Encodes the engine rules, node-type constraints, rendering order, autoload
-lifecycle, and common bugs — every lesson learned the hard way.
+| Skill | Lines | When to use |
+|-------|-------|------------|
+| **godot-mcp-getting-started** | 46 | Start of any session — bridge connection, toolset gating, safety classes, error recovery |
+| **godot-mcp-build-a-scene** | 64 | Building a scene — create/open, add nodes, attach scripts, add collision, save |
+| **godot-mcp-playtest-and-debug** | 62 | Runtime testing — play, inspect live tree, simulate input, assert state, debug |
 
-**Reference guides:**
+### Engine knowledge skills (why things break and how to avoid it)
+
+| Skill | Lines | When to use |
+|-------|-------|------------|
+| **godot-expert** | 567 | Building or debugging a Godot game — node types, rendering, autoloads, physics, GDScript 4.7 gotchas, scene files, common bugs |
+
+**The workflow skills teach *how to call the tools*. The engine skill teaches
+*why things break*. Use them together.**
+
+### godot-expert reference guides
 
 | File | Topic |
 |------|-------|
@@ -41,9 +52,16 @@ lifecycle, and common bugs — every lesson learned the hard way.
 
 ```
 skills/
-└── godot-expert/
-    ├── SKILL.md              # Main skill (loaded by the client)
-    └── references/           # Specialized guides (loaded on demand)
+├── README.md
+├── godot-mcp-getting-started/   # MCP workflow: bridge + toolsets + safety
+│   └── SKILL.md
+├── godot-mcp-build-a-scene/      # MCP workflow: scene scaffolding recipe
+│   └── SKILL.md
+├── godot-mcp-playtest-and-debug/ # MCP workflow: runtime + debug recipe
+│   └── SKILL.md
+└── godot-expert/                 # Engine knowledge: Godot 4.x expert rules
+    ├── SKILL.md
+    └── references/
         ├── ui-hud.md
         ├── physics-collision.md
         ├── testing-gut.md
