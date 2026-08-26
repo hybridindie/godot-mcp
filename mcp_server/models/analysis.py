@@ -34,6 +34,12 @@ class SignalConnection(BaseModel):
         # of the `by_alias` flag FastMCP passes. When `by_alias=True` the keys
         # are already the aliases, so the guards skip.
         d = cast("dict[str, Any]", nxt(self))
+        # Guard: the remap is only meaningful for the dict form. If a future code
+        # path drives serialization in a mode where `nxt` returns a non-dict
+        # (e.g. a pre-encoded JSON string), pass it through untouched rather
+        # than raising on `d["from_node"]`.
+        if not isinstance(d, dict):
+            return d
         if "from_node" in d:
             d["from"] = d.pop("from_node")
         if "to_node" in d:
