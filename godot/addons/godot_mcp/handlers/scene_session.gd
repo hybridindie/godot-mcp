@@ -54,7 +54,13 @@ func _cmd_close_scene(params: Dictionary) -> Dictionary:
 				break
 		if not is_open:
 			return _router._fail("PRECONDITION_FAILED", "Scene '%s' is not open. Open it first." % scene_path, "open_scene")
+		# open_scene_from_path returns void (Godot 4.6 docs); re-read the active
+		# scene root to confirm activation took effect before closing, so we
+		# never close the wrong (previously active) scene if activation failed.
 		EditorInterface.open_scene_from_path(scene_path)
+		var activated := EditorInterface.get_edited_scene_root()
+		if activated == null or activated.scene_file_path != scene_path:
+			return _router._fail("INTERNAL_ERROR", "Failed to activate scene '%s' for closing." % scene_path)
 	var err := EditorInterface.close_scene()
 	if err != OK:
 		return _router._fail("INTERNAL_ERROR", "Failed to close scene '%s' (error %d)." % [target_path, err])
