@@ -1259,8 +1259,8 @@ wheels = [
 ]
 
 [[package]]
-name = "godot-mcp"
-version = "2026.6.1"
+name = "godot-editor-mcp"
+version = "2026.8.26b1"
 source = { editable = "." }
 dependencies = [
     { name = "fastmcp", extra = ["tasks"] },
