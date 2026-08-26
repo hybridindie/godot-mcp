@@ -33,6 +33,9 @@ func _enter_tree() -> void:
 	_warn_if_unsupported_version()
 	_dock = MCPStatusDock.new()
 	_dock_button = add_control_to_bottom_panel(_dock, "MCP")
+	# Auto-show the bottom panel so the dock is visible on enable.
+	if _dock_button != null:
+		_dock_button.button_pressed = true
 
 	# Feed static info the dock can show immediately.
 	_dock.set_server_version(_server_version_label())
