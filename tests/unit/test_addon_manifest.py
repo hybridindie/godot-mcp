@@ -22,7 +22,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 ADDON_DIR = REPO_ROOT / "godot" / "addons" / "godot_mcp"
 PLUGIN_CFG = ADDON_DIR / "plugin.cfg"
 PROJECT_GODOT = REPO_ROOT / "godot" / "project.godot"
-CALVER = re.compile(r"^\d{4}\.\d{2}\.\d{2}(?:-\d+)?$")
+CALVER = re.compile(r"^\d{4}\.\d{2}\.\d{2}(?:[-.]?(?:\d+|[abrc]\d+))?$")
 
 
 @pytest.fixture
