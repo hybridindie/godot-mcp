@@ -161,13 +161,15 @@ func _update_button_icon(status: MCPBridge.Status) -> void:
 	if _dock_button == null:
 		return
 	var color: Color = _STATUS_COLORS.get(status, Color.GRAY)
-	# Generate a small 14x14 circle texture on the fly.
-	var img := Image.create(14, 14, false, Image.FORMAT_RGBA8)
-	img.fill(Color(0, 0, 0, 0))  # transparent background
-	var center := Vector2i(7, 7)
-	for x in range(14):
-		for y in range(14):
-			if Vector2i(x, y).distance_to(center) <= 5.0:
+	# Generate a 16x16 circle texture on the fly.
+	var size := 16
+	var radius := 6.0
+	var img := Image.create_empty(size, size, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var center := Vector2(size / 2.0, size / 2.0)
+	for x in range(size):
+		for y in range(size):
+			if Vector2(x, y).distance_to(center) <= radius:
 				img.set_pixel(x, y, color)
 	var tex := ImageTexture.create_from_image(img)
 	_dock_button.icon = tex
