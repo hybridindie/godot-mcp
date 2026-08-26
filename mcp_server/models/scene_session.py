@@ -40,3 +40,9 @@ class SelectNodesResult(BaseModel):
     selected: list[str] = Field(default_factory=list)
     count: int = 0
     dry_run: bool = False
+
+
+class CloseSceneResult(BaseModel):
+    scene_path: str
+    closed: bool
+    dry_run: bool = False

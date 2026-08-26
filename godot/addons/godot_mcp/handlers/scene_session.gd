@@ -16,6 +16,7 @@ func _init(router: MCPCommandRouter) -> void:
 
 
 func register(handlers: Dictionary) -> void:
+	handlers["cmd_close_scene"] = _cmd_close_scene
 	handlers["cmd_instance_scene"] = _cmd_instance_scene
 	handlers["cmd_list_open_scenes"] = _cmd_list_open_scenes
 	handlers["cmd_open_scene"] = _cmd_open_scene
@@ -25,6 +26,39 @@ func register(handlers: Dictionary) -> void:
 
 
 # -- handlers ----------------------------------------------------------------
+
+func _cmd_close_scene(params: Dictionary) -> Dictionary:
+	# Closes a scene tab, discarding unsaved changes (confirm is enforced
+	# server-side; honored defensively here). EditorInterface.close_scene() (4.4+)
+	# closes the currently active scene; to close a specific open scene by path
+	# we activate it first via open_scene_from_path, then close.
+	if not params.get("confirm", false):
+		return _router._fail("PRECONDITION_FAILED", "close_scene discards unsaved changes. Set confirm=True to proceed (or call save_scene first).", "confirm")
+	var root := EditorInterface.get_edited_scene_root()
+	if root == null:
+		return _router._fail("PRECONDITION_FAILED", "No scene is open.", "active_scene")
+	var scene_path := str(params.get("scene_path", ""))
+	# Resolve the path of the scene we will actually close.
+	var target_path := scene_path
+	if target_path.is_empty():
+		target_path = root.scene_file_path
+		if target_path.is_empty():
+			return _router._fail("PRECONDITION_FAILED", "The active scene has no path on disk yet.", "scene_path")
+	# If a specific path was requested and it isn't the active scene, activate it.
+	if not scene_path.is_empty() and scene_path != root.scene_file_path:
+		var open_paths: PackedStringArray = EditorInterface.get_open_scenes()
+		var is_open := false
+		for p in open_paths:
+			if str(p) == scene_path:
+				is_open = true
+				break
+		if not is_open:
+			return _router._fail("PRECONDITION_FAILED", "Scene '%s' is not open. Open it first." % scene_path, "open_scene")
+		EditorInterface.open_scene_from_path(scene_path)
+	var err := EditorInterface.close_scene()
+	if err != OK:
+		return _router._fail("INTERNAL_ERROR", "Failed to close scene '%s' (error %d)." % [target_path, err])
+	return _router._ok({"scene_path": target_path, "closed": true})
 
 func _cmd_open_scene(params: Dictionary) -> Dictionary:
 	var scene_path := str(params.get("scene_path", ""))

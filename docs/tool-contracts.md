@@ -270,18 +270,23 @@ the editor's undo. The `mutating` tools also accept `dry_run: bool = False` and 
  Editor session management. `godot_scene_edit_reload_scene` discards unsaved changes and is
  **`destructive`** (`confirm=True` required); the rest are `mutating` or `read_only`.
 
- | Tool | Params | Returns | Class |
- |------|--------|---------|-------|
- | `godot_scene_edit_open_scene` | `scene_path` | `OpenSceneResult { scene_path, opened, already_open }` | `mutating` |
- | `godot_scene_edit_reload_scene` | `scene_path, confirm=False` | `ReloadSceneResult { scene_path, reloaded }` | **`destructive`** |
- | `godot_scene_edit_save_all_scenes` | — | `SaveAllScenesResult { saved, count }` | `mutating` |
- | `godot_scene_edit_list_open_scenes` | — | `ListOpenScenesResult { scenes[{path}] }` | `read_only` |
- | `godot_scene_edit_select_nodes` | `node_paths: str[]` | `SelectNodesResult { scene_path, selected[], count }` | `mutating` |
+  | Tool | Params | Returns | Class |
+  |------|--------|---------|-------|
+  | `godot_scene_edit_open_scene` | `scene_path` | `OpenSceneResult { scene_path, opened, already_open }` | `mutating` |
+  | `godot_scene_edit_close_scene` | `scene_path="", confirm=False` | `CloseSceneResult { scene_path, closed }` | **`destructive`** |
+  | `godot_scene_edit_reload_scene` | `scene_path, confirm=False` | `ReloadSceneResult { scene_path, reloaded }` | **`destructive`** |
+  | `godot_scene_edit_save_all_scenes` | — | `SaveAllScenesResult { saved, count }` | `mutating` |
+  | `godot_scene_edit_list_open_scenes` | — | `ListOpenScenesResult { scenes[{path}] }` | `read_only` |
+  | `godot_scene_edit_select_nodes` | `node_paths: str[]` | `SelectNodesResult { scene_path, selected[], count }` | `mutating` |
 
- `godot_scene_edit_open_scene` uses `EditorInterface.open_scene_from_path`. `godot_scene_edit_reload_scene` requires
- the scene to already be open. `godot_scene_edit_select_nodes` replaces the current editor
- selection with the resolved nodes. All accept `dry_run: bool = False` (the
- destructive tool also accepts `confirm`).
+  `godot_scene_edit_open_scene` uses `EditorInterface.open_scene_from_path`.
+  `godot_scene_edit_close_scene` (issue #355) closes the active scene (or a
+  specific open scene when `scene_path` is set; the addon activates it first),
+  discarding unsaved changes — `confirm=True` required; call `save_scene`
+  first to keep edits. `godot_scene_edit_reload_scene` requires
+  the scene to already be open. `godot_scene_edit_select_nodes` replaces the current editor
+  selection with the resolved nodes. All accept `dry_run: bool = False` (the
+  destructive tools also accept `confirm`).
 
  #### Scripts (issue #10) — category: `scripts` (gated off by default)
 

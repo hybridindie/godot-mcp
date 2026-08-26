@@ -14,6 +14,7 @@ from fastmcp import FastMCP
 from mcp_server.bridge import Bridge
 from mcp_server.categories import SCENE_EDIT_TAG
 from mcp_server.models.scene_session import (
+    CloseSceneResult,
     ListOpenScenesResult,
     OpenSceneInfo,
     OpenSceneResult,
@@ -71,6 +72,27 @@ def register_scene_session(
         preview = {"scene_path": scene_path, "reloaded": False}
         return await run_or_preview(
             dry_run, ReloadSceneResult, preview, bridge, "cmd_reload_scene", params
+        )
+
+    @mcp.tool(meta=DESTRUCTIVE, tags=SCENE_EDIT)
+    @enforce_preconditions
+    async def close_scene(
+        scene_path: str = "", confirm: bool = False, dry_run: bool = False
+    ) -> CloseSceneResult:
+        """Close a scene tab, discarding any unsaved changes.
+
+        Destructive: requires ``confirm=True``. If you want to keep edits, call
+        ``save_scene()`` first. With no ``scene_path`` the currently active scene
+        is closed; with a ``scene_path`` that specific open scene is closed (the
+        addon activates it first if it isn't the active tab).
+        """
+        await require_active_scene(bridge)
+        if not dry_run:
+            require_confirmation(confirm, "close_scene")
+        params: dict[str, Any] = {"scene_path": scene_path, "confirm": True}
+        preview = {"scene_path": scene_path, "closed": False}
+        return await run_or_preview(
+            dry_run, CloseSceneResult, preview, bridge, "cmd_close_scene", params
         )
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
