@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from typing import Any, cast
+
+from pydantic import BaseModel, Field, model_serializer
 
 
 class UnusedResourcesResult(BaseModel):
@@ -20,6 +22,23 @@ class SignalConnection(BaseModel):
     method: str
 
     model_config = {"populate_by_name": True}
+
+    @model_serializer(mode="wrap")
+    def _serialize_with_wire_aliases(self, nxt: Any) -> dict[str, Any]:
+        # FastMCP 4.0.0b2+ serializes structured tool output with `by_alias=False`
+        # (`_serialize_to_jsonable` -> `TypeAdapter.dump_python(data, mode="json")`),
+        # which drops Pydantic `Field(alias=...)` from the wire. The
+        # `analyze_signal_flow` tool contract documents the keys as
+        # `{scene, signal, from, to, method}` (issue #353 regression), so a wrap
+        # serializer remaps the snake_case field names to the aliases regardless
+        # of the `by_alias` flag FastMCP passes. When `by_alias=True` the keys
+        # are already the aliases, so the guards skip.
+        d = cast("dict[str, Any]", nxt(self))
+        if "from_node" in d:
+            d["from"] = d.pop("from_node")
+        if "to_node" in d:
+            d["to"] = d.pop("to_node")
+        return d
 
 
 class SignalFlowResult(BaseModel):

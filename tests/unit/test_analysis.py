@@ -56,6 +56,39 @@ def test_analyze_signal_flow(tmp_path: Path) -> None:
     assert analysis.analyze_signal_flow(index, "res://other.tscn")["count"] == 0
 
 
+def test_signal_connection_serializes_with_wire_aliases() -> None:
+    # Regression test for the FastMCP 4.0.0b2+ structured-content regression
+    # (issue #353): FastMCP's `_serialize_to_jsonable` calls
+    # `TypeAdapter.dump_python(data, mode="json")` with the default
+    # `by_alias=False`, so Pydantic `Field(alias=...)` no longer reaches the
+    # wire. SignalConnection's contract is the alias keys `from`/`to`
+    # (see the `analyze_signal_flow` tool docstring), so a wrap serializer
+    # remaps the snake_case field names to the aliases regardless of the
+    # `by_alias` flag FastMCP passes. This pins that contract.
+    from pydantic import TypeAdapter
+
+    from mcp_server.models.analysis import SignalConnection
+
+    # `from`/`to` are Python keywords, so construct via the aliases.
+    sc = SignalConnection.model_validate(
+        {
+            "scene": "res://main.tscn",
+            "signal": "pressed",
+            "from": "Button",
+            "to": ".",
+            "method": "_on_pressed",
+        }
+    )
+    ta = TypeAdapter(SignalConnection)
+    # FastMCP 4.0.0b2+ path: by_alias=False (the default).
+    wire = ta.dump_python(sc, mode="json")
+    assert wire["from"] == "Button", f"alias 'from' lost on wire: {wire!r}"
+    assert wire["to"] == ".", f"alias 'to' lost on wire: {wire!r}"
+    # The explicit by_alias=True path must still work too.
+    wire_alias = ta.dump_python(sc, mode="json", by_alias=True)
+    assert wire_alias["from"] == "Button" and wire_alias["to"] == "."
+
+
 def test_detect_circular_dependencies(tmp_path: Path) -> None:
     _make_project(tmp_path)
     index = analysis.scan(tmp_path)

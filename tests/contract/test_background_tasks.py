@@ -5,13 +5,13 @@ race with a concurrent MCP request that touches the same single-active-peer
 bridge, and surface what the 4.0b1 API shape actually is.
 
 Findings encoded here (the PR body mirrors these):
-  * The TasksExtension installs cleanly via ``fastmcp[tasks]==4.0.0b1`` +
-    ``constraint-dependencies = ["fastmcp-tasks==4.0.0b1"]``. The upgrade-guide
+  * The TasksExtension installs cleanly via ``fastmcp[tasks]==4.0.0b3`` +
+    ``constraint-dependencies = ["fastmcp-tasks==4.0.0b3"]``. The upgrade-guide
     suggestion to also pin ``mcp==2.0.0b2`` / ``mcp-types==2.0.0b2`` is
-    *unsatisfiable*: fastmcp-slim 4.0.0b1 declares ``mcp-types>=2.0.0`` (final),
+    *unsatisfiable*: fastmcp-slim 4.0.0b3 declares ``mcp-types>=2.0.0`` (final),
     which excludes the 2.0.0b2 prerelease. The final 2.0.0 versions already in
     the graph are correct; only ``fastmcp-tasks`` needs the prerelease pin.
-  * The 4.0b1 server API: ``mcp.add_extension(TasksExtension())`` then
+  * The 4.0b3 server API: ``mcp.add_extension(TasksExtension())`` then
     ``@mcp.tool(task=True)``. The client API: ``import fastmcp_tasks`` (enables
     client-side task support) then ``call_tool_task(client, name, args)`` ->
     ``ToolTask`` with ``.task_id``, ``.status()``, ``.result()``, ``.wait()``,
@@ -121,7 +121,7 @@ async def test_ctx_free_task_runs_as_background_task_and_polls_to_result() -> No
     """Control case: a task-enabled tool that does NOT touch ``ctx`` runs as a
     background task — ``call_tool_task`` returns a handle immediately and
     ``task.result()`` resolves to the structured output. This confirms the
-    TasksExtension + 4.0b1 API works end-to-end in-process; the reason
+    TasksExtension + 4.0b3 API works end-to-end in-process; the reason
     ``run_and_capture`` itself isn't task-enabled is the ctx-session reproducer
     below, not a problem with the tasks machinery."""
     server = FastMCP("control")

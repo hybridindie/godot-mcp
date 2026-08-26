@@ -7,13 +7,15 @@ requires-python = ">=3.11"
 license = { file = "LICENSE" }
 dependencies = [
     # The MCP framework (PrefectHQ/fastmcp). Pinned to the 4.0 beta (issue #311).
-    # 4.0.0b1 already ships the modern-protocol guard pattern (InputRequiredResult,
+    # 4.0.0b3 picks up the tool-title default (PrefectHQ/fastmcp#4694 — some clients
+    # drop tools with no `title`) and HTTP-startup/bug fixes over b1 (issue #353).
+    # b1 already shipped the modern-protocol guard pattern (InputRequiredResult,
     # InputRequiredToolResult, Context.input_responses / request_state) needed by
     # the durable-approval work (issue #346) — no upgrade required.
     # 2.x→3.x had breaking API changes (#228); the v3→v4 transition is lower-risk
     # for this server (stateless, no ctx.elicit, no session state, canonical imports
     # already in place). Beta pin per the upgrade guide; follow stable 4.x when it ships.
-    "fastmcp[tasks]==4.0.0b1",
+    "fastmcp[tasks]==4.0.0b3",
     # WebSocket transport for the addon/server bridge (issue #3).
     "websockets>=16.0",
     # Domain models and typed tool I/O (issue #7).
@@ -51,12 +53,12 @@ build-backend = "hatchling.build"
 # same version. uv won't infer the slim prerelease from the wrapper prerelease,
 # so constrain it alongside (per the upgrade guide). The rest of the graph
 # stays on stable releases. The background-tasks spike (#315) adds fastmcp-tasks
-# at the same prerelease; fastmcp-slim 4.0.0b1 already depends on the *final*
+# at the same prerelease; fastmcp-slim 4.0.0b3 already depends on the *final*
 # mcp-types 2.0.0 / mcp 2.0.0 (not the 2.0.0b2 prerelease the upgrade guide lists —
 # that pin is unsatisfiable: slim declares mcp-types>=2.0.0 which excludes b2),
 # so only fastmcp-tasks needs the prerelease pin here.
 [tool.uv]
-constraint-dependencies = ["fastmcp-slim==4.0.0b1", "fastmcp-tasks==4.0.0b1"]
+constraint-dependencies = ["fastmcp-slim==4.0.0b3", "fastmcp-tasks==4.0.0b3"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["mcp_server"]
