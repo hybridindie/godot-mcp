@@ -20,6 +20,13 @@ const MIN_GODOT_MAJOR := 4
 const MIN_GODOT_MINOR := 4
 const REFRESH_INTERVAL := 2.0  # seconds between connection-status polls
 
+# Connection-status colors for the bottom-bar button icon dot.
+const _STATUS_COLORS := {
+	MCPBridge.Status.DISCONNECTED: Color(0.9, 0.3, 0.3),
+	MCPBridge.Status.CONNECTING: Color(0.9, 0.7, 0.2),
+	MCPBridge.Status.CONNECTED: Color(0.3, 0.8, 0.3),
+}
+
 var _dock: MCPStatusDock
 var _dock_button: Button
 var _bridge: MCPBridge
@@ -33,9 +40,10 @@ func _enter_tree() -> void:
 	_warn_if_unsupported_version()
 	_dock = MCPStatusDock.new()
 	_dock_button = add_control_to_bottom_panel(_dock, "MCP")
-	# Auto-show the bottom panel so the dock is visible on enable.
+	# Auto-show the bottom panel and set the initial status icon.
 	if _dock_button != null:
 		_dock_button.button_pressed = true
+		_update_button_icon(MCPBridge.Status.DISCONNECTED)
 
 	# Feed static info the dock can show immediately.
 	_dock.set_server_version(_server_version_label())
@@ -126,6 +134,7 @@ func _refresh_all() -> void:
 func _on_connection_changed(status: MCPBridge.Status) -> void:
 	# MCPBridge.Status and MCPStatusDock.ConnectionStatus share ordering by design.
 	_dock.set_connection_status(status as MCPStatusDock.ConnectionStatus)
+	_update_button_icon(status)
 
 
 func _on_scene_changed(scene_root: Node) -> void:
@@ -142,7 +151,26 @@ func _on_refresh_timer() -> void:
 	# The bridge emits connection_changed on transitions, but if the server
 	# process dies the bridge may not fire the signal — this poll catches that.
 	if _bridge != null:
-		_dock.set_connection_status(_bridge.get_status() as MCPStatusDock.ConnectionStatus)
+		var status := _bridge.get_status()
+		_dock.set_connection_status(status as MCPStatusDock.ConnectionStatus)
+		_update_button_icon(status)
+
+
+## Set the bottom-bar button icon to a colored dot reflecting connection status.
+func _update_button_icon(status: MCPBridge.Status) -> void:
+	if _dock_button == null:
+		return
+	var color: Color = _STATUS_COLORS.get(status, Color.GRAY)
+	# Generate a small 14x14 circle texture on the fly.
+	var img := Image.create(14, 14, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))  # transparent background
+	var center := Vector2i(7, 7)
+	for x in range(14):
+		for y in range(14):
+			if Vector2i(x, y).distance_to(center) <= 5.0:
+				img.set_pixel(x, y, color)
+	var tex := ImageTexture.create_from_image(img)
+	_dock_button.icon = tex
 
 
 ## Human-readable name for the active scene: its file name, else the root node
