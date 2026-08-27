@@ -37,14 +37,24 @@ jobs:
           # Create a zip containing only the addons/godot_mcp/ directory,
           # structured so it extracts into the project root (addons/godot_mcp/...).
           # This is the format Godot's Asset Library and manual install expect.
+          # Built into a separate directory (addon_dist/) so it is NOT uploaded to
+          # PyPI — pypa/gh-action-pypi-publish uploads everything in its packages
+          # dir, and the addon zip is not a Python distribution.
+          mkdir -p addon_dist
           cd godot
-          zip -r ../dist/godot_mcp_addon.zip addons/godot_mcp/
+          zip -r ../addon_dist/godot_mcp_addon.zip addons/godot_mcp/
 
-      - name: Upload artifacts
+      - name: Upload Python dist artifacts
         uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist/
+
+      - name: Upload Godot addon zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: addon_dist
+          path: addon_dist/
 
   publish-pypi:
     needs: build
@@ -74,11 +84,17 @@ jobs:
       contents: write  # Attach artifacts to the GitHub release.
       actions: read   # download-artifact
     steps:
-      - name: Download artifacts
+      - name: Download Python dist artifacts
         uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist/
+
+      - name: Download Godot addon zip
+        uses: actions/download-artifact@v4
+        with:
+          name: addon_dist
+          path: addon_dist/
 
       - name: Upload to GitHub release
         uses: softprops/action-gh-release@v2
@@ -86,7 +102,7 @@ jobs:
           files: |
             dist/*.whl
             dist/*.tar.gz
-            dist/godot_mcp_addon.zip
+            addon_dist/godot_mcp_addon.zip
           tag_name: ${{ github.event.release.tag_name || inputs.tag }}
 
   publish-assetlib:
@@ -95,11 +111,11 @@ jobs:
     permissions:
       actions: read  # download-artifact
     steps:
-      - name: Download artifacts
+      - name: Download Godot addon zip
         uses: actions/download-artifact@v4
         with:
-          name: dist
-          path: dist/
+          name: addon_dist
+          path: addon_dist/
 
       - name: Publish to Godot Asset Library
         env:
@@ -122,7 +138,7 @@ jobs:
             -F "version=$VERSION" \
             -F "download_url=$DOWNLOAD_URL" \
             -F "browse_url=https://github.com/${{ github.repository }}" \
-            -F "icon_url=https://raw.githubusercontent.com/${{ github.repository }}/main/godot/addons/godot_mcp/icon.svg" \
+            -F "icon_url=https://raw.githubusercontent.com/${{ github.repository }}/main/godot/addons/godot_mcp/icon.png" \
             -F "category=2" \
             -F "godot_version=4.4"
 
