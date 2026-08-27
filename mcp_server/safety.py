@@ -175,9 +175,15 @@ async def require_active_scene(bridge: Bridge) -> None:
 
 
 async def require_node_exists(bridge: Bridge, node_path: str) -> None:
-    """Fail fast if ``node_path`` does not resolve in the active scene."""
+    """Fail fast if ``node_path`` does not resolve in the active scene.
+
+    Uses the lightweight ``cmd_node_exists`` probe (returns ``{exists: bool}``,
+    no property serialization) rather than the heavy ``cmd_get_node_properties``
+    — every node-targeted mutation then pays one round-trip for the existence
+    check plus one for the mutation itself, not two heavy round-trips (issue #365).
+    """
     require_bridge_connected(bridge)
-    response = await bridge.send("cmd_get_node_properties", {"node_path": node_path})
+    response = await bridge.send("cmd_node_exists", {"node_path": node_path})
     if response.ok:
         return
     # Only a genuine not-found means "fix the path"; other failures (TIMEOUT,

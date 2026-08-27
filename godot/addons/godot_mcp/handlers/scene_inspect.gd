@@ -21,6 +21,7 @@ func register(handlers: Dictionary) -> void:
 	handlers["cmd_get_scene_tree"] = _cmd_get_scene_tree
 	handlers["cmd_get_selected_node"] = _cmd_get_selected_node
 	handlers["cmd_get_node_properties"] = _cmd_get_node_properties
+	handlers["cmd_node_exists"] = _cmd_node_exists
 	handlers["cmd_get_node_property"] = _cmd_get_node_property
 	handlers["cmd_get_node_property_list"] = _cmd_get_node_property_list
 	handlers["cmd_get_node_groups"] = _cmd_get_node_groups
@@ -110,6 +111,22 @@ func _cmd_get_node_properties(params: Dictionary) -> Dictionary:
 	if node == null:
 		return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(params["node_path"]))
 	return _router._ok(Inspect.node_info(node, root))
+
+
+func _cmd_node_exists(params: Dictionary) -> Dictionary:
+	# Lightweight existence probe (issue #365): returns only {exists: bool},
+	# no property serialization. Used by require_node_exists to avoid the
+	# heavy cmd_get_node_properties round-trip on every node-targeted mutation.
+	if not params.has("node_path"):
+		return _router._fail("VALIDATION_ERROR", "'node_path' is required.")
+	var root: Node = EditorInterface.get_edited_scene_root()
+	if root == null:
+		return _router._fail("PRECONDITION_FAILED", "No scene is open.", "active_scene")
+	var node_path := Inspect.normalize_node_path(str(params["node_path"]))
+	var node: Node = root.get_node_or_null(NodePath(node_path))
+	if node == null:
+		return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(params["node_path"]))
+	return _router._ok({"exists": true})
 
 
 func _cmd_get_node_property(params: Dictionary) -> Dictionary:

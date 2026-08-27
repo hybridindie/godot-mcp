@@ -17,7 +17,7 @@ pytestmark = pytest.mark.asyncio
 def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
     p = cmd.params
     match cmd.command:
-        case "cmd_get_node_properties":  # require_node_exists precondition
+        case "cmd_node_exists":  # require_node_exists precondition (issue #365)
             return ResponseEnvelope.success(cmd.id, {"node_path": p["node_path"], "type": "Node"})
         case "cmd_add_mesh_instance":
             return ResponseEnvelope.success(
@@ -158,7 +158,7 @@ async def test_gridmap_missing_library_preserves_required() -> None:
     # When the addon returns a structured precondition (required=mesh_library),
     # route() preserves it so the agent learns what to satisfy.
     def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
-        if cmd.command == "cmd_get_node_properties":
+        if cmd.command == "cmd_node_exists":  # require_node_exists precondition (issue #365)
             return ResponseEnvelope.success(cmd.id, {"node_path": "GridMap", "type": "GridMap"})
         if cmd.command == "cmd_gridmap_set_cell":
             return ResponseEnvelope.failure(

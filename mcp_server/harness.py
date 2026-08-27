@@ -32,6 +32,7 @@ READ_ONLY_COMMANDS: frozenset[str] = frozenset(
         "cmd_get_scene_tree",
         "cmd_get_selected_node",
         "cmd_get_node_properties",
+        "cmd_node_exists",
         "cmd_get_node_property_list",
         "cmd_find_nodes_by_type",
         "cmd_get_dependencies",
