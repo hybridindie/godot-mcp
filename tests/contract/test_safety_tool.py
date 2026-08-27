@@ -21,7 +21,7 @@ def _server() -> FastMCP:
 async def test_list_tools_by_safety_class_tool() -> None:
     async with Client(_server()) as client:
         result = await client.call_tool("godot_list_tools_by_safety_class", {})
-    grouped = result.structured_content
+    grouped = result.structured_content["tools_by_safety_class"]
 
     # Every tool to date is read_only — including the introspection tool itself.
     read_only = set(grouped["read_only"])
@@ -35,7 +35,7 @@ async def test_list_tools_by_safety_class_tool() -> None:
         "godot_list_tools_by_safety_class",
     }
     assert expected <= read_only
-    # Nothing should be unclassified — every tool carries a safety class.
+    # Nothing should be unclassified — every tool carries a safety Class.
     assert "unclassified" not in grouped
 
 

@@ -156,4 +156,5 @@ async def test_get_shader_param_is_read_only() -> None:
         grouped = await client.call_tool(
             "godot_list_tools_by_safety_class", {}
         )
-    assert "godot_shader_get_param" in grouped.structured_content["read_only"]
+    grouped_result = grouped.structured_content["tools_by_safety_class"]["read_only"]
+    assert "godot_shader_get_param" in grouped_result
