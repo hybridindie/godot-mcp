@@ -38,4 +38,4 @@ CI does not exist yet (greenfield). Wire these gates into a workflow as part of 
 
 ## Versioning
 
-CalVer `YYYY.MM.DD[-N]`. Current: **2026.06.01**.
+CalVer `YYYY.MM.DD[-N]`. Current: **2026.08.27b2** (beta 2).
