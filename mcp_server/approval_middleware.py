@@ -31,6 +31,7 @@ from fastmcp.server.middleware import Middleware, MiddlewareContext
 from fastmcp.tools.base import InputRequiredToolResult
 from mcp.types import ElicitRequest, ElicitRequestFormParams, InputRequiredResult
 
+from mcp_server.models.envelope import ErrorCode
 from mcp_server.safety import ApprovalGate, PreconditionError, SafetyClass
 
 logger = logging.getLogger(__name__)
@@ -174,7 +175,7 @@ class ApprovalMiddleware(Middleware):
             raise PreconditionError(
                 f"'{context.message.name}' was denied by the human approver.",
                 required="human_approval",
-                error="APPROVAL_DENIED",
+                error=ErrorCode.APPROVAL_DENIED,
             ).as_tool_error()
 
         # Approved — run the tool. The tool's own ``confirm``/precondition
