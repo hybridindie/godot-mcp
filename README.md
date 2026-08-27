@@ -121,7 +121,7 @@ cd godot-mcp
 uv sync
 
 # Verify it works
-uv run godot-mcp --help
+uv run godot-editor-mcp --help
 ```
 
 ### 2. Install the Godot addon
@@ -144,7 +144,7 @@ A status dock appears (bottom panel). It shows connection state, project name, a
   "mcp": {
     "godot": {
       "type": "local",
-      "command": ["uv", "run", "godot-mcp"]
+      "command": ["uv", "run", "godot-editor-mcp"]
     }
   }
 }
@@ -157,7 +157,7 @@ A status dock appears (bottom panel). It shows connection state, project name, a
   "mcpServers": {
     "godot": {
       "command": "uv",
-      "args": ["run", "godot-mcp"]
+      "args": ["run", "godot-editor-mcp"]
     }
   }
 }
@@ -197,8 +197,8 @@ uv run ruff check .
 uv run mypy
 
 # Run the server manually
-uv run godot-mcp                 # stdio mode (default)
-GODOT_MCP_TRANSPORT=http uv run godot-mcp   # HTTP mode on 127.0.0.1:9090
+uv run godot-editor-mcp                 # stdio mode (default)
+GODOT_MCP_TRANSPORT=http uv run godot-editor-mcp   # HTTP mode on 127.0.0.1:9090
 ```
 
 <details>
@@ -238,7 +238,7 @@ The server exposes two transports:
 
 | Transport | Use case | How to connect |
 |-----------|----------|----------------|
-| `stdio` | A single local agent (Claude Code, OpenCode) | `uv run godot-mcp` |
+| `stdio` | A single local agent (Claude Code, OpenCode) | `uv run godot-editor-mcp` |
 | `http` | Shared service; remote or web-based clients | `scripts/serve-http.sh` |
 
 `stdio` is the default and what most AI coding assistants expect: the client
