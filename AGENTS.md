@@ -4,7 +4,7 @@ Entry point for AI agent harnesses working in **godot-mcp**.
 
 ## Independent & harness-agnostic
 
-godot-mcp is a **standalone MCP server** — generic Godot editor control over the Model Context Protocol. It is usable by **any** AI agent harness (Claude Code, OpenCode, Copilot, or any MCP client over stdio or Streamable HTTP) and is **game-agnostic** (no built-in game vocabulary).
+godot-mcp is a **standalone MCP server** — generic Godot editor control over the Model Context Protocol. It is usable by **any** AI agent harness (Claude Code, OpenCode, or any MCP client over stdio or Streamable HTTP) and is **game-agnostic** (no built-in game vocabulary).
 
 It has **no dependency on any specific consumer.** Other projects depend on godot-mcp, never the reverse — e.g. the `godot-agents` orchestrator is coded specifically against this server's tool surface, but godot-mcp must **never** couple back to it (no agent-harness-specific tools, prompts, assumptions, or imports). Keep the surface generic; let consumers adapt to it.
 
@@ -82,11 +82,11 @@ The scaffold (issue #1) is in place: `uv`-managed Python package, the addon unde
   - `./.opencode/hooks/check-no-skipped-tests.sh` — zero-skip suite-health gate.
 - Server entrypoint: `uv run godot-editor-mcp` runs the live FastMCP server over stdio (or HTTP via `GODOT_MCP_TRANSPORT=http`, default `127.0.0.1:9090`). `godot_health_check`, `godot_get_server_info` (capability snapshot), and the toolset-gating tools are all shipped.
 - The addon is enabled via Godot's *Project Settings → Plugins* (open the `godot/` folder as a project); the addon connects out to the server's bridge listener (default `ws://127.0.0.1:9080`, configurable via `GODOT_MCP_BRIDGE_URL` on both sides) and reconnects automatically. No auth in v1 (localhost-only).
-- Clients register the server as a local stdio MCP command: Claude Code via `.mcp.json` / `claude mcp add`, OpenCode via `opencode.json`, Copilot via `.github/copilot-instructions.md` (concrete examples in `README.md`).
+- Clients register the server as a local stdio MCP command: Claude Code via `.mcp.json` / `claude mcp add`, OpenCode via `opencode.json` (concrete examples in `README.md`).
 
 ## Skills
 
-Three AI skills ship in [`skills/`](skills/README.md) — installable into any AI client (opencode, Claude, Copilot) via `scripts/install-skills.sh`:
+Three AI skills ship in [`skills/`](skills/README.md) — installable into any AI client (opencode, Claude) via `scripts/install-skills.sh`:
 
 - `godot-getting-started` — bridge connection, toolset gating, safety classes
 - `godot-playtest-and-debug` — runtime play-test, input simulation, debugging

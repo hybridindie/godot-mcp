@@ -699,15 +699,7 @@ docs/
 
 ## Contributing
 
-We follow an issue-driven workflow. Read [`AGENTS.md`](AGENTS.md) and the path-scoped rules in [`.opencode/rules/`](.opencode/rules/) before writing code.
-
-**The pipeline:**
-1. **Issue** — open a GitHub issue describing the bug or feature
-2. **Failing test** — write a test that pins the desired behavior
-3. **Green code** — implement the minimum change to make the test pass
-4. **Preflight** — run the full suite, ruff, and mypy; confirm zero skips
-5. **PR** — open a PR with `closes #N` in the description
-6. **Merge** — squash merge after review
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, workflow, conventions, and rules.
 
 **Key rules:**
 - Tests come **before** implementation.
