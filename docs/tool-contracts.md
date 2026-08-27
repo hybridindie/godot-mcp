@@ -694,7 +694,7 @@ Every result model also carries `dry_run` (true on a preview), as for all `dry_r
   succeeded — the batch envelope itself is a success (it ran); inspect `results[].ok`.
   `stop_on_error=True` (default) halts at the first failure; `False` runs them all.
 - These are game-agnostic, generic Godot operations — no game vocabulary (see the
-  game-agnostic scope rule in `CLAUDE.md`).
+  game-agnostic scope rule in `AGENTS.md`).
 
 #### Runtime (issue #13) — `runtime` (category: `runtime`, gated off by default)
 

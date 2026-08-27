@@ -699,7 +699,7 @@ docs/
 
 ## Contributing
 
-We follow an issue-driven workflow. Read [`CLAUDE.md`](CLAUDE.md) and the path-scoped rules in [`.opencode/rules/`](.opencode/rules/) before writing code.
+We follow an issue-driven workflow. Read [`AGENTS.md`](AGENTS.md) and the path-scoped rules in [`.opencode/rules/`](.opencode/rules/) before writing code.
 
 **The pipeline:**
 1. **Issue** — open a GitHub issue describing the bug or feature
