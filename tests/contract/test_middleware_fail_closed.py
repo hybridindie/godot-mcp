@@ -49,20 +49,28 @@ class _FakeContext:
 # ---------------------------------------------------------------------------
 
 
-async def test_approval_gate_denies_on_lookup_error() -> None:
-    """When get_tool raises a non-ToolError exception, a destructive tool
-    call must be DENIED, not passed through the approval gate. Fail-safe
-    matches parse_approval_response (deny on unparseable)."""
+async def test_approval_gate_allows_on_lookup_error(caplog: pytest.LogCaptureFixture) -> None:
+    """When get_tool raises a non-ToolError exception, a destructive tool call
+    is ALLOWED through the approval gate (fail-open) — so the agent can still
+    reach core recovery tools when an internal lookup error occurs. The
+    destructive ``confirm`` gate lives in each tool's body via
+    ``require_confirmation`` — that is the primary security gate and runs
+    regardless of this lookup, so fail-open here does not leave destructive
+    tools unprotected. Logged at ERROR so the failure is visible, not silent."""
     gate = ApprovalGate()  # no webhook → middleware evaluates safety_class via lookup
     mw = ApprovalMiddleware(gate)
     ctx = _FakeContext()
 
     async def _call_next(_ctx: Any) -> Any:
-        return "RAN"  # sentinel: if reached, the gate failed open
+        return "RAN"
 
-    with pytest.raises(ToolError) as exc:
-        await mw.on_call_tool(ctx, _call_next)  # type: ignore[arg-type]
-    assert "fail-closed" in str(exc.value).lower()
+    with caplog.at_level("ERROR", logger="mcp_server.approval_middleware"):
+        result = await mw.on_call_tool(ctx, _call_next)  # type: ignore[arg-type]
+    assert result == "RAN"
+    assert any(
+        "unexpected error looking up tool" in r.message and r.levelno == 40
+        for r in caplog.records
+    ), "approval gate must log lookup errors at ERROR even when failing open"
 
 
 async def test_approval_gate_toolerror_still_passes_through() -> None:
