@@ -14,17 +14,41 @@ infra/
 └── README.md               # This file
 ```
 
-## Build
+## Pre-built image
+
+A Docker image is published to GitHub Container Registry on every release:
 
 ```bash
-cd docker
-docker compose build
+docker pull ghcr.io/hybridindie/godot-mcp:latest
+# or a specific version:
+docker pull ghcr.io/hybridindie/godot-mcp:2026.08.26b1
+```
+
+Run it:
+
+```bash
+docker run -d \
+  -p 9090:9090 \
+  -p 9080:9080 \
+  -e GODOT_MCP_AUTH_TOKEN=your-token \
+  ghcr.io/hybridindie/godot-mcp:latest
+```
+
+The server listens on:
+- `http://localhost:9090` — MCP HTTP transport
+- `ws://localhost:9080` — WebSocket bridge (the Godot editor connects here)
+
+## Build locally
+
+```bash
+docker compose -f infra/docker-compose.yml build
+docker compose -f infra/docker-compose.yml up
 ```
 
 ## Run
 
 ```bash
-docker compose up
+docker compose -f infra/docker-compose.yml up
 ```
 
 The server listens on `http://localhost:9090`.
@@ -41,7 +65,6 @@ connects *in*, so the container publishes the bridge port and binds all interfac
 - Binding `0.0.0.0` relaxes the localhost-only default — only do this on a trusted host.
   The server refuses a non-loopback bind without `GODOT_MCP_AUTH_TOKEN`; clients pass
   the token as `auth=<token>` (see [#226](https://github.com/hybridindie/godot-mcp/issues/226)).
-  Auth for the HTTP transport is tracked in [#226](https://github.com/hybridindie/godot-mcp/issues/226).
 
 ## Mounting a project
 
@@ -60,3 +83,11 @@ correctly.
 The container includes a `HEALTHCHECK` that verifies the HTTP server is listening on
 port 9090 via a lightweight socket probe. When healthy, the server is up and accepting
 MCP connections.
+
+## Publishing
+
+Docker images are built and pushed automatically by `.github/workflows/publish.yml` on
+GitHub release publish. The image is tagged with both the release version and `latest`:
+
+- `ghcr.io/hybridindie/godot-mcp:<version>` (e.g. `2026.08.26b1`)
+- `ghcr.io/hybridindie/godot-mcp:latest`

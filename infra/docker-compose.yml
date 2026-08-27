@@ -2,7 +2,7 @@ services:
   mcp-server:
     build:
       context: ..
-      dockerfile: docker/Dockerfile
+      dockerfile: infra/Dockerfile
     ports:
       - "9090:9090"
       - "9080:9080"
