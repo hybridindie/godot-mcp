@@ -27,7 +27,13 @@ pytestmark = pytest.mark.asyncio
 
 
 async def _destructive_tool_handlers() -> list[tuple[str, object]]:
-    """Return (tool_name, handler) for every destructive-tagged registered tool."""
+    """Return (tool_name, tool_object) for every destructive-tagged registered tool.
+
+    Yields the registered Tool object (not the raw fn) so callers can read
+    ``parameters`` (the JSON schema) directly — a client's ``list_tools``
+    only shows enabled toolsets, so a gated destructive tool would be absent
+    and a schema test would pass vacuously (issue #367 review feedback).
+    """
     from mcp_server.bridge import Bridge
     from mcp_server.config import ServerConfig
     from mcp_server.server import create_server
@@ -39,7 +45,7 @@ async def _destructive_tool_handlers() -> list[tuple[str, object]]:
     async for tool in _iter_registered_tools(mcp):
         sc = (tool.meta or {}).get("safety_class")
         if sc == SafetyClass.DESTRUCTIVE.value:
-            out.append((tool.name, tool.fn))
+            out.append((tool.name, tool))
     return out
 
 
@@ -55,7 +61,8 @@ async def test_every_destructive_tool_calls_require_confirmation() -> None:
     handlers = await _destructive_tool_handlers()
     assert handlers, "expected at least one destructive tool to be registered"
     missing: list[str] = []
-    for name, fn in handlers:
+    for name, tool in handlers:
+        fn = getattr(tool, "fn", tool)
         src = textwrap.dedent(inspect.getsource(fn))  # type: ignore[arg-type]
         tree = ast.parse(src)
         called = any(
@@ -74,26 +81,18 @@ async def test_every_destructive_tool_calls_require_confirmation() -> None:
 
 async def test_every_destructive_tool_accepts_dry_run() -> None:
     """Every destructive-tagged tool must accept ``dry_run`` (mcp-tools.md:
-    destructive tools accept dry_run AND require confirm). Pin the schema."""
-    from fastmcp import Client
+    destructive tools accept dry_run AND require confirm). Pin the schema.
 
-    from mcp_server.bridge import Bridge
-    from mcp_server.config import ServerConfig
-    from mcp_server.server import create_server
-
-    conn = FakeAddonConnection()
-    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
-    server = create_server(ServerConfig(), bridge=bridge)
+    Reads the schema from the registered tool directly (via the unfiltered
+    local provider), not from a client's ``list_tools`` — a client sees only
+    enabled toolsets, so a gated destructive tool would be absent and the test
+    would pass vacuously (issue #367 review feedback).
+    """
     handlers = await _destructive_tool_handlers()
     assert handlers
-    async with Client(server, mode="legacy") as client:
-        tools = {t.name: t for t in await client.list_tools()}
     missing: list[str] = []
-    for name, _fn in handlers:
-        tool = tools.get(name)
-        if tool is None:
-            continue
-        props = (tool.input_schema or {}).get("properties", {})
+    for name, tool in handlers:
+        props = (getattr(tool, "parameters", {}) or {}).get("properties", {})
         if "dry_run" not in props:
             missing.append(name)
     assert not missing, (
@@ -104,26 +103,16 @@ async def test_every_destructive_tool_accepts_dry_run() -> None:
 
 async def test_every_destructive_tool_accepts_confirm() -> None:
     """Every destructive-tagged tool must accept ``confirm`` (mcp-tools.md:
-    destructive tools require confirm=True). Pin the schema."""
-    from fastmcp import Client
+    destructive tools require confirm=True). Pin the schema.
 
-    from mcp_server.bridge import Bridge
-    from mcp_server.config import ServerConfig
-    from mcp_server.server import create_server
-
-    conn = FakeAddonConnection()
-    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
-    server = create_server(ServerConfig(), bridge=bridge)
+    Reads the schema from the registered tool directly (via the unfiltered
+    local provider), not from a client's ``list_tools``.
+    """
     handlers = await _destructive_tool_handlers()
     assert handlers
-    async with Client(server, mode="legacy") as client:
-        tools = {t.name: t for t in await client.list_tools()}
     missing: list[str] = []
-    for name, _fn in handlers:
-        tool = tools.get(name)
-        if tool is None:
-            continue
-        props = (tool.input_schema or {}).get("properties", {})
+    for name, tool in handlers:
+        props = (getattr(tool, "parameters", {}) or {}).get("properties", {})
         if "confirm" not in props:
             missing.append(name)
     assert not missing, (
