@@ -18,7 +18,7 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
     p = cmd.params
     match cmd.command:
         case "cmd_node_exists":  # require_node_exists precondition (issue #365)
-            return ResponseEnvelope.success(cmd.id, {"node_path": p["node_path"], "type": "Node"})
+            return ResponseEnvelope.success(cmd.id, {"exists": True})
         case "cmd_create_particles":
             return ResponseEnvelope.success(
                 cmd.id,

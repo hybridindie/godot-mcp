@@ -18,9 +18,7 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
     p = cmd.params
     match cmd.command:
         case "cmd_node_exists":  # require_node_exists precondition (issue #365)
-            return ResponseEnvelope.success(
-                cmd.id, {"node_path": p["node_path"], "type": "TileMapLayer"}
-            )
+            return ResponseEnvelope.success(cmd.id, {"exists": True})
         case "cmd_tilemap_set_cell":
             return ResponseEnvelope.success(
                 cmd.id,

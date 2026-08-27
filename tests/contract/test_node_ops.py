@@ -18,7 +18,7 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
     p = cmd.params
     match cmd.command:
         case "cmd_node_exists":  # used by require_node_exists precondition (issue #365)
-            return ResponseEnvelope.success(cmd.id, {"node_path": p["node_path"], "type": "Node"})
+            return ResponseEnvelope.success(cmd.id, {"exists": True})
         case "cmd_duplicate_node":
             return ResponseEnvelope.success(
                 cmd.id, {"node_path": f"{p['node_path']}2", "source_path": p["node_path"]}

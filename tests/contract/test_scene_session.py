@@ -25,7 +25,7 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
         case "cmd_get_active_scene":
             return ResponseEnvelope.success(cmd.id, {"is_open": True, "path": "res://world.tscn"})
         case "cmd_node_exists":  # require_node_exists precondition (issue #365)
-            return ResponseEnvelope.success(cmd.id, {"node_path": p["node_path"], "type": "Node2D"})
+            return ResponseEnvelope.success(cmd.id, {"exists": True})
         case "cmd_open_scene":
             return ResponseEnvelope.success(
                 cmd.id,

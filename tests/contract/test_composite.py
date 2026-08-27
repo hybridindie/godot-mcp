@@ -28,7 +28,7 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
         case "cmd_node_exists":  # require_node_exists precondition (issue #365)
             if p.get("node_path") == "Ghost":
                 return ResponseEnvelope.failure(cmd.id, "RESOURCE_NOT_FOUND", "No node at 'Ghost'.")
-            return ResponseEnvelope.success(cmd.id, {"node_path": p["node_path"], "type": "Node2D"})
+            return ResponseEnvelope.success(cmd.id, {"exists": True})
         case "cmd_compose_node":
             return ResponseEnvelope.success(
                 cmd.id,
