@@ -1,8 +1,13 @@
-"""Contract tests for per-session toolset gating (issue #227)."""
+"""Contract tests: toolset gating is server-global shared state (issue #364).
+
+godot-mcp is a single-user, locally-run MCP server. Per-session isolation was
+removed in #364 — the enabled set is one process-wide set shared by all
+clients. These tests pin the shared-state contract: an enable/disable by one
+client is visible to every other client, and the default surface is enforced
+without a server-initiated hook.
+"""
 
 from __future__ import annotations
-
-from typing import Any
 
 import pytest
 from fastmcp import Client, FastMCP
@@ -21,56 +26,45 @@ def _build() -> tuple[FastMCP, FakeAddonConnection]:
     return create_server(ServerConfig(), bridge=bridge), conn
 
 
-def _tool_names(client: Client[Any]) -> set[str]:
-    """Get tool names the client can see."""
-    import asyncio
-
-    tools = asyncio.get_event_loop().run_until_complete(client.list_tools())
-    return {t.name for t in tools}
-
-
-async def test_isolation_one_client_enables_other_does_not_see() -> None:
-    """Two concurrent clients have isolated toolset state — one enabling a toolset
-    does not expose it to the other."""
+async def test_enable_in_one_client_is_visible_to_another() -> None:
+    """Enabling a toolset in one client exposes it to a concurrent client —
+    the enabled set is shared, not isolated per session.
+    """
     server, _ = _build()
     async with Client(server, mode="legacy") as a, Client(server, mode="legacy") as b:
-        tools_a_before = {t.name for t in await a.list_tools()}
-        tools_b_before = {t.name for t in await b.list_tools()}
+        before_a = {t.name for t in await a.list_tools()}
+        before_b = {t.name for t in await b.list_tools()}
+        assert before_a == before_b  # both start with the default surface
 
-        # Both start with the same default surface (core + inspection).
-        assert tools_a_before == tools_b_before
-
-        # Client A enables scene_edit.
         await a.call_tool("godot_enable_toolset", {"category": "scene_edit"})
-        tools_a_after = {t.name for t in await a.list_tools()}
-        tools_b_after = {t.name for t in await b.list_tools()}
+        after_a = {t.name for t in await a.list_tools()}
+        after_b = {t.name for t in await b.list_tools()}
 
-        # A now sees scene_edit tools, B does not.
-        assert "godot_scene_edit_create_node" in tools_a_after
-        assert "godot_scene_edit_create_node" not in tools_b_after
-        # B's surface didn't change.
-        assert tools_b_before == tools_b_after
+        # A enabled it; both A and B now see scene_edit tools (shared state).
+        assert "godot_scene_edit_create_node" in after_a
+        assert "godot_scene_edit_create_node" in after_b
 
 
-async def test_disable_isolates_per_session() -> None:
-    """Disabling a toolset in one session does not affect another."""
+async def test_disable_in_one_client_affects_another() -> None:
+    """Disabling a toolset in one session affects the other — shared state."""
     server, _ = _build()
     async with Client(server, mode="legacy") as a, Client(server, mode="legacy") as b:
-        # Both start with inspection enabled by default.
         await a.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         await b.call_tool("godot_enable_toolset", {"category": "scene_edit"})
 
-        # A disables scene_edit.
         await a.call_tool("godot_disable_toolset", {"category": "scene_edit"})
         tools_a = {t.name for t in await a.list_tools()}
         tools_b = {t.name for t in await b.list_tools()}
 
+        # A disabled it; both lose it (shared state, no isolation).
         assert "godot_scene_edit_create_node" not in tools_a
-        assert "godot_scene_edit_create_node" in tools_b
+        assert "godot_scene_edit_create_node" not in tools_b
 
 
-async def test_list_toolsets_reflects_session_state() -> None:
-    """list_toolsets reports per-session enabled state, not global."""
+async def test_list_toolsets_reflects_shared_state() -> None:
+    """list_toolsets reports the shared global state — both clients see the
+    same enabled/disabled status for every toolset.
+    """
     server, _ = _build()
     async with Client(server, mode="legacy") as a, Client(server, mode="legacy") as b:
         await a.call_tool("godot_enable_toolset", {"category": "scene_edit"})
@@ -82,8 +76,9 @@ async def test_list_toolsets_reflects_session_state() -> None:
         b_scene = next(
             ts for ts in result_b.structured_content["result"] if ts["name"] == "scene_edit"
         )
+        # Both report the shared state: scene_edit is enabled for both.
         assert a_scene["enabled"] is True
-        assert b_scene["enabled"] is False
+        assert b_scene["enabled"] is True
 
 
 async def test_default_surface_unchanged() -> None:
@@ -97,8 +92,8 @@ async def test_default_surface_unchanged() -> None:
         assert statuses["scene_edit"] is False
 
 
-async def test_call_tool_blocked_when_not_enabled_in_session() -> None:
-    """A tool call is blocked when the toolset is not enabled in the caller's session."""
+async def test_call_tool_blocked_when_not_enabled() -> None:
+    """A tool call is blocked when the toolset is not enabled."""
     server, _ = _build()
     async with Client(server, mode="legacy") as client:
         result = await client.call_tool(

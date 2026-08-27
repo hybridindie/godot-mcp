@@ -1,34 +1,37 @@
-"""Per-session toolset gating middleware (issue #227).
+"""Server-global toolset gating middleware (issue #364).
 
-Replaces the process-global ``mcp.enable/disable(tags=)`` with per-session
-isolation: each client session has its own set of enabled toolsets, so one
-client enabling ``scene_edit`` does not expose it to another. Uses
-``context.fastmcp_context.session_id`` to key the per-session state.
+godot-mcp is a single-user, locally-run MCP server — one client per Godot
+instance. Per-session isolation was dead code on the sessionless
+``2026-07-28`` protocol real clients use (a fresh ``session_id`` per call), and
+``Middleware.on_initialize`` violated ``.opencode/rules/async-patterns.md``.
+
+The enabled set is a single server-global set: ``enable_toolset`` /
+``disable_toolset`` mutate it directly, and every client sees the same surface.
+The default surface (core + inspection) is enforced from the first call with
+no server-initiated hook.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from fastmcp.exceptions import ToolError
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 
 from mcp_server.categories import CORE_TAG
 
-if TYPE_CHECKING:
-    from fastmcp import Context
-    from fastmcp.tools.base import Tool
-
 logger = logging.getLogger(__name__)
 
 
 class ToolsetMiddleware(Middleware):
-    """Per-session toolset gating: filter ``on_list_tools`` and gate ``on_call_tool``.
+    """Server-global toolset gating: filter ``on_list_tools`` and gate
+    ``on_call_tool`` against a single process-wide enabled set.
 
-    Each session starts with the default enabled set (core + inspection). The
-    ``enable_toolset``/``disable_toolset`` tools write into the session's set
-    via :meth:`session_enabled`; this middleware reads it to filter list/call.
+    The set starts at the default (core + inspection). ``enable_toolset`` /
+    ``disable_toolset`` mutate it via :meth:`enabled` / :meth:`set_enabled`.
+    All clients — sessionless or legacy — share the same set; there is no
+    per-session isolation, by design (single-user local server, issue #364).
     """
 
     def __init__(
@@ -39,64 +42,37 @@ class ToolsetMiddleware(Middleware):
             from mcp_server.toolsets import DEFAULT_ENABLED
 
             default_enabled = DEFAULT_ENABLED
-        self._default_enabled: set[str] = {CORE_TAG} | set(default_enabled)
-        self._sessions: dict[str, set[str]] = {}
+        self._enabled: set[str] = {CORE_TAG} | set(default_enabled)
 
-    async def on_initialize(self, context: MiddlewareContext, call_next: Any) -> Any:
-        ctx = context.fastmcp_context
-        if ctx is not None:
-            sid = getattr(ctx, "session_id", None)
-            if sid is not None:
-                self._sessions.setdefault(sid, set(self._default_enabled))
-        return await call_next(context)
+    def enabled(self) -> set[str]:
+        """Return a copy of the server-global enabled toolset set."""
+        return set(self._enabled)
 
-    def session_enabled(self, ctx: Context | None) -> set[str] | None:
-        """Return the enabled toolset set for the session behind ``ctx``.
-
-        Returns ``None`` when the session was not established via ``on_initialize``
-        (sessionless protocol) — the middleware should not filter, since the
-        client can't maintain per-session state across requests.
-        """
-        sid = getattr(ctx, "session_id", None)
-        if sid is None or sid not in self._sessions:
-            return None
-        return set(self._sessions.setdefault(sid, set(self._default_enabled)))
-
-    def set_session_enabled(self, ctx: Context | None, enabled: set[str]) -> None:
-        """Write the enabled set for the session behind ``ctx``."""
-        sid = getattr(ctx, "session_id", None)
-        if sid is not None:
-            self._sessions[sid] = enabled
+    def set_enabled(self, enabled: set[str]) -> None:
+        """Replace the server-global enabled set (preserves ``core``)."""
+        self._enabled = {CORE_TAG} | set(enabled)
 
     async def on_list_tools(self, context: MiddlewareContext, call_next: Any) -> Any:
         tools = await call_next(context)
-        ctx = context.fastmcp_context
-        if ctx is None:
-            return tools
-        enabled = self.session_enabled(ctx)
-        if enabled is None:
-            return tools
-        return [t for t in tools if self._is_visible(t, enabled)]
+        return [t for t in tools if self._is_visible(t, self._enabled)]
 
     async def on_call_tool(self, context: MiddlewareContext, call_next: Any) -> Any:
-        ctx = context.fastmcp_context
-        if ctx is None:
-            return await call_next(context)
-        enabled = self.session_enabled(ctx)
-        if enabled is None:
-            return await call_next(context)
-        if not await self._is_call_allowed(context.message.name, ctx, enabled):
+        if not await self._is_call_allowed(context):
             raise ToolError(
-                f"Tool '{context.message.name}' is not enabled in this session. "
+                f"Tool '{context.message.name}' is not enabled. "
                 f"Call godot_list_toolsets() to see available toolsets, then "
                 f"godot_enable_toolset(category) to expose its tools."
             )
         return await call_next(context)
 
-    def _is_visible(self, tool: Tool, enabled: set[str]) -> bool:
+    def _is_visible(self, tool: Any, enabled: set[str]) -> bool:
         return _tag_visible(getattr(tool, "tags", set()) or set(), enabled)
 
-    async def _is_call_allowed(self, name: str, ctx: Context, enabled: set[str]) -> bool:
+    async def _is_call_allowed(self, context: MiddlewareContext) -> bool:
+        name = context.message.name
+        ctx = context.fastmcp_context
+        if ctx is None:
+            return True
         try:
             tool = await ctx.fastmcp.get_tool(name)
         except ToolError:
@@ -108,11 +84,13 @@ class ToolsetMiddleware(Middleware):
                 exc_info=True,
             )
             return True
-        return _tag_visible(getattr(tool, "tags", set()) or set(), enabled)
+        if tool is None:
+            return True
+        return self._is_visible(tool, self._enabled)
 
 
 def _tag_visible(tags: set[str], enabled: set[str]) -> bool:
-    """Whether a tool with ``tags`` is visible to a session with ``enabled``."""
+    """Whether a tool with ``tags`` is visible given the ``enabled`` set."""
     if CORE_TAG in tags:
         return True
     return bool(tags & enabled)

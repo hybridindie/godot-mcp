@@ -148,11 +148,11 @@ class ToolsetInfo(BaseModel):
 
 
 class ToolsetManager:
-    """Tracks which toolsets are exposed per session (issue #227).
+    """Tracks which toolsets are exposed (issue #227 / #364).
 
-    The enabled set is per-session via :class:`ToolsetMiddleware`; this class
+    The enabled set is server-global via :class:`ToolsetMiddleware`; this class
     handles version checks and toolset metadata. The ``enable``/``disable``
-    methods read/write the session's set through the middleware.
+    methods read/write the global set through the middleware.
     """
 
     def __init__(
@@ -171,29 +171,24 @@ class ToolsetManager:
     async def enable(self, category: str, *, ctx: Any = None) -> ToolsetInfo:
         self._check_toggleable(category)
         await self._require_godot_version(category)
-        if self._middleware is not None and ctx is not None:
-            enabled = self._middleware.session_enabled(ctx)
-            if enabled is not None:
-                enabled.add(category)
-                self._middleware.set_session_enabled(ctx, enabled)
-        return self._info(category, ctx)
+        if self._middleware is not None:
+            enabled = self._middleware.enabled()
+            enabled.add(category)
+            self._middleware.set_enabled(enabled)
+        return self._info(category)
 
     async def disable(self, category: str, *, ctx: Any = None) -> ToolsetInfo:
         self._check_toggleable(category)
-        if self._middleware is not None and ctx is not None:
-            enabled = self._middleware.session_enabled(ctx)
-            if enabled is not None:
-                enabled.discard(category)
-                self._middleware.set_session_enabled(ctx, enabled)
-        return self._info(category, ctx)
+        if self._middleware is not None:
+            enabled = self._middleware.enabled()
+            enabled.discard(category)
+            self._middleware.set_enabled(enabled)
+        return self._info(category)
 
     def status(self, *, ctx: Any = None) -> list[ToolsetInfo]:
-        enabled = (
-            self._middleware.session_enabled(ctx)
-            if self._middleware is not None and ctx is not None
-            else None
-        )
-        if enabled is None:
+        if self._middleware is not None:
+            enabled = self._middleware.enabled()
+        else:
             enabled = set(self._default_enabled)
         core = ToolsetInfo(
             name=CORE_TAG,
@@ -201,16 +196,13 @@ class ToolsetManager:
             description="Always-on diagnostics and toolset management.",
             min_godot=None,
         )
-        return [core, *(self._info(c, ctx, enabled) for c in TOOLSETS)]
+        return [core, *(self._info(c, enabled) for c in TOOLSETS)]
 
-    def _info(self, category: str, ctx: Any = None, enabled: set[str] | None = None) -> ToolsetInfo:
+    def _info(self, category: str, enabled: set[str] | None = None) -> ToolsetInfo:
         if enabled is None:
-            enabled = (
-                self._middleware.session_enabled(ctx)
-                if self._middleware is not None and ctx is not None
-                else None
-            )
-            if enabled is None:
+            if self._middleware is not None:
+                enabled = self._middleware.enabled()
+            else:
                 enabled = set(self._default_enabled)
         req = TOOLSET_MIN_GODOT.get(category)
         return ToolsetInfo(
