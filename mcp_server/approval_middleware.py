@@ -112,12 +112,15 @@ class ApprovalMiddleware(Middleware):
         except ToolError:
             return await call_next(context)
         except Exception:
-            logger.warning(
-                "unexpected error looking up tool %r; skipping approval gate",
+            logger.error(
+                "unexpected error looking up tool %r; denying call (fail-closed)",
                 context.message.name,
                 exc_info=True,
             )
-            return await call_next(context)
+            raise ToolError(
+                f"Could not look up tool '{context.message.name}' to evaluate "
+                f"approval: internal lookup failure. The call was denied (fail-closed)."
+            ) from None
         if tool is None:
             return await call_next(context)
         safety_class: str = (tool.meta or {}).get("safety_class") or ""

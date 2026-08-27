@@ -78,8 +78,15 @@ class ToolsetMiddleware(Middleware):
         except ToolError:
             return True
         except Exception:
-            logger.warning(
-                "unexpected error looking up tool %r; allowing call",
+            # Fail-open here (not fail-closed) so the agent can still reach
+            # core recovery tools (godot_list_toolsets, godot_enable_toolset)
+            # when an internal lookup error occurs. The approval middleware
+            # is the security-critical gate and fails closed; the toolset gate
+            # is a surface-management convenience. Logged at error so the
+            # failure is visible, not silent.
+            logger.error(
+                "unexpected error looking up tool %r; allowing call (toolset "
+                "gate fails open so core recovery tools stay reachable)",
                 name,
                 exc_info=True,
             )
