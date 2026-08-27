@@ -11,7 +11,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "docker/runner/Dockerfile"
+      - "infra/runner.Dockerfile"
       - ".github/workflows/runner-image.yml"
 
 permissions:
@@ -48,7 +48,7 @@ jobs:
         uses: docker/build-push-action@v7.0.0
         with:
           context: .
-          file: docker/runner/Dockerfile
+          file: infra/runner.Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

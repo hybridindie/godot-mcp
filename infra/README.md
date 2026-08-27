@@ -1,7 +1,18 @@
-# Docker delivery for godot-mcp
+# Infrastructure
 
-Containerized HTTP transport for the godot-mcp server. This lets consumers deploy or run
-the MCP server without a local Python toolchain.
+Containerized delivery and Kubernetes deployment for godot-mcp.
+
+## Structure
+
+```
+infra/
+├── Dockerfile              # MCP server image (HTTP transport)
+├── docker-compose.yml      # Local container run
+├── runner.Dockerfile       # CI runner image (Godot + Python)
+├── k8s-runner-godot.yml    # K8s deployment for Godot runner
+├── k8s-runner-linux.yml    # K8s deployment for Linux runner
+└── README.md               # This file
+```
 
 ## Build
 
