@@ -124,7 +124,7 @@ Experiment: `Godot AI` (the unified experiment shared with the godot-agents proj
 
 The LLM eval agents here (`OllamaAgent`, `CloudAgent`) execute tool calls by sending `cmd_*` envelopes **straight to the addon bridge** (`CloudAgent._execute`), bypassing the FastMCP server's safety classes, preconditions, `dry_run`/`confirm`, the approval webhook, and toolset gating. So their results do **not** reflect the safety behaviour a real, *server-mediated* client (e.g. [godot-agents](https://github.com/hybridindie/godot-agents), which already goes through the server) experiences — PRD FR3 wants the agent-representative path to run through the server.
 
-**Decision:** rather than migrate the execution path now (which means standing up an MCP client/session and switching from addon `cmd_*` param keys to the server tool surface), every run's output is prefixed with a console banner (and, until the MLflow decoupling, run params) stating it is **non-representative** until that migration lands. When the agent is routed through the server, drop the label.
+**Decision:** rather than migrate the execution path now (which means standing up an MCP client/session and switching from addon `cmd_*` param keys to the server tool surface), every `run_llm_suite` run is **explicitly labelled non-representative** until that migration lands: a console banner (`REPRESENTATIVENESS_BANNER`, `evals/llm_eval_v2.py`) prefixes every suite run. The former MLflow run-params label moved to godot-agents with the MLflow decoupling (#378). When the agent is routed through the server, drop the banner.
 
 ## Results Archive
 

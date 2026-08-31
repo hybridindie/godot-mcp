@@ -48,6 +48,22 @@ class TokenUsage:
 
 
 # ---------------------------------------------------------------------------
+# Representativeness (#197)
+# ---------------------------------------------------------------------------
+
+# The eval agents (OllamaAgent, CloudAgent) send cmd_* envelopes straight to
+# the addon bridge, bypassing the server's safety layer. Every suite run is
+# prefixed with this banner so results are never mistaken for the behaviour
+# of a real, server-mediated client (e.g. godot-agents). The MLflow run-params
+# label moved to godot-agents with the MLflow decoupling (#378).
+REPRESENTATIVENESS_BANNER = (
+    "⚠️  addon-direct eval path: tool calls bypass the FastMCP server's safety "
+    "classes / preconditions / dry_run / approval / toolset gating — results are "
+    "NOT representative of a server-mediated client (#197)."
+)
+
+
+# ---------------------------------------------------------------------------
 # Error taxonomy
 # ---------------------------------------------------------------------------
 
@@ -1455,6 +1471,8 @@ async def run_llm_suite(
     variant: str = "baseline",
 ) -> list[LLMTaskResult]:
     bridge = BridgeConnector()
+
+    print(REPRESENTATIVENESS_BANNER)
 
     if not await bridge.connect():
         print("❌ Could not connect to Godot addon bridge. Is Godot running?")
