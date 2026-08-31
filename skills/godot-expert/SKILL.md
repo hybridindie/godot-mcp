@@ -271,11 +271,11 @@ size = Vector2(28, 28)
 shape = SubResource("Rect_1")
 ```
 
-Via the bridge:
-```python
-{"command": "cmd_set_node_property",
- "params": {"node_path": "Player/Collision", "property": "shape",
-            "value": {"type": "RectangleShape2D", "size": {"x": 32, "y": 32}}}}
+Via the MCP tool (the server coerces the shape resource type):
+```
+godot_scene_edit_set_node_property(
+    node_path='Player/Collision', property='shape',
+    value={'type': 'RectangleShape2D', 'size': {'x': 32, 'y': 32}})
 ```
 
 ---
@@ -378,14 +378,13 @@ shape = SubResource("Rect_1")
 - `groups=["player"]` = the node's groups
 - `unique_id` = Godot's internal node ID (auto-generated, don't reuse)
 
-### Editing scenes
+### Editing scenes and scripts
 
-- **Via the bridge:** use `cmd_create_node`, `cmd_set_node_property`,
-  `cmd_attach_script`, `cmd_save_scene`
-- **On disk:** edit the `.tscn` directly, then reload in the editor
-- **Critical:** `cmd_write_script` updates the editor's in-memory copy but
-  does NOT flush to disk until `cmd_save_scene` or `cmd_save_all_scenes`.
-  Always save after writing.
+- **Via the MCP tools:** `godot_scene_edit_create_node`, `godot_scene_edit_set_node_property`, `godot_scene_edit_attach_script`, `godot_scene_edit_save_scene` — enable the right toolsets first (see `godot-getting-started`).
+- **On disk:** edit the `.tscn`/`.gd` file directly, then reload in the editor (`godot_scene_edit_reload_scene` or Project → Reload Current Project).
+- **Saving rules:**
+  - **Scripts** (`godot_scripts_write` / `godot_scripts_patch`) flush to disk immediately — no scene save needed. The editor picks the change up on the next script reload.
+  - **Scene edits** (create/rename/delete nodes, set properties) live in the editor's memory until you call `godot_scene_edit_save_scene()` (or `godot_scene_edit_save_all_scenes()`). Always save before running headless `godot_runtime_run_and_capture` — it runs the files on disk, not the in-memory scene.
 
 ---
 
@@ -424,63 +423,48 @@ A hardcoded `VIEW_RADIUS=12` that works at 1280x720 won't fill 1920x1080.
 
 ---
 
-## 8. MCP bridge workflow
+## 8. MCP tool workflow
 
-### Starting the bridge
+The bridge between the server and the editor is managed for you — the Godot addon connects to the MCP server's WebSocket listener automatically (enable the plugin once in Project Settings → Plugins). Agents never talk to the bridge directly; call the `godot_<toolset>_<action>` tools.
 
-```bash
-# Start the bridge listener (waits for the Godot addon to connect):
-nohup uv run python /tmp/bridge_cmd.py > /tmp/bridge.out 2>/tmp/bridge.err &
+### Session start (every session)
 
-# Verify the addon connected:
-cat /tmp/bridge.err | tail -5
-# Should show: "addon connected" and "ping ok=True"
+```
+godot_health_check()        # bridge connected? server version
+godot_get_server_info()    # toolsets + tool counts, active scene, next_steps
+godot_list_toolsets()      # what's enabled / each toolset's min Godot version
+godot_enable_toolset('scene_edit')
+godot_enable_toolset('scripts')
 ```
 
-### Sending commands
+If the bridge is offline: open the `godot/` project in Godot 4.4+ with the addon enabled — the status dock shows the connection state.
 
-The bridge reads a JSON array from `/tmp/bridge_cmds.json` and writes
-results to `/tmp/bridge_results.json`:
+### Common tool calls
 
-```python
-python3 -c "
-import json
-cmds = [
-    {'command': 'cmd_ping'},
-    {'command': 'cmd_get_project_info'},
-    {'command': 'cmd_create_node', 'params': {'parent_path': '.', 'node_type': 'CharacterBody2D', 'name': 'Player'}},
-]
-with open('/tmp/bridge_cmds.json', 'w') as f:
-    json.dump(cmds, f)
-" && sleep 3 && cat /tmp/bridge_results.json
-```
-
-### Common commands
-
-| Command | Purpose |
-|---------|---------|
-| `cmd_ping` | Liveness check |
-| `cmd_get_project_info` | Project name, path, autoloads, input actions |
-| `cmd_get_scene_tree` | Current scene tree (max_depth) |
-| `cmd_get_active_scene` | Which scene is active |
-| `cmd_create_scene` | Create a new .tscn file |
-| `cmd_open_scene` | Open a scene in the editor |
-| `cmd_create_node` | Add a node to the active scene |
-| `cmd_set_node_property` | Set a property (handles type coercion) |
-| `cmd_attach_script` | Attach a .gd script to a node |
-| `cmd_write_script` | Write/overwrite a .gd file |
-| `cmd_add_to_group` | Add a node to a group |
-| `cmd_save_scene` | Save the active scene to disk |
-| `cmd_save_all_scenes` | Save all open scenes |
-| `cmd_play_scene` | Play the scene in the editor |
-| `cmd_close_scene` | Close a scene tab (destructive, needs confirm) |
+| Tool | Purpose |
+|------|---------|
+| `godot_inspection_get_project_info()` | Project name, autoloads, input actions |
+| `godot_inspection_get_scene_tree()` | Current scene tree (max_depth) |
+| `godot_scene_edit_open_scene()` | Open a scene in the editor |
+| `godot_scene_edit_create_node()` | Add a node to the active scene |
+| `godot_scene_edit_set_node_property()` | Set a property (handles type coercion) |
+| `godot_scene_edit_attach_script()` | Attach a .gd script to a node |
+| `godot_scripts_write()` | Write/overwrite a .gd file (flushes to disk) |
+| `godot_scene_edit_add_to_group()` | Add a node to a group |
+| `godot_scene_edit_save_scene()` | Save the active scene to disk |
+| `godot_scene_edit_save_all_scenes()` | Save all open scenes |
+| `godot_runtime_play_scene()` | Play the scene in the editor |
+| `godot_runtime_run_and_capture()` | Headless run + captured errors/output |
+| `godot_scene_edit_close_scene()` | Close a scene tab (destructive, needs confirm) |
+| `godot_undo()` | Undo the last editor action (always-on core) |
 
 ### Gotchas
 
-- `cmd_write_script` updates editor memory; **always `cmd_save_scene` after**
-- Changing `project.godot` on disk requires **Project → Reload Current Project**
-- The bridge process dies if stdin closes; use the file-based bridge_cmd.py
-- `cmd_play_scene` plays the active editor scene; pass `scene_path` to be explicit
+- **Scene edits need an explicit save** (`godot_scene_edit_save_scene()`); script writes don't — they hit disk immediately
+- Changing `project.godot` on disk requires **Project → Reload Current Project** (or `godot_scene_edit_reload_scene()` for the scene)
+- `godot_runtime_run_and_capture()` runs the **files on disk** — save the scene first
+- Every mutation is undoable in the editor's undo history; `godot_undo()` steps back one action
+- Live inspection/input during play needs the `MCPRuntimeProbe` autoload in the game (see `godot-playtest-and-debug`)
 
 ---
 
@@ -540,9 +524,9 @@ func test_player_starts_with_full_health() -> void:
 - [ ] Dynamically spawned entities are children of the scene root, not the autoload
 - [ ] Full-screen overlay `Control` has `mouse_filter = IGNORE` (2)
 - [ ] Custom input actions are in `project.godot` and project was reloaded
-- [ ] All scripts parse clean: `godot --headless --check-only --script <path>`
-- [ ] GUT tests pass: `godot --headless -s addons/gut/gut_cmdln.gd -gexit`
-- [ ] Scene saved to disk: `cmd_save_scene` after any `cmd_write_script`
+- [ ] All scripts parse clean: `godot --headless --check-only --script <path>` or `godot_scripts_get_parse_errors()`
+- [ ] GUT tests pass: `godot_testing_run_tests()` or `godot --headless -s addons/gut/gut_cmdln.gd -gexit`
+- [ ] Scene saved to disk: `godot_scene_edit_save_scene()` after scene edits (scripts flush on write)
 
 ---
 

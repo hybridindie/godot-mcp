@@ -16,6 +16,7 @@ from typing import Any
 
 import pytest
 
+from mcp_server import __version__
 from mcp_server.server import create_server, register_tool_transform
 from tests.helpers import list_all_tools
 
@@ -103,3 +104,90 @@ def test_skill_tool_references_exist() -> None:
         if missing:
             unknown[skill.name] = missing
     assert not unknown, f"Skills reference unknown tools: {unknown}"
+
+
+# -- Drift guards (issue #381): skills stay in lockstep with the live surface --
+
+
+def _body(skill_name: str) -> str:
+    text = (SKILLS_DIR / skill_name / "SKILL.md").read_text(encoding="utf-8")
+    return text[text.find("\n---", 3) + 4 :]
+
+
+async def _toolsets() -> set[str]:
+    from mcp_server.toolsets import TOOLSETS
+
+    return set(TOOLSETS)
+
+
+async def _prompt_names() -> set[str]:
+    server: Any = create_server()
+    names = {p.name for p in await server.local_provider.list_prompts()}
+    return names
+
+
+def test_getting_started_map_covers_every_toolset() -> None:
+    """The quick-map names every gated toolset — a stale map teaches the agent
+    to hunt for tools that were renamed or added since the skill was written."""
+    body = _body("godot-getting-started")
+    for toolset in sorted(asyncio.run(_toolsets())):
+        assert toolset in body, (
+            f"getting-started quick-map is missing the '{toolset}' toolset"
+        )
+
+
+def test_skill_prompt_lists_cover_registered_prompts() -> None:
+    """Every registered MCP prompt is named in a workflow skill — agents reach
+    for the canned recipes; a prompt missing from the skills is one they never
+    discover."""
+    combined = _body("godot-getting-started") + _body("godot-playtest-and-debug")
+    prompts = asyncio.run(_prompt_names())
+    missing = {p for p in prompts if p not in combined}
+    assert not missing, f"Skills never mention these registered prompts: {missing}"
+
+
+def test_getting_started_states_current_version_and_check() -> None:
+    """The skill tells the agent which version this surface documents and how to
+    verify the server it talks to matches (health_check → version)."""
+    body = _body("godot-getting-started")
+    assert __version__ in body, (
+        f"getting-started must name the current server version {__version__}"
+    )
+    assert "godot_health_check(" in body, (
+        "getting-started must show the version check via godot_health_check()"
+    )
+
+
+def test_playtest_skill_names_debugger_tools() -> None:
+    """The debugger recipe names the real breakpoint/stepping tools instead of
+    a vague 'set a breakpoint'."""
+    body = _body("godot-playtest-and-debug")
+    for tool in (
+        "godot_debugger_set_breakpoint(",
+        "godot_debugger_force_break(",
+        "godot_debugger_get_stack_frames(",
+    ):
+        assert tool in body, f"playtest-and-debug must show {tool}"
+
+
+def test_expert_skill_has_no_raw_bridge_workflow() -> None:
+    """§8 predates the MCP server: the /tmp/bridge_cmd.py raw-bridge workflow is
+    obsolete — agents call godot_* tools, never the bridge files."""
+    body = _body("godot-expert")
+    assert "bridge_cmd.py" not in body, (
+        "godot-expert still teaches the obsolete raw-bridge bridge_cmd.py workflow"
+    )
+
+
+def test_expert_skill_script_save_claim_is_accurate() -> None:
+    """The handler writes scripts to disk immediately (FileAccess in the
+    UndoRedo do-method); only unsaved *scene edits* need save_scene. The old
+    'write_script does not flush to disk' claim was wrong."""
+    body = _body("godot-expert")
+    assert "write_script" not in body and "cmd_write_script" not in body, (
+        "godot-expert must not claim write_script/cd_write_script skips the disk"
+    )
+    # The corrected rule must still teach that scene edits need an explicit save.
+    assert "godot_scene_edit_save_scene(" in body or "save_scene" in body, (
+        "godot-expert must teach save_scene for scene edits"
+    )

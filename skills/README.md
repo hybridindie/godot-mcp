@@ -4,10 +4,16 @@ godot-mcp ships three AI skills that give your agent expert knowledge when
 building Godot games through the MCP tools. Two categories:
 
 - **MCP workflow skills** — step-by-step recipes for calling the tools
-  correctly (enable toolsets, play-test and debug).
+  correctly (version + bridge check, enable toolsets, play-test and debug).
 - **Engine knowledge skill** — Godot 4.x engine rules and common-bug
   prevention (rendering, physics, autoloads, GDScript gotchas, scene
   authoring).
+
+The skills document the surface as of **2026.08.31b3** (180 tools across
+29 categories, 9 workflow prompts). `godot-getting-started` teaches how to
+check the live server version (`godot_health_check`) — if the server you're
+driving is older or newer, trust `godot_get_server_info()`'s inventory over
+the counts here.
 
 Install them once and your agent has the right guidance at the right time.
 
@@ -77,11 +83,11 @@ editor", "godot-mcp tools aren't showing up", "unknown tool from godot",
 "set up godot-mcp".
 
 **What it teaches:**
-- Confirming the bridge is connected (Godot + addon running)
-- The toolset-gating model (enable a toolset before its tools exist)
+- Checking the server version + bridge connection (`godot_health_check`, `godot_get_server_info`)
+- The toolset-gating model (enable a toolset before its tools exist — 28 gated toolsets)
 - The safety convention (read-only / mutating with `dry_run` / destructive
   with `confirm`)
-- Using built-in workflow prompts (`/build_scene`, `/play_test`, etc.)
+- Using built-in workflow prompts (`/build_scene`, `/play_test`, `/author_resource`, `/export_build`, `/batch_refactor`, etc.)
 - Error recovery (`unknown tool`, `PRECONDITION_FAILED`, `BRIDGE_DISCONNECTED`)
 
 **When to use:** First thing in any session that involves godot-mcp.
@@ -99,13 +105,15 @@ input in Godot", "why does my Godot game crash", "debug the running scene",
 "inspect the live game".
 
 **What it teaches:**
-- Enabling the `runtime`, `input`, `testing`, and `debugger` toolsets
+- The two run modes: headless `run_and_capture` vs. the live play session with probe
+- Enabling the `runtime`, `input`, `testing`, `debugger` (+ `profiling`) toolsets
 - Registering the runtime probe autoload
-- Playing a scene and inspecting the live scene tree
-- Simulating keyboard/mouse/action input
-- Asserting live node state (property comparisons)
+- Playing a scene and inspecting the live scene tree; finding UI elements
+- Simulating keyboard/mouse/action input; recording and replaying input macros
+- Asserting live node state; scenarios, stress fuzz, screenshot diffing
 - Debugging failures (crash on play, parse errors, input does nothing)
-- Using the debugger (breakpoints, stack frames, step-through)
+- The debugger: `force_break`, breakpoints, stack frames, frame variables,
+  stepping (`step_into/over/out`), expression evaluation, continue
 
 **When to use:** When testing a running game, reproducing a bug, or
 diagnosing runtime behavior.
@@ -237,18 +245,24 @@ The workflow skills (`getting-started`, `playtest-and-debug`) teach
 ```
 skills/
 ├── README.md                          # This file
-├── godot-getting-started/             # MCP workflow: bridge + toolsets + safety
-│   └── SKILL.md                       # 46 lines
-├── godot-playtest-and-debug/           # MCP workflow: runtime + debug recipe
-│   └── SKILL.md                       # 62 lines
-└── godot-expert/                       # Engine knowledge: Godot 4.x expert rules
-    ├── SKILL.md                       # 567 lines (10 sections)
+├── godot-getting-started/             # MCP workflow: version + bridge + toolsets + safety
+│   └── SKILL.md
+├── godot-playtest-and-debug/          # MCP workflow: runtime + input + debugger recipe
+│   └── SKILL.md
+└── godot-expert/                      # Engine knowledge: Godot 4.x expert rules
+    ├── SKILL.md                       # 10 sections
     └── references/                    # 7 specialized guides
-        ├── ui-hud.md                  # 170 lines
-        ├── physics-collision.md        # 138 lines
-        ├── testing-gut.md             # 203 lines
-        ├── scene-authoring.md          # 173 lines
-        ├── autoload-architecture.md   # 214 lines
-        ├── scene-templates.md          # 123 lines
-        └── common-bugs.md              # 238 lines
+        ├── ui-hud.md
+        ├── physics-collision.md
+        ├── testing-gut.md
+        ├── scene-authoring.md
+        ├── autoload-architecture.md
+        ├── scene-templates.md
+        └── common-bugs.md
 ```
+
+The skills are pinned to the server surface by
+`tests/unit/test_skills_metadata.py`: every `godot_*()` call a skill teaches
+must resolve to a registered tool, the prompt lists must cover every registered
+prompt, and the getting-started map must cover every toolset. A version bump
+that changes the surface fails the suite until the skills catch up.
