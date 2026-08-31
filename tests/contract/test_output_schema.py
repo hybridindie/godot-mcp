@@ -120,6 +120,17 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                 },
             )
         case "cmd_undo":
+            if p.get("dry_run"):
+                # Preview shape: has_undo / would_undo_next, no undo performed.
+                return ResponseEnvelope.success(
+                    cmd.id,
+                    {
+                        "dry_run": True,
+                        "requested": p.get("count", 1),
+                        "has_undo": True,
+                        "would_undo_next": "Create Node",
+                    },
+                )
             return ResponseEnvelope.success(
                 cmd.id,
                 {"undone": 1, "requested": p.get("count", 1), "last_action": "Create Node"},
@@ -190,21 +201,25 @@ async def test_high_traffic_tools_emit_schema_consistent_structured_content() ->
     object, so text-parsing clients (godot-agents' MCPResult today) are
     unbroken and see identical data.
     """
-    calls: dict[str, dict[str, Any]] = {
-        "godot_inspection_get_project_info": {},
-        "godot_inspection_get_scene_tree": {"max_depth": 2},
-        "godot_inspection_get_node_properties": {"node_path": "Player"},
-        "godot_scripts_list": {},
-        "godot_scripts_get_for_node": {},
-        "godot_runtime_run_and_capture": {},
-        "godot_undo": {},
-    }
+    calls: list[tuple[str, dict[str, Any]]] = [
+        ("godot_inspection_get_project_info", {}),
+        ("godot_inspection_get_scene_tree", {"max_depth": 2}),
+        ("godot_inspection_get_node_properties", {"node_path": "Player"}),
+        ("godot_scripts_list", {}),
+        ("godot_scripts_get_for_node", {}),
+        ("godot_runtime_run_and_capture", {}),
+        # Both of godot_undo's emission shapes must validate against the one
+        # declared schema (PR review): the dry-run preview drops the real-undo
+        # fields and emits has_undo / would_undo_next instead.
+        ("godot_undo", {}),
+        ("godot_undo", {"dry_run": True}),
+    ]
     server = await _build()
     async with Client(server) as client:
         for category in ("scripts", "runtime"):
             await client.call_tool("godot_enable_toolset", {"category": category})
         tools = {t.name: t for t in await client.list_tools()}
-        for name, args in calls.items():
+        for name, args in calls:
             tool = tools[name]
             assert tool.output_schema is not None, f"{name} declares no outputSchema"
             result = await client.call_tool(name, args)
@@ -220,10 +235,23 @@ async def test_high_traffic_tools_emit_schema_consistent_structured_content() ->
             assert json.loads(text) == result.structured_content, f"{name}: text/structured drift"
 
 
-def _loads(text: str) -> Any:
-    import json
+async def test_undo_dry_run_emits_the_preview_shape() -> None:
+    """The dry-run preview's field set differs from the real undo's (Qodo #387).
 
-    return json.loads(text)
+    Guards the serializer's mode split: the preview carries has_undo /
+    would_undo_next and omits the real-undo fields (and vice versa), proving
+    the consistency test above really exercised two distinct shapes.
+    """
+    server = await _build()
+    async with Client(server) as client:
+        real = await client.call_tool("godot_undo", {"count": 1})
+        preview = await client.call_tool("godot_undo", {"dry_run": True})
+    real_sc, preview_sc = real.structured_content, preview.structured_content
+    assert preview_sc["dry_run"] is True and preview_sc["has_undo"] is True
+    assert "would_undo_next" in preview_sc
+    assert "undone" not in preview_sc and "last_action" not in preview_sc
+    assert real_sc["dry_run"] is False and "undone" in real_sc
+    assert "has_undo" not in real_sc
 
 
 async def test_image_tool_emits_content_without_structured_content() -> None:
