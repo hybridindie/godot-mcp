@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-"""Integration tests for Phase 3 eval tools.
+"""Integration tests for the evals/ remnant: server self-analysis.
 
 - instruction_staleness: verify static analysis correctness
-- transition_test: verify data structures and toolset lookup
+
+The agent-facing harness (transition_test, llm_eval_v2, agents) moved to
+godot-agents (``godot_agent_harness``, godot-agents#481); its tests moved
+with it.
 """
 
 from __future__ import annotations
@@ -43,22 +46,6 @@ def test_static_analysis() -> None:
     print(msg)
 
 
-def test_transition_scenarios() -> None:
-    """TRANSITION_SCENARIOS should be well-formed."""
-    from evals.transition_test import TRANSITION_SCENARIOS
-
-    assert len(TRANSITION_SCENARIOS) > 0, "No transition scenarios defined"
-
-    for from_t, to_t, prompt in TRANSITION_SCENARIOS:
-        assert from_t, "Empty from_toolset"
-        assert to_t, "Empty to_toolset"
-        assert prompt, "Empty task prompt"
-        assert from_t != to_t, f"Same toolset in transition: {from_t}"
-
-    print(f"  Transition scenarios: {len(TRANSITION_SCENARIOS)} defined")
-
-
 if __name__ == "__main__":
     test_static_analysis()
-    test_transition_scenarios()
-    print("\n✅ All Phase 3 integration tests passed")
+    print("\n✅ Phase 3 integration tests passed")

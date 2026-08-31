@@ -785,7 +785,7 @@ godot-mcp/
 ├── scripts/                # install-skills, graphify, hooks
 │   └── dev/                # One-off dev scripts
 ├── tests/                  # Python test suite (contract + integration + unit)
-└── evals/                  # Evaluation harness + results
+└── evals/                  # Instruction-staleness self-analysis (harness lives in godot-agents)
 ```
 
 ---

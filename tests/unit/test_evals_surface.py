@@ -76,8 +76,7 @@ def test_evals_dir_holds_only_server_self_analysis() -> None:
     files = _evals_files()
     unexpected = sorted(files - EXPECTED_EVALS_FILES)
     assert not unexpected, (
-        "Harness files remain in evals/ after the move to godot-agents "
-        f"(issue #383): {unexpected}"
+        f"Harness files remain in evals/ after the move to godot-agents (issue #383): {unexpected}"
     )
     missing = sorted(EXPECTED_EVALS_FILES - files)
     assert not missing, f"Expected remnant files missing from evals/: {missing}"
@@ -85,11 +84,7 @@ def test_evals_dir_holds_only_server_self_analysis() -> None:
 
 def test_moved_eval_tests_are_gone() -> None:
     """Tests for moved harness modules were deleted, not left dangling."""
-    leftovers = [
-        name
-        for name in MOVED_TESTS
-        if list(TESTS_DIR.rglob(name))
-    ]
+    leftovers = [name for name in MOVED_TESTS if list(TESTS_DIR.rglob(name))]
     assert not leftovers, (
         "Tests for harness modules moved to godot-agents still exist here "
         f"(issue #383): {leftovers}"
@@ -111,8 +106,7 @@ def test_no_imports_of_moved_eval_modules() -> None:
             if target in MOVED_MODULES:
                 offenders.append(f"{py.relative_to(REPO_ROOT)}: evals.{target}")
     assert not offenders, (
-        "Imports of harness modules that moved to godot-agents "
-        f"(issue #383): {offenders}"
+        f"Imports of harness modules that moved to godot-agents (issue #383): {offenders}"
     )
 
 
