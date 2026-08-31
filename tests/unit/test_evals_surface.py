@@ -52,11 +52,27 @@ EXPECTED_EVALS_FILES = {
     "README.md",
 }
 
-# An ``import evals`` / ``from evals`` statement, capturing the module path.
+# An ``import evals`` / ``from evals`` statement, capturing the import list
+# (comma names, ``as`` aliases, single-line paren groups) or submodule path.
 EVALS_IMPORT_RE = re.compile(
-    r"^\s*(?:from|import)\s+evals(?:\s+import\s+([\w. ,]+)|\.([\w.]+))",
+    r"^\s*(?:from|import)\s+evals(?:\s+import\s+(?P<names>[\w. ,()]+)|\.(?P<mod>[\w.]+))",
     re.MULTILINE,
 )
+
+
+def _evals_import_targets(text: str) -> list[str]:
+    """Top-level ``evals`` submodules referenced by import statements in *text*."""
+    targets: list[str] = []
+    for match in EVALS_IMPORT_RE.finditer(text):
+        clause = match.group("names")
+        if clause is None:
+            targets.append(match.group("mod").split(".")[0])
+            continue
+        for item in clause.strip("()").split(","):
+            name = item.strip().split(" ")[0].split(".")[0]
+            if name:
+                targets.append(name)
+    return targets
 
 
 def _evals_files() -> set[str]:
@@ -91,6 +107,24 @@ def test_moved_eval_tests_are_gone() -> None:
     )
 
 
+def test_import_target_extraction_handles_multi_imports() -> None:
+    """Qodo finding: ``from evals import a, b`` must flag every listed module."""
+    assert _evals_import_targets("from evals import llm_eval_v2, variants\n") == [
+        "llm_eval_v2",
+        "variants",
+    ]
+    assert _evals_import_targets("from evals import llm_eval_v2 as suite\n") == ["llm_eval_v2"]
+    assert _evals_import_targets("from evals import (llm_eval_v2, variants)\n") == [
+        "llm_eval_v2",
+        "variants",
+    ]
+    assert _evals_import_targets("import evals.agent_suite_v2\n") == ["agent_suite_v2"]
+    assert _evals_import_targets("from evals.llm_eval_v2 import run_llm_suite\n") == ["llm_eval_v2"]
+    assert _evals_import_targets("from evals import instruction_staleness\n") == [
+        "instruction_staleness"
+    ]
+
+
 def test_no_imports_of_moved_eval_modules() -> None:
     """No godot-mcp file imports a harness module that moved to godot-agents."""
     offenders: list[str] = []
@@ -101,8 +135,7 @@ def test_no_imports_of_moved_eval_modules() -> None:
     ]
     for py in scanned:
         text = py.read_text(encoding="utf-8")
-        for match in EVALS_IMPORT_RE.finditer(text):
-            target = (match.group(1) or match.group(2) or "").split(".")[0].strip()
+        for target in _evals_import_targets(text):
             if target in MOVED_MODULES:
                 offenders.append(f"{py.relative_to(REPO_ROOT)}: evals.{target}")
     assert not offenders, (
