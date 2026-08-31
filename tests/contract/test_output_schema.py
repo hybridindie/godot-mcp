@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import base64
 import json
-from collections.abc import Callable
 from typing import Any
 
 import pytest
@@ -133,14 +132,10 @@ class _FakeRunner:
 
     binary: str | None = "fake-godot"
 
-    async def run(
-        self, project_dir: str, scene: str | None, timeout: float
-    ) -> RunOutput:
+    async def run(self, project_dir: str, scene: str | None, timeout: float) -> RunOutput:
         return RunOutput(command=["fake"], exit_code=0, stdout="hello\n", stderr="")
 
-    async def check_script(
-        self, project_dir: str, script_path: str, timeout: float
-    ) -> RunOutput:
+    async def check_script(self, project_dir: str, script_path: str, timeout: float) -> RunOutput:
         return RunOutput(command=["fake"])
 
     async def export(
@@ -148,9 +143,7 @@ class _FakeRunner:
     ) -> RunOutput:
         return RunOutput(command=["fake"])
 
-    async def run_tests(
-        self, project_dir: str, test_dir: str, timeout: float
-    ) -> RunOutput:
+    async def run_tests(self, project_dir: str, test_dir: str, timeout: float) -> RunOutput:
         return RunOutput(command=["fake"])
 
 
@@ -218,9 +211,7 @@ async def test_high_traffic_tools_emit_schema_consistent_structured_content() ->
             # Direction one: schema validates the structured content.
             assert result.structured_content is not None, f"{name} emitted no structuredContent"
             errors = sorted(
-                Draft202012Validator(tool.output_schema).iter_errors(
-                    result.structured_content
-                ),
+                Draft202012Validator(tool.output_schema).iter_errors(result.structured_content),
                 key=str,
             )
             assert not errors, f"{name}: " + "; ".join(e.message for e in errors)

@@ -86,6 +86,27 @@ Every tool is tagged with exactly one:
   `mutating`/`runtime` → `read_only_hint=false, destructive_hint=false`. An annotation set
   explicitly at registration is preserved.
 
+### outputSchema / structuredContent (issue #385)
+
+Every JSON-result tool declares a **standard `outputSchema`** (JSON Schema 2020-12) and
+returns **`structuredContent`** alongside the text content — FastMCP 4.0 derives both
+from the tool's Pydantic return annotation automatically, so the rule is simply:
+
+- **Return a typed Pydantic model** from every tool handler; the schema and the
+  structured emission follow from the annotation. Never return a raw `dict`.
+- The text content remains the faithful JSON serialization of the same object
+  (the serialized fallback per spec) — text-parsing clients see identical data.
+- The one exception is `godot_editor_capture_screenshot`: it returns
+  `ImageContent` (non-JSON), so it declares no schema and no `structuredContent`.
+- A `@model_serializer` on the result model hides fields from pydantic's
+  serialization-mode schema generation (the auto-derived schema degenerates to
+  `{additionalProperties: true}`). When a model needs one, declare the
+  validation-mode schema explicitly:
+  `@mcp.tool(..., output_schema=Model.model_json_schema())` — see `godot_undo`.
+- `tests/contract/test_output_schema.py` pins the contract in both directions:
+  the emitted `structuredContent` validates against the declared schema, and no
+  tool on the surface (image tool aside) ships a degenerate schema.
+
 ### Human-in-the-loop approval (issue #153, centralized via middleware #330)
 
 An optional webhook gates `destructive` tools behind a human decision. It is **opt-in**:

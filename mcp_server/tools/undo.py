@@ -13,7 +13,17 @@ from mcp_server.tools._route import route
 
 
 def register_undo(mcp: FastMCP, bridge: Bridge) -> None:
-    @mcp.tool(meta=MUTATING, tags={CORE_TAG})
+    # UndoResult drops mode-irrelevant None fields via a @model_serializer, which
+    # hides its fields from pydantic's serialization-mode schema generation (issue
+    # #385) — FastMCP's auto-derived outputSchema degenerates to
+    # {additionalProperties: true}. Declare the validation-mode (field-derived)
+    # schema explicitly: both emission shapes (real undo, dry-run preview) are
+    # subsets of it, so clients can type-check either.
+    @mcp.tool(
+        meta=MUTATING,
+        tags={CORE_TAG},
+        output_schema=UndoResult.model_json_schema(),
+    )
     async def undo(count: int = 1, dry_run: bool = False) -> UndoResult:
         """Undo the last ``count`` editor actions on the current scene's history.
 
