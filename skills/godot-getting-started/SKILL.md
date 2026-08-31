@@ -5,7 +5,7 @@ description: Connect to and drive a Godot editor through the godot-mcp server. U
 
 # godot: getting started
 
-godot-mcp exposes the Godot editor (inspection, scene edits, scripts, runtime) over MCP. This skill documents the **2026.08.31b3** surface — 180 tools, 29 categories. Tools are named `godot_<toolset>_<action>`. Read this once at the start of a Godot session — it prevents the three most common failures: a version mismatch, missing tools, and unconfirmed destructive edits.
+godot-mcp exposes the Godot editor (inspection, scene edits, scripts, runtime) over MCP. This skill documents the **2026.08.31b4** surface — 180 tools, 29 categories. Tools are named `godot_<toolset>_<action>`. Read this once at the start of a Godot session — it prevents the three most common failures: a version mismatch, missing tools, and unconfirmed destructive edits.
 
 ## 1. Confirm the bridge and the version
 
@@ -16,7 +16,7 @@ godot_health_check()      # bridge connected? which URL? → also returns versio
 godot_get_server_info()   # version, contract_version, toolsets, active scene, next_steps
 ```
 
-- `godot_health_check()` returns `version` — if it isn't **2026.08.31b3**, this skill may be stale; rely on `godot_get_server_info()`'s toolset/tool inventory instead of the counts here.
+- `godot_health_check()` returns `version` — if it isn't **2026.08.31b4**, this skill may be stale; rely on `godot_get_server_info()`'s toolset/tool inventory instead of the counts here.
 - `godot_get_server_info()` returns `contract_version` (tool-surface compatibility, currently 1) — a client is compatible when `min_compatible_contract <= yours <= contract_version`.
 - If disconnected: open the `godot/` project in Godot 4.4+ (validated on 4.7), enable the plugin (Project Settings → Plugins → godot_mcp), and check the status dock.
 

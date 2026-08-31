@@ -1,6 +1,6 @@
 [project]
 name = "godot-editor-mcp"
-version = "2026.08.31b3"
+version = "2026.08.31b4"
 description = "MCP server that drives a live Godot editor for AI-driven game development"
 readme = "README.md"
 requires-python = ">=3.11"
