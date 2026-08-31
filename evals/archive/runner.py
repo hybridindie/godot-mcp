@@ -4,7 +4,7 @@
 Runs all eval suites (infrastructure + agent behavior + regression) with:
 - Parallel task execution for faster cycles
 - Regression baseline: run with pre-PR descriptions stripped of improvements
-- MLFlow logging with variant tags
+- MLflow logging with variant tags → removed with the MLflow decoupling (2026-08)
 
 Usage:
     python -m evals.runner --baseline    # Run with pre-PR descriptions
@@ -22,20 +22,18 @@ from dataclasses import dataclass, field
 
 sys.path.insert(0, "/Users/johnd/Development/godot-mcp")
 
-from evals.suite import (
-    BridgeConnector as InfraBridge,
-)
-from evals.suite import (
-    ToolsetResult as InfraToolsetResult,
-)
-
 from evals.agent_suite_v2 import (
     AgentTaskResult,
 )
 from evals.agent_suite_v2 import (
     BridgeConnector as AgentBridge,
 )
-from evals.mlflow_tracker import EvalTracker
+from evals.archive.suite import (
+    BridgeConnector as InfraBridge,
+)
+from evals.archive.suite import (
+    ToolsetResult as InfraToolsetResult,
+)
 
 
 @dataclass
@@ -162,35 +160,6 @@ def print_comparison(baseline: UnifiedResult, post_pr: UnifiedResult) -> None:
     print("=" * 70)
 
 
-def log_comparison(baseline: UnifiedResult, post_pr: UnifiedResult) -> None:
-    """Log regression metrics to MLFlow."""
-    tracker = EvalTracker()
-    tracker.start_run(
-        run_name=f"regression-{int(time.time())}",
-        variant="regression-comparison",
-    )
-
-    # Baseline metrics
-    tracker.log_metric("baseline_infra_pass", baseline.infra_pass_rate)
-    tracker.log_metric("baseline_agent_score", baseline.agent_mean_score)
-    tracker.log_metric("baseline_compliance", baseline.agent_compliance)
-    tracker.log_metric("baseline_duration_s", baseline.duration_ms / 1000)
-
-    # Post-PR metrics
-    tracker.log_metric("postpr_infra_pass", post_pr.infra_pass_rate)
-    tracker.log_metric("postpr_agent_score", post_pr.agent_mean_score)
-    tracker.log_metric("postpr_compliance", post_pr.agent_compliance)
-    tracker.log_metric("postpr_duration_s", post_pr.duration_ms / 1000)
-
-    # Deltas
-    tracker.log_metric("delta_infra_pass", post_pr.infra_pass_rate - baseline.infra_pass_rate)
-    tracker.log_metric("delta_agent_score", post_pr.agent_mean_score - baseline.agent_mean_score)
-    tracker.log_metric("delta_compliance", post_pr.agent_compliance - baseline.agent_compliance)
-
-    tracker.end_run()
-    print("\n📊 Logged to MLFlow: https://mlflow.johndstudios.net/#/experiments/55")
-
-
 async def main() -> None:
     import argparse
     parser = argparse.ArgumentParser(description="Unified eval runner")
@@ -207,7 +176,6 @@ async def main() -> None:
         baseline = await run_parallel("baseline", args.workers)
         post_pr = await run_parallel("post-pr", args.workers)
         print_comparison(baseline, post_pr)
-        log_comparison(baseline, post_pr)
     else:
         result = await run_parallel(args.mode, args.workers)
         print(f"\n  Infra pass rate: {result.infra_pass_rate:.1%}")

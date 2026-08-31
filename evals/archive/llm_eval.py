@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import subprocess
 import sys
 import time
 from dataclasses import dataclass, field
@@ -34,7 +33,6 @@ from evals.agent_suite_v2 import (
     BridgeConnector,
     TaskScore,
 )
-from evals.mlflow_tracker import EvalTracker
 from evals.ollama_agent import OllamaAgent, get_available_tools
 
 # ---------------------------------------------------------------------------
@@ -94,20 +92,6 @@ class TokenUsage:
     @property
     def tokens_per_step(self) -> float:
         return self.total_tokens / max(1, 1)  # Will be divided by actual steps
-
-
-def get_git_sha() -> str:
-    """Get current git SHA for regression tracking."""
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            capture_output=True,
-            text=True,
-            cwd="/Users/johnd/Development/godot-mcp",
-        )
-        return result.stdout.strip()[:8] if result.returncode == 0 else "unknown"
-    except Exception:
-        return "unknown"
 
 
 # ---------------------------------------------------------------------------
@@ -471,69 +455,6 @@ def print_summary(results: list[LLMTaskResult]) -> None:
     print("=" * 70)
 
 
-def log_results(
-    results: list[LLMTaskResult],
-    variant: str = "post-pr",
-    model: str = "qwen3-coder:30b",
-) -> None:
-    """Log real LLM eval metrics to MLFlow."""
-    tracker = EvalTracker()
-    git_sha = get_git_sha()
-
-    tracker.start_run(
-        run_name=f"llm-eval-{variant}-{int(time.time())}",
-        variant=variant,
-    )
-
-    # Global metrics
-    tracker.log_param("model", model)
-    tracker.log_param("git_sha", git_sha)
-    tracker.log_param("variant", variant)
-
-    if results:
-        mean_score = sum(r.score.overall for r in results) / len(results)
-        compliance = sum(1 for r in results if r.score.overall >= 0.7) / len(results)
-        first_attempt = sum(1 for r in results if r.first_attempt_correct) / len(results)
-        total_errors = sum(r.errors for r in results)
-        total_steps = sum(r.step_count for r in results)
-
-        tracker.log_metric("mean_score", mean_score)
-        tracker.log_metric("compliance_rate", compliance)
-        tracker.log_metric("first_attempt_rate", first_attempt)
-        tracker.log_metric("total_errors", total_errors)
-        tracker.log_metric("mean_steps", total_steps / len(results))
-
-        # Error taxonomy
-        all_categories = []
-        for r in results:
-            all_categories.extend(r.error_categories)
-        cat_counts: dict[str, int] = {}
-        for c in all_categories:
-            cat_counts[c] = cat_counts.get(c, 0) + 1
-        for cat, count in cat_counts.items():
-            tracker.log_metric(f"errors_{cat}", count)
-
-        # Per-task metrics
-        for r in results:
-            s = r.score
-            prefix = r.task_name
-            tracker.log_metric(f"{prefix}_overall", s.overall)
-            tracker.log_metric(f"{prefix}_tool_choice", s.tool_choice)
-            tracker.log_metric(f"{prefix}_prerequisites", s.prerequisites)
-            tracker.log_metric(f"{prefix}_recovery", s.recovery)
-            tracker.log_metric(f"{prefix}_efficiency", s.efficiency)
-            tracker.log_metric(f"{prefix}_steps", r.step_count)
-            tracker.log_metric(f"{prefix}_errors", r.errors)
-            tracker.log_metric(
-                f"{prefix}_first_attempt", 1.0 if r.first_attempt_correct else 0.0
-            )
-            if r.notes:
-                tracker.log_param(f"{prefix}_notes", r.notes[:250])
-
-    tracker.end_run()
-    print("\n📊 Logged to MLFlow: https://mlflow.johndstudios.net/#/experiments/55")
-
-
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -560,7 +481,7 @@ async def main() -> None:
     parser.add_argument(
         "--variant",
         default="post-pr",
-        help="Description variant tag for MLFlow",
+        help="Description variant tag",
     )
     args = parser.parse_args()
 
@@ -571,9 +492,6 @@ async def main() -> None:
     )
 
     print_summary(results)
-
-    if results:
-        log_results(results, variant=args.variant, model=args.model)
 
 
 if __name__ == "__main__":

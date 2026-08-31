@@ -1,7 +1,7 @@
 # Nightly tool-description A/B variant eval (issue #151).
 #
 # The FULL LLM eval needs a live Godot editor + an LLM backend (Ollama/cloud)
-# + an MLFlow server — none of which GitHub-hosted runners provide. So this
+# — none of which GitHub-hosted runners provide. So this
 # scheduled workflow validates the variant machinery across every variant
 # nightly (guards regressions), and the live A/B run is wired below for a
 # self-hosted runner that has that infrastructure.
@@ -41,10 +41,10 @@ jobs:
           tests/integration/test_eval_corrections.py
           tests/integration/test_eval_history.py
 
-  # Live A/B eval — runs each variant against a task subset and logs to MLFlow
-  # under the same git SHA. Requires a self-hosted runner with Godot + Ollama +
-  # MLFlow. Enable by registering a runner labeled `godot-eval`, setting the
-  # MLFLOW_TRACKING_URI secret, and uncommenting this job.
+  # Live A/B eval — runs each variant against a task subset. Telemetry (MLflow)
+  # is owned by godot-agents, not godot-mcp. Requires a self-hosted runner with
+  # Godot + Ollama. Enable by registering a runner labeled `godot-eval` and
+  # uncommenting this job.
   #
   # live-eval:
   #   name: live eval ${{ matrix.variant }}
@@ -53,8 +53,6 @@ jobs:
   #     fail-fast: false
   #     matrix:
   #       variant: [baseline, concise, structured, agent_opt]
-  #   env:
-  #     MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
   #   steps:
   #     - uses: actions/checkout@v7
   #     - run: uv sync --frozen

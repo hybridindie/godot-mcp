@@ -4,7 +4,7 @@ Real LLM agent evaluation suite for the godot-mcp bridge. Tests multi-dimensiona
 behavior (tool choice, prerequisites, recovery, efficiency) across a 28-task suite that
 exercises a representative slice of the full tool surface.
 Supports both local (Ollama) and cloud (Claude/GPT/Gemini) LLMs for comparison matrices.
-Metrics are logged to MLFlow via curl-based REST API.
+Results are reported to the console; MLflow logging lives in **godot-agents** (see below).
 
 ## Files
 
@@ -21,7 +21,6 @@ Metrics are logged to MLFlow via curl-based REST API.
 | `evals/batch_perf_test.py` | Performance regression test for batch operations. |
 | `evals/instruction_staleness.py` | Static + runtime tool staleness detector. |
 | `evals/transition_test.py` | Toolset context-switch cost measurement. |
-| `evals/mlflow_tracker.py` | MLFlow REST API client (uses curl due to local Python socket issue). |
 | `evals/README.md` | This file. |
 
 ## Quick Start
@@ -72,7 +71,9 @@ python -m evals.instruction_staleness --all
 python -m evals.transition_test --model qwen3-coder:30b
 ```
 
-## Metrics logged to MLFlow
+## Reported metrics
+
+The suites print these per-run (no external tracker):
 
 - `completion_rate` — % of tasks scoring ≥0.7
 - `mean_score` — weighted overall score (0.0-1.0)
@@ -83,6 +84,14 @@ python -m evals.transition_test --model qwen3-coder:30b
 - `token_efficiency` — tokens per step (lower is better)
 - Per-task breakdowns: `{task_name}_success`, `{task_name}_steps`, etc.
 - Per-tool latency: mean/median/p95/error-rate
+
+## MLflow moved to godot-agents
+
+The `mlflow` Python package conflicts with the pinned FastMCP 4.x, so it is **not a godot-mcp
+dependency** (removed 2026-08). Eval→MLflow logging — the tracker, the GenAI dataset sync, and
+the `mlflow` MCP server — is owned by **godot-agents** (the shared `Godot AI` experiment,
+`https://mlflow.johndstudios.net`). godot-mcp evals stop at console output; if you need run
+telemetry, have godot-agents drive the evals and log there.
 
 ## Model Comparison Matrix
 
@@ -109,22 +118,13 @@ Experiment: `Godot AI` (the unified experiment shared with the godot-agents proj
 
 1. **Debugger evals require manual pause**: The harness can't reliably pause the running game via `force_break` or `set_breakpoint` in headless mode. For accurate debugger tool evals, pause the game manually (via editor breakpoint or the DebuggerDemo's `breakpoint` keyword) before running the harness.
 
-2. **Python socket timeout (resolved 2026-06-16)**: Direct Python HTTP connections to `192.168.0.20:443` previously failed with `Errno 65 No route to host`, so the MLFlow tracker delegates to `curl` via subprocess. As of 2026-06-16 the socket connects directly (verified via `socket.create_connection` + the MLflow SDK), so this workaround is obsolete and the tracker is slated to migrate to the MLflow SDK in Phase 2 (enabling tracing/datasets/judges).
-
-3. **Cloud model costs**: Running the full 28-task suite against Claude/GPT costs ~$2-5 in API tokens. Use `--tasks` to run a subset for quick validation.
+2. **Cloud model costs**: Running the full 28-task suite against Claude/GPT costs ~$2-5 in API tokens. Use `--tasks` to run a subset for quick validation.
 
 ## Representativeness — addon-direct vs. server-mediated (#197)
 
 The LLM eval agents here (`OllamaAgent`, `CloudAgent`) execute tool calls by sending `cmd_*` envelopes **straight to the addon bridge** (`CloudAgent._execute`), bypassing the FastMCP server's safety classes, preconditions, `dry_run`/`confirm`, the approval webhook, and toolset gating. So their results do **not** reflect the safety behaviour a real, *server-mediated* client (e.g. [godot-agents](https://github.com/hybridindie/godot-agents), which already goes through the server) experiences — PRD FR3 wants the agent-representative path to run through the server.
 
-**Decision:** rather than migrate the execution path now (which means standing up an MCP client/session and switching from addon `cmd_*` param keys to the server tool surface), every `llm_eval_v2` run is **explicitly labelled non-representative** until that migration lands:
-
-- MLflow run params `execution_path="addon_direct"` and `agent_representative="false"` (see `evals/representativeness.py`, emitted by `log_results`), so dashboards can filter representative vs. non-representative runs.
-- A console banner on every run output.
-
-**Intentionally still addon-direct** (these test the bridge/addon contract and perf directly — not agent-representativeness — and should stay as-is): `batch_perf_test.py`, `composition_test.py`, `negative_test.py`.
-
-When the agent is routed through the server, drop the label and flip `agent_representative` to `"true"`.
+**Decision:** rather than migrate the execution path now (which means standing up an MCP client/session and switching from addon `cmd_*` param keys to the server tool surface), every run's output is prefixed with a console banner (and, until the MLflow decoupling, run params) stating it is **non-representative** until that migration lands. When the agent is routed through the server, drop the label.
 
 ## Results Archive
 

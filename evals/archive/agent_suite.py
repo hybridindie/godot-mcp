@@ -8,7 +8,7 @@ Tests whether an LLM agent (simulated by structured test logic) correctly:
 4. Distinguishes server-side vs addon tools (boundary awareness)
 
 Each task returns a score 0.0–1.0 and metrics (steps, errors, first_attempt_correct).
-Scores are logged to MLFlow alongside infrastructure evals for A/B comparison.
+Scores are logged to the console alongside infrastructure evals for A/B comparison.
 
 Run: python -m evals.agent_suite
 """
@@ -17,13 +17,11 @@ from __future__ import annotations
 
 import asyncio
 import sys
-import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
 sys.path.insert(0, "/Users/johnd/Development/godot-mcp")
 
-from evals.mlflow_tracker import EvalTracker
 from mcp_server.bridge import Bridge
 from mcp_server.config import BridgeConfig
 
@@ -552,35 +550,9 @@ def print_summary(result: AgentSuiteResult) -> None:
     print("=" * 70)
 
 
-def log_results(result: AgentSuiteResult) -> None:
-    """Log agent behavior metrics to MLFlow."""
-    tracker = EvalTracker()
-    tracker.start_run(
-        run_name=f"agent-suite-{int(time.time())}",
-        variant="post-133-136",
-    )
-    tracker.log_metric("mean_score", result.mean_score)
-    tracker.log_metric("compliance_rate", result.compliance_rate)
-    tracker.log_metric("recovery_rate", result.recovery_rate)
-    tracker.log_metric("first_attempt_rate", result.first_attempt_rate)
-    tracker.log_metric("task_count", len(result.tasks))
-
-    for t in result.tasks:
-        tracker.log_metric(f"{t.task_name}_score", t.score)
-        tracker.log_metric(f"{t.task_name}_steps", t.steps)
-        tracker.log_metric(f"{t.task_name}_errors", t.errors)
-        if t.notes:
-            tracker.log_param(f"{t.task_name}_notes", t.notes[:250])
-
-    tracker.end_run()
-    print("\n📊 Logged to MLFlow: https://mlflow.johndstudios.net/#/experiments/55")
-
-
 async def main() -> None:
     results = await run_agent_suite()
     print_summary(results)
-    if results.tasks:
-        log_results(results)
 
 
 if __name__ == "__main__":

@@ -25,7 +25,6 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 
 from evals.agent_suite_v2 import BridgeConnector  # noqa: E402
-from evals.mlflow_tracker import EvalTracker  # noqa: E402
 from evals.profiler import ToolProfiler  # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -274,7 +273,7 @@ def _extract_value(result: dict, spec: str) -> any:
 
 
 # ---------------------------------------------------------------------------
-# Report / MLFlow
+# Report
 # ---------------------------------------------------------------------------
 
 def print_negative_report(results: list[NegativeTestResult]) -> None:
@@ -290,27 +289,6 @@ def print_negative_report(results: list[NegativeTestResult]) -> None:
         if r.test_error:
             print(f"     Error: {r.test_error} | Hint: {r.test_hint}")
     print("=" * 70)
-
-
-def log_to_mlflow(results: list[NegativeTestResult], git_sha: str = "") -> None:
-    tracker = EvalTracker()
-    tracker.start_run(run_name=f"negative-test-{int(time.time())}")
-    tracker.log_param("suite", "negative_test")
-    tracker.log_param("git_sha", git_sha)
-    tracker.log_param("test_count", len(results))
-    passed = sum(1 for r in results if r.passed)
-    tracker.log_metric("tests_passed", passed)
-    tracker.log_metric("tests_total", len(results))
-    tracker.log_metric("pass_rate", passed / len(results) if results else 0)
-    for r in results:
-        prefix = r.task_name
-        tracker.log_metric(f"{prefix}_passed", 1.0 if r.passed else 0.0)
-        tracker.log_metric(f"{prefix}_latency_ms", r.latency_ms)
-        tracker.log_metric(f"{prefix}_duration_ms", r.duration_ms)
-        if r.notes:
-            tracker.log_param(f"{prefix}_notes", r.notes[:250])
-    tracker.end_run()
-    print("\n📊 Negative test results logged to MLFlow")
 
 
 # ---------------------------------------------------------------------------
@@ -352,7 +330,6 @@ async def main(args: list[str] | None = None) -> None:
         await bridge.close()
 
     print_negative_report(results)
-    log_to_mlflow(results)
 
 
 if __name__ == "__main__":

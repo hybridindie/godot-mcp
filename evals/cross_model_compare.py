@@ -11,8 +11,6 @@ Usage:
 
     # Full 28-task comparison (expensive for cloud models)
     python -m evals.cross_model_compare --providers ollama openai
-
-Results are logged to MLFlow with provider/model tags for comparison.
 """
 
 from __future__ import annotations
@@ -24,7 +22,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from evals.llm_eval_v2 import (  # noqa: E402
-    log_results,
     print_summary,
     run_llm_suite,
 )
@@ -55,16 +52,11 @@ async def main() -> None:
         help="Specific tasks (default: 5 representative tasks)",
     )
     parser.add_argument(
-        "--max-steps",
+         "--max-steps",
         type=int,
         default=12,
         help="Max steps per task",
-    )
-    parser.add_argument(
-        "--log",
-        action="store_true",
-        help="Log results to MLFlow",
-    )
+      )
     args = parser.parse_args()
 
     if len(args.providers) != len(args.models):
@@ -92,19 +84,11 @@ async def main() -> None:
             model=model,
             provider=provider,
             max_steps=args.max_steps,
-        )
+          )
         all_results[f"{provider}:{model}"] = results
         print_summary(results)
 
-        if args.log:
-            log_results(
-                results,
-                variant=f"cross-model-{provider}",
-                model=model,
-                provider=provider,
-            )
-
-    # Print comparison matrix
+      # Print comparison matrix
     print("\n" + "=" * 70)
     print("  Cross-Model Comparison Matrix")
     print("=" * 70)

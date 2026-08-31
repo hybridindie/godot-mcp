@@ -21,7 +21,6 @@ from dataclasses import dataclass, field
 
 # Eval imports
 from evals.agent_suite_v2 import BridgeConnector
-from evals.mlflow_tracker import EvalTracker
 from evals.ollama_agent import OllamaAgent
 
 # ---------------------------------------------------------------------------
@@ -245,25 +244,6 @@ def print_report(result: TransitionSuiteResult, model: str) -> None:
     print("=" * 60)
 
 
-async def log_to_mlflow(result: TransitionSuiteResult, model: str) -> None:
-    tracker = EvalTracker()
-    tracker.start_run(run_name=f"transition-cost-{model}")
-    tracker.log_param("eval_type", "transition_cost")
-    tracker.log_param("model", model)
-    tracker.log_metric("success_rate", result.success_rate)
-    tracker.log_metric("mean_enable_latency_ms", result.mean_enable_latency_ms)
-    tracker.log_metric("mean_steps", result.mean_steps)
-    for i, t in enumerate(result.transitions):
-        prefix = f"t{i}"
-        tracker.log_param(f"{prefix}_from", t.from_toolset)
-        tracker.log_param(f"{prefix}_to", t.to_toolset)
-        tracker.log_metric(f"{prefix}_enable_ms", round(t.enable_latency_ms, 2))
-        tracker.log_metric(f"{prefix}_steps", t.steps_to_first_success)
-        tracker.log_metric(f"{prefix}_tokens", t.total_tokens)
-    tracker.end_run()
-    print("\n📊 Logged to MLFlow: https://mlflow.johndstudios.net/#/experiments/55")
-
-
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -273,14 +253,10 @@ async def main() -> int:
     parser = argparse.ArgumentParser(description="Toolset transition cost measurement")
     parser.add_argument("--model", default="qwen3-coder:30b", help="Ollama model")
     parser.add_argument("--max-steps", type=int, default=10, help="Max steps per transition")
-    parser.add_argument("--log", action="store_true", help="Log to MLFlow")
     args = parser.parse_args()
 
     result = await run_suite(model=args.model, max_steps=args.max_steps)
     print_report(result, args.model)
-
-    if args.log:
-        await log_to_mlflow(result, args.model)
 
     return 0 if result.success_rate >= 0.8 else 1
 

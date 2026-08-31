@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import asyncio
 import sys
-import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -31,7 +30,6 @@ from evals.llm_eval_v2 import (  # noqa: E402
 from evals.llm_eval_v2 import (  # noqa: E402
     get_available_tools as _get_base_tools,
 )
-from evals.mlflow_tracker import EvalTracker  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Description variants
@@ -375,51 +373,6 @@ def print_comparison(results: list[ABTestResult]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# MLFlow logging
-# ---------------------------------------------------------------------------
-
-def log_ab_results(results: list[ABTestResult], model: str = "qwen3-coder:30b") -> None:
-    """Log A/B test results to MLFlow."""
-    tracker = EvalTracker()
-
-    for ab in results:
-        if not ab.baseline:
-            continue
-
-        tracker.start_run(
-            run_name=f"ab-test-{ab.task_name}-{int(time.time())}",
-            variant="ab-comparison",
-        )
-        tracker.log_param("model", model)
-        tracker.log_param("task", ab.task_name)
-        tracker.log_param("runs_per_variant", len(ab.baseline.runs))
-
-        for name, result in ab.all_variants():
-            if not result:
-                continue
-            prefix = name
-            tracker.log_metric(f"{prefix}_completion", result.completion_rate)
-            tracker.log_metric(f"{prefix}_mean_score", result.mean_score)
-            tracker.log_metric(f"{prefix}_mean_steps", result.mean_steps)
-            tracker.log_metric(f"{prefix}_first_attempt", result.first_attempt_rate)
-            tracker.log_metric(f"{prefix}_mean_tokens", result.mean_tokens)
-
-        # Deltas
-        for name, result in ab.all_variants():
-            if not result or name == "baseline":
-                continue
-            deltas = compute_deltas(ab.baseline, result)
-            prefix = f"delta_{name}"
-            for key, value in deltas.items():
-                tracker.log_metric(f"{prefix}_{key}", value)
-
-        tracker.log_param("winner", ab.winner())
-        tracker.end_run()
-
-    print("\n📊 Logged to MLFlow: https://mlflow.johndstudios.net/#/experiments/55")
-
-
-# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -452,7 +405,6 @@ async def main() -> None:
     )
 
     print_comparison(results)
-    log_ab_results(results, model=args.model)
 
 
 if __name__ == "__main__":

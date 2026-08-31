@@ -2,7 +2,7 @@
 """Evaluation harness for godot-mcp tool description A/B testing.
 
 Connects to the running MCP server (stdio transport) and executes a set of
-benchmark tasks against each description variant, logging metrics to MLFlow.
+benchmark tasks against each description variant.
 
 Usage:
     python -m evals.harness --variant baseline --tasks debugger_basic
@@ -21,8 +21,7 @@ from dataclasses import dataclass, field
 # We connect to the MCP server via the local bridge, not stdio
 sys.path.insert(0, "/Users/johnd/Development/godot-mcp")
 
-from evals.mlflow_tracker import EvalTracker
-from evals.variants import ALL_VARIANTS
+from evals.archive.variants import ALL_VARIANTS
 from mcp_server.bridge import Bridge
 from mcp_server.config import BridgeConfig
 
@@ -334,30 +333,6 @@ async def run_variant(variant: str, task_names: list[str]) -> VariantResult:
     return result
 
 
-def log_to_mlflow(tracker: EvalTracker, result: VariantResult) -> None:
-    """Log variant results to MLFlow."""
-    tracker.start_run(run_name=f"{result.variant}-{int(time.time())}", variant=result.variant)
-    tracker.log_param("variant", result.variant)
-    tracker.log_param("task_count", str(len(result.tasks)))
-    tracker.log_param("tasks", ",".join(t.task_name for t in result.tasks))
-
-    tracker.log_metric("completion_rate", result.completion_rate)
-    tracker.log_metric("mean_steps", result.mean_steps)
-    tracker.log_metric("mean_errors", result.mean_errors)
-    tracker.log_metric("mean_duration_ms", result.mean_duration_ms)
-    tracker.log_metric("token_efficiency", result.token_efficiency)
-
-    # Log per-task metrics
-    for i, task in enumerate(result.tasks):
-        tracker.log_metric(f"{task.task_name}_success", 1.0 if task.success else 0.0, step=i)
-        tracker.log_metric(f"{task.task_name}_steps", float(task.steps), step=i)
-        tracker.log_metric(f"{task.task_name}_errors", float(task.errors), step=i)
-        tracker.log_metric(f"{task.task_name}_duration_ms", task.duration_ms, step=i)
-
-    tracker.end_run()
-    print(f"\n  📊 Logged to MLFlow: {tracker.get_experiment_url()}")
-
-
 def print_summary(results: list[VariantResult]) -> None:
     """Print a comparison table of all variants."""
     print("\n" + "=" * 80)
@@ -391,18 +366,11 @@ async def main() -> None:
         default="debugger_basic",
         help="Task(s) to run",
     )
-    parser.add_argument(
-        "--mlflow",
-        action="store_true",
-        default=True,
-        help="Log results to MLFlow",
-    )
     args = parser.parse_args()
 
     variants = list(ALL_VARIANTS.keys()) if args.variant == "all" else [args.variant]
     task_names = list(TASKS.keys()) if args.tasks == "all" else [args.tasks]
 
-    tracker = EvalTracker() if args.mlflow else None
     all_results: list[VariantResult] = []
 
     for variant in variants:
@@ -411,9 +379,6 @@ async def main() -> None:
         # and log the variant label for later comparison.
         result = await run_variant(variant, task_names)
         all_results.append(result)
-
-        if tracker:
-            log_to_mlflow(tracker, result)
 
     print_summary(all_results)
 

@@ -7,7 +7,7 @@ Tests every toolset category with representative tasks, measuring:
 - error_recovery: does the agent recover from precondition/validation errors?
 - param_validation: are required params enforced?
 
-Run: python -m evals.suite --mlflow
+Run: python -m evals.suite
 """
 
 from __future__ import annotations
@@ -20,7 +20,6 @@ from dataclasses import dataclass, field
 
 sys.path.insert(0, "/Users/johnd/Development/godot-mcp")
 
-from evals.mlflow_tracker import EvalTracker
 from mcp_server.bridge import Bridge
 from mcp_server.config import BridgeConfig
 
@@ -517,31 +516,6 @@ async def run_suite() -> list[ToolsetResult]:
     return results
 
 
-def log_results(results: list[ToolsetResult]) -> None:
-    tracker = EvalTracker()
-    tracker.start_run(run_name=f"full-suite-{int(time.time())}", variant="comprehensive")
-
-    total_tasks = sum(len(tr.tasks) for tr in results)
-    total_errors = sum(tr.total_errors for tr in results)
-    passed = sum(1 for tr in results for t in tr.tasks if t.success)
-    failed = sum(1 for tr in results for t in tr.tasks if not t.success)
-
-    tracker.log_param("suite_name", "comprehensive")
-    tracker.log_param("total_tasks", str(total_tasks))
-    tracker.log_param("toolsets_tested", ",".join(r.toolset for r in results))
-
-    tracker.log_metric("completion_rate", passed / max(total_tasks, 1))
-    tracker.log_metric("total_errors", float(total_errors))
-    tracker.log_metric("failed_tasks", float(failed))
-
-    for tr in results:
-        tracker.log_metric(f"{tr.toolset}_completion", tr.completion_rate)
-        tracker.log_metric(f"{tr.toolset}_errors", float(tr.total_errors))
-
-    tracker.end_run()
-    print(f"\n📊 Logged to MLFlow: {tracker.get_experiment_url()}")
-
-
 def print_summary(results: list[ToolsetResult]) -> None:
     print("\n" + "=" * 70)
     print("  Evaluation Summary")
@@ -579,8 +553,6 @@ def print_summary(results: list[ToolsetResult]) -> None:
 async def main() -> None:
     results = await run_suite()
     print_summary(results)
-    if results:
-        log_results(results)
 
 
 if __name__ == "__main__":

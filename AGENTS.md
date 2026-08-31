@@ -107,7 +107,9 @@ Rules:
 
 ## OpenCode tooling (opt-in)
 
-Project config (`.opencode/opencode.json`) wires `context7` (Godot/FastMCP docs), `mlflow` (eval runs), a `review` subagent (read-only pre-PR check before the Qodo bot), a `/preflight` command, the graphify plugin, and a `watcher.ignore` that keeps the regenerable `graphify-out/`, `.venv`, `godot/.godot/`, and `uv.lock` off the file watcher.
+Project config (`.opencode/opencode.json`) wires `context7` (Godot/FastMCP docs), a `review` subagent (read-only pre-PR check before the Qodo bot), a `/preflight` command, the graphify plugin, and a `watcher.ignore` that keeps the regenerable `graphify-out/`, `.venv`, `godot/.godot/`, and `uv.lock` off the file watcher.
+
+> **MLflow is intentionally absent here.** The `mlflow` Python package is not installable alongside the FastMCP 4.x pin, and eval-observability is a consumer concern: all eval→MLflow logging (tracker, GenAI dataset sync, the `mlflow` MCP server) lives in **godot-agents**, which also owns the eval agents. godot-mcp evals stop at console output.
 
 Two built-in tools are **off by default** and need an env var to activate — uncomment them in [`.env.example`](./.env.example), then `set -a; . ./.env; set +a` before launching opencode:
 

@@ -5,7 +5,6 @@ Tests whether description/prompt improvements help LLM agents make better decisi
 Scores are multi-dimensional (tool_choice, prerequisites, recovery, efficiency).
 
 Each task has isolation (cleanup between runs) and scores 0.0-1.0.
-Results are logged to MLFlow for A/B comparison across description variants.
 
 Run: python -m evals.agent_suite_v2
 """
@@ -20,7 +19,6 @@ from dataclasses import dataclass, field
 
 sys.path.insert(0, "/Users/johnd/Development/godot-mcp")
 
-from evals.mlflow_tracker import EvalTracker
 from mcp_server.bridge import Bridge
 from mcp_server.config import BridgeConfig
 
@@ -803,36 +801,9 @@ def print_summary(result: AgentSuiteResult) -> None:
     print("=" * 70)
 
 
-def log_results(result: AgentSuiteResult, variant: str = "post-133-136-v2") -> None:
-    """Log agent behavior metrics to MLFlow."""
-    tracker = EvalTracker()
-    tracker.start_run(run_name=f"agent-suite-v2-{int(time.time())}", variant=variant)
-    tracker.log_metric("mean_score", result.mean_score)
-    tracker.log_metric("compliance_rate", result.compliance_rate)
-    tracker.log_metric("first_attempt_rate", result.first_attempt_rate)
-    tracker.log_metric("mean_recovery_score", result.mean_recovery_score)
-    tracker.log_metric("task_count", len(result.tasks))
-
-    for t in result.tasks:
-        s = t.score
-        tracker.log_metric(f"{t.task_name}_overall", s.overall)
-        tracker.log_metric(f"{t.task_name}_tool_choice", s.tool_choice)
-        tracker.log_metric(f"{t.task_name}_prerequisites", s.prerequisites)
-        tracker.log_metric(f"{t.task_name}_recovery", s.recovery)
-        tracker.log_metric(f"{t.task_name}_efficiency", s.efficiency)
-        tracker.log_metric(f"{t.task_name}_steps", t.steps)
-        if t.notes:
-            tracker.log_param(f"{t.task_name}_notes", t.notes[:250])
-
-    tracker.end_run()
-    print("\n📊 Logged to MLFlow: https://mlflow.johndstudios.net/#/experiments/55")
-
-
 async def main() -> None:
     results = await run_agent_suite()
     print_summary(results)
-    if results.tasks:
-        log_results(results)
 
 
 if __name__ == "__main__":

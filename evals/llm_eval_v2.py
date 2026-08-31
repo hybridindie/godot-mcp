@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import subprocess
 import sys
 import time
 from collections.abc import Awaitable, Callable
@@ -32,13 +31,8 @@ from evals.agent_suite_v2 import (  # noqa: E402
     TaskScore,
 )
 from evals.cloud_client import CloudAgent  # noqa: E402
-from evals.mlflow_tracker import EvalTracker  # noqa: E402
 from evals.ollama_agent import OllamaAgent  # noqa: E402
 from evals.profiler import ToolProfiler  # noqa: E402
-from evals.representativeness import (  # noqa: E402
-    REPRESENTATIVENESS_BANNER,
-    representativeness_params,
-)
 from evals.variants import VARIANTS, apply_variant  # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -96,24 +90,6 @@ class ErrorTaxonomy:
         for p in cls.AGENT_PATTERNS:
             if p in text:
                 return "agent"
-        return "unknown"
-
-
-# ---------------------------------------------------------------------------
-# Git SHA for regression tracking
-# ---------------------------------------------------------------------------
-
-
-def get_git_sha() -> str:
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            capture_output=True,
-            text=True,
-            cwd=str(_REPO_ROOT),
-        )
-        return result.stdout.strip()[:8] if result.returncode == 0 else "unknown"
-    except Exception:
         return "unknown"
 
 
@@ -1623,105 +1599,6 @@ def print_summary(results: list[LLMTaskResult]) -> None:
     print("=" * 70)
 
 
-def log_results(
-    results: list[LLMTaskResult],
-    variant: str = "expanded-v2",
-    model: str = "qwen3-coder:30b",
-    provider: str = "ollama",
-    tracker: EvalTracker | None = None,
-) -> None:
-    tracker = tracker or EvalTracker()
-    git_sha = get_git_sha()
-
-    tracker.start_run(
-        run_name=f"llm-eval-{variant}-{int(time.time())}",
-        variant=variant,
-    )
-
-    tracker.log_param("provider", provider)
-    tracker.log_param("model", model)
-    tracker.log_param("git_sha", git_sha)
-    tracker.log_param("variant", variant)
-    tracker.log_param("task_count", len(results))
-
-    # Label this run addon-direct / non-representative: the eval agents send
-    # cmd_* straight to the addon bridge, bypassing the server's safety layer,
-    # so results don't reflect a server-mediated client (#197).
-    for key, value in representativeness_params().items():
-        tracker.log_param(key, value)
-    print(REPRESENTATIVENESS_BANNER)
-
-    if results:
-        mean_score = sum(r.score.overall for r in results) / len(results)
-        compliance = sum(1 for r in results if r.score.overall >= 0.7) / len(results)
-        first_attempt = sum(1 for r in results if r.first_attempt_correct) / len(results)
-        total_errors = sum(r.errors for r in results)
-        total_steps = sum(r.step_count for r in results)
-        total_prompt = sum(r.token_usage.prompt_tokens for r in results)
-        total_completion = sum(r.token_usage.completion_tokens for r in results)
-
-        tracker.log_metric("mean_score", mean_score)
-        tracker.log_metric("compliance_rate", compliance)
-        tracker.log_metric("first_attempt_rate", first_attempt)
-        tracker.log_metric("total_errors", total_errors)
-        tracker.log_metric("mean_steps", total_steps / len(results))
-        tracker.log_metric("total_prompt_tokens", total_prompt)
-        tracker.log_metric("total_completion_tokens", total_completion)
-        tracker.log_metric("mean_tokens_per_task", (total_prompt + total_completion) / len(results))
-
-        all_categories = []
-        for r in results:
-            all_categories.extend(r.error_categories)
-        cat_counts: dict[str, int] = {}
-        for c in all_categories:
-            cat_counts[c] = cat_counts.get(c, 0) + 1
-        for cat, count in cat_counts.items():
-            tracker.log_metric(f"errors_{cat}", count)
-
-        for r in results:
-            s = r.score
-            prefix = r.task_name
-            tracker.log_metric(f"{prefix}_overall", s.overall)
-            tracker.log_metric(f"{prefix}_tool_choice", s.tool_choice)
-            tracker.log_metric(f"{prefix}_prerequisites", s.prerequisites)
-            tracker.log_metric(f"{prefix}_recovery", s.recovery)
-            tracker.log_metric(f"{prefix}_efficiency", s.efficiency)
-            tracker.log_metric(f"{prefix}_steps", r.step_count)
-            tracker.log_metric(f"{prefix}_errors", r.errors)
-            tracker.log_metric(f"{prefix}_first_attempt", 1.0 if r.first_attempt_correct else 0.0)
-            tracker.log_metric(f"{prefix}_prompt_tokens", r.token_usage.prompt_tokens)
-            tracker.log_metric(f"{prefix}_completion_tokens", r.token_usage.completion_tokens)
-            tracker.log_metric(f"{prefix}_duration_ms", r.duration_ms)
-            # Log per-tool latency for this task
-            for tool, stats in r.latency_profile.items():
-                t_prefix = f"{prefix}_{tool}"
-                tracker.log_metric(f"{t_prefix}_mean_ms", stats["mean_ms"])
-                tracker.log_metric(f"{t_prefix}_count", stats["count"])
-                if "p95_ms" in stats:
-                    tracker.log_metric(f"{t_prefix}_p95_ms", stats["p95_ms"])
-            if r.overall_latency:
-                overall_mean = r.overall_latency.get("mean_ms", 0)
-                overall_calls = r.overall_latency.get("total_calls", 0)
-                tracker.log_metric(f"{prefix}_overall_mean_ms", overall_mean)
-                tracker.log_metric(f"{prefix}_overall_calls", overall_calls)
-            if r.notes:
-                tracker.log_param(f"{prefix}_notes", r.notes[:250])
-
-        # Log aggregate latency metrics
-        if results:
-            overall_latencies = [r.overall_latency for r in results if r.overall_latency]
-            if overall_latencies:
-                total_calls = sum(o["total_calls"] for o in overall_latencies)
-                grand_mean = round(
-                    sum(o["mean_ms"] * o["total_calls"] for o in overall_latencies) / total_calls, 2
-                )
-                tracker.log_metric("aggregate_mean_latency_ms", grand_mean)
-                tracker.log_metric("aggregate_total_calls", total_calls)
-
-    tracker.end_run()
-    print("\n📊 Logged to MLFlow: https://mlflow.johndstudios.net/#/experiments/55")
-
-
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -1740,11 +1617,11 @@ async def main() -> None:
     )
     parser.add_argument("--max-steps", type=int, default=12, help="Max steps per task")
     parser.add_argument(
-        "--variant",
+         "--variant",
         default="baseline",
         choices=list(VARIANTS),
-        help="Tool-description A/B variant (also the MLFlow run tag)",
-    )
+        help="Tool-description A/B variant",
+      )
     args = parser.parse_args()
 
     results = await run_llm_suite(
@@ -1753,15 +1630,8 @@ async def main() -> None:
         provider=args.provider,
         max_steps=args.max_steps,
         variant=args.variant,
-    )
+     )
     print_summary(results)
-    if results:
-        log_results(
-            results,
-            variant=args.variant,
-            model=args.model,
-            provider=args.provider,
-        )
 
 
 if __name__ == "__main__":

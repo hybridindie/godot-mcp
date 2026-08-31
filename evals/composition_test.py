@@ -27,7 +27,6 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 
 from evals.agent_suite_v2 import BridgeConnector  # noqa: E402
-from evals.mlflow_tracker import EvalTracker  # noqa: E402
 from evals.profiler import ToolProfiler  # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -377,7 +376,7 @@ def _extract_value(result: dict, spec: str, context: dict) -> any:
 
 
 # ---------------------------------------------------------------------------
-# Report / MLFlow logging
+# Report
 # ---------------------------------------------------------------------------
 
 def print_chain_report(results: list[ChainResult]) -> None:
@@ -396,28 +395,6 @@ def print_chain_report(results: list[ChainResult]) -> None:
         if not r.passed:
             print(f"     Break at step {r.break_index}: {r.error}")
     print("=" * 70)
-
-
-def log_to_mlflow(results: list[ChainResult], git_sha: str = "") -> None:
-    tracker = EvalTracker()
-    tracker.start_run(run_name=f"composition-test-{int(time.time())}")
-    tracker.log_param("suite", "composition_test")
-    tracker.log_param("git_sha", git_sha)
-    tracker.log_param("chain_count", len(results))
-    passed = sum(1 for r in results if r.passed)
-    tracker.log_metric("chains_passed", passed)
-    tracker.log_metric("chains_total", len(results))
-    tracker.log_metric("pass_rate", passed / len(results) if results else 0)
-    for r in results:
-        prefix = r.chain_name
-        tracker.log_metric(f"{prefix}_passed", 1.0 if r.passed else 0.0)
-        tracker.log_metric(f"{prefix}_steps", len(r.steps))
-        tracker.log_metric(f"{prefix}_duration_ms", r.duration_ms)
-        if r.latency_profile:
-            for tool, stats in r.latency_profile.items():
-                tracker.log_metric(f"{prefix}_{tool}_mean_ms", stats.get("mean_ms", 0))
-    tracker.end_run()
-    print("\n📊 Composition results logged to MLFlow")
 
 
 # ---------------------------------------------------------------------------
@@ -452,7 +429,6 @@ async def main(args: list[str] | None = None) -> None:
         await bridge.close()
 
     print_chain_report(results)
-    log_to_mlflow(results)
 
 
 if __name__ == "__main__":

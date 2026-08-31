@@ -2,7 +2,7 @@
 
 Collects timing data from both the Python bridge round-trip and (future)
 Godot-side handler durations. Produces summary stats for inclusion in eval
-reports and MLFlow logging.
+reports.
 
 Usage:
     profiler = ToolProfiler()

@@ -35,9 +35,10 @@
       "timeout": 10000
     },
     "mlflow": {
+      "_comment": "Disabled here: mlflow must not be a godot-mcp dependency (conflicts with the FastMCP 4.x pin). Eval->MLflow logging and the mlflow MCP server are owned by godot-agents; wire it there.",
       "type": "local",
       "command": ["uv", "run", "python", "-m", "mlflow.mcp.server"],
-      "enabled": true,
+      "enabled": false,
       "environment": {
         "MLFLOW_TRACKING_URI": "https://mlflow.johndstudios.net",
         "MLFLOW_MCP_TOOLS": "all"
