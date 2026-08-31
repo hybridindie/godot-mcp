@@ -4,6 +4,9 @@ This document is the contract for the seam between the two halves of godot-mcp. 
 authoritative for the **transport** and the **JSON envelope**; the tool/resource/prompt
 surface is specified in [`tool-contracts.md`](tool-contracts.md). The grounding rules in
 [`../.opencode/rules/`](../.opencode/rules/) govern *how* code on each side is written.
+The server is sessionless by design (MCP 2026-07-28 shape, issue #386); the spec-migration
+plan and the session-affinity inventory live in
+[`mcp-2026-07-28-migration.md`](mcp-2026-07-28-migration.md).
 
 > Status: the bridge is implemented (issue #3) with the connection direction inverted
 > (#276): the **server listens, the editor connects out**. Server side:
