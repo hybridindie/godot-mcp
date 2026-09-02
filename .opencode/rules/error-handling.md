@@ -31,7 +31,7 @@ MUST:
 ## Rules
 
 MUST:
-- Use stable, enumerated error codes (e.g. `PRECONDITION_FAILED`, `RESOURCE_NOT_FOUND`, `BRIDGE_DISCONNECTED`, `VALIDATION_ERROR`, `INTERNAL_ERROR`) — never ad-hoc strings.
+- Use stable, enumerated error codes (`PRECONDITION_FAILED`, `RESOURCE_NOT_FOUND`, `VALIDATION_ERROR`, `BRIDGE_DISCONNECTED`, `TIMEOUT`, `INTERNAL_ERROR`, `APPROVAL_DENIED` — the full `ErrorCode` enum in `mcp_server/models/envelope.py`) — never ad-hoc strings.
 - Catch errors at the bridge boundary on both sides and convert to an `ok: false` envelope. A GDScript runtime error or a Python exception must never escape as a raw trace to the client.
 - Log with structured (JSON-friendly) records including the command `id`; include exception info on error-level logs.
 

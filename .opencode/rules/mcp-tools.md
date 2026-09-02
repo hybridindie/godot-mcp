@@ -52,7 +52,7 @@ A large flat tool surface degrades agent tool-selection and burns context. Keep 
 
 - **Resources** (`@mcp.resource("godot://...")`) are read-only and return JSON strings. No side effects. Mutations always go through tools.
 - **Prompts** (`@mcp.prompt()`) are step-numbered instruction templates — they tell the agent *which tools/resources to use in what order*, they do not act. Typed, documented arguments.
-- Provide a `resources-as-tools` / `prompts-as-tools` fallback for clients without that protocol.
+- Provide the `resources-as-tools` fallback for clients without resource protocol support (`read_resource` tool, `mcp_server/resources/context.py`).
 
 ## Anti-patterns
 

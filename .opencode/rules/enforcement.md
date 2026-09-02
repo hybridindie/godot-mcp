@@ -17,8 +17,10 @@ These rules are the project's grounding contract. A change that violates one is 
 | Lint | `ruff` errors |
 | Bridge contract ([[error-handling]]) | An envelope shape change without a contract-test update |
 | Safety classes ([[mcp-tools]]) | A `mutating`/`destructive` tool missing `dry_run`/`confirm`, or safety logic placed in the addon |
+| camelCase gate | A tool name that breaks the `godot_<toolset>_<action>` transform contract (scoped to the transform contract tests) |
+| Live-editor e2e (`e2e.yml`) | Addon/server smoke against a real Godot editor on the self-hosted runner |
 
-CI does not exist yet (greenfield). Wire these gates into a workflow as part of the scaffold issue, and keep this table in sync with what CI actually runs.
+CI runs all gates above via `.github/workflows/ci.yml` (zero-skip, lint, mypy, pytest, camelCase gate) plus `e2e.yml` (live-editor smoke on a self-hosted runner) and `publish.yml` (PyPI + GitHub release on tag). Keep this table in sync with what CI actually runs.
 
 ## PR acceptance checklist
 
