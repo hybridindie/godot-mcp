@@ -39,18 +39,21 @@ def test_version_matches_pyproject() -> None:
     assert mcp_server.__version__ == pyproject["project"]["version"]
 
 
-def test_fastmcp_pinned_to_4_beta() -> None:
-    # fastmcp is pinned to the 4.0 beta (issue #311). The v3→v4 transition is
-    # lower-risk for this server than 2→3 was (#228): stateless, no ctx.elicit,
-    # no session state, canonical imports already in place. The pin is exact
-    # during the beta window; follow stable 4.x when it ships. Bumped b1→b3
-    # for the tool-title default + bug fixes (issue #353).
+def test_fastmcp_pinned_to_4_stable() -> None:
+    # fastmcp is pinned to the 4.0 stable line (issue #403, closing the #311
+    # promise "follow stable 4.x when it ships"). GA is built on MCP SDK v2 and
+    # the 2026-07-28 sessionless protocol revision. The pin is exact — the
+    # slim/tasks constraint block in [tool.uv] must move in lockstep, which the
+    # upgrade updates alongside this test. 4.0.1 = GA + ClientGroup reentrancy.
     pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
     dependencies = pyproject["project"]["dependencies"]
     fastmcp = next((d for d in dependencies if d.replace(" ", "").startswith("fastmcp")), None)
     assert fastmcp is not None, "fastmcp dependency missing from pyproject"
     spec = fastmcp.replace(" ", "")
-    assert "4.0.0b3" in spec, f"fastmcp must pin the 4.0.0b3 beta, got {fastmcp!r}"
+    assert "4.0.1" in spec, f"fastmcp must pin the 4.0.1 stable release, got {fastmcp!r}"
+    constraints = pyproject["tool"]["uv"]["constraint-dependencies"]
+    assert "fastmcp-slim==4.0.1" in constraints, "slim must ride the same stable pin"
+    assert "fastmcp-tasks==4.0.1" in constraints, "tasks must ride the same stable pin"
 
 
 @pytest.mark.parametrize(

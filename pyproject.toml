@@ -23,16 +23,15 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    # The MCP framework (PrefectHQ/fastmcp). Pinned to the 4.0 beta (issue #311).
-    # 4.0.0b3 picks up the tool-title default (PrefectHQ/fastmcp#4694 — some clients
-    # drop tools with no `title`) and HTTP-startup/bug fixes over b1 (issue #353).
-    # b1 already shipped the modern-protocol guard pattern (InputRequiredResult,
-    # InputRequiredToolResult, Context.input_responses / request_state) needed by
-    # the durable-approval work (issue #346) — no upgrade required.
-    # 2.x→3.x had breaking API changes (#228); the v3→v4 transition is lower-risk
-    # for this server (stateless, no ctx.elicit, no session state, canonical imports
-    # already in place). Beta pin per the upgrade guide; follow stable 4.x when it ships.
-    "fastmcp[tasks]==4.0.0b3",
+    # The MCP framework (PrefectHQ/fastmcp). FastMCP 4 stable (issue #403) — GA
+    # is built on MCP SDK v2 and the 2026-07-28 sessionless protocol revision
+    # (migration plan: docs/mcp-2026-07-28-migration.md). b3 carried the guard
+    # pattern (InputRequiredResult / request_state) and tool-title defaults our
+    # surface relies on; stable adds the beta-period correctness work (task
+    # snapshots, response caching, auth hardening) with breaking changes we
+    # already migrated ahead of: no ctx.elicit (guard pattern since #346), no
+    # session state (#364), canonical imports.
+    "fastmcp[tasks]==4.0.1",
     # WebSocket transport for the addon/server bridge (issue #3).
     "websockets>=16.0",
     # Domain models and typed tool I/O (issue #7).
@@ -69,16 +68,14 @@ dev = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-# FastMCP 4.0 beta pinning: fastmcp is a thin wrapper over fastmcp-slim at the
-# same version. uv won't infer the slim prerelease from the wrapper prerelease,
-# so constrain it alongside (per the upgrade guide). The rest of the graph
-# stays on stable releases. The background-tasks spike (#315) adds fastmcp-tasks
-# at the same prerelease; fastmcp-slim 4.0.0b3 already depends on the *final*
-# mcp-types 2.0.0 / mcp 2.0.0 (not the 2.0.0b2 prerelease the upgrade guide lists —
-# that pin is unsatisfiable: slim declares mcp-types>=2.0.0 which excludes b2),
-# so only fastmcp-tasks needs the prerelease pin here.
+# FastMCP 4 stable pinning (issue #403): fastmcp is a thin wrapper over
+# fastmcp-slim at the same version, and background tasks live in fastmcp-tasks.
+# All three ride the same 4.0.1 stable release now, so the constraint block is
+# belt-and-suspenders rather than a prerelease-resolution workaround (its
+# original purpose at the b3 pin, issue #311) — kept so the slim/tasks pins can
+# never drift below the wrapper pin.
 [tool.uv]
-constraint-dependencies = ["fastmcp-slim==4.0.0b3", "fastmcp-tasks==4.0.0b3"]
+constraint-dependencies = ["fastmcp-slim==4.0.1", "fastmcp-tasks==4.0.1"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["mcp_server"]
