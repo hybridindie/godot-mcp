@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from mcp_server.categories import INSPECTION_TAG
 from mcp_server.toolsets import (
-    INSPECTION_TAG,
     TOOLSET_MIN_GODOT,
     TOOLSETS,
     _default_enabled_from_env,
