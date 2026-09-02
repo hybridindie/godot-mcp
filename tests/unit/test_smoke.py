@@ -50,7 +50,9 @@ def test_fastmcp_pinned_to_4_stable() -> None:
     fastmcp = next((d for d in dependencies if d.replace(" ", "").startswith("fastmcp")), None)
     assert fastmcp is not None, "fastmcp dependency missing from pyproject"
     spec = fastmcp.replace(" ", "")
-    assert "4.0.1" in spec, f"fastmcp must pin the 4.0.1 stable release, got {fastmcp!r}"
+    assert spec == "fastmcp[tasks]==4.0.1", (
+        f"fastmcp must pin exactly fastmcp[tasks]==4.0.1, got {fastmcp!r}"
+    )
     constraints = pyproject["tool"]["uv"]["constraint-dependencies"]
     assert "fastmcp-slim==4.0.1" in constraints, "slim must ride the same stable pin"
     assert "fastmcp-tasks==4.0.1" in constraints, "tasks must ride the same stable pin"
