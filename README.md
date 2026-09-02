@@ -17,7 +17,7 @@
 
 > **Status:** feature-complete across the planned ecosystem. **180 tools** across **29 categories** — always-on `core` plus 28 toggleable toolsets, of which only `inspection` is enabled by default (the other 27 are gated off). Every capability is documented, tested, and ready for agent use.
 >
-> **Package:** `godot-editor-mcp` on [PyPI](https://pypi.org/project/godot-editor-mcp/) · **Docker:** `ghcr.io/hybridindie/godot-mcp` · **Version:** `2026.08.26b1` (beta)
+> **Package:** `godot-editor-mcp` on [PyPI](https://pypi.org/project/godot-editor-mcp/) · **Docker:** `ghcr.io/hybridindie/godot-mcp` · **Version:** `2026.09.02` (first stable)
 
 ---
 
@@ -82,7 +82,7 @@ The server is **game-agnostic** — it knows Godot, not your game. A tower-defen
 ### Option A: Install from PyPI
 
 ```bash
-pip install godot-editor-mcp --pre
+pip install godot-editor-mcp
 godot-editor-mcp  # starts the MCP server (stdio mode)
 ```
 
@@ -804,7 +804,7 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, workflow, conventions, and r
 
 ## Resources
 
-- [PyPI package](https://pypi.org/project/godot-editor-mcp/) — `pip install godot-editor-mcp --pre`
+- [PyPI package](https://pypi.org/project/godot-editor-mcp/) — `pip install godot-editor-mcp`
 - [Docker image](https://github.com/hybridindie/godot-mcp/pkgs/container/godot-mcp) — `docker pull ghcr.io/hybridindie/godot-mcp:latest`
 - [Model Context Protocol spec](https://modelcontextprotocol.io)
 - [FastMCP docs](https://gofastmcp.com)

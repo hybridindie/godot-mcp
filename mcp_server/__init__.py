@@ -9,7 +9,7 @@ See ``docs/architecture.md`` for the bridge contract.
 """
 
 # CalVer, kept in sync with pyproject.toml and .opencode/rules/enforcement.md.
-__version__ = "2026.08.31b4"
+__version__ = "2026.09.02"
 
 # Tool-contract / compatibility version — a monotonic integer, deliberately
 # distinct from the CalVer build version. It expresses the *contract*: bump it
