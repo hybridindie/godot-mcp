@@ -1025,6 +1025,12 @@ structured `ToolError`. They change tool *exposure* only — never the Godot pro
 — so they are `read_only`. The default-off-for-new-categories rule means the live
 surface stays small as the catalog grows (see `.opencode/rules/mcp-tools.md`).
 
+The initial exposure can be seeded via the `GODOT_MCP_DEFAULT_TOOLSETS` env var
+(issue #393): `all`, or a comma-separated category list (e.g. `scene_edit,runtime`).
+Unknown names are ignored with a log line; unset keeps the default (`core` +
+`inspection`). This only seeds the server-global enabled set at startup —
+`enable_toolset`/`disable_toolset` work unchanged on top of it.
+
 ## Resources
 
 - `@mcp.resource("godot://…")` handlers are **read-only** and return JSON strings; no side

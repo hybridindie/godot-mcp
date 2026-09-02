@@ -6,7 +6,7 @@ Thanks for your interest in contributing! godot-mcp is a standalone MCP server t
 
 - **Python 3.11+** managed with [uv](https://docs.astral.sh/uv/)
 - **Godot 4.4+** (validated on 4.7-stable)
-- **FastMCP 4.0** (pinned to the 4.0 beta)
+- **FastMCP 4.0.1** (stable — GA on MCP SDK v2, the 2026-07-28 sessionless protocol)
 
 ## Setup
 
@@ -109,7 +109,7 @@ See [`skills/README.md`](skills/README.md) for details.
 
 ## Versioning
 
-CalVer `YYYY.MM.DD[-N]` with PEP 440 prerelease suffixes (e.g. `2026.08.26b1`). The version is in `pyproject.toml`, `mcp_server/__init__.py`, and `godot/addons/godot_mcp/plugin.cfg` — all three must stay in lockstep.
+CalVer `YYYY.MM.DD[-N]` (stable, e.g. `2026.09.02`); prerelease suffixes (`b1`, `rc1`) only when cutting a beta. The version is in `pyproject.toml`, `mcp_server/__init__.py`, `godot/addons/godot_mcp/plugin.cfg`, and the version references in `skills/godot-getting-started/SKILL.md` — all must stay in lockstep (the drift tests enforce it).
 
 ## Publishing
 

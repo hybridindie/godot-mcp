@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://pypi.org/project/godot-editor-mcp/"><img src="https://img.shields.io/badge/PyPI-godot--editor--mcp-4a9eff.svg" alt="PyPI" /></a>
   <a href="https://github.com/hybridindie/godot-mcp/pkgs/container/godot-mcp"><img src="https://img.shields.io/badge/Docker-ghcr.io-2496ed.svg" alt="Docker" /></a>
-  <a href="https://github.com/hybridindie/godot-mcp/releases"><img src="https://img.shields.io/badge/version-2026.08.26b1-brightgreen.svg" alt="Version" /></a>
+  <a href="https://github.com/hybridindie/godot-mcp/releases"><img src="https://img.shields.io/badge/version-2026.09.02-brightgreen.svg" alt="Version" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" /></a>
 </p>
 
@@ -661,7 +661,9 @@ All configuration is optional and passed via environment variables:
 | `GODOT_MCP_GODOT_BIN` | auto-discovered | Godot executable for `godot_runtime_run_and_capture` / `godot_export_project` |
 | `GODOT_MCP_PROJECT_DIR` | connected editor's project | Project directory for runner, export, and analysis |
 | `GODOT_MCP_LOG_LEVEL` | `INFO` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) — JSON to stderr |
+| `GODOT_MCP_DEFAULT_TOOLSETS` | unset (= `inspection`) | Seed the initial enabled toolsets: `all`, or a comma-separated category list (e.g. `scene_edit,runtime`). Unknown names are ignored with a log line. `enable_toolset`/`disable_toolset` still work normally afterwards |
 | `GODOT_MCP_APPROVAL_WEBHOOK` | unset | Optional human-in-the-loop approval webhook for destructive tools (`ApprovalMiddleware`) |
+| `GODOT_MCP_APPROVAL_REQUIRE` | unset | When set (to a truthy value) and **no** webhook is configured, `mutating`/`destructive` tools return an `InputRequiredResult` approval prompt instead of auto-approving |
 | `GODOT_MCP_AUTH_TOKEN` | unset | Bearer token for HTTP transport auth; **required** for non-loopback binds |
 
 ---
