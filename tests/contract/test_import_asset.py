@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+from collections.abc import Callable
 from unittest.mock import patch
 
 import pytest
@@ -199,7 +200,7 @@ async def test_get_import_status_is_read_only() -> None:
 
 
 def _build_with(
-    responder,
+    responder: Callable[[CommandEnvelope], ResponseEnvelope | None],
 ) -> tuple[FastMCP, FakeAddonConnection]:
     conn = FakeAddonConnection(responder=responder)
     bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
@@ -220,7 +221,7 @@ def _status_response(cmd: CommandEnvelope, ready: bool) -> ResponseEnvelope:
 async def test_import_asset_wait_for_scan_polls_until_ready() -> None:
     status_calls = {"n": 0}
 
-    def responder(cmd: CommandEnvelope) -> ResponseEnvelope:
+    def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
         if cmd.command == "cmd_import_asset":
             return _responder(cmd)
         if cmd.command == "cmd_get_import_status":
@@ -247,7 +248,7 @@ async def test_import_asset_wait_for_scan_polls_until_ready() -> None:
 async def test_import_asset_wait_for_scan_timeout_reports_incomplete() -> None:
     status_calls = {"n": 0}
 
-    def responder(cmd: CommandEnvelope) -> ResponseEnvelope:
+    def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
         if cmd.command == "cmd_import_asset":
             return _responder(cmd)
         if cmd.command == "cmd_get_import_status":
@@ -306,7 +307,7 @@ async def test_dry_run_with_wait_for_scan_never_polls() -> None:
 async def test_get_import_status_wait_ms_polls_until_ready() -> None:
     status_calls = {"n": 0}
 
-    def responder(cmd: CommandEnvelope) -> ResponseEnvelope:
+    def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
         if cmd.command == "cmd_get_import_status":
             status_calls["n"] += 1
             return _status_response(cmd, ready=status_calls["n"] >= 2)
