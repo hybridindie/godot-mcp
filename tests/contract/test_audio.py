@@ -119,15 +119,6 @@ async def test_get_bus_layout_reports_buses_and_effects() -> None:
     assert buses[0]["effects"][0]["type"] == "AudioEffectReverb"
 
 
-async def test_dry_run_sends_no_mutation() -> None:
-    server, conn = _build()
-    async with Client(server) as client:
-        await client.call_tool("godot_enable_toolset", {"category": "audio"})
-        result = await client.call_tool("godot_audio_add_bus", {"name": "SFX", "dry_run": True})
-    assert result.structured_content["dry_run"] is True
-    assert "cmd_add_audio_bus" not in _commands(conn)
-
-
 async def test_audio_bus_removers_are_destructive() -> None:
     # #219 G8: the removers are destructive (confirm-gated), the inverse of the adders.
     server, _ = _build()

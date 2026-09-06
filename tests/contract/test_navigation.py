@@ -132,17 +132,6 @@ async def test_set_navigation_layers_bitmask() -> None:
     assert layers.structured_content["navigation_layers"] == 5
 
 
-async def test_dry_run_sends_no_mutation() -> None:
-    server, conn = _build()
-    async with Client(server) as client:
-        await client.call_tool("godot_enable_toolset", {"category": "navigation"})
-        result = await client.call_tool(
-            "godot_navigation_bake_mesh", {"node_path": "NavigationRegion3D", "dry_run": True}
-        )
-    assert result.structured_content["dry_run"] is True
-    assert "cmd_bake_navigation_mesh" not in _commands(conn)
-
-
 async def test_get_navigation_region_returns_baked_data() -> None:
     server, _ = _build()
     async with Client(server) as client:

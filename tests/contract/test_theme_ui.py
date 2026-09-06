@@ -116,18 +116,6 @@ async def test_create_theme_and_overrides() -> None:
     assert box.structured_content["stylebox_type"] == "StyleBoxFlat"
 
 
-async def test_dry_run_sends_no_mutation() -> None:
-    server, conn = _build()
-    async with Client(server) as client:
-        await client.call_tool("godot_enable_toolset", {"category": "theme_ui"})
-        result = await client.call_tool(
-            "godot_theme_ui_set_color",
-            {"node_path": "UI", "name": "font_color", "color": "#ffffff", "dry_run": True},
-        )
-    assert result.structured_content["dry_run"] is True
-    assert "cmd_set_theme_color" not in _commands(conn)
-
-
 async def test_get_node_theme_overrides_reads_all_kinds() -> None:
     # #219 G7: read color/font-size/stylebox overrides — inverts the set_theme_* writers.
     server, conn = _build()

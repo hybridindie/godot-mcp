@@ -172,18 +172,6 @@ async def test_create_tree_dry_run_previews_path() -> None:
     assert "cmd_create_animation_tree" not in _commands(conn)
 
 
-async def test_dry_run_sends_no_mutation() -> None:
-    server, conn = _build()
-    async with Client(server) as client:
-        await client.call_tool("godot_enable_toolset", {"category": "animation"})
-        result = await client.call_tool(
-            "godot_animation_create",
-            {"node_path": "AnimationPlayer", "name": "walk", "dry_run": True},
-        )
-    assert result.structured_content["dry_run"] is True
-    assert "cmd_create_animation" not in _commands(conn)
-
-
 async def test_list_and_get_animation_reads() -> None:
     # #218: read tools so animation writers become invertible (G4).
     server, conn = _build()

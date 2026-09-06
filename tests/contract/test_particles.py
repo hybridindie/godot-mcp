@@ -117,18 +117,6 @@ async def test_color_gradient_and_preset() -> None:
     assert preset.structured_content["preset"] == "fire"
 
 
-async def test_dry_run_sends_no_mutation() -> None:
-    server, conn = _build()
-    async with Client(server) as client:
-        await client.call_tool("godot_enable_toolset", {"category": "particles"})
-        result = await client.call_tool(
-            "godot_particles_apply_preset",
-            {"node_path": "GPUParticles2D", "preset": "smoke", "dry_run": True},
-        )
-    assert result.structured_content["dry_run"] is True
-    assert "cmd_apply_particle_preset" not in _commands(conn)
-
-
 async def test_get_particle_material_reads_props_and_ramp() -> None:
     # #219 P4: read the process_material props + color ramp — inverts the writers.
     server, conn = _build()

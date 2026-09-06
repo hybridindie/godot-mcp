@@ -404,6 +404,30 @@ func _require_live_probe() -> Dictionary:
 	return {"ok": true}
 
 
+# -- instantiation helpers (shared by domain handlers) ------------------------
+
+## Instantiate a class via ClassDB, validating it inherits from expected_base.
+## Returns {ok: true, obj: Object} on success, or a VALIDATION_ERROR envelope;
+## a type mismatch frees a non-RefCounted instance before failing (RefCounted
+## resources are left to the caller / GC, as they can't be free()d directly).
+## noun ("mesh", "shape", ...) is woven into the can-instantiate message.
+## When expected_base is empty, only the can_instantiate + null checks run
+## (useful for whitelist-validated types, or unions the caller checks itself).
+func _instantiate_validated(cls_name: String, expected_base: String = "",
+		noun: String = "") -> Dictionary:
+	var label := "'%s'" % cls_name if noun.is_empty() else "%s '%s'" % [noun, cls_name]
+	if not ClassDB.can_instantiate(cls_name):
+		return _fail("VALIDATION_ERROR", "Cannot instantiate %s." % label)
+	var obj: Object = ClassDB.instantiate(cls_name)
+	if obj == null:
+		return _fail("VALIDATION_ERROR", "Could not instantiate '%s'." % cls_name)
+	if not expected_base.is_empty() and cls_name != expected_base and not ClassDB.is_parent_class(cls_name, expected_base):
+		if not (obj is RefCounted):
+			obj.free()
+		return _fail("VALIDATION_ERROR", "'%s' is not a %s." % [cls_name, expected_base])
+	return {"ok": true, "obj": obj}
+
+
 # -- batch / refactor helpers (shared) ----------------------------------------
 
 # -- export helpers (shared) --------------------------------------------------

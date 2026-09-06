@@ -30,14 +30,10 @@ func _cmd_add_mesh_instance(params: Dictionary) -> Dictionary:
 		return found
 	var parent: Node = found["node"]
 	var mesh_type := str(params.get("mesh_type", "BoxMesh"))
-	if not ClassDB.can_instantiate(mesh_type):
-		return _router._fail("VALIDATION_ERROR", "Cannot instantiate mesh '%s'." % mesh_type)
-	var mesh_obj: Object = ClassDB.instantiate(mesh_type)
-	if not (mesh_obj is Mesh):
-		if not (mesh_obj is RefCounted):
-			mesh_obj.free()
-		return _router._fail("VALIDATION_ERROR", "'%s' is not a Mesh." % mesh_type)
-	var mesh: Mesh = mesh_obj
+	var inst := _router._instantiate_validated(mesh_type, "Mesh", "mesh")
+	if not inst["ok"]:
+		return inst
+	var mesh: Mesh = inst["obj"]
 	_router._apply_props(mesh, params.get("properties", {}))
 	var instance := MeshInstance3D.new()
 	instance.name = str(params.get("name", "MeshInstance3D"))
@@ -68,14 +64,10 @@ func _cmd_setup_lighting(params: Dictionary) -> Dictionary:
 		return found
 	var parent: Node = found["node"]
 	var light_type := str(params.get("light_type", "DirectionalLight3D"))
-	if not ClassDB.can_instantiate(light_type):
-		return _router._fail("VALIDATION_ERROR", "Cannot instantiate '%s'." % light_type)
-	var light_obj: Object = ClassDB.instantiate(light_type)
-	if not (light_obj is Light3D):
-		if not (light_obj is RefCounted):
-			light_obj.free()
-		return _router._fail("VALIDATION_ERROR", "'%s' is not a Light3D." % light_type)
-	var light: Light3D = light_obj
+	var inst := _router._instantiate_validated(light_type, "Light3D", "light")
+	if not inst["ok"]:
+		return inst
+	var light: Light3D = inst["obj"]
 	light.name = str(params.get("name", light_type))
 	_router._apply_props(light, params.get("properties", {}))
 	var path := _router._commit_add_child(parent, light, "Add %s" % light.name)

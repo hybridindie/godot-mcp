@@ -23,3 +23,6 @@ examples/**/.godot/
 
 # graphify generated knowledge graph (regenerable output + cache)
 graphify-out/
+
+# forge codebase-index artifacts (regenerable)
+.forge/

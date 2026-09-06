@@ -31,9 +31,11 @@ func _cmd_setup_navigation_region(params: Dictionary) -> Dictionary:
 	var region_type := str(params.get("region_type", "NavigationRegion2D"))
 	if region_type != "NavigationRegion2D" and region_type != "NavigationRegion3D":
 		return _router._fail("VALIDATION_ERROR", "region_type must be NavigationRegion2D or NavigationRegion3D.")
-	var region := ClassDB.instantiate(region_type) as Node
-	if region == null:
-		return _router._fail("VALIDATION_ERROR", "Could not instantiate '%s'." % region_type)
+	# The whitelist above already bounds the type; the helper still guards the null case.
+	var region_inst := _router._instantiate_validated(region_type, "", "")
+	if not region_inst["ok"]:
+		return region_inst
+	var region: Node = region_inst["obj"]
 	region.name = str(params.get("name", region_type))
 	# Assign an empty navmesh resource so the region is ready to bake.
 	if region is NavigationRegion2D:
@@ -54,9 +56,11 @@ func _cmd_setup_navigation_agent(params: Dictionary) -> Dictionary:
 	var agent_type := str(params.get("agent_type", "NavigationAgent2D"))
 	if agent_type != "NavigationAgent2D" and agent_type != "NavigationAgent3D":
 		return _router._fail("VALIDATION_ERROR", "agent_type must be NavigationAgent2D or NavigationAgent3D.")
-	var agent := ClassDB.instantiate(agent_type) as Node
-	if agent == null:
-		return _router._fail("VALIDATION_ERROR", "Could not instantiate '%s'." % agent_type)
+	# The whitelist above already bounds the type; the helper still guards the null case.
+	var agent_inst := _router._instantiate_validated(agent_type, "", "")
+	if not agent_inst["ok"]:
+		return agent_inst
+	var agent: Node = agent_inst["obj"]
 	agent.name = str(params.get("name", agent_type))
 	_router._apply_props(agent, params.get("properties", {}))
 	var path := _router._commit_add_child(parent, agent, "Add %s" % agent.name)

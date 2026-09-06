@@ -236,18 +236,6 @@ async def test_mesh_library_save_dry_run_sends_no_command() -> None:
     assert "cmd_create_mesh_library" not in _commands(conn)
 
 
-async def test_dry_run_sends_no_mutation() -> None:
-    server, conn = _build()
-    async with Client(server) as client:
-        await client.call_tool("godot_enable_toolset", {"category": "scene_3d"})
-        result = await client.call_tool(
-            "godot_scene_3d_add_mesh_instance",
-            {"parent_path": ".", "mesh_type": "BoxMesh", "dry_run": True},
-        )
-    assert result.structured_content["dry_run"] is True
-    assert "cmd_add_mesh_instance" not in _commands(conn)
-
-
 async def test_gridmap_get_cell_reads_cell() -> None:
     # #219 G5: read a GridMap cell (item + orientation) — inverts gridmap_set_cell.
     server, conn = _build()

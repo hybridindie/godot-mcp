@@ -60,12 +60,11 @@ func _cmd_setup_collision(params: Dictionary) -> Dictionary:
 	var root := EditorInterface.get_edited_scene_root()
 	var collision_node_type := str(params.get("collision_node_type", "CollisionShape2D"))
 	var shape_type := str(params.get("shape_type", ""))
-	if not ClassDB.can_instantiate(collision_node_type):
-		return _router._fail("VALIDATION_ERROR", "Cannot instantiate '%s'." % collision_node_type)
-	if not ClassDB.can_instantiate(shape_type):
-		return _router._fail("VALIDATION_ERROR", "Cannot instantiate shape '%s'." % shape_type)
-
-	var shape_obj: Object = ClassDB.instantiate(shape_type)
+	# Instantiate shape — expected_base="" because the type check is a 2D/3D union below.
+	var shape_inst := _router._instantiate_validated(shape_type, "", "shape")
+	if not shape_inst["ok"]:
+		return shape_inst
+	var shape_obj: Object = shape_inst["obj"]
 	if not (shape_obj is Shape2D or shape_obj is Shape3D):
 		if not (shape_obj is RefCounted):
 			shape_obj.free()
@@ -77,7 +76,12 @@ func _cmd_setup_collision(params: Dictionary) -> Dictionary:
 		if pt != -1:
 			shape.set(str(key), Coerce.from_json(shape_props[key], pt))
 
-	var collision: Node = ClassDB.instantiate(collision_node_type)
+	# Instantiate the collision node — expected_base="" because the type check is a
+	# CollisionShape2D/3D union below (the helper guards the null case).
+	var collision_inst := _router._instantiate_validated(collision_node_type, "", "")
+	if not collision_inst["ok"]:
+		return collision_inst
+	var collision: Node = collision_inst["obj"]
 	if not (collision is CollisionShape2D or collision is CollisionShape3D):
 		collision.free()
 		return _router._fail("VALIDATION_ERROR", "'%s' is not a CollisionShape2D/3D." % collision_node_type)
@@ -133,10 +137,12 @@ func _cmd_add_raycast(params: Dictionary) -> Dictionary:
 	var parent: Node = found["node"]
 	var root := EditorInterface.get_edited_scene_root()
 	var raycast_type := str(params.get("raycast_type", "RayCast2D"))
-	if not ClassDB.can_instantiate(raycast_type):
-		return _router._fail("VALIDATION_ERROR", "Cannot instantiate '%s'." % raycast_type)
-
-	var ray: Node = ClassDB.instantiate(raycast_type)
+	# Instantiate the raycast — expected_base="" because the type check is a
+	# RayCast2D/3D union below (the helper guards the null case).
+	var ray_inst := _router._instantiate_validated(raycast_type, "", "")
+	if not ray_inst["ok"]:
+		return ray_inst
+	var ray: Node = ray_inst["obj"]
 	if not (ray is RayCast2D or ray is RayCast3D):
 		ray.free()
 		return _router._fail("VALIDATION_ERROR", "'%s' is not a RayCast2D/RayCast3D." % raycast_type)

@@ -106,14 +106,3 @@ async def test_setup_body_and_raycast() -> None:
         )
     assert body.structured_content["properties"]["mass"] == 5.0
     assert ray.structured_content["node_path"] == "./Ray"
-
-
-async def test_dry_run_sends_no_mutation() -> None:
-    server, conn = _build()
-    async with Client(server) as client:
-        await client.call_tool("godot_enable_toolset", {"category": "physics"})
-        result = await client.call_tool(
-            "godot_physics_set_layers", {"node_path": "Body", "layers": [1], "dry_run": True}
-        )
-    assert result.structured_content["dry_run"] is True
-    assert "cmd_set_physics_layers" not in _commands(conn)

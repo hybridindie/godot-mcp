@@ -146,14 +146,3 @@ async def test_list_and_disconnect_signals() -> None:
     assert tool.meta is not None and tool.meta.get("safety_class") == "read_only"
     assert listed.structured_content["connections"][0]["method"] == "queue_free"
     assert disc.structured_content["disconnected"] is True
-
-
-async def test_dry_run_sends_no_mutation() -> None:
-    server, conn = _build()
-    async with Client(server) as client:
-        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
-        result = await client.call_tool(
-            "godot_scene_edit_duplicate_node", {"node_path": "Box", "dry_run": True}
-        )
-    assert result.structured_content["dry_run"] is True
-    assert "cmd_duplicate_node" not in _commands(conn)

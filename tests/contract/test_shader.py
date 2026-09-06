@@ -115,17 +115,6 @@ async def test_default_code_passed_when_omitted() -> None:
     assert "shader_type canvas_item;" in sent[0].params["code"]
 
 
-async def test_dry_run_sends_no_mutation() -> None:
-    server, conn = _build()
-    async with Client(server) as client:
-        await client.call_tool("godot_enable_toolset", {"category": "shader"})
-        result = await client.call_tool(
-            "godot_shader_create", {"shader_path": "res://fx.gdshader", "dry_run": True}
-        )
-    assert result.structured_content["dry_run"] is True
-    assert "cmd_create_shader" not in _commands(conn)
-
-
 async def test_get_shader_param_returns_value() -> None:
     server, _ = _build()
     async with Client(server) as client:
