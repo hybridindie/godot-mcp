@@ -256,6 +256,20 @@ func _cmd_create_scene(params: Dictionary) -> Dictionary:
 	root.free()
 	if pack_err != OK:
 		return _router._fail("INTERNAL_ERROR", "Failed to pack scene (error %d)." % pack_err)
+	# Auto-create the parent directory (parity with _write_file_text) — a missing
+	# dir surfaced as an opaque ResourceSaver "error 19" (#412).
+	var base_dir := scene_path.get_base_dir()
+	if not DirAccess.dir_exists_absolute(base_dir):
+		var mkdir_err := DirAccess.make_dir_recursive_absolute(
+			ProjectSettings.globalize_path(base_dir)
+		)
+		if mkdir_err != OK:
+			return _router._fail(
+				"PRECONDITION_FAILED",
+				"Could not create parent directory '%s' for the new scene (error %d)."
+					% [base_dir, mkdir_err],
+				"parent_dir",
+			)
 	var save_err := ResourceSaver.save(packed, scene_path)
 	if save_err != OK:
 		return _router._fail("INTERNAL_ERROR", "Failed to save scene to '%s' (error %d)." % [scene_path, save_err])
