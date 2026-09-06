@@ -39,13 +39,28 @@ def test_toolset_min_godot_keys_are_valid_categories() -> None:
         assert category in TOOLSETS, f"Unknown toolset '{category}' in TOOLSET_MIN_GODOT"
 
 
-def test_toolset_min_godot_tuple_ordering() -> None:
-    """Version comparison via tuple < works as expected for Godot versions."""
-    assert (4, 3) < (4, 4)
-    assert (4, 4) < (4, 5)
-    assert (3, 5) < (4, 4)
-    assert (4, 4) == (4, 4)
-    assert not ((4, 4) < (4, 4))
+def test_toolset_min_godot_floors_are_valid_and_comparable() -> None:
+    """Every TOOLSET_MIN_GODOT floor is a well-formed, comparable version tuple.
+
+    This pins the actual configuration rather than reasserting Python's tuple
+    comparison semantics (the previous test could never fail). Each floor must be
+    a (major, minor) pair with a supported major, and the dict itself non-empty.
+    """
+    assert TOOLSET_MIN_GODOT, "TOOLSET_MIN_GODOT must not be empty"
+    for category, floor in TOOLSET_MIN_GODOT.items():
+        assert isinstance(floor, tuple) and len(floor) == 2, (
+            f"Toolset '{category}' floor {floor!r} is not a (major, minor) tuple"
+        )
+        major, minor = floor
+        assert isinstance(major, int) and isinstance(minor, int), (
+            f"Toolset '{category}' floor {floor!r} is not a two-int tuple"
+        )
+        assert major >= 4, (
+            f"Toolset '{category}' floor {floor!r} is below the supported major"
+        )
+        # Sanity: a valid tuple must always order against itself consistently.
+        assert not (floor < floor)
+        assert floor == tuple(floor)
 
 
 # --- GODOT_MCP_DEFAULT_TOOLSETS startup seeding (issue #393) -----------------

@@ -121,9 +121,13 @@ async def _run() -> None:
         )
         assert unknown_bus.ok is False and unknown_bus.error == "VALIDATION_ERROR"
         bad_effect = await bridge.send(
-            "cmd_add_audio_bus_effect", {"bus": "Music", "effect_type": "Node"}
+            "cmd_add_audio_bus_effect", {"bus": "Master", "effect_type": "Node"}
         )
+        # Pin the effect-type validation, not the bus-existence check: Master
+        # always exists, so a failure that produces "No audio bus" would indicate
+        # the addon validated in the wrong order (or a wrong-regression).
         assert bad_effect.ok is False and bad_effect.error == "VALIDATION_ERROR"
+        assert bad_effect.hint and "not an AudioEffect" in bad_effect.hint
         bad_stream = await bridge.send(
             "cmd_add_audio_player",
             {
