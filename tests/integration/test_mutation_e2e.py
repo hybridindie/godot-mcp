@@ -112,3 +112,50 @@ def test_live_editor_mutation_roundtrip() -> None:
         except subprocess.TimeoutExpired:
             editor.kill()
         SCRATCH_FILE.unlink(missing_ok=True)
+
+
+async def _run_nested_dir() -> None:
+    # #412: create_scene into a not-yet-existing directory must auto-create the
+    # parent (parity with _write_file_text) instead of failing with an opaque
+    # ResourceSaver "error 19". Also pins the actionable error if creation is
+    # impossible for another reason.
+    bridge = Bridge(BridgeConfig(url=BRIDGE_URL))
+    if not await serve_and_await_editor(bridge):
+        raise AssertionError("the addon never connected to the bridge")
+    nested = "res://e2e_scratch_dir/deep/created.tscn"
+    nested_file = GODOT_PROJECT / "e2e_scratch_dir" / "deep" / "created.tscn"
+    try:
+        result = await _ok(
+            bridge,
+            "cmd_create_scene",
+            {"root_type": "Node2D", "scene_path": nested},
+        )
+        assert result["created"] is True and result["scene_path"] == nested
+        assert nested_file.exists(), "parent dirs were not created"
+        opened = await bridge.send("cmd_get_active_scene")
+        assert opened.ok and (opened.result or {}).get("is_open")
+    finally:
+        await bridge.close()
+
+
+def test_live_editor_create_scene_creates_parent_dirs() -> None:
+    assert GODOT_BIN is not None
+    editor = subprocess.Popen(
+        [GODOT_BIN, "--headless", "--editor", "--path", str(GODOT_PROJECT)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        env={**os.environ, "GODOT_MCP_BRIDGE_URL": BRIDGE_URL},
+    )
+    try:
+        asyncio.run(_run_nested_dir())
+    finally:
+        editor.terminate()
+        try:
+            editor.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            editor.kill()
+        nested_file = GODOT_PROJECT / "e2e_scratch_dir"
+        if nested_file.exists():
+            import shutil
+
+            shutil.rmtree(nested_file)
