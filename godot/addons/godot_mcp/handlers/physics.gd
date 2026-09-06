@@ -99,6 +99,20 @@ func _cmd_setup_collision(params: Dictionary) -> Dictionary:
 				+ "Pass a matching collision_node_type (e.g. CollisionShape%s)." % shape_dim,
 			"collision_node_type",
 		)
+	# Also reject a shape-vs-body mismatch (Qodo follow-up on #410): a 2D shape
+	# under a 3D body (or vice versa) can never collide in that physics world —
+	# reject up front instead of adding a useless child.
+	if (parent is CollisionObject2D) != (shape is Shape2D):
+		var body_dim := "2D" if parent is CollisionObject2D else "3D"
+		var body_shape_dim := "2D" if shape is Shape2D else "3D"
+		collision.free()
+		return _router._fail(
+			"VALIDATION_ERROR",
+			"Dimension mismatch: body '%s' is a %s physics body but shape '%s' is %s. "
+				% [str(params.get("node_path")), body_dim, shape_type, body_shape_dim]
+				+ "Use a %s shape on a %s body." % [body_dim, body_dim],
+			"shape_type",
+		)
 	collision.name = str(params.get("name", collision_node_type))
 	collision.set("shape", shape)
 	var ur := EditorInterface.get_editor_undo_redo()

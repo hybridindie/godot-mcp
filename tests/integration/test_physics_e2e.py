@@ -166,6 +166,25 @@ async def _run_3d_dimension() -> None:
         floor_body = next(c for c in tree["tree"]["children"] if c["name"] == "FloorBody")
         assert not floor_body.get("children"), "no node may be created on a mismatch"
 
+        # (a2) 2D shape under the 3D body is ALSO a mismatch (shape vs parent
+        # body dimensions, the Qodo follow-up finding): even with a matching
+        # 2D collision node, a RectangleShape2D on a StaticBody3D must fail —
+        # a 2D shape can never collide in a 3D physics world.
+        two_d = await bridge.send(
+            "cmd_setup_collision",
+            {
+                "node_path": "FloorBody",
+                "shape_type": "RectangleShape2D",
+                "collision_node_type": "CollisionShape2D",
+                "properties": {"size": [30, 1]},
+            },
+        )
+        assert two_d.ok is False and two_d.error == "VALIDATION_ERROR"
+        assert two_d.hint and "dimension" in two_d.hint.lower()
+        tree2 = await _ok(bridge, "cmd_get_scene_tree", {})
+        floor_body2 = next(c for c in tree2["tree"]["children"] if c["name"] == "FloorBody")
+        assert not floor_body2.get("children"), "no node may be created on a 2D-under-3D mismatch"
+
         # (b) explicit 3D node + 3D shape -> shape really attached
         col = await _ok(
             bridge,
