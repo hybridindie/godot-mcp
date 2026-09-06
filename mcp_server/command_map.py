@@ -272,11 +272,10 @@ def resolve_command(command: str) -> str:
     if command in BARE_TO_COMMAND:
         return BARE_TO_COMMAND[command]
     # Registry-table names carry their toolset prefix; accept the same name
-    # with a known prefix stripped. Ambiguity resolves by preferring the entry
-    # whose REMAINDER (after dropping the prefix) is longest-equal — in
-    # practice "set_layers" matches "physics_set_layers" and
-    # "navigation_set_layers" identically, so prefer the alphabetically first
-    # deterministic choice only when the full bare name is unambiguous.
+    # with a known prefix stripped ("create_node" == the bare of
+    # "scene_edit_create_node"). Exactly one match resolves; more than one
+    # (e.g. "set_layers" matching both physics and navigation) is ambiguous —
+    # fail naming the matches rather than silently picking one.
     hits = [known for known in BARE_TO_COMMAND if known.endswith(f"_{command}")]
     if len(hits) == 1:
         return BARE_TO_COMMAND[hits[0]]
