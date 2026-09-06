@@ -66,8 +66,17 @@ def register_physics(mcp: FastMCP, bridge: Bridge) -> None:
         ``collision_node_type`` (CollisionShape2D/3D) holding a ``shape_type`` shape
         (e.g. RectangleShape2D) with ``properties`` (size/radius/…).
 
+        The shape and the collision node must be the SAME dimension: a 3D shape
+        (BoxShape3D) with the default CollisionShape2D fails with a
+        VALIDATION_ERROR naming the mismatch — pass ``collision_node_type``
+        matching the shape's dimension (a 2D shape on a 3D body fails the same
+        way). For 3D bodies pass ``collision_node_type="CollisionShape3D"``.
+
         IF THIS FAILS with "Node not found":
           -> The node_path is wrong. Use get_scene_tree() to verify the path.
+        IF THIS FAILS with "Dimension mismatch":
+          -> shape_type and collision_node_type disagree (2D vs 3D). Pass a
+             collision_node_type of the same dimension as shape_type.
         """
         await require_node_exists(bridge, node_path)
         params = {

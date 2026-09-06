@@ -134,3 +134,75 @@ def test_live_physics() -> None:
         except subprocess.TimeoutExpired:
             editor.kill()
         SCRATCH_FILE.unlink(missing_ok=True)
+
+
+async def _run_3d_dimension() -> None:
+    # #410: setup_collision must not silently ship a collisionless 3D level.
+    # (a) a BoxShape3D with the default (2D) collision node is a dimension
+    #     mismatch -> structured VALIDATION_ERROR, nothing created;
+    # (b) an explicit CollisionShape3D + BoxShape3D actually collides
+    #     (shape lands on the node, ok:true is truthful).
+    bridge = Bridge(BridgeConfig(url=BRIDGE_URL))
+    if not await serve_and_await_editor(bridge):
+        raise AssertionError("the addon never connected to the bridge")
+    scene = "res://e2e_physics3d_scratch.tscn"
+    try:
+        await _ok(bridge, "cmd_create_scene", {"root_type": "Node3D", "scene_path": scene})
+        await _wait_scene_open(bridge)
+        await _create(bridge, "FloorBody", "StaticBody3D")
+
+        # (a) 3D shape + default 2D node -> dimension mismatch, rejected
+        mismatch = await bridge.send(
+            "cmd_setup_collision",
+            {
+                "node_path": "FloorBody",
+                "shape_type": "BoxShape3D",
+                "properties": {"size": [30, 1, 30]},
+            },
+        )
+        assert mismatch.ok is False and mismatch.error == "VALIDATION_ERROR"
+        assert mismatch.hint and "dimension" in mismatch.hint.lower()
+        tree = await _ok(bridge, "cmd_get_scene_tree", {})
+        floor_body = next(c for c in tree["tree"]["children"] if c["name"] == "FloorBody")
+        assert not floor_body.get("children"), "no node may be created on a mismatch"
+
+        # (b) explicit 3D node + 3D shape -> shape really attached
+        col = await _ok(
+            bridge,
+            "cmd_setup_collision",
+            {
+                "node_path": "FloorBody",
+                "shape_type": "BoxShape3D",
+                "collision_node_type": "CollisionShape3D",
+                "properties": {"size": [30, 1, 30]},
+            },
+        )
+        assert col["created"] is True
+        col_path = str(col["node_path"])  # the addon echoes the real path
+        shape_read = await _ok(
+            bridge, "cmd_get_node_property", {"node_path": col_path, "property": "shape"}
+        )
+        assert shape_read["exists"] is True and shape_read["value"] is not None, (
+            "shape silently dropped (the #410 symptom)"
+        )
+    finally:
+        await bridge.close()
+
+
+def test_live_physics_3d_dimension_mismatch() -> None:
+    assert GODOT_BIN is not None
+    editor = subprocess.Popen(
+        [GODOT_BIN, "--headless", "--editor", "--path", str(GODOT_PROJECT)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        env={**os.environ, "GODOT_MCP_BRIDGE_URL": BRIDGE_URL},
+    )
+    try:
+        asyncio.run(_run_3d_dimension())
+    finally:
+        editor.terminate()
+        try:
+            editor.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            editor.kill()
+        (GODOT_PROJECT / "e2e_physics3d_scratch.tscn").unlink(missing_ok=True)

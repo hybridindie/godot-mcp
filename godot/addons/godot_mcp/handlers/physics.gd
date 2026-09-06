@@ -85,6 +85,20 @@ func _cmd_setup_collision(params: Dictionary) -> Dictionary:
 	if not (collision is CollisionShape2D or collision is CollisionShape3D):
 		collision.free()
 		return _router._fail("VALIDATION_ERROR", "'%s' is not a CollisionShape2D/3D." % collision_node_type)
+	# Cross-check dimensions (#410): a Shape3D on a CollisionShape2D silently no-ops
+	# at the engine level (shape reads back null), shipping collisionless levels
+	# behind ok:true. Reject the mismatch with a dimension-naming hint instead.
+	if (collision is CollisionShape2D) != (shape is Shape2D):
+		var shape_dim := "2D" if shape is Shape2D else "3D"
+		var node_dim := "2D" if collision is CollisionShape2D else "3D"
+		collision.free()
+		return _router._fail(
+			"VALIDATION_ERROR",
+			"Dimension mismatch: shape '%s' is a %s shape but collision_node_type '%s' is %s. "
+				% [shape_type, shape_dim, collision_node_type, node_dim]
+				+ "Pass a matching collision_node_type (e.g. CollisionShape%s)." % shape_dim,
+			"collision_node_type",
+		)
 	collision.name = str(params.get("name", collision_node_type))
 	collision.set("shape", shape)
 	var ur := EditorInterface.get_editor_undo_redo()
