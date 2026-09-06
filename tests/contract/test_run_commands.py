@@ -167,3 +167,139 @@ async def test_run_commands_rejects_nesting() -> None:
     assert result.is_error
     assert "nested" in str(result.content).lower()
     assert "cmd_run_commands" not in _commands(conn)  # nothing sent
+
+
+async def test_run_commands_resolves_trimmed_tool_names() -> None:
+    # #420: exposed names whose action is trimmed by the godot_ transform
+    # (e.g. godot_physics_set_layers -> "physics_set_layers") must resolve to
+    # the real addon handler (cmd_set_physics_layers), not the nonexistent
+    # cmd_set_layers. The documented bare form is the exposed name minus "godot_".
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "composite"})
+        result = await client.call_tool(
+            "godot_composite_run_commands",
+            {
+                "commands": [
+                    {"command": "physics_set_layers", "params": {"node_path": "Body"}},
+                    {
+                        "command": "particles_apply_preset",
+                        "params": {"node_path": "P", "preset": "smoke"},
+                    },
+                    {"command": "write_script", "params": {"script_path": "res://a.gd"}},
+                    {"command": "capture_screenshot", "params": {}},
+                ]
+            },
+        )
+    data = result.structured_content
+    assert data["ok_all"] is True
+    assert [r["command"] for r in data["results"]] == [
+        "cmd_set_physics_layers",
+        "cmd_apply_particle_preset",
+        "cmd_write_script",
+        "cmd_capture_editor_screenshot",
+    ]
+
+
+async def test_run_commands_ambiguous_bare_name_lists_matches() -> None:
+    # #420: "set_layers" is genuinely ambiguous (navigation_set_layers vs
+    # physics_set_layers) — fail up front naming both, instead of leaking a
+    # bogus cmd_set_layers to the addon.
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "composite"})
+        result = await client.call_tool(
+            "godot_composite_run_commands",
+            {"commands": [{"command": "set_layers", "params": {}}]},
+            raise_on_error=False,
+        )
+    assert result.is_error
+    text = str(result.content)
+    assert "navigation_set_layers" in text and "physics_set_layers" in text
+    assert "cmd_set_layers" not in _commands(conn)  # nothing sent
+
+
+async def test_run_commands_resolves_reordered_read_names() -> None:
+    # #420 (read half): tools whose bare name reorders words vs the handler
+    # (audio_add_bus -> add_audio_bus, get_bus_layout -> get_audio_bus_layout,
+    #  read_shader -> read_shader, get_shader_param -> get_shader_param).
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "composite"})
+        result = await client.call_tool(
+            "godot_composite_run_commands",
+            {
+                "commands": [
+                    {"command": "add_bus", "params": {"name": "SFX"}},
+                    {"command": "get_bus_layout", "params": {}},
+                    {"command": "read_shader", "params": {"shader_path": "res://a.gdshader"}},
+                    {"command": "get_shader_param", "params": {"node_path": "X", "name": "y"}},
+                ]
+            },
+        )
+    data = result.structured_content
+    assert data["ok_all"] is True
+    assert [r["command"] for r in data["results"]] == [
+        "cmd_add_audio_bus",
+        "cmd_get_audio_bus_layout",
+        "cmd_read_shader",
+        "cmd_get_shader_param",
+    ]
+
+
+async def test_run_commands_maps_create_node_node_name() -> None:
+    # #421: the create_node tool maps node_name -> addon's "name" key. run_commands
+    # must apply the same translation, or the addon silently falls back to the
+    # type name (the reported "create_node ignores node_name" symptom).
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "composite"})
+        result = await client.call_tool(
+            "godot_composite_run_commands",
+            {
+                "commands": [
+                    {
+                        "command": "create_node",
+                        "params": {
+                            "parent_path": ".",
+                            "node_type": "Area3D",
+                            "node_name": "DetectionArea",
+                        },
+                    },
+                    {
+                        "command": "cmd_create_node",
+                        "params": {
+                            "parent_path": ".",
+                            "node_type": "Area3D",
+                            "node_name": "AlsoMapped",
+                        },
+                    },
+                ]
+            },
+        )
+    data = result.structured_content
+    assert data["ok_all"] is True
+    sent = CommandEnvelope.model_validate_json(conn.sent[-1])
+    batch = sent.params["commands"]
+    assert batch[0]["params"] == {
+        "parent_path": ".",
+        "node_type": "Area3D",
+        "name": "DetectionArea",
+    }
+    assert batch[1]["params"]["name"] == "AlsoMapped"
+
+
+async def test_run_commands_unknown_bare_name_fails_with_suggestion() -> None:
+    # #420: a bare name that matches no tool must fail the batch up front with the
+    # closest real name in the hint — not leak into the addon as cmd_<garbage>.
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "composite"})
+        result = await client.call_tool(
+            "godot_composite_run_commands",
+            {"commands": [{"command": "set_layerz", "params": {}}]},
+            raise_on_error=False,
+        )
+    assert result.is_error
+    assert "set_layers" in str(result.content)  # suggests the real bare name
+    assert "cmd_set_layerz" not in _commands(conn)  # nothing sent to the addon
