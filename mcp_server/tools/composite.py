@@ -37,9 +37,33 @@ COMPOSITE = {COMPOSITE_TAG}
 
 
 def _normalize_command(command: str) -> str:
-    """Accept either the addon command (``cmd_set_node_property``) or the bare
-    tool name (``set_node_property``); the addon dispatches on the ``cmd_`` form."""
-    return command if command.startswith("cmd_") else f"cmd_{command}"
+    """Resolve a sub-command to the addon ``cmd_*`` form (#420).
+
+    Accepts the addon command (``cmd_set_physics_layers``), the bare handler
+    name (``create_node``), or the bare *exposed* tool name including trimmed /
+    reordered actions (``physics_set_layers`` -> ``cmd_set_physics_layers``,
+    ``add_bus`` -> ``cmd_add_audio_bus``) via the registry-mirrored table in
+    ``command_map``. Raises a structured error with a suggestion on a miss.
+    """
+    from mcp_server.command_map import resolve_command
+
+    return resolve_command(command)
+
+
+def _map_batch_params(command: str, params: dict[str, Any]) -> dict[str, Any]:
+    """Translate a batch entry's param keys to the addon envelope keys (#421).
+
+    Batch entries carry agent-facing tool params; the addon expects the
+    canonical keys the tool layer normally maps (``node_name`` -> ``name``).
+    The command string (either form) maps via the same alias table.
+    """
+    from mcp_server.command_map import map_params, resolve_command
+
+    try:
+        resolved = resolve_command(command)
+    except Exception:
+        return params  # unresolvable commands error in _normalize_command anyway
+    return map_params(resolved.removeprefix("cmd_"), params)
 
 
 def _child_to_addon(child: dict[str, Any]) -> dict[str, Any]:
@@ -173,7 +197,7 @@ def register_composite(mcp: FastMCP, bridge: Bridge) -> None:
         normalized = [
             {
                 "command": _normalize_command(str(c.get("command", ""))),
-                "params": c.get("params", {}),
+                "params": _map_batch_params(str(c.get("command", "")), c.get("params", {})),
             }
             for c in commands
         ]
