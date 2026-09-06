@@ -76,6 +76,21 @@ async def test_scaffold_project_success() -> None:
     assert "cmd_scaffold_project" in _commands(conn)
 
 
+async def test_scaffold_forwards_confirm_to_addon() -> None:
+    # #409: the addon re-gates destructively on params.confirm; the tool must
+    # forward the caller's confirm flag in the bridge envelope, or the addon
+    # rejects the very call the server-side gate already approved.
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "project_scaffold"})
+        await client.call_tool(
+            "godot_project_scaffold",
+            {"type": "3d_fps", "project_name": "Shooter", "confirm": True},
+        )
+    last = CommandEnvelope.model_validate_json(conn.sent[-1])
+    assert last.params.get("confirm") is True
+
+
 async def test_scaffold_project_requires_confirm() -> None:
     server, conn = _build()
     async with Client(server) as client:

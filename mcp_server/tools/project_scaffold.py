@@ -66,10 +66,13 @@ def register_project_scaffold(
             )
         if not dry_run:
             require_confirmation(confirm, "scaffold_project")
-        params: dict[str, str] = {
+        params: dict[str, str | bool] = {
             "type": type,
             "project_name": project_name or type,
             "main_scene": main_scene or "main",
+            # Forward the destructive gate to the addon: it re-checks confirm
+            # defensively (#409) and would reject the call without it.
+            "confirm": confirm,
         }
         preview = {
             "created": False,
