@@ -155,7 +155,8 @@ def _patch_extract(extract_py: Path, engine_py: Path) -> None:
     if "# GDScript: callee is the first identifier child" not in src:
         anchor = (
             "            else:\n"
-            "                # Generic: get callee from call_function_field (or constructor on new_expression)\n"
+            "                # Generic: get callee from call_function_field\n"
+            "                # (or constructor on new_expression)\n"
         )
         if anchor not in src:
             raise SystemExit("engine.py: generic call-handler anchor not found")

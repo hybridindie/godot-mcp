@@ -30,9 +30,16 @@ fi
 # The keys checked are the ones detect_backend() prefers over ollama.
 if [[ "${1:-}" != "query" && "${1:-}" != "explain" ]]; then
     wants_ollama=false
+    prev=""
     for arg in "$@"; do
-        [[ "$arg" == "--backend" ]] && wants_ollama_next=true
-        [[ "$arg" == "ollama" ]] && wants_ollama=true
+        # Only an explicit --backend ollama (or --backend=ollama) opts into
+        # ollama; any other token named "ollama" (e.g. a path) must not.
+        if [[ "$prev" == "--backend" ]]; then
+            [[ "$arg" == "ollama" ]] && wants_ollama=true
+        elif [[ "$arg" == --backend=ollama ]]; then
+            wants_ollama=true
+        fi
+        prev="$arg"
     done
     if ! $wants_ollama; then
         for key_var in GEMINI_API_KEY GOOGLE_API_KEY KIMI_API_KEY ANTHROPIC_API_KEY \
