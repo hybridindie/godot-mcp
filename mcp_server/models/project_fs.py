@@ -45,9 +45,11 @@ class UidResolution(BaseModel):
 
 class DeleteResourceFileResult(BaseModel):
     """Result of deleting a ``res://`` file (issue #217). ``had_uid`` is true when a
-    ``.uid`` sidecar was removed alongside it."""
+    ``.uid`` sidecar was removed alongside it. ``tab_closed`` is true when the deleted
+    file was a scene open in the editor and its (stale) tab was closed (#422)."""
 
     path: str
     deleted: bool = False
     had_uid: bool = False
+    tab_closed: bool = False
     dry_run: bool = False

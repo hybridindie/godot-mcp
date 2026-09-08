@@ -382,7 +382,7 @@ Import external files (local paths or HTTP URLs) into a Godot project and assemb
 | `godot_project_get_setting` | `name` | `SettingValue { name, value, exists }` | `read_only` |
 | `godot_project_set_setting` | `name, value, dry_run=False` | `SetSettingResult { name, value, set, dry_run }` | `mutating` |
 | `godot_project_resolve_uid` | `value` (a `res://` path or `uid://…`) | `UidResolution { uid?, path? }` | `read_only` |
-| `godot_project_delete_resource_file` | `path, confirm=False, dry_run=False` | `DeleteResourceFileResult { path, deleted, had_uid, dry_run }` | `destructive` |
+| `godot_project_delete_resource_file` | `path, confirm=False, dry_run=False` | `DeleteResourceFileResult { path, deleted, had_uid, tab_closed, dry_run }` | `destructive` |
 
 Hidden entries (`.godot`, `.git`, …) are skipped. `godot_project_search_files` matches `name_glob`
 and/or `content` substring (truncating at `max_results`). `godot_project_set_setting` coerces to the
@@ -390,7 +390,9 @@ setting's existing type, persists to project settings (not undo-tracked), and ac
 `dry_run`. `godot_project_resolve_uid` picks direction by the input prefix. `godot_project_delete_resource_file`
 removes a `res://` file (and its `.uid` sidecar) — the inverse of the file-creating tools;
 `destructive` (requires `confirm=True`, `dry_run` previews), `res://` containment enforced,
-undoable in the editor.
+undoable in the editor. Deleting a `.tscn`/`.scn` that is open in the editor also closes its
+tab (`tab_closed:true`) so the stale in-memory scene can't resurrect mangled duplicates when
+the path is later recreated (#422).
 
 #### Editor screenshots (issue #33) — category: `editor` (gated off by default)
 
