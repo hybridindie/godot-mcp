@@ -77,6 +77,8 @@ func _cmd_bake_navigation_mesh(params: Dictionary) -> Dictionary:
 	# Baking mutates the assigned navmesh resource in place. To stay undoable we bake a
 	# fresh duplicate (the do/redo target) and keep the original pristine as the undo
 	# value, so the snapshot is never the bake target and repeated undo/redo is stable.
+	var polygon_count := -1
+	var vertex_count := -1
 	if region is NavigationRegion2D:
 		if region.navigation_polygon == null:
 			return _router._fail("VALIDATION_ERROR", "Region has no navigation_polygon; assign one first.", "navigation_polygon")
@@ -89,6 +91,8 @@ func _cmd_bake_navigation_mesh(params: Dictionary) -> Dictionary:
 		ur.add_undo_property(region, "navigation_polygon", original)
 		ur.add_undo_reference(original)
 		ur.commit_action()
+		polygon_count = working.get_polygon_count()
+		vertex_count = working.get_vertex_count()
 	elif region is NavigationRegion3D:
 		if region.navigation_mesh == null:
 			return _router._fail("VALIDATION_ERROR", "Region has no navigation_mesh; assign one first.", "navigation_mesh")
@@ -101,9 +105,29 @@ func _cmd_bake_navigation_mesh(params: Dictionary) -> Dictionary:
 		ur.add_undo_property(region, "navigation_mesh", original)
 		ur.add_undo_reference(original)
 		ur.commit_action()
+		polygon_count = working.get_polygon_count()
+		if working.has_method("get_vertices"):
+			var verts: PackedVector3Array = working.get_vertices()
+			vertex_count = verts.size()
 	else:
 		return _router._fail("VALIDATION_ERROR", "Node is not a NavigationRegion2D/NavigationRegion3D.")
-	return _router._ok({"node_path": str(params.get("node_path")), "baked": true})
+	# A bake that produced zero polygons is a failed bake (no source geometry was
+	# parsed, or every agent/geometry filter excluded it) — never report baked:true
+	# for an empty navmesh, an agent trusting that ships AI that can't pathfind (#413).
+	if polygon_count <= 0:
+		return _router._fail(
+			"VALIDATION_ERROR",
+			"Bake produced no polygons (%d vertices) — no source geometry was parsed. Add "
+				+ "MeshInstance3D/GridMap/StaticBody colliders under the region (or under "
+				+ "the root_node_type the mesh parses) and retry." % vertex_count,
+			"polygon_count",
+		)
+	return _router._ok({
+		"node_path": str(params.get("node_path")),
+		"baked": true,
+		"polygon_count": polygon_count,
+		"vertex_count": vertex_count,
+	})
 
 
 

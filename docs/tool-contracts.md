@@ -512,7 +512,7 @@ Author navigation — generic over 2D/3D, pass the node type names. All `mutatin
 |------|--------|---------|
 | `godot_navigation_setup_region` | `parent_path, region_type="NavigationRegion2D", name?, properties?` | `NavigationRegionResult { node_path, region_type, created }` |
 | `godot_navigation_setup_agent` | `parent_path, agent_type="NavigationAgent2D", name?, properties?` | `NavigationAgentResult { node_path, agent_type, created }` |
-| `godot_navigation_bake_mesh` | `node_path` | `BakeNavigationResult { node_path, baked }` |
+| `godot_navigation_bake_mesh` | `node_path` | `BakeNavigationResult { node_path, baked, polygon_count, vertex_count }` |
 | `godot_navigation_get_region` | `node_path` | `NavigationRegionInfo { node_path, has_polygon, outline_count, vertex_count, polygon_count }` (`read_only`) |
 | `godot_navigation_set_layers` | `node_path, layers[]` (1-based bit indices) | `NavigationLayersResult { node_path, navigation_layers }` |
 
@@ -521,7 +521,10 @@ assigned (NavigationPolygon for 2D, NavigationMesh for 3D) so it is ready to bak
 `godot_navigation_setup_agent` adds a NavigationAgent2D/3D configured with `properties`
 (radius, path_desired_distance, target_desired_distance, max_speed, …). `godot_navigation_bake_mesh`
 bakes the region's navmesh/navpoly synchronously (undo restores the pre-bake resource;
-a region with no navmesh returns a structured precondition). `godot_navigation_set_layers`
+a region with no navmesh returns a structured precondition). A bake that yields zero
+polygons (no source geometry parsed) is refused with a VALIDATION_ERROR naming the fix —
+`baked:true` is never reported for an empty navmesh (#413); a successful bake echoes
+`polygon_count`/`vertex_count` for verification. `godot_navigation_set_layers`
 turns `[1,3]` into the bitmask `5` on any node with a `navigation_layers` property.
 
 #### Audio (issue #44) — category: `audio` (gated off by default)

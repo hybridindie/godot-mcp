@@ -22,6 +22,10 @@ class NavigationAgentResult(BaseModel):
 class BakeNavigationResult(BaseModel):
     node_path: str
     baked: bool = False
+    # Only present on a real (non-dry-run) bake: the produced polygon/vertex
+    # counts — a bake yielding 0 polygons is refused by the addon (#413).
+    polygon_count: int | None = None
+    vertex_count: int | None = None
     dry_run: bool = False
 
 
