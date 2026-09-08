@@ -44,7 +44,7 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
             p = cmd.params
             return ResponseEnvelope.success(
                 cmd.id,
-                {"expression": p.get("expression"), "value": 42},
+                {"expression": p.get("expression"), "value": 42, "evaluated": True},
             )
         case "cmd_get_frame_variables":
             p = cmd.params
@@ -121,7 +121,33 @@ async def test_evaluate_expression() -> None:
     sc = result.structured_content
     assert sc["expression"] == "player.health * 2"
     assert sc["value"] == 42
+    # #411: evaluated distinguishes "expression is null" from "no reply yet".
+    assert sc["evaluated"] is True
     assert "cmd_evaluate_expression" in _commands(conn)
+
+
+async def test_empty_frames_carry_not_yet_hint() -> None:
+    # #411: frames:[] while breaked is "no reply cached yet" — the addon says so.
+    def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_get_stack_frames":
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "frames": [],
+                    "hint": "No stack dump cached yet; retry.",
+                },
+            )
+        return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
+
+    conn = FakeAddonConnection(responder=responder)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    server = create_server(ServerConfig(), bridge=bridge)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "debugger"})
+        result = await client.call_tool("godot_debugger_get_stack_frames", {})
+    sc = result.structured_content
+    assert sc["frames"] == []
+    assert "cached" in sc["hint"]
 
 
 async def test_get_frame_variables() -> None:

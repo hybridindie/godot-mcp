@@ -12,6 +12,8 @@ Gated in the ``debugger`` toolset.
 
 from __future__ import annotations
 
+import asyncio
+
 from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
@@ -30,6 +32,11 @@ from mcp_server.safety import RUNTIME
 from mcp_server.tools._route import route
 
 DEBUGGER = {DEBUGGER_TAG}
+
+# force_break lands a frame or two after the probe services the flag; poll the
+# break-state read before answering (import_asset-style, no editor-side sleep).
+_BREAK_POLL_INTERVAL_S = 0.1
+_BREAK_POLL_TIMEOUT_S = 2.0
 
 
 def register_debugger(mcp: FastMCP, bridge: Bridge) -> None:
@@ -70,8 +77,27 @@ def register_debugger(mcp: FastMCP, bridge: Bridge) -> None:
         WHEN NOT TO USE: You want the game to pause later when a specific line
         runs — use set_breakpoint(path, line) instead. force_break pauses
         immediately, which may land in an unrelated function.
+
+        Returns ``breaked``: whether the game actually entered the break loop
+        (polled for up to ~2s). ``force_break_sent`` with ``breaked=False``
+        means the break did NOT land — do not trust stack/input tools until
+        ``godot_runtime_is_playing`` shows ``paused=true``.
         """
-        return ForceBreakResult(**await route(bridge, "cmd_force_break", {}))
+        await route(bridge, "cmd_force_break", {})
+        # The probe services the break flag on its next frame — poll the
+        # break-state read (import_asset-style) so the result is honest (#411).
+        breaked = False
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + _BREAK_POLL_TIMEOUT_S
+        while True:
+            state = await bridge.send("cmd_get_debug_break_state", {})
+            if state.ok and (state.result or {}).get("breaked"):
+                breaked = True
+                break
+            if loop.time() >= deadline:
+                break
+            await asyncio.sleep(_BREAK_POLL_INTERVAL_S)
+        return ForceBreakResult(force_break_sent=True, breaked=breaked)
 
     # Tier 2: step control --------------------------------------------------
 

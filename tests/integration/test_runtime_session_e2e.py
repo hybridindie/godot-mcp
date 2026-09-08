@@ -96,8 +96,22 @@ async def _run() -> None:
         # force_break must pause WITHOUT the game cooperating: this played scene
         # has no script calling check_force_break(), so only the probe's own
         # _process servicing (issue #392) can bring the debugger to a halt.
+        # #411: the break state is observable — the probe services the flag on
+        # its next frame, so poll cmd_get_debug_break_state (exactly what the
+        # force_break tool does server-side).
         fb = await _ok(bridge, "cmd_force_break", {})
         assert fb["force_break_sent"] is True
+        breaked = False
+        for _ in range(40):
+            state = await _ok(bridge, "cmd_get_debug_break_state", {})
+            if state["breaked"]:
+                breaked = True
+                break
+            await asyncio.sleep(0.2)
+        assert breaked, "force_break did not report the game entering the break loop"
+        # #411: is_playing exposes paused=true while frozen at the break.
+        state = await _ok(bridge, "cmd_is_playing", {})
+        assert state["playing"] is True and state["paused"] is True
         paused = False
         for _ in range(30):
             frames = await bridge.send("cmd_get_stack_frames", {"frame": 0})
@@ -116,6 +130,9 @@ async def _run() -> None:
                 break
             await asyncio.sleep(0.25)
         assert resumed, "debugger still reports paused after continue_execution"
+        # #411: after continue, paused flips back to false.
+        state = await _ok(bridge, "cmd_is_playing", {})
+        assert state["paused"] is False
         await _ok(bridge, "cmd_stop_scene", {})
     finally:
         await bridge.close()

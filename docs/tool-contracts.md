@@ -744,7 +744,7 @@ answers `godot_mcp:` debugger queries. Play control is `runtime`; reads are `rea
 |------|--------|---------|
 | `godot_runtime_play_scene` | `scene_path?` | `PlayResult { playing, scene }` |
 | `godot_runtime_stop_scene` | — | `PlayResult { playing }` |
-| `godot_runtime_is_playing` | — | `PlayResult { playing, scene }` |
+| `godot_runtime_is_playing` | — | `PlayResult { playing, scene, paused }` |
 | `godot_runtime_get_game_scene_tree` | — | `GameSceneTreeResult { playing, connected, tree?, hint }` (read_only) |
 
 `godot_runtime_play_scene` runs `scene_path` (a `res://*.tscn`) or the main scene when omitted.
@@ -878,9 +878,9 @@ Control breakpoints, step execution, and inspect the paused call stack in a runn
 | `godot_debugger_set_breakpoint` | `path (res:// script), line` | `BreakpointResult { breakpoint_set, path, line }` |
 | `godot_debugger_remove_breakpoint` | `path, line` | `BreakpointResult { breakpoint_removed, path, line }` |
 | `godot_debugger_clear_breakpoints` | — | `ClearBreakpointsResult { breakpoints_cleared }` |
-| `godot_debugger_force_break` | — | `ForceBreakResult { force_break_sent }` |
+| `godot_debugger_force_break` | — | `ForceBreakResult { force_break_sent, breaked }` |
 
-`godot_debugger_set_breakpoint` uses `EditorDebuggerSession.set_breakpoint(path, line, true)`; `godot_debugger_remove_breakpoint` uses `set_breakpoint(path, line, false)`. `godot_debugger_clear_breakpoints` clears on the game side via the probe (when connected) and removes any individually tracked breakpoints on the editor side. `godot_debugger_force_break` sets `force_break_pending = true` in the probe; the probe services the flag itself from its own `_process` (calling the `breakpoint` keyword there), so games need no cooperation. `MCPRuntimeProbe.check_force_break()` remains public for games that want the break at a chosen point in their own loop instead (see `docs/debugger_feasibility.md` § Limitations). Note the ordering: as an autoload the probe's `_process` usually runs before game code in the same frame, so a cooperative game check will typically find the flag already cleared and the break will land in the probe instead — treat chosen-point timing as best-effort.
+`godot_debugger_set_breakpoint` uses `EditorDebuggerSession.set_breakpoint(path, line, true)`; `godot_debugger_remove_breakpoint` uses `set_breakpoint(path, line, false)`. `godot_debugger_clear_breakpoints` clears on the game side via the probe (when connected) and removes any individually tracked breakpoints on the editor side. `godot_debugger_force_break` sets `force_break_pending = true` in the probe; the probe services the flag itself from its own `_process` (calling the `breakpoint` keyword there), so games need no cooperation. The tool then polls a read-only `cmd_get_debug_break_state` for up to ~2s and reports `breaked` — whether the game actually entered the break loop (#411). `force_break_sent=true` with `breaked=false` means the break did NOT land: verify the probe autoload or restart the play session before trusting stack tools. `godot_runtime_is_playing` exposes `paused` so a game frozen at a break is distinguishable from running logic (#411). `MCPRuntimeProbe.check_force_break()` remains public for games that want the break at a chosen point in their own loop instead (see `docs/debugger_feasibility.md` § Limitations). Note the ordering: as an autoload the probe's `_process` usually runs before game code in the same frame, so a cooperative game check will typically find the flag already cleared and the break will land in the probe instead — treat chosen-point timing as best-effort.
 
 **Tier 2 — step control & stack inspection (issue #110 follow-up):**
 
@@ -890,11 +890,11 @@ Control breakpoints, step execution, and inspect the paused call stack in a runn
 | `godot_debugger_step_over` | — | `StepResult { stepped }` |
 | `godot_debugger_step_out` | — | `StepResult { stepped }` |
 | `godot_debugger_continue_execution` | — | `ContinueResult { running }` |
-| `godot_debugger_get_stack_frames` | — | `StackFramesResult { frames[] }` |
-| `godot_debugger_evaluate_expression` | `expression, frame=0` | `EvaluationResult { expression, value }` |
+| `godot_debugger_get_stack_frames` | — | `StackFramesResult { frames[], hint }` |
+| `godot_debugger_evaluate_expression` | `expression, frame=0` | `EvaluationResult { expression, value, evaluated }` |
 | `godot_debugger_get_frame_variables` | `frame=0` | `FrameVarsResult { frame, locals[], members[], globals[] }` |
 
-Step tools send `step`/`next`/`out`/ `continue` via `EditorDebuggerSession.send_message` and require the game to be paused (`session.is_breaked()`). `godot_debugger_get_stack_frames` returns the current call stack from the debugger protocol (`get_stack_dump` → `stack_dump`); `godot_debugger_evaluate_expression` evaluates a GDScript expression at the given frame (`evaluate` → `evaluation_return`); `godot_debugger_get_frame_variables` fetches locals, members, and globals (`get_stack_frame_vars` → `stack_frame_vars`). All three are captured via the poll-and-cache pattern on `MCPDebugger`, so the first call after a break may return empty data until the async reply arrives.
+Step tools send `step`/`next`/`out`/ `continue` via `EditorDebuggerSession.send_message` and require the game to be paused (`session.is_breaked()`). `godot_debugger_get_stack_frames` returns the current call stack from the debugger protocol (`get_stack_dump` → `stack_dump`); an empty `frames:[]` carries a `hint` — the poll-and-cache reply is async, so empty means "not yet received", not "empty call stack" (#411). `godot_debugger_evaluate_expression` evaluates a GDScript expression at the given frame (`evaluate` → `evaluation_return`) and echoes `evaluated` so a null `value` is distinguishable from "no reply yet" (#411). `godot_debugger_get_frame_variables` fetches locals, members, and globals (`get_stack_frame_vars` → `stack_frame_vars`). All three are captured via the poll-and-cache pattern on `MCPDebugger`, so the first call after a break may return empty data until the async reply arrives.
 
 #### Profiling (issue #38) — category: `profiling` (gated off by default)
 

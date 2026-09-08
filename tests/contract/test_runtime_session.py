@@ -31,7 +31,9 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
         case "cmd_stop_scene":
             return ResponseEnvelope.success(cmd.id, {"playing": False})
         case "cmd_is_playing":
-            return ResponseEnvelope.success(cmd.id, {"playing": True, "scene": "res://main.tscn"})
+            return ResponseEnvelope.success(
+                cmd.id, {"playing": True, "scene": "res://main.tscn", "paused": False}
+            )
         case "cmd_get_game_scene_tree":
             return ResponseEnvelope.success(
                 cmd.id, {"playing": True, "connected": True, "tree": _TREE}
@@ -75,6 +77,9 @@ async def test_play_stop_and_is_playing() -> None:
     assert played.structured_content["playing"] is True
     assert played.structured_content["scene"] == "res://main.tscn"
     assert playing.structured_content["playing"] is True
+    # #411: is_playing must expose the debug break state so an agent can tell
+    # "frozen at a breakpoint" from "game logic running".
+    assert playing.structured_content["paused"] is False
     assert stopped.structured_content["playing"] is False
 
 

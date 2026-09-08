@@ -52,9 +52,18 @@ func _cmd_stop_scene(_params: Dictionary) -> Dictionary:
 
 
 func _cmd_is_playing(_params: Dictionary) -> Dictionary:
+	# "paused" distinguishes a game frozen in the debugger break loop from one
+	# whose logic is actually running — after force_break this is the tell an
+	# agent needs before trusting input/probe results (#411).
+	var paused := false
+	if _router._debugger != null and _router._debugger.get_session_id() >= 0:
+		var session = _router._debugger.get_session(_router._debugger.get_session_id())
+		if session != null:
+			paused = session.is_breaked()
 	return _router._ok({
 		"playing": EditorInterface.is_playing_scene(),
 		"scene": EditorInterface.get_playing_scene(),
+		"paused": paused,
 	})
 
 

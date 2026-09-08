@@ -26,6 +26,10 @@ class ForceBreakResult(BaseModel):
     """Outcome of requesting a forced break in the running game."""
 
     force_break_sent: bool = False
+    # Whether the debugger session is (now) in a break state. False means the
+    # break was requested but the game has not entered the debug loop (issue
+    # #411) — e.g. no probe cooperation; treat stack tools as unreliable.
+    breaked: bool = False
 
 
 class StepResult(BaseModel):
@@ -44,6 +48,9 @@ class StackFramesResult(BaseModel):
     """Outcome of requesting the current call stack."""
 
     frames: list[dict[str, Any]] = Field(default_factory=list)
+    # Present when frames:[] means "no reply cached yet" rather than "empty
+    # stack" — the poll-and-cache reply is async (issue #411).
+    hint: str = ""
 
 
 class EvaluationResult(BaseModel):
@@ -51,6 +58,9 @@ class EvaluationResult(BaseModel):
 
     expression: str = ""
     value: Any = None
+    # True when an evaluation reply was actually received; value:null with
+    # evaluated=False means "no result yet", not "expression is null" (#411).
+    evaluated: bool = False
 
 
 class FrameVarsResult(BaseModel):
