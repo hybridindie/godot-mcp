@@ -58,6 +58,7 @@ The accepted shapes:
 | `Color` | `{"r":…,"g":…,"b":…,"a":…}` or hex string | `"#ff0000"` / `{"r":1,"g":0,"b":0,"a":1}` |
 | `Rect2` / `Rect2i` | `{"position":{x,y},"size":{x,y}}` or `"Rect2(x, y, w, h)"` | `{"position":{"x":0,"y":0},"size":{"x":4,"y":5}}` |
 | `NodePath` / `StringName` | string | `"Player/Sprite2D"` |
+| Object (Resource) | `"res://…"` path (loaded via `ResourceLoader`) or `null` to clear | `"res://materials/stone.tres"` |
 | `int` / `float` / `bool` / `String` | the primitive as-is | `42`, `1.5`, `true`, `"hi"` |
 
 The addon coercion is the fallback: a string like `"Vector2(100, 200)"` or a bare array
@@ -263,7 +264,11 @@ UndoRedo-wrapped `cmd_*` handler and runs preconditions first.
 
  - `godot_scene_edit_set_node_property` coerces JSON to the property's declared Godot type via
    `type_coerce.from_json` (Vector2/3 & Color as `{…}` objects or arrays, NodePath as string,
-   plus string forms like `"Vector2(100, 200)"` and `"#ff0000"` — issue #51).
+   plus string forms like `"Vector2(100, 200)"` and `"#ff0000"` — issue #51). Object-typed
+   properties accept a `res://`/`uid://` path (loaded via `ResourceLoader`) or `null` to clear;
+   a missing resource is a structured `RESOURCE_NOT_FOUND`, and a set that lands as `null`
+   (engine rejected the assignment) is a `VALIDATION_ERROR` — the tool never reports
+   `set:true` for a write that didn't stick (issue #414).
  - `godot_scene_edit_delete_node` (destructive) requires `confirm=True` to delete; `dry_run=True` previews
    without confirming. The addon also honors the `confirm` flag defensively.
  - `godot_scene_edit_create_scene` writes a new `.tscn`/`.scn` and opens it; it is a file creation, not a

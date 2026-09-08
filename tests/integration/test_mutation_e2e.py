@@ -95,6 +95,87 @@ async def _run_roundtrip() -> None:
         await bridge.close()
 
 
+# #414: a res:// path for an Object-typed property must be coerced via load(),
+# and a failed/absent assignment must never report set:true.
+async def _run_object_property_coercion() -> None:
+    bridge = Bridge(BridgeConfig(url=BRIDGE_URL))
+    if not await serve_and_await_editor(bridge):
+        raise AssertionError("the addon never connected to the bridge")
+    scratch = "res://e2e_obj_prop.tscn"
+    scratch_file = GODOT_PROJECT / "e2e_obj_prop.tscn"
+    mat_path = GODOT_PROJECT / "e2e_obj_prop_mat.tres"
+    mat_code = (
+        "[gd_resource type=\"StandardMaterial3D\" format=3]\n"
+        "[resource]\n"
+        "resource_name = \"e2e_mat\"\n"
+        "albedo_color = Color(1, 0, 0, 1)\n"
+    )
+    try:
+        mat_path.write_text(mat_code, encoding="utf-8")
+        created = await _ok(
+            bridge,
+            "cmd_create_scene",
+            {"root_type": "MeshInstance3D", "scene_path": scratch},
+        )
+        assert created["created"] is True
+        await _wait_scene_open(bridge)
+
+        # Happy path: res:// path coerces via load() for the Object property.
+        was_set = await _ok(
+            bridge,
+            "cmd_set_node_property",
+            {
+                "node_path": ".",
+                "property": "material_override",
+                "value": "res://e2e_obj_prop_mat.tres",
+            },
+        )
+        assert was_set["set"] is True
+        assert was_set["value"] == "res://e2e_obj_prop_mat.tres", (
+            f"material_override did not land (echo={was_set['value']})"
+        )
+
+        # A nonexistent res:// path must fail, not silently set null.
+        bad = await bridge.send(
+            "cmd_set_node_property",
+            {
+                "node_path": ".",
+                "property": "material_override",
+                "value": "res://no_such_material.tres",
+            },
+        )
+        assert bad.ok is False and bad.error == "RESOURCE_NOT_FOUND", (
+            f"missing path silently set: {bad.error} {bad.hint}"
+        )
+        cleared = await _ok(
+            bridge, "cmd_get_node_property", {"node_path": ".", "property": "material_override"}
+        )
+        assert cleared["value"] in (None, "res://e2e_obj_prop_mat.tres")
+    finally:
+        await bridge.close()
+        scratch_file.unlink(missing_ok=True)
+        (GODOT_PROJECT / "e2e_obj_prop_mat.tres").unlink(missing_ok=True)
+        (GODOT_PROJECT / "e2e_obj_prop_mat.tres.uid").unlink(missing_ok=True)
+
+
+def test_live_editor_set_node_property_object_coercion() -> None:
+    assert GODOT_BIN is not None
+    editor = subprocess.Popen(
+        [GODOT_BIN, "--headless", "--editor", "--path", str(GODOT_PROJECT)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        env={**os.environ, "GODOT_MCP_BRIDGE_URL": BRIDGE_URL},
+    )
+    try:
+        asyncio.run(_run_object_property_coercion())
+    finally:
+        editor.terminate()
+        try:
+            editor.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            editor.kill()
+
+
 def test_live_editor_mutation_roundtrip() -> None:
     assert GODOT_BIN is not None
     editor = subprocess.Popen(
