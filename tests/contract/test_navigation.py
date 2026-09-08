@@ -38,7 +38,10 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                 },
             )
         case "cmd_bake_navigation_mesh":
-            return ResponseEnvelope.success(cmd.id, {"node_path": p["node_path"], "baked": True})
+            return ResponseEnvelope.success(
+                cmd.id,
+                {"node_path": p["node_path"], "baked": True, "polygon_count": 3, "vertex_count": 9},
+            )
         case "cmd_get_navigation_region":
             if p["node_path"] == "EmptyRegion":
                 return ResponseEnvelope.success(
@@ -120,6 +123,9 @@ async def test_region_agent_and_bake() -> None:
     assert region.structured_content["node_path"] == "./NavigationRegion3D"
     assert agent.structured_content["agent_type"] == "NavigationAgent2D"
     assert baked.structured_content["baked"] is True
+    # #413: the bake echoes the produced geometry so an agent can verify it.
+    assert baked.structured_content["polygon_count"] == 3
+    assert baked.structured_content["vertex_count"] == 9
 
 
 async def test_set_navigation_layers_bitmask() -> None:

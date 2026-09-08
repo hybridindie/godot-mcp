@@ -75,9 +75,14 @@ async def _run() -> None:
         assert by_name["Nav"] == "NavigationRegion3D"
         assert by_name["Agent"] == "NavigationAgent3D"
 
-        # bake the (empty) navmesh — completes synchronously without error
-        baked = await _ok(bridge, "cmd_bake_navigation_mesh", {"node_path": "Nav"})
-        assert baked["baked"] is True
+        # #413: baking a navmesh with no source geometry must NOT claim baked:true.
+        # setup_region assigns a fresh empty NavigationMesh; with no parsed geometry
+        # the bake yields 0 polygons — the addon must report the honest result.
+        baked_empty = await bridge.send("cmd_bake_navigation_mesh", {"node_path": "Nav"})
+        assert baked_empty.ok is False and baked_empty.error == "VALIDATION_ERROR", (
+            f"empty navmesh bake reported ok: {baked_empty.error} {baked_empty.hint}"
+        )
+        assert "polygon" in str(baked_empty.hint or "").lower(), str(baked_empty.hint)
 
         # navigation layers from 1-based bit indices
         layers = await _ok(
