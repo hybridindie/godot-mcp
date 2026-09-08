@@ -187,12 +187,24 @@ func _cmd_delete_resource_file(params: Dictionary) -> Dictionary:
 	var uid_bytes := FileAccess.get_file_as_bytes(uid_path) if had_uid else PackedByteArray()
 	# Close the scene tab BEFORE the undoable delete so the editor forgets the
 	# in-memory scene; open tabs of .tscn/.scn files are the resurrection trap.
+	# close_scene() only closes the ACTIVE tab (Godot 4.7 EditorInterface has no
+	# close-by-path), so when the target is open but not active we must activate
+	# it first (open_scene_from_path re-activates an already-open tab) and verify
+	# the switch landed before closing — otherwise we'd close the wrong tab and
+	# discard unsaved work in an unrelated scene.
 	var tab_closed := false
 	if path.ends_with(".tscn") or path.ends_with(".scn"):
 		for open_path in EditorInterface.get_open_scenes():
-			if open_path == path:
-				tab_closed = EditorInterface.close_scene() == OK or tab_closed
-				break
+			if open_path != path:
+				continue
+			var active_root := EditorInterface.get_edited_scene_root()
+			if active_root == null or active_root.scene_file_path != path:
+				EditorInterface.open_scene_from_path(path)
+				active_root = EditorInterface.get_edited_scene_root()
+				if active_root == null or active_root.scene_file_path != path:
+					break  # activation failed — refuse to guess which tab is active
+			tab_closed = EditorInterface.close_scene() == OK
+			break
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Delete file %s" % path)
 	ur.add_do_method(_router, "_remove_file_with_uid", path)

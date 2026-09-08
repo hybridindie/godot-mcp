@@ -147,6 +147,72 @@ async def _run_delete_open_scene() -> None:
         (GODOT_PROJECT / "tmp_e2e_delete_tab.tscn.uid").unlink(missing_ok=True)
 
 
+# Qodo PR-review finding (PR #440): close_scene() closes the ACTIVE tab — with
+# multiple tabs open and the deleted scene NOT active, the old code closed the
+# wrong scene. The handler must activate the target tab first (open_scene_from_path
+# re-activates an already-open tab) and verify the switch before closing.
+async def _run_delete_open_scene_multi_tab() -> None:
+    bridge = Bridge(BridgeConfig(url=BRIDGE_URL))
+    if not await serve_and_await_editor(bridge):
+        raise AssertionError("the addon never connected to the bridge")
+    victim = "res://tmp_e2e_delete_tab_victim.tscn"
+    bystander = "res://tmp_e2e_delete_tab_bystander.tscn"
+    victim_file = GODOT_PROJECT / "tmp_e2e_delete_tab_victim.tscn"
+    bystander_file = GODOT_PROJECT / "tmp_e2e_delete_tab_bystander.tscn"
+    try:
+        # Create two scenes; the second create leaves it open+active.
+        created = await _ok(
+            bridge,
+            "cmd_create_scene",
+            {"root_type": "Node3D", "scene_path": victim},
+        )
+        assert created["created"] is True
+        await _ok(
+            bridge,
+            "cmd_create_node",
+            {"parent_path": ".", "node_type": "Node3D", "name": "VictimMarker"},
+        )
+        created = await _ok(
+            bridge,
+            "cmd_create_scene",
+            {"root_type": "Node3D", "scene_path": bystander},
+        )
+        assert created["created"] is True
+        await _ok(
+            bridge,
+            "cmd_create_node",
+            {"parent_path": ".", "node_type": "Node3D", "name": "BystanderMarker"},
+        )
+
+        # The victim is open but NOT active — delete it from under the bystander.
+        active = await _ok(bridge, "cmd_get_active_scene", {})
+        assert active["path"] == bystander, f"precondition: bystander not active ({active})"
+        deleted = await _ok(bridge, "cmd_delete_resource_file", {"path": victim})
+        assert deleted["deleted"] is True
+        assert deleted["tab_closed"] is True
+        assert not victim_file.exists()
+
+        # The bystander tab must survive with its content intact.
+        open_scenes = await _ok(bridge, "cmd_list_open_scenes", {})
+        open_paths = [str(s["path"]) for s in open_scenes["scenes"]]
+        assert bystander in open_paths, f"wrong tab closed: bystander missing from {open_paths}"
+        assert victim not in open_paths, f"victim tab still open: {open_paths}"
+        await _ok(
+            bridge,
+            "cmd_open_scene",
+            {"scene_path": bystander},
+        )
+        tree = await _ok(bridge, "cmd_get_scene_tree", {})
+        names = [c["name"] for c in tree["tree"]["children"]]
+        assert "BystanderMarker" in names, f"bystander content lost: {names}"
+    finally:
+        await bridge.close()
+        victim_file.unlink(missing_ok=True)
+        (GODOT_PROJECT / "tmp_e2e_delete_tab_victim.tscn.uid").unlink(missing_ok=True)
+        bystander_file.unlink(missing_ok=True)
+        (GODOT_PROJECT / "tmp_e2e_delete_tab_bystander.tscn.uid").unlink(missing_ok=True)
+
+
 def test_live_delete_open_scene_closes_tab() -> None:
     assert GODOT_BIN is not None
     editor = subprocess.Popen(
@@ -165,3 +231,25 @@ def test_live_delete_open_scene_closes_tab() -> None:
             editor.kill()
         (GODOT_PROJECT / "tmp_e2e_delete_tab.tscn").unlink(missing_ok=True)
         (GODOT_PROJECT / "tmp_e2e_delete_tab.tscn.uid").unlink(missing_ok=True)
+
+
+def test_live_delete_open_scene_multi_tab_closes_correct_tab() -> None:
+    assert GODOT_BIN is not None
+    editor = subprocess.Popen(
+        [GODOT_BIN, "--headless", "--editor", "--path", str(GODOT_PROJECT)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        env={**os.environ, "GODOT_MCP_BRIDGE_URL": BRIDGE_URL},
+    )
+    try:
+        asyncio.run(_run_delete_open_scene_multi_tab())
+    finally:
+        editor.terminate()
+        try:
+            editor.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            editor.kill()
+        (GODOT_PROJECT / "tmp_e2e_delete_tab_victim.tscn").unlink(missing_ok=True)
+        (GODOT_PROJECT / "tmp_e2e_delete_tab_victim.tscn.uid").unlink(missing_ok=True)
+        (GODOT_PROJECT / "tmp_e2e_delete_tab_bystander.tscn").unlink(missing_ok=True)
+        (GODOT_PROJECT / "tmp_e2e_delete_tab_bystander.tscn.uid").unlink(missing_ok=True)
