@@ -172,6 +172,9 @@ func _cmd_uid_to_path(params: Dictionary) -> Dictionary:
 ## handlers (issue #217). res:// containment is enforced server-side; the check here
 ## is defense-in-depth. Undoable: the file (and uid) bytes are captured first and
 ## restored on undo, so binary resources round-trip exactly.
+## A deleted *scene* that is open in the editor also gets its tab closed (issue
+## #422): the stale in-memory copy would otherwise linger and a later
+## create_scene at the same path resurrects mangled duplicate nodes.
 func _cmd_delete_resource_file(params: Dictionary) -> Dictionary:
 	var path := str(params.get("path", ""))
 	if not path.begins_with("res://"):
@@ -182,6 +185,14 @@ func _cmd_delete_resource_file(params: Dictionary) -> Dictionary:
 	var uid_path := path + ".uid"
 	var had_uid := FileAccess.file_exists(uid_path)
 	var uid_bytes := FileAccess.get_file_as_bytes(uid_path) if had_uid else PackedByteArray()
+	# Close the scene tab BEFORE the undoable delete so the editor forgets the
+	# in-memory scene; open tabs of .tscn/.scn files are the resurrection trap.
+	var tab_closed := false
+	if path.ends_with(".tscn") or path.ends_with(".scn"):
+		for open_path in EditorInterface.get_open_scenes():
+			if open_path == path:
+				tab_closed = EditorInterface.close_scene() == OK or tab_closed
+				break
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Delete file %s" % path)
 	ur.add_do_method(_router, "_remove_file_with_uid", path)
@@ -189,6 +200,7 @@ func _cmd_delete_resource_file(params: Dictionary) -> Dictionary:
 	if had_uid:
 		ur.add_undo_method(_router, "_write_file_bytes", uid_path, uid_bytes)
 	ur.commit_action()
-	return _router._ok({"path": path, "deleted": true, "had_uid": had_uid})
+	EditorInterface.get_resource_filesystem().update_file(path)
+	return _router._ok({"path": path, "deleted": true, "had_uid": had_uid, "tab_closed": tab_closed})
 
 
