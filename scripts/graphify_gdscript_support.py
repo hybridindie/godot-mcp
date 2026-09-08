@@ -101,58 +101,72 @@ _CALL_BRANCH = '''            elif config.ts_module == "tree_sitter_gdscript":
 '''
 
 
-def _patch_extract(extract_py: Path) -> None:
-    src = extract_py.read_text()
+def _patch_extract(extract_py: Path, engine_py: Path) -> None:
+    # v0.9.56 layout: the LanguageConfig/dispatch tables live in extract.py, but
+    # the generic extractor engine (_extract_generic + the Language() wrap +
+    # the generic call handler) moved to extractors/engine.py. Write after each
+    # successful step so a later anchor mismatch can't silently drop earlier
+    # patches (the original bug: a step-3 exit lost steps 1-2's in-memory work).
 
-    # 1. Config + wrapper, inserted before extract_lua.
+    # -- extract.py: config + wrapper (before extract_lua), then dispatch entry.
+    src = extract_py.read_text()
+    changed = False
     if "_GDSCRIPT_CONFIG" not in src:
         anchor = "def extract_lua(path: Path) -> dict:"
         if anchor not in src:
             raise SystemExit("extract.py: extract_lua anchor not found")
         src = src.replace(anchor, _CONFIG_BLOCK + anchor, 1)
+        changed = True
         print("extract.py: added _GDSCRIPT_CONFIG + extract_gdscript")
     else:
         print("extract.py: _GDSCRIPT_CONFIG already present")
-
-    # 2. Dispatch entry.
     if '".gd": extract_gdscript' not in src:
         anchor = '    ".lua": extract_lua,\n'
         if anchor not in src:
             raise SystemExit("extract.py: _DISPATCH lua anchor not found")
         src = src.replace(anchor, anchor + '    ".gd": extract_gdscript,\n', 1)
+        changed = True
         print("extract.py: registered .gd in _DISPATCH")
     else:
         print("extract.py: .gd already in _DISPATCH")
+    if changed:
+        extract_py.write_text(src)
 
-    # 3. Language-wrap fix (accept a provider that already returns a Language).
+    # -- engine.py: Language-wrap fix (a Language-returning provider, which the
+    # tree-sitter-language-pack shim is, is not itself a valid Language() arg).
+    src = engine_py.read_text()
+    changed = False
     if "_raw_lang = lang_fn()" not in src:
         anchor = "        language = Language(lang_fn())\n"
         if anchor not in src:
-            raise SystemExit("extract.py: Language(lang_fn()) anchor not found")
+            raise SystemExit("engine.py: Language(lang_fn()) anchor not found")
         replacement = (
             "        _raw_lang = lang_fn()\n"
             "        language = _raw_lang if isinstance(_raw_lang, Language) "
             "else Language(_raw_lang)\n"
         )
         src = src.replace(anchor, replacement, 1)
-        print("extract.py: made Language() robust to Language-returning providers")
+        changed = True
+        print("engine.py: made Language() robust to Language-returning providers")
     else:
-        print("extract.py: Language-wrap fix already present")
+        print("engine.py: Language-wrap fix already present")
 
-    # 4. Positional-callee branch in the generic call handler.
+    # -- engine.py: positional-callee branch in the generic call handler.
     if "# GDScript: callee is the first identifier child" not in src:
         anchor = (
             "            else:\n"
             "                # Generic: get callee from call_function_field\n"
+            "                # (or constructor on new_expression)\n"
         )
         if anchor not in src:
-            raise SystemExit("extract.py: generic call-handler anchor not found")
+            raise SystemExit("engine.py: generic call-handler anchor not found")
         src = src.replace(anchor, _CALL_BRANCH + anchor, 1)
-        print("extract.py: added GDScript positional-callee branch")
+        changed = True
+        print("engine.py: added GDScript positional-callee branch")
     else:
-        print("extract.py: GDScript call branch already present")
-
-    extract_py.write_text(src)
+        print("engine.py: GDScript call branch already present")
+    if changed:
+        engine_py.write_text(src)
 
 
 def main() -> None:
@@ -164,7 +178,7 @@ def main() -> None:
     _ensure_language_pack()
     _write_shim(site_dir)
     _patch_detect(gdir / "detect.py")
-    _patch_extract(gdir / "extract.py")
+    _patch_extract(gdir / "extract.py", gdir / "extractors" / "engine.py")
     print(
         "\nDone. Verify with:\n"
         "  python -c \"from graphify.extract import _DISPATCH; print('.gd' in _DISPATCH)\""
