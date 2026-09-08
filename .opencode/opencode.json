@@ -29,8 +29,9 @@
       "enabled": true
     },
     "graphify": {
+      "_comment": "Serves graphify-out/graph.json over stdio. Uses the uv-tool-installed graphifyy venv (bare python3 can't import graphify/mcp); 'graphify-mcp' resolves to the same interpreter. Requires `uv tool install graphifyy --with mcp` + one `graphify update .` to seed graphify-out/.",
       "type": "local",
-      "command": ["python3", "-m", "graphify.serve"],
+      "command": ["/Users/johnd/.local/share/uv/tools/graphifyy/bin/python", "-m", "graphify.serve", "graphify-out/graph.json"],
       "enabled": true,
       "timeout": 10000
     },
