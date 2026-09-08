@@ -1,10 +1,10 @@
 # .graphifyignore — focus the knowledge graph on the MCP *itself*:
 #   - mcp_server/                 the Python FastMCP server (the AI-facing product)
 #   - godot/addons/godot_mcp/     the Godot addon (the .gd half of the MCP)
-#   - docs/                       its architecture/contract docs
+#   - docs/ + .opencode/rules/    its architecture/contract docs + grounding rules
 #
 # GDScript (.gd) support is added to the installed graphify by
-# scripts/graphify_gdscript_support.py (re-run after any `graphify install`).
+# scripts/graphify_gdscript_support.py (re-run after any `graphify install`/upgrade).
 #
 # Everything below is a SEPARATE project, a harness/consumer, or a generated/
 # meta artifact that otherwise dominates the graph (e.g. FakeAddonConnection,
@@ -35,17 +35,14 @@ godot/tests/
 # Generated graph output + its extraction cache.
 graphify-out/
 
-# CI / harness / agent meta — not the product. But KEEP the grounding rules
-# (.claude/rules/*.md — the addon / architecture / mcp-tools / error-handling
-# constitution): durable design rationale the graph wants (parity with
-# godot-agents). Re-include via the leaf pattern — a fully-excluded parent dir
-# can't be re-included, so exclude .claude/* then negate rules/.
+# CI / harness / agent meta — not the product. The grounding rules now live in
+# .opencode/rules/ (kept — durable design rationale the graph wants; see the
+# docs/ note above). .claude/ and docs/superpowers/plans/ were removed from the
+# repo (8f4b1ab / #347); their entries below are harmless belt-and-braces.
+
 .github/
 .claude/*
 !.claude/rules/
-
-# Historic process artifacts — step-by-step implementation-plan checklists
-# (parity with godot-agents, which excludes docs/superpowers/plans/).
 docs/superpowers/plans/
 
 # Generated dependency lock (huge, not architecturally meaningful).
@@ -58,3 +55,7 @@ uv.lock
 .venv/
 *.uid
 *.import
+
+# Local plugin deps (js) — vendored packages, not project architecture.
+.opencode/node_modules/
+.opencode/package-lock.json
