@@ -88,17 +88,43 @@ func _cmd_set_node_property(params: Dictionary) -> Dictionary:
 	if prop_type == -1:
 		return _router._fail("VALIDATION_ERROR", "Node has no property '%s'." % property)
 
+	# Object-typed properties accept a res:// path and load it (issue #414) —
+	# the generic from_json falls through to the raw value, which set() then
+	# silently no-ops on a typed Object property while reporting success.
+	var new_value: Variant
+	if prop_type == TYPE_OBJECT:
+		var coerced: Dictionary = Coerce.object_from_json(params.get("value"))
+		if not bool(coerced.get("ok", false)):
+			return _router._fail(
+				str(coerced.get("error", "VALIDATION_ERROR")),
+				"Setting '%s' failed: %s" % [property, str(coerced.get("hint", ""))],
+				"value",
+			)
+		new_value = coerced["value"]
+	else:
+		new_value = Coerce.from_json(params.get("value"), prop_type)
+
 	var old_value: Variant = node.get(property)
-	var new_value: Variant = Coerce.from_json(params.get("value"), prop_type)
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Set %s.%s" % [String(node.name), property])
 	ur.add_do_property(node, property, new_value)
 	ur.add_undo_property(node, property, old_value)
 	ur.commit_action()
+	var read_back: Variant = node.get(property)
+	# The echo is the agent's only verifier: a null read-back after a non-null
+	# write means the engine rejected the assignment (e.g. a dimension/type
+	# mismatch) — report that, never set:true (issue #414).
+	if read_back == null and new_value != null:
+		return _router._fail(
+			"VALIDATION_ERROR",
+			"Setting '%s' did not land (reads back null after the set). The value may be "
+				+ "incompatible with the property's expected type." % property,
+			"value",
+		)
 	return _router._ok({
 		"node_path": str(params.get("node_path")),
 		"property": property,
-		"value": Coerce.to_json(node.get(property)),
+		"value": Coerce.to_json(read_back),
 		"set": true,
 	})
 

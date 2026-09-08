@@ -131,6 +131,44 @@ static func _from_string(value: String, type: int) -> Variant:
 	return null
 
 
+## Coerce a JSON string into an Object-typed property value (issue #414).
+## A "res://" path loads the resource (so set_node_property can assign
+## materials/shaders/scripts); a null/missing value stays null (the honest
+## "clear this property" case); anything else for TYPE_OBJECT is left for the
+## caller to reject. Returns {ok, value} — ok=false means "not coercible".
+static func object_from_json(value: Variant) -> Dictionary:
+	if value == null:
+		return {"ok": true, "value": null}
+	if value is String:
+		var path := str(value)
+		if path.begins_with("res://") or path.begins_with("uid://"):
+			if not ResourceLoader.exists(path):
+				return {"ok": false, "error": "RESOURCE_NOT_FOUND", "hint": "No resource at '%s'." % path}
+			var loaded: Resource = load(path)
+			if loaded == null:
+				return {"ok": false, "error": "RESOURCE_NOT_FOUND", "hint": "Could not load '%s'." % path}
+			return {"ok": true, "value": loaded}
+	return {"ok": false, "error": "VALIDATION_ERROR", "hint": "Object properties accept a res:// path or null; got %s." % _json_type_name(value)}
+
+
+static func _json_type_name(value: Variant) -> String:
+	match typeof(value):
+		TYPE_STRING:
+			return "a string"
+		TYPE_INT:
+			return "an int"
+		TYPE_FLOAT:
+			return "a float"
+		TYPE_BOOL:
+			return "a bool"
+		TYPE_DICTIONARY:
+			return "an object"
+		TYPE_ARRAY:
+			return "an array"
+		_:
+			return str(typeof(value))
+
+
 static func _has_rect_keys(value: Variant) -> bool:
 	return value is Dictionary and value.has("position") and value.has("size")
 
