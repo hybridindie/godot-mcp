@@ -10,25 +10,24 @@ paths:
 
 The project's knowledge graph (`graphify-out/`) is built with the **graphify**
 CLI. The LLM backend, model, and tuning live in the repo-root `.env`
-(gitignored), not on the command line. The default backend is the **MLflow AI
-Gateway** (OpenAI-compatible); local **ollama** is the fallback.
-`detect_backend()` checks `openai` **before** `ollama`, so the gateway wins
-whenever its key is present (an incidental `OLLAMA_BASE_URL` never shadows it):
+(gitignored), not on the command line.
+
+**Policy: LOCAL OLLAMA ONLY — no cloud models.** graphify's `detect_backend()`
+checks cloud keys (gemini → kimi → claude → openai → deepseek) **before**
+`ollama`, so the only safe configuration is the one this repo pins: no cloud
+API keys in `.env` (or the environment), ollama vars set. `.env` must never
+contain `OPENAI_*`, `ANTHROPIC_*`, `GEMINI_*`, `KIMI_*`, or `DEEPSEEK_*` keys:
 
 ```
-# Primary: MLflow AI Gateway (OpenAI-compatible /deployments route)
-OPENAI_BASE_URL=https://mlflow.johndstudios.net/gateway/mlflow/v1  # base ends at /v1
-OPENAI_API_KEY=gateway                    # placeholder — the gateway needs no secret
-GRAPHIFY_OPENAI_MODEL=gpt-oss-120b-cloud  # or glm-5.2-cloud
-GRAPHIFY_API_TIMEOUT=600
-
-# Fallback: local ollama (used only if the OPENAI_* block is removed, or with
-# an explicit `--backend ollama`)
+# Local ollama (OpenAI-compatible endpoint on localhost:11434)
 OLLAMA_BASE_URL=http://localhost:11434/v1
-OLLAMA_MODEL=qwen3-coder-next:cloud
-OLLAMA_API_KEY=ollama
+OLLAMA_MODEL=qwen2.5-coder:7b   # any model pulled with `ollama pull`
+OLLAMA_API_KEY=ollama           # any non-empty value; silences the F-029 warning
 GRAPHIFY_OLLAMA_KEEP_ALIVE=30m
 ```
+
+If a cloud key appears in the ambient environment, do not let auto-detect pick
+it up — run with an explicit `--backend ollama` or unset the key first.
 
 ## The rule: always observe `.env` when running graphify
 
@@ -55,10 +54,11 @@ spawned by tooling don't auto-source it. Without these vars `detect_backend()`
 returns `None` — no LLM backend, so community labeling falls back to
 `Community N` placeholders and any extraction/label step errors out.
 
-Sourcing `.env` makes auto-detect resolve to `openai` pointed at the gateway (no
-`--backend`/`--model` flags needed). The `/graphify` *skill* flow is separate: it
-dispatches Claude subagents (or Gemini), not the gateway — the CLI backend in
-this rule covers `scripts/graphify.sh` only.
+Sourcing `.env` makes auto-detect resolve to `ollama` (no cloud keys are set;
+if one ever leaks into the environment, pass `--backend ollama` explicitly).
+The `/graphify` *skill* flow is separate: it dispatches Claude subagents (or
+Gemini), not the gateway — the CLI backend in this rule covers
+`scripts/graphify.sh` only.
 
 ## Auto-refresh on commit (git hooks)
 
@@ -89,7 +89,7 @@ then read it as a lightweight architecture self-review:
 
 ```bash
 scripts/graphify.sh update .    # structure reflects the branch (free, AST-only)
-scripts/graphify.sh label .     # regenerate community names via the gateway
+scripts/graphify.sh label .     # regenerate community names via local ollama
 ```
 
 Then glance at `graphify-out/GRAPH_REPORT.md` — **God Nodes** + **Surprising
@@ -105,9 +105,9 @@ adds commit churn.
 ## Maintenance
 
 - The `openai` package must be present in graphify's tool env (it is imported
-  lazily for the gateway/ollama backends). If a run errors with
-  `No module named 'openai'`, install it into the pinned interpreter:
-  `uv pip install --python "$(cat graphify-out/.graphify_python)" openai`.
+  lazily for the ollama OpenAI-compatible client). If a run errors with
+  `No module named 'openai'`, reinstall with:
+  `uv tool install graphifyy --with mcp --with openai --force`.
 
 - After any `graphify` upgrade/reinstall, re-run `scripts/graphify_gdscript_support.py`
   with the pinned interpreter — the site-packages `.gd` patch is wiped on reinstall.
