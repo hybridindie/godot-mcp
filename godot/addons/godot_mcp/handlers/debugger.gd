@@ -18,6 +18,9 @@ func register(handlers: Dictionary) -> void:
 	handlers["cmd_remove_breakpoint"] = _cmd_remove_breakpoint
 	handlers["cmd_clear_breakpoints"] = _cmd_clear_breakpoints
 	handlers["cmd_force_break"] = _cmd_force_break
+	# Read-only break-state check the server polls after force_break (#411) —
+	# the break lands a frame or two after the probe services the flag.
+	handlers["cmd_get_debug_break_state"] = _cmd_get_debug_break_state
 	# Tier 2: step control via EditorDebuggerSession.send_message
 	handlers["cmd_step_into"] = _cmd_step
 	handlers["cmd_step_over"] = _cmd_step
@@ -85,12 +88,37 @@ func _cmd_clear_breakpoints(_params: Dictionary) -> Dictionary:
 	return _router._ok({"breakpoints_cleared": true})
 
 
+## Read-only: is the debug session currently in the break loop? Polled by the
+## server after force_break so the tool can report whether the game actually
+## paused (#411).
+func _cmd_get_debug_break_state(_params: Dictionary) -> Dictionary:
+	var guard := _router._require_debug_session()
+	if not guard["ok"]:
+		return guard
+	var debugger := _router._debugger as MCPDebugger
+	var session := debugger.get_session(debugger.get_session_id())
+	var breaked: bool = session.is_breaked()
+	return _router._ok({"breaked": breaked})
+
+
+
 func _cmd_force_break(_params: Dictionary) -> Dictionary:
 	var guard := _router._require_live_probe()
 	if not guard["ok"]:
 		return guard
 	_router._debugger.send_to_probe("godot_mcp:force_break", [])
-	return _router._ok({"force_break_sent": true})
+	# Non-blocking (the editor thread must not sleep): the probe services the
+	# force_break flag on its next frame, so the server polls
+	# cmd_get_debug_break_state for the break state (#411). Report the current
+	# state so the tool result is meaningful even without polling.
+	var breaked := false
+	var session = _router._debugger.get_session(_router._debugger.get_session_id())
+	if session != null and session.is_breaked():
+		breaked = true
+	return _router._ok({
+		"force_break_sent": true,
+		"breaked": breaked,
+	})
 
 # Tier 2: step control via EditorDebuggerSession.send_message ----------------
 
@@ -162,7 +190,13 @@ func _cmd_get_stack_frames(_params: Dictionary) -> Dictionary:
 	var frames: Variant = debugger.get_cached_stack_frames()
 	debugger.request_stack_frames()  # refresh cache for next call
 	if frames == null:
-		return _router._ok({"frames": []})
+		# The reply is async (poll-and-cache): an empty list right after a break
+		# usually means the stack_dump hasn't arrived yet, NOT a live game. Warn
+		# so an agent doesn't read [] as "the stack is empty" (#411).
+		return _router._ok({
+			"frames": [],
+			"hint": "No stack dump cached yet; the game may still be delivering it. Retry after a beat — frames:[] while the game is frozen at a break means 'not yet received', not 'empty call stack'.",
+		})
 	return _router._ok({"frames": frames})
 
 
@@ -190,7 +224,10 @@ func _cmd_evaluate_expression(params: Dictionary) -> Dictionary:
 	var value: Variant = null
 	if cached is Dictionary:
 		value = (cached as Dictionary).get("value", null)
-	return _router._ok({"expression": expression, "value": value})
+	# value:null alone is ambiguous (evaluated-to-null vs. no reply yet vs.
+	# unevaluable frame) — echo whether an evaluation was actually received
+	# so an agent can tell the difference (#411).
+	return _router._ok({"expression": expression, "value": value, "evaluated": cached != null})
 
 
 func _cmd_get_frame_variables(params: Dictionary) -> Dictionary:

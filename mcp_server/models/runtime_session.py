@@ -8,6 +8,9 @@ from pydantic import BaseModel, Field
 class PlayResult(BaseModel):
     playing: bool
     scene: str = ""
+    # True when the play session is paused at a debugger breakpoint (issue
+    # #411) — distinguishes "frozen in the debug loop" from "game logic running".
+    paused: bool = False
 
 
 class GameNode(BaseModel):
