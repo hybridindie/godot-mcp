@@ -1,7 +1,7 @@
 @tool
 class_name MCPProjectFSHandlers
 extends RefCounted
-const Coerce := preload("res://addons/godot_mcp/type_coerce.gd")
+const Coerce := preload("../type_coerce.gd")
 ## Domain handler: project fs.
 ##
 ## Registered by the router on _init().  Each handler receives params dict and

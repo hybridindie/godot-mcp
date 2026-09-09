@@ -6,7 +6,7 @@ extends RefCounted
 ## Registered by the router on _init().  Each handler receives params dict and
 ## returns a response body (without id) via the router's _ok / _fail builders.
 
-const AudioBusCapture := preload("res://addons/godot_mcp/audio_bus_capture.gd")
+const AudioBusCapture := preload("../audio_bus_capture.gd")
 
 var _router: MCPCommandRouter
 

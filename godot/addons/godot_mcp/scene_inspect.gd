@@ -7,7 +7,7 @@ extends RefCounted
 ## headlessly (see godot/tests/inspect_smoke.gd). All output is JSON-safe via
 ## MCPTypeCoerce. The cmd_* handlers supply the editor-provided nodes.
 
-const Coerce := preload("res://addons/godot_mcp/type_coerce.gd")
+const Coerce := preload("./type_coerce.gd")
 
 
 ## Recursive { name, type, path, script, children } for a subtree.

@@ -1,7 +1,7 @@
 @tool
 class_name MCPShadersHandlers
 extends RefCounted
-const Coerce := preload("res://addons/godot_mcp/type_coerce.gd")
+const Coerce := preload("../type_coerce.gd")
 ## Domain handler: shaders.
 ##
 ## Registered by the router on _init().  Each handler receives params dict and

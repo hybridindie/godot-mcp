@@ -1,8 +1,8 @@
 @tool
 class_name MCPThemeUIHandlers
 extends RefCounted
-const Coerce := preload("res://addons/godot_mcp/type_coerce.gd")
-const ThemeRead := preload("res://addons/godot_mcp/theme_read.gd")
+const Coerce := preload("../type_coerce.gd")
+const ThemeRead := preload("../theme_read.gd")
 ## Domain handler: theme ui.
 ##
 ## Registered by the router on _init().  Each handler receives params dict and

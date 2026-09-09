@@ -1,8 +1,8 @@
 @tool
 class_name MCPParticlesHandlers
 extends RefCounted
-const Coerce := preload("res://addons/godot_mcp/type_coerce.gd")
-const ParticleRead := preload("res://addons/godot_mcp/particle_read.gd")
+const Coerce := preload("../type_coerce.gd")
+const ParticleRead := preload("../particle_read.gd")
 ## Domain handler: particles.
 ##
 ## Registered by the router on _init().  Each handler receives params dict and

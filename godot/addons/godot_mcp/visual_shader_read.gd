@@ -6,8 +6,8 @@ extends RefCounted
 ## headlessly (see godot/tests/visual_shader_read_smoke.gd). Inverts
 ## create_visual_shader / add_shader_node / connect_shader_nodes / set_shader_node_param.
 
-const Inspect := preload("res://addons/godot_mcp/scene_inspect.gd")
-const Coerce := preload("res://addons/godot_mcp/type_coerce.gd")
+const Inspect := preload("./scene_inspect.gd")
+const Coerce := preload("./type_coerce.gd")
 
 const _MODE_NAMES := {
 	VisualShader.MODE_SPATIAL: "spatial",
