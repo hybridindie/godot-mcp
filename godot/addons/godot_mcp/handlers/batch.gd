@@ -1,13 +1,13 @@
 @tool
 class_name MCPBatchHandlers
 extends RefCounted
-const Coerce := preload("res://addons/godot_mcp/type_coerce.gd")
+const Coerce := preload("../type_coerce.gd")
 ## Domain handler: batch.
 ##
 ## Registered by the router on _init().  Each handler receives params dict and
 ## returns a response body (without id) via the router's _ok / _fail builders.
 
-const Inspect := preload("res://addons/godot_mcp/scene_inspect.gd")
+const Inspect := preload("../scene_inspect.gd")
 
 var _router: MCPCommandRouter
 

@@ -6,7 +6,7 @@ extends RefCounted
 ## Registered by the router on _init().  Each handler receives params dict and
 ## returns a response body (without id) via the router's _ok / _fail builders.
 
-const Inspect := preload("res://addons/godot_mcp/scene_inspect.gd")
+const Inspect := preload("../scene_inspect.gd")
 
 var _router: MCPCommandRouter
 

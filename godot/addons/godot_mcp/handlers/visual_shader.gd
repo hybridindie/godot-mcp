@@ -1,8 +1,8 @@
 @tool
 class_name MCPVisualShaderHandlers
 extends RefCounted
-const Coerce := preload("res://addons/godot_mcp/type_coerce.gd")
-const VisualShaderRead := preload("res://addons/godot_mcp/visual_shader_read.gd")
+const Coerce := preload("../type_coerce.gd")
+const VisualShaderRead := preload("../visual_shader_read.gd")
 ## Domain handler: visual shader node graphs (issue #107).
 ##
 ## Registered by the router on _init(). Each handler receives a params dict and

@@ -6,8 +6,8 @@ extends RefCounted
 ## headlessly (see godot/tests/theme_read_smoke.gd). Inverts set_theme_color /
 ## set_theme_font_size / set_theme_stylebox.
 
-const Inspect := preload("res://addons/godot_mcp/scene_inspect.gd")
-const Coerce := preload("res://addons/godot_mcp/type_coerce.gd")
+const Inspect := preload("./scene_inspect.gd")
+const Coerce := preload("./type_coerce.gd")
 
 
 const _COLOR_PREFIX := "theme_override_colors/"

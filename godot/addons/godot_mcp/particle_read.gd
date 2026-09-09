@@ -7,7 +7,7 @@ extends RefCounted
 ## set_particle_color_gradient: ``properties`` are the JSON-coerced material fields and
 ## ``color_ramp`` is the gradient's stops (not a sub-resource ref) so it round-trips.
 
-const Inspect := preload("res://addons/godot_mcp/scene_inspect.gd")
+const Inspect := preload("./scene_inspect.gd")
 
 
 ## { has_material, properties:{...}, color_ramp:{colors:[{r,g,b,a}], offsets:[float]}|null }.

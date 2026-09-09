@@ -1,13 +1,13 @@
 @tool
 class_name MCPCompositeHandlers
 extends RefCounted
-const Coerce := preload("res://addons/godot_mcp/type_coerce.gd")
+const Coerce := preload("../type_coerce.gd")
 ## Domain handler: composite/macro tools (issue #154).
 ##
 ## Each handler collapses a multi-step scene edit into ONE UndoRedo action and a
 ## single bridge round-trip. Registered by the router on _init().
 
-const Inspect := preload("res://addons/godot_mcp/scene_inspect.gd")
+const Inspect := preload("../scene_inspect.gd")
 
 var _router: MCPCommandRouter
 

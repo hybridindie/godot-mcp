@@ -7,7 +7,7 @@ extends RefCounted
 ## values are JSON-safe via MCPTypeCoerce. Inverts the animation writers
 ## (create_animation / add_animation_track / insert_keyframe).
 
-const Coerce := preload("res://addons/godot_mcp/type_coerce.gd")
+const Coerce := preload("./type_coerce.gd")
 
 # Animation.TrackType enum → the names the writer accepts (mirror of the handler's
 # _TRACK_TYPES), so a read round-trips back into add_animation_track.
