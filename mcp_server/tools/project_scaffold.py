@@ -21,7 +21,7 @@ from mcp_server.safety import (
     enforce_preconditions,
     require_confirmation,
 )
-from mcp_server.tools._route import run_or_preview
+from mcp_server.tools._route import route
 
 PROJECT_SCAFFOLD = {PROJECT_SCAFFOLD_TAG}
 
@@ -66,24 +66,35 @@ def register_project_scaffold(
             )
         if not dry_run:
             require_confirmation(confirm, "scaffold_project")
+        project_name = project_name or type
+        main_scene = main_scene or "main"
         params: dict[str, str | bool] = {
             "type": type,
-            "project_name": project_name or type,
-            "main_scene": main_scene or "main",
+            "project_name": project_name,
+            "main_scene": main_scene,
             # Forward the destructive gate to the addon: it re-checks confirm
             # defensively (#409) and would reject the call without it.
             "confirm": confirm,
         }
-        preview = {
-            "created": False,
-            "paths_created": [],
-            "autoloads_registered": [],
-        }
-        return await run_or_preview(
-            dry_run,
-            ScaffoldProjectResult,
-            preview,
-            bridge,
-            "cmd_scaffold_project",
-            params,
-        )
+        if dry_run:
+            # #426: the preview must be the actual plan the real run executes —
+            # directories, settings artifact, autoload script, and root scene —
+            # mirroring the addon handler's steps (project_scaffold.gd), not a
+            # vacuous empty result indistinguishable from a no-op.
+            scene_path = f"res://scenes/{main_scene}.tscn"
+            plan = [
+                "res://scenes/",
+                "res://scripts/",
+                "res://assets/",
+                "res://shaders/",
+                "res://project.godot",
+                "res://scripts/game_state.gd",
+                scene_path,
+            ]
+            return ScaffoldProjectResult(
+                created=False,
+                paths_created=plan,
+                autoloads_registered=["GameState"],
+                dry_run=True,
+            )
+        return ScaffoldProjectResult(**await route(bridge, "cmd_scaffold_project", params))

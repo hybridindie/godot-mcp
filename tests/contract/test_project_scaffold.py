@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import pytest
 from fastmcp import Client, FastMCP
+from fastmcp.exceptions import ToolError
 
 from mcp_server.bridge import Bridge
 from mcp_server.config import ServerConfig
@@ -120,6 +121,42 @@ async def test_scaffold_project_dry_run() -> None:
     assert dry.structured_content["dry_run"] is True
     assert dry.structured_content["created"] is False
     assert "cmd_scaffold_project" not in _commands(conn)
+
+
+async def test_scaffold_project_dry_run_returns_the_real_plan() -> None:
+    """#426: dry_run must return the same plan the real run would execute — the
+    directories, settings, autoloads, and root scene — not a vacuous empty result
+    indistinguishable from a no-op."""
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "project_scaffold"})
+        dry = await client.call_tool(
+            "godot_project_scaffold",
+            {"type": "2d_platformer", "project_name": "Jump", "dry_run": True},
+        )
+    sc = dry.structured_content
+    assert sc["dry_run"] is True
+    assert sc["created"] is False  # nothing was created
+    plan: list[str] = sc["paths_created"]
+    for d in ("res://scenes/", "res://scripts/", "res://assets/", "res://shaders/"):
+        assert d in plan, f"plan must list the directories it would create: {plan}"
+    assert "res://scripts/game_state.gd" in plan
+    assert "res://project.godot" in plan
+    assert any(p.endswith(".tscn") for p in plan), f"plan must include the main scene: {plan}"
+    assert sc["autoloads_registered"] == ["GameState"]
+    assert "cmd_scaffold_project" not in _commands(conn)  # still a pure preview
+
+
+async def test_scaffold_project_dry_run_runs_the_same_validation() -> None:
+    """An unknown scaffold type must fail a dry_run exactly like the real run."""
+    server, _ = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "project_scaffold"})
+        with pytest.raises(ToolError, match="Unknown scaffold type"):
+            await client.call_tool(
+                "godot_project_scaffold",
+                {"type": "not_a_type", "dry_run": True},
+            )
 
 
 async def test_scaffold_project_safety_class() -> None:
