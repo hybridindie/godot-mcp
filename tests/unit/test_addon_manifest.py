@@ -161,6 +161,25 @@ def test_router_registers_script_commands() -> None:
         assert f'"{command}"' in source, f"router must register {command}"
 
 
+def test_script_write_kicks_a_deferred_filesystem_rescan() -> None:
+    """#417: a script write must trigger the editor's async scan so new
+    ``class_name`` globals are indexed before the agent's next get_parse_errors —
+    otherwise the parser reports transient "Could not find type" errors for
+    correct code and the agent 'fixes' phantom errors."""
+    plugin = (ADDON_DIR / "godot_mcp.gd").read_text()
+    # The plugin reacts to script-write completion with a (deferred) full scan.
+    assert "command_completed" in plugin
+    write_hook = plugin.split("_on_command_completed", 1)[1]
+    assert "EditorInterface.get_resource_filesystem()" in write_hook or (
+        "_rescan_after_script_write" in plugin
+    )
+    assert "scan()" in plugin
+    # The scan must be deferred (call_deferred / call_deferred_threaded), never
+    # inline in the completion callback: scan() is re-entrant-unsafe against the
+    # command handler that just returned.
+    assert "call_deferred" in plugin
+
+
 def test_router_registers_node_parity_commands() -> None:
     source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in (
