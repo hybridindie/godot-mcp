@@ -28,7 +28,7 @@ from mcp_server.models.import_asset import (
     ImportStatusResult,
 )
 from mcp_server.safety import MUTATING, READ_ONLY
-from mcp_server.tools._route import route, run_or_preview
+from mcp_server.tools._route import route
 
 ASSET_IMPORT = {ASSET_IMPORT_TAG}
 
@@ -65,6 +65,41 @@ def _detect_type(path: str) -> str | None:
 def _require_res_path(path: str, field: str = "target_path") -> None:
     if not path.startswith("res://"):
         raise ToolError(f"VALIDATION_ERROR: '{field}' must start with 'res://' (got '{path}').")
+
+
+# #419: metallic/roughness/emission_enabled are scalars on StandardMaterial3D, not
+# textures — a numeric string is a scalar value; anything else for these channels
+# is still accepted as a texture path (texture-driven roughness is legitimate).
+_SCALAR_CHANNELS = ("metallic", "roughness", "emission_enabled")
+
+
+def _is_scalar(value: str) -> bool:
+    try:
+        float(value)
+        return True
+    except (TypeError, ValueError):
+        return False
+
+
+async def _validate_material_params(bridge: Bridge, params: dict[str, Any]) -> None:
+    """Validate the material channels BEFORE the (dry-run or real) bridge call (#419).
+
+    Every texture-typed channel that carries a res:// path is probed for existence via
+    ``cmd_search_files`` (a read-only, exact-glob search) so a missing texture fails
+    the call — a dry-run gets the same validation as the real run instead of a
+    success-flavored empty preview.
+    """
+    for channel in ("albedo", "normal", "roughness", "metallic", "ao", "emission"):
+        value = str(params.get(channel, ""))
+        if not value or value.startswith("res://") is False:
+            continue  # empty or scalar — nothing to validate here
+        _require_res_path(value, field=channel)
+        probe = await route(
+            bridge, "cmd_search_files",
+            {"directory": "res://", "name_glob": value.removeprefix("res://")},
+        )
+        if value not in (probe.get("matches") or []):
+            raise ToolError(f"RESOURCE_NOT_FOUND: Texture not found for '{channel}': '{value}'.")
 
 
 def _is_url(source: str) -> bool:
@@ -211,6 +246,7 @@ def register_import_asset(mcp: FastMCP, bridge: Bridge) -> None:
         metallic: str = "",
         ao: str = "",
         emission: str = "",
+        emission_enabled: str = "",
         path: str = "",
         dry_run: bool = False,
     ) -> CreateMaterialResult:
@@ -218,7 +254,12 @@ def register_import_asset(mcp: FastMCP, bridge: Bridge) -> None:
 
         Creates a ``StandardMaterial3D`` and assigns whichever texture channels
         were provided.  ``path`` defaults to ``res://materials/generated_{rand}.tres``
-        when omitted.
+        when omitted. ``metallic``/``roughness``/``emission_enabled`` accept either a
+        texture path or a scalar string (e.g. ``"0.7"``); a scalar sets the float
+        property directly, and an ``emission`` texture auto-enables emission
+        (``emission_enabled=true``, white color) so the material actually glows.
+        Validation (including texture existence) runs before the call, on both the
+        dry-run and the real run.
         """
         params: dict[str, Any] = {
             "albedo": albedo,
@@ -227,20 +268,29 @@ def register_import_asset(mcp: FastMCP, bridge: Bridge) -> None:
             "metallic": metallic,
             "ao": ao,
             "emission": emission,
+            "emission_enabled": emission_enabled,
             "path": path,
         }
-        preview = {
-            "material_path": path or "res://materials/generated_{rand}.tres",
-            "created": False,
-            "channels_set": [],
-        }
-        return await run_or_preview(
-            dry_run,
-            CreateMaterialResult,
-            preview,
-            bridge,
-            "cmd_create_material_from_textures",
-            params,
+        # #419: validate BEFORE the bridge call in both modes — a dry-run must
+        # fail on a missing texture exactly like the real run, not return a
+        # success-flavored empty preview.
+        await _validate_material_params(bridge, params)
+        if dry_run:
+            channels_preview = [
+                c for c, v in (
+                    ("albedo", albedo), ("normal", normal), ("roughness", roughness),
+                    ("metallic", metallic), ("ao", ao), ("emission", emission),
+                    ("emission_enabled", emission_enabled),
+                ) if v
+            ]
+            return CreateMaterialResult(
+                material_path=path or "res://materials/generated_{rand}.tres",
+                created=False,
+                channels_set=channels_preview,
+                dry_run=True,
+            )
+        return CreateMaterialResult(
+            **await route(bridge, "cmd_create_material_from_textures", params)
         )
 
     @mcp.tool(meta=READ_ONLY, tags=ASSET_IMPORT)

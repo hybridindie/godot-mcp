@@ -22,6 +22,10 @@ func register(handlers: Dictionary) -> void:
 
 # -- helpers -----------------------------------------------------------------
 
+func _is_number(value: String) -> bool:
+	return value.is_valid_float()
+
+
 func _copy_file(source: String, target: String, overwrite: bool) -> int:
 	if FileAccess.file_exists(target) and not overwrite:
 		return ERR_ALREADY_EXISTS
@@ -121,19 +125,35 @@ func _cmd_create_material_from_textures(params: Dictionary) -> Dictionary:
 		"ao": str(params.get("ao", "")),
 		"emission": str(params.get("emission", "")),
 	}
+	# #419: metallic/roughness/emission_enabled are scalar floats on
+	# StandardMaterial3D — a numeric string sets the property directly instead of
+	# being mistaken for a texture path that aborts the whole material.
+	var emission_enabled := str(params.get("emission_enabled", ""))
+	var emission_requested: bool = not channels["emission"].is_empty()
 
 	var material: StandardMaterial3D = StandardMaterial3D.new()
 	var channels_set: Array = []
 
 	for channel in channels:
-		var tex_path: String = channels[channel]
-		if tex_path.is_empty():
+		var value: String = channels[channel]
+		if value.is_empty():
 			continue
-		if not ResourceLoader.exists(tex_path):
-			return _router._fail("RESOURCE_NOT_FOUND", "Texture not found for '%s': '%s'." % [channel, tex_path])
-		var tex: Texture2D = ResourceLoader.load(tex_path)
+		if _is_number(value):
+			var scalar := value.to_float()
+			match channel:
+				"roughness":
+					material.roughness = scalar
+				"metallic":
+					material.metallic = scalar
+				_:
+					return _router._fail("VALIDATION_ERROR", "Channel '%s' is a texture; a numeric value is not valid there." % channel)
+			channels_set.append(channel + ":scalar")
+			continue
+		if not ResourceLoader.exists(value):
+			return _router._fail("RESOURCE_NOT_FOUND", "Texture not found for '%s': '%s'." % [channel, value])
+		var tex: Texture2D = ResourceLoader.load(value)
 		if tex == null:
-			return _router._fail("INTERNAL_ERROR", "Failed to load texture '%s' for '%s'." % [tex_path, channel])
+			return _router._fail("INTERNAL_ERROR", "Failed to load texture '%s' for '%s'." % [value, channel])
 		match channel:
 			"albedo":
 				material.albedo_texture = tex
@@ -148,6 +168,20 @@ func _cmd_create_material_from_textures(params: Dictionary) -> Dictionary:
 			"emission":
 				material.emission_texture = tex
 		channels_set.append(channel)
+
+	# #428: an emission texture with emission_enabled=false + black color is a
+	# half-set that renders non-emissive no matter the texture. Any emission
+	# request (texture or enabled-scalar) turns emission ON; texture-without-
+	# explicit-scalar defaults the color to white. The caller can tune
+	# color/energy afterwards via set_resource_property.
+	if emission_requested or emission_enabled.is_valid_float():
+		material.emission_enabled = true
+		material.emission = Color(1.0, 1.0, 1.0)
+		channels_set.append("emission_enabled:scalar")
+		if not emission_enabled.is_empty() and emission_enabled.is_valid_float():
+			# Explicit "0"/"false"-valued scalar wins: the caller explicitly
+			# disabled emission (e.g. they intend to wire it up manually later).
+			material.emission_enabled = emission_enabled.to_float() > 0.5
 
 	if path.is_empty():
 		path = "res://materials/generated_%s.tres" % str(randi()).sha256_text().substr(0, 8)
