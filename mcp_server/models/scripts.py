@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from typing import Any
+
+from pydantic import BaseModel, Field, model_serializer
 
 
 class ScriptContent(BaseModel):
@@ -29,11 +31,30 @@ class NodeScript(BaseModel):
 class WriteScriptResult(BaseModel):
     script_path: str
     created: bool = False
-    # True when the write replaced an existing script (so the agent isn't blind to
-    # clobbering hand-written code). In dry_run this is determined by an existence
-    # probe; the change stays reversible via the editor's undo (#205).
+    # Real-run truth about what the write did (#424): an overwrite reports
+    # ``overwrote=True, previous_existed=True`` — the response must never read like
+    # a no-op while the bytes landed. In dry_run the effect hasn't happened, so the
+    # result instead carries ``would_overwrite`` from the existence probe; the
+    # change stays reversible via the editor's undo (#205).
+    overwrote: bool = False
+    previous_existed: bool = False
     would_overwrite: bool = False
     dry_run: bool = False
+
+    @model_serializer(mode="plain")
+    def _serialize(self) -> dict[str, Any]:
+        # Mode-split serialization (same pattern as UndoResult): a real run never
+        # carries the dry-run probe key ``would_overwrite`` (it reads like a no-op,
+        # #424), and a dry-run preview never carries the effect keys. FastMCP builds
+        # structured_content via pydantic-core, which only honors this hook.
+        data = {"script_path": self.script_path, "created": self.created}
+        if self.dry_run:
+            data["dry_run"] = True
+            data["would_overwrite"] = self.would_overwrite
+        else:
+            data["overwrote"] = self.overwrote
+            data["previous_existed"] = self.previous_existed
+        return data
 
 
 class PatchScriptResult(BaseModel):

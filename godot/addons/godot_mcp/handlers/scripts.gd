@@ -97,7 +97,13 @@ func _cmd_write_script(params: Dictionary) -> Dictionary:
 		# sidecar so nothing is left orphaned (parity with the shader handler).
 		ur.add_undo_method(_router, "_remove_file_with_uid", path)
 	ur.commit_action()
-	return _router._ok({"script_path": path, "created": not existed, "would_overwrite": existed})
+	# #424: report what actually happened — an overwrite reads as success
+	# (overwrote/previous_existed), never as a no-op ("would_overwrite" is the
+	# dry-run probe's phrasing and stays there).
+	return _router._ok({
+		"script_path": path, "created": not existed,
+		"overwrote": existed, "previous_existed": existed,
+	})
 
 
 
