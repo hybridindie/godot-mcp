@@ -85,21 +85,28 @@ async def _validate_material_params(bridge: Bridge, params: dict[str, Any]) -> N
     """Validate the material channels BEFORE the (dry-run or real) bridge call (#419).
 
     Every texture-typed channel that carries a res:// path is probed for existence via
-    ``cmd_search_files`` (a read-only, exact-glob search) so a missing texture fails
+    ``cmd_search_files`` (a read-only recursive search) so a missing texture fails
     the call — a dry-run gets the same validation as the real run instead of a
-    success-flavored empty preview.
+    success-flavored empty preview. The search globs the *basename* (the addon's glob
+    matches file names, not relative paths — verified on Godot 4.7) and passes only
+    when a match's path ends with the requested ``res://`` path, so a different file
+    sharing the basename can't satisfy the probe.
     """
     for channel in ("albedo", "normal", "roughness", "metallic", "ao", "emission"):
         value = str(params.get(channel, ""))
-        if not value or value.startswith("res://") is False:
-            continue  # empty or scalar — nothing to validate here
+        if not value or _is_scalar(value):
+            continue  # empty or scalar — nothing filesystem-backed to validate
         _require_res_path(value, field=channel)
+        rel = value.removeprefix("res://")
         probe = await route(
             bridge, "cmd_search_files",
-            {"directory": "res://", "name_glob": value.removeprefix("res://")},
+            {"directory": "res://", "name_glob": rel.rsplit("/", 1)[-1]},
         )
-        if value not in (probe.get("matches") or []):
-            raise ToolError(f"RESOURCE_NOT_FOUND: Texture not found for '{channel}': '{value}'.")
+        matches = probe.get("matches") or []
+        if not any(str(m).endswith(value) for m in matches):
+            raise ToolError(
+                f"RESOURCE_NOT_FOUND: Texture not found for '{channel}': '{value}'."
+            )
 
 
 def _is_url(source: str) -> bool:

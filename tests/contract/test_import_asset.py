@@ -31,6 +31,21 @@ def _is_scalar(value: str) -> bool:
         return False
 
 
+# The fixture project's existing textures (paths the material tests reference).
+# The probe models the real addon search: the glob matches file *names* only,
+# so these must have distinct basenames for the tool's suffix check to resolve.
+_FIXTURE_TEXTURES = [
+    "res://tex/albedo.png",
+    "res://tex/normal.png",
+    "res://tex/a.png",
+    "res://textures/metal.png",
+    "res://tex/crystal.png",
+    "res://tex/glow.png",
+    "res://tex/rough.png",
+    "res://tex/metallic.png",
+]
+
+
 def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
     p = cmd.params
     match cmd.command:
@@ -44,14 +59,18 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                 },
             )
         case "cmd_search_files":
-            # Texture-existence probe: the fixture "has" any res:// texture the
-            # tool validates, except paths marked missing.
+            # Texture-existence probe: model the real addon semantics (Qodo #452
+            # review) — the search recurses, but the glob matches file *names*
+            # only (verified on Godot 4.7), so the tool globs the basename and
+            # requires a match ending with the full requested res:// path. The
+            # fixture project "has" every texture in _FIXTURE_TEXTURES (paths the
+            # tests reference) plus anything whose basename contains "missing"
+            # is absent — driving the NOT_FOUND path.
             glob = p.get("name_glob", "")
-            target = "res://" + glob
-            if "missing" in target:
+            if "missing" in glob:
                 return ResponseEnvelope.success(cmd.id, {"matches": [], "truncated": False})
             return ResponseEnvelope.success(
-                cmd.id, {"matches": [target], "truncated": False}
+                cmd.id, {"matches": list(_FIXTURE_TEXTURES), "truncated": False}
             )
         case "cmd_create_material_from_textures":
             # Mirror the addon's channel handling (#419/#428): scalars are noted
@@ -257,8 +276,7 @@ async def test_create_material_emission_enables_emission() -> None:
     def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
         if cmd.command == "cmd_search_files":
             return ResponseEnvelope.success(
-                cmd.id,
-                {"matches": ["res://" + cmd.params.get("name_glob", "")], "truncated": False},
+                cmd.id, {"matches": list(_FIXTURE_TEXTURES), "truncated": False}
             )
         if cmd.command == "cmd_create_material_from_textures":
             return ResponseEnvelope.success(
