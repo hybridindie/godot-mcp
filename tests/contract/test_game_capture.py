@@ -178,3 +178,29 @@ async def test_malformed_base64_is_structured_error() -> None:
         )
     assert result.is_error
     assert "base64" in str(result.content)
+
+
+async def test_error_frame_surfaces_probe_reason() -> None:
+    """The probe closes a failed grab with ``{ready: true, error}`` (e.g. no viewport
+    texture); the tool must surface that reason as a structured error immediately, not
+    spin until timeout (Qodo #447 round-2 review)."""
+
+    def responder(cmd: CommandEnvelope) -> ResponseEnvelope:
+        if cmd.command == "cmd_capture_game_screenshot":
+            return ResponseEnvelope.success(
+                cmd.id, {"ready": True, "error": "No viewport texture (no rendered frame)."}
+            )
+        return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
+
+    conn = FakeAddonConnection(responder=responder)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    server = create_server(ServerConfig(), bridge=bridge)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "runtime"})
+        result = await client.call_tool(
+            "godot_runtime_capture_game_screenshot", {}, raise_on_error=False
+        )
+    assert result.is_error
+    text = str(result.content)
+    assert "no image data" in text
+    assert "No viewport texture" in text
