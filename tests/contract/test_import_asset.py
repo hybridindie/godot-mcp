@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 import pytest
 from fastmcp import Client, FastMCP
+from fastmcp.exceptions import ToolError
 
 from mcp_server.bridge import Bridge
 from mcp_server.config import ServerConfig
@@ -20,6 +21,29 @@ from mcp_server.server import create_server
 from tests.fakes import FakeAddonConnection, connector_for
 
 pytestmark = pytest.mark.asyncio
+
+
+def _is_scalar(value: str) -> bool:
+    try:
+        float(value)
+        return True
+    except (TypeError, ValueError):
+        return False
+
+
+# The fixture project's existing textures (paths the material tests reference).
+# The probe models the real addon search: the glob matches file *names* only,
+# so these must have distinct basenames for the tool's suffix check to resolve.
+_FIXTURE_TEXTURES = [
+    "res://tex/albedo.png",
+    "res://tex/normal.png",
+    "res://tex/a.png",
+    "res://textures/metal.png",
+    "res://tex/crystal.png",
+    "res://tex/glow.png",
+    "res://tex/rough.png",
+    "res://tex/metallic.png",
+]
 
 
 def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
@@ -34,13 +58,38 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                     "detected_type": "Texture2D",
                 },
             )
+        case "cmd_search_files":
+            # Texture-existence probe: model the real addon semantics (Qodo #452
+            # review) — the search recurses, but the glob matches file *names*
+            # only (verified on Godot 4.7), so the tool globs the basename and
+            # requires a match ending with the full requested res:// path. The
+            # fixture project "has" every texture in _FIXTURE_TEXTURES (paths the
+            # tests reference) plus anything whose basename contains "missing"
+            # is absent — driving the NOT_FOUND path.
+            glob = p.get("name_glob", "")
+            if "missing" in glob:
+                return ResponseEnvelope.success(cmd.id, {"matches": [], "truncated": False})
+            return ResponseEnvelope.success(
+                cmd.id, {"matches": list(_FIXTURE_TEXTURES), "truncated": False}
+            )
         case "cmd_create_material_from_textures":
+            # Mirror the addon's channel handling (#419/#428): scalars are noted
+            # as "<channel>:scalar", emission auto-enables emission_enabled.
+            channels = ["albedo", "normal", "roughness", "metallic", "ao", "emission"]
+            set_channels: list[str] = []
+            for c in channels:
+                v = str(p.get(c, ""))
+                if not v:
+                    continue
+                set_channels.append(c if not _is_scalar(v) else f"{c}:scalar")
+            if str(p.get("emission", "")):
+                set_channels.append("emission_enabled:scalar")
             return ResponseEnvelope.success(
                 cmd.id,
                 {
                     "material_path": p.get("path", "res://materials/generated_mat.tres"),
                     "created": True,
-                    "channels_set": ["albedo", "normal"],
+                    "channels_set": set_channels,
                 },
             )
         case "cmd_get_import_status":
@@ -164,6 +213,96 @@ async def test_create_material_dry_run() -> None:
     assert dry.structured_content["dry_run"] is True
     assert dry.structured_content["created"] is False
     assert "cmd_create_material_from_textures" not in _commands(conn)
+
+
+async def test_create_material_accepts_scalar_metallic_roughness() -> None:
+    """#419: metallic/roughness are scalar floats on StandardMaterial3D — a numeric
+    string must be accepted as a scalar (channel noted as `<channel>:scalar`), not
+    treated as a texture path that aborts the whole material."""
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "asset_import"})
+        result = await client.call_tool(
+            "godot_asset_import_create_material_from_textures",
+            {
+                "albedo": "res://textures/metal.png",
+                "metallic": "0.7",
+                "roughness": "0.45",
+                "path": "res://materials/metal.tres",
+            },
+        )
+    assert result.structured_content["created"] is True
+    assert result.structured_content["channels_set"] == [
+        "albedo",
+        "roughness:scalar",
+        "metallic:scalar",
+    ]
+    sent = CommandEnvelope.model_validate_json(conn.sent[-1])
+    assert sent.params["metallic"] == "0.7"
+    assert sent.params["roughness"] == "0.45"
+
+
+async def test_create_material_dry_run_validates_params() -> None:
+    """#419: a dry_run must run the same validation as the real run — a missing
+    texture fails the preview instead of giving false confidence."""
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "asset_import"})
+        with pytest.raises(ToolError, match="Texture not found for 'albedo'"):
+            await client.call_tool(
+                "godot_asset_import_create_material_from_textures",
+                {"albedo": "res://missing/does_not_exist.png", "dry_run": True},
+            )
+    assert "cmd_create_material_from_textures" not in _commands(conn)
+
+
+async def test_create_material_missing_texture_validates_in_dry_run() -> None:
+    """#419: the same bad texture also fails the real run — validation parity."""
+    server, _ = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "asset_import"})
+        with pytest.raises(ToolError, match="RESOURCE_NOT_FOUND"):
+            await client.call_tool(
+                "godot_asset_import_create_material_from_textures",
+                {"albedo": "res://missing/does_not_exist.png"},
+            )
+
+
+async def test_create_material_emission_enables_emission() -> None:
+    """#428: providing an emission texture must leave the material emissive —
+    emission_enabled defaults on with a white color; a half-set (texture wired,
+    emission_enabled=false) renders black no matter the texture."""
+
+    def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_search_files":
+            return ResponseEnvelope.success(
+                cmd.id, {"matches": list(_FIXTURE_TEXTURES), "truncated": False}
+            )
+        if cmd.command == "cmd_create_material_from_textures":
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "material_path": cmd.params.get("path", "res://materials/generated_mat.tres"),
+                    "created": True,
+                    "channels_set": ["albedo", "emission", "emission_enabled:scalar"],
+                },
+            )
+        return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
+
+    conn = FakeAddonConnection(responder=responder)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    server = create_server(ServerConfig(), bridge=bridge)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "asset_import"})
+        result = await client.call_tool(
+            "godot_asset_import_create_material_from_textures",
+            {"albedo": "res://tex/crystal.png", "emission": "res://tex/glow.png"},
+        )
+    sc = result.structured_content
+    assert sc["created"] is True
+    assert "emission" in sc["channels_set"]
+    # The pin for the half-set state: emission_enabled travels with the texture.
+    assert "emission_enabled:scalar" in sc["channels_set"]
 
 
 async def test_get_import_status() -> None:
