@@ -139,7 +139,11 @@ async def test_write_script_safety_and_dry_run() -> None:
     assert dry.structured_content["dry_run"] is True
     assert dry.structured_content["would_overwrite"] is True
     assert dry.structured_content["created"] is False
+    # #424 round-2 review: the preview must state the file's existence too — the
+    # tool sets previous_existed; the serializer must not drop it.
+    assert dry.structured_content["previous_existed"] is True
     assert dry_new.structured_content["would_overwrite"] is False
+    assert dry_new.structured_content["previous_existed"] is False
     assert dry_new.structured_content["created"] is True
     sent = [CommandEnvelope.model_validate_json(s).command for s in conn.sent]
     assert "cmd_write_script" not in sent  # dry-run writes nothing
@@ -157,6 +161,63 @@ async def test_write_script_rejects_res_root_escape() -> None:
             )
     sent = [CommandEnvelope.model_validate_json(s).command for s in conn.sent]
     assert "cmd_write_script" not in sent  # rejected before reaching the addon
+
+
+async def test_write_script_overwrite_reports_the_effect() -> None:
+    """#424: a real overwrite must read as success — ``created:false, overwrote:true,
+    previous_existed:true``. ``would_overwrite`` is dry-run-only phrasing; the real
+    response must not read like a no-op while the bytes landed."""
+    def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_write_script":
+            return ResponseEnvelope.success(
+                cmd.id,
+                {"script_path": cmd.params["script_path"], "created": False,
+                 "overwrote": True, "previous_existed": True},
+            )
+        return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
+
+    conn = FakeAddonConnection(responder=responder)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    server = create_server(ServerConfig(), bridge=bridge)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "scripts"})
+        result = await client.call_tool(
+            "godot_scripts_write", {"script_path": "res://x.gd", "content": "extends Node"}
+        )
+    sc = result.structured_content
+    assert sc["created"] is False
+    assert sc["overwrote"] is True
+    assert sc["previous_existed"] is True
+    # The misleading key must not appear on a real run (dry_run keeps its probe form).
+    assert "would_overwrite" not in sc
+
+
+async def test_write_script_legacy_addon_payload_maps_to_effect_truth() -> None:
+    """#424 round-2 (version skew): a legacy addon that still replies
+    ``{created:false, would_overwrite:true}`` must not serialize as
+    ``overwrote:false`` while the bytes landed — the parsed probe key maps to
+    the effect keys on a real run."""
+    def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_write_script":
+            return ResponseEnvelope.success(
+                cmd.id,
+                {"script_path": cmd.params["script_path"], "created": False,
+                 "would_overwrite": True},
+            )
+        return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
+
+    conn = FakeAddonConnection(responder=responder)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    server = create_server(ServerConfig(), bridge=bridge)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "scripts"})
+        result = await client.call_tool(
+            "godot_scripts_write", {"script_path": "res://x.gd", "content": "extends Node"}
+        )
+    sc = result.structured_content
+    assert sc["overwrote"] is True
+    assert sc["previous_existed"] is True
+    assert sc["created"] is False
 
 
 async def test_write_script_dry_run_does_not_bypass_containment() -> None:

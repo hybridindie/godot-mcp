@@ -84,14 +84,15 @@ def register_scripts(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
         result = await route(bridge, "cmd_get_script_for_node", {"node_path": node_path})
         return NodeScript(**result)
 
-    @mcp.tool(meta=MUTATING, tags=SCRIPTS)
+    @mcp.tool(meta=MUTATING, tags=SCRIPTS, output_schema=WriteScriptResult.model_json_schema())
     async def write_script(
         script_path: str, content: str, dry_run: bool = False
     ) -> WriteScriptResult:
         """Create or overwrite the GDScript at ``script_path`` with ``content``.
         Reversible via the editor's undo. ``dry_run=True`` writes nothing and reports
         ``would_overwrite`` so the agent knows whether it is about to replace an
-        existing script.
+        existing script. A real run reports what happened: ``created`` on a fresh file,
+        ``overwrote``/``previous_existed`` when an existing script was replaced.
         """
         params = {"script_path": script_path, "content": content}
         if dry_run:
@@ -100,7 +101,11 @@ def register_scripts(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
             await validate_or_raise(bridge, "cmd_write_script", params)
             exists = await _script_exists(bridge, script_path)
             return WriteScriptResult(
-                script_path=script_path, created=not exists, would_overwrite=exists, dry_run=True
+                script_path=script_path,
+                created=not exists,
+                would_overwrite=exists,
+                previous_existed=exists,
+                dry_run=True,
             )
         return WriteScriptResult(**await route(bridge, "cmd_write_script", params))
 
