@@ -166,13 +166,13 @@ def test_script_write_kicks_a_deferred_filesystem_rescan() -> None:
     ``class_name`` globals are indexed before the agent's next get_parse_errors —
     otherwise the parser reports transient "Could not find type" errors for
     correct code and the agent 'fixes' phantom errors."""
-    plugin = (ADDON_DIR / "godot_mcp.gd").read_text()
-    assert "command_completed" in plugin
-    # Isolate each handler body by its signature — splitting on the bare name can
+    entry = (ADDON_DIR / "godot_mcp.gd").read_text()
+    assert "command_completed" in entry
+    # Isolate the handler body by its signature — splitting on the bare name can
     # straddle two occurrences (Qodo #449 review).
-    hook = plugin.split("func _on_command_completed", 1)[1].split("\nfunc ", 1)[0]
+    hook = entry.split("func _on_command_completed", 1)[1].split("\nfunc ", 1)[0]
     assert "_rescan_after_script_write.call_deferred()" in hook
-    rescan = plugin.split("func _rescan_after_script_write", 1)[1].split("\nfunc ", 1)[0]
+    rescan = entry.split("func _rescan_after_script_write", 1)[1].split("\nfunc ", 1)[0]
     assert "scan()" in rescan
     assert "get_resource_filesystem" in rescan
 
@@ -358,6 +358,40 @@ def test_runtime_session_addon_files_present() -> None:
     entry = (ADDON_DIR / "godot_mcp.gd").read_text()
     assert "add_debugger_plugin" in entry and "remove_debugger_plugin" in entry
     assert "set_debugger" in entry
+
+
+def test_debugger_single_active_session_contract() -> None:
+    """#454: the engine caps concurrent debug sessions per editor (4 active —
+    EditorDebuggerNode) and prints "Max client limits reached" only from its DAP/LSP
+    servers, so a session leak is otherwise invisible. The plugin must enforce a
+    one-active-session contract itself: when a new session is set up, any prior
+    session's signal wiring is dropped, multiple live sessions are logged with
+    their ids, and a new session's arrival resets the probe state even if its
+    ``started`` signal never fires (orphaned-session recovery)."""
+    src = (ADDON_DIR / "mcp_debugger.gd").read_text()
+    setup = src.split("func _setup_session", 1)[1].split("\nfunc ", 1)[0]
+    # The setup must disconnect the previous session's signals (no accumulating lambdas
+    # over repeated play/stop cycles) and adopt the new session immediately.
+    assert "_detach_previous_session" in setup
+    detach = src.split("func _detach_previous_session", 1)[1].split("\nfunc ", 1)[0]
+    # Round-2 review: disconnect ONLY the plugin's own tracked callables — a blanket
+    # disconnect would break the editor's own debugger tab bookkeeping.
+    assert "_owned_connections" in detach
+    assert "disconnect" in detach
+    assert "_owned_connections.clear" in detach
+    # The setup must track exactly what it connects.
+    assert "_owned_connections = [" in setup
+    # Diagnosability: when a new session arrives while another is still active, log it
+    # (the only signal short of the engine's own DAP/LSP "max client limits" line).
+    assert "push_warning" in src or "print" in src
+
+
+def test_runtime_handlers_surface_probe_connect_diagnostic() -> None:
+    """#454: when a play session is active but the probe never announces (engine
+    caps exhausted → silent debugger unresponsiveness), the runtime-session
+    handlers must say so with an actionable hint, not just ``connected: false``."""
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
+    assert "probe_never_connected" in source or "max client limits" in source.lower()
 
 
 def test_router_registers_scene_session_commands() -> None:

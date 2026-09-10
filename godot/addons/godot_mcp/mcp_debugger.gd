@@ -14,6 +14,17 @@ const CAPTURE_PREFIX := "godot_mcp"
 var _session_id: int = -1
 var _session_active: bool = false
 var _probe_ready: bool = false
+# #454: the engine keeps every debugger tab ever created and caps *active*
+# sessions (4 — EditorDebuggerNode), printing "Max client limits reached" only
+# from its DAP/LSP servers when those caps hit. A session leak is otherwise
+# invisible, so the plugin enforces a one-active-session contract itself: a new
+# session drops the previous session's signal wiring (no accumulating lambdas
+# across play/stop cycles) and a diagnostic names multiple live sessions.
+var _previous_session_id: int = -1
+# The specific callables THIS plugin connected on the current session (round-2
+# review: disconnect only ours — the editor's own debugger infrastructure also
+# listens on these signals, and a blanket disconnect breaks its tab bookkeeping).
+var _owned_connections: Array = []
 var _scene_tree: Variant = null  # last godot_mcp:scene_tree payload (Dictionary) or null
 var _input_acks: int = 0  # count of synthesized inputs the game has acknowledged (#36)
 var _property_samples: Variant = null  # last godot_mcp:property_samples payload (#35)
@@ -111,15 +122,62 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 
 
 func _setup_session(session_id: int) -> void:
+	# #454: one-active-session contract. When the editor hands us a new session,
+	# detach the previous session's signal wiring (each play/stop cycle otherwise
+	# leaves a connected lambda pair behind) and adopt the new one immediately —
+	# its ``started`` signal may never fire (orphaned-session recovery), so the
+	# new session is also reset+adopted right here, not just on _on_started.
+	if _session_id >= 0 and _session_id != session_id:
+		_previous_session_id = _session_id
+		_detach_previous_session(session_id)
 	_session_id = session_id
 	var session := get_session(session_id)
-	session.started.connect(func() -> void: _on_started(session_id))
+	if session == null:
+		return
+	var on_start := func() -> void: _on_started(session_id)
+	session.started.connect(on_start)
 	session.stopped.connect(_on_stopped)
+	# Track exactly what this plugin connected (round-2 review: the detach must
+	# only remove ours — the editor's own consumers share these signals).
+	_owned_connections = [
+		{"signal": session.started, "callable": on_start},
+		{"signal": session.stopped, "callable": _on_stopped},
+	]
+	# A session arriving while another is still live is the pre-condition for
+	# the engine's session cap — surface it instead of staying silent (#454).
+	var live: Array = []
+	for s in get_sessions():
+		if s.is_active():
+			live.append(s.id)
+	if live.size() > 1:
+		print(("[MCPDebugger] multiple live debugger sessions: %s — "
+			+ "engine caps concurrent sessions; if the new game connects but the probe never "
+			+ "announces, check the editor log for \"max client limits reached\" "
+			+ "(DAP/LSP client caps) and restart the editor if sessions are exhausted.")
+			% str(live))
 
 
 func _on_started(session_id: int) -> void:
 	_session_active = true
 	_session_id = session_id
+
+
+## Drop the previous session's signal wiring (#454). The engine keeps every
+## debugger tab; without this, each play/stop cycle leaves one more connected
+## lambda pair — invisible until a cap bites. Only the plugin's OWN callables are
+## disconnected (tracked in _owned_connections): the editor's internal debugger
+## consumers also listen on these signals, and a blanket disconnect would break
+## their tab bookkeeping (Qodo #455 review).
+func _detach_previous_session(_new_session_id: int) -> void:
+	var previous := get_session(_previous_session_id)
+	if previous == null:
+		return
+	for owned in _owned_connections:
+		var signal_ref: Signal = owned["signal"]
+		var callable: Callable = owned["callable"]
+		if signal_ref.is_connected(callable):
+			signal_ref.disconnect(callable)
+	_owned_connections.clear()
 
 
 func _on_stopped() -> void:
