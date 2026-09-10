@@ -47,13 +47,22 @@ class WriteScriptResult(BaseModel):
         # carries the dry-run probe key ``would_overwrite`` (it reads like a no-op,
         # #424), and a dry-run preview never carries the effect keys. FastMCP builds
         # structured_content via pydantic-core, which only honors this hook.
+        overwrote = self.overwrote or (not self.dry_run and self.would_overwrite)
+        if not self.dry_run:
+            # Version skew (#424 round-2): a legacy addon replying only
+            # ``would_overwrite`` on a real run maps to the effect keys — the
+            # overwrite DID land, so the response must never read ``overwrote:false``.
+            previous_existed = self.previous_existed or self.would_overwrite
+        else:
+            previous_existed = self.previous_existed
         data = {"script_path": self.script_path, "created": self.created}
         if self.dry_run:
             data["dry_run"] = True
             data["would_overwrite"] = self.would_overwrite
+            data["previous_existed"] = previous_existed
         else:
-            data["overwrote"] = self.overwrote
-            data["previous_existed"] = self.previous_existed
+            data["overwrote"] = overwrote
+            data["previous_existed"] = previous_existed
         return data
 
 
