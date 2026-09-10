@@ -96,6 +96,33 @@ async def test_frame_grab_polls_until_ready() -> None:
     assert image_blocks, f"expected an image content block, got {result.content}"
 
 
+async def test_polls_send_a_stable_request_id() -> None:
+    """The tool must carry a per-invocation request_id on every poll (Qodo #447 review):
+
+    the addon dispatches one probe grab per request_id and matches the cached frame by
+    it — polls without the key default to "" and never trigger the dispatch.
+    """
+    seen: list[str] = []
+
+    def responder(cmd: CommandEnvelope) -> ResponseEnvelope:
+        if cmd.command == "cmd_capture_game_screenshot":
+            seen.append(str(cmd.params.get("request_id", "")))
+            if len(seen) == 1:
+                return ResponseEnvelope.success(cmd.id, {"ready": False})
+            return ResponseEnvelope.success(cmd.id, {"ready": True, **_FRAME})
+        return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
+
+    conn = FakeAddonConnection(responder=responder)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    server = create_server(ServerConfig(), bridge=bridge)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "runtime"})
+        await client.call_tool("godot_runtime_capture_game_screenshot", {"timeout_ms": 2000})
+    assert seen, "capture command never sent"
+    assert all(r for r in seen), f"empty request_id in polls: {seen}"
+    assert len(set(seen)) == 1, f"request_id must be stable across polls: {seen}"
+
+
 async def test_capture_never_ready_times_out_with_actionable_error() -> None:
     def responder(cmd: CommandEnvelope) -> ResponseEnvelope:
         return ResponseEnvelope.success(cmd.id, {"ready": False})

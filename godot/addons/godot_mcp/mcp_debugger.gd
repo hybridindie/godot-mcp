@@ -22,7 +22,7 @@ var _ui_pending := "__none__"  # request_id of the in-flight find_ui request (#3
 var _recorded_input: Variant = null  # last godot_mcp:recorded_input payload (#68)
 var _performance: Variant = null  # last godot_mcp:performance payload (#38)
 var _game_frame: Variant = null  # last godot_mcp:game_frame payload (#446)
-var _frame_request_id := ""  # request_id of the in-flight game frame capture (#446)
+var _frame_request_id := "__none__"  # request_id of the in-flight game frame capture (#446)
 var _breakpoints: Array = []  # tracked breakpoints for issue #110
 var _stack_frames: Variant = null  # last stack_dump payload (Tier 2)
 var _evaluation_result: Variant = null  # last evaluation_return payload (Tier 2)
@@ -133,7 +133,7 @@ func _on_stopped() -> void:
 	_recorded_input = null
 	_performance = null
 	_game_frame = null
-	_frame_request_id = ""
+	_frame_request_id = "__none__"
 	_stack_frames = null
 	_evaluation_result = null
 	_frame_vars = null

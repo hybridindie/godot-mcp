@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import binascii
+import uuid
 from typing import Any
 
 from fastmcp import FastMCP
@@ -94,9 +95,13 @@ def register_runtime_session(mcp: FastMCP, bridge: Bridge) -> None:
              to check), then play_scene again.
         """
         deadline = asyncio.get_event_loop().time() + timeout_ms / 1000
+        # Stable per-invocation id (constant across the poll loop): the addon dispatches
+        # one probe grab per request_id and matches the cached frame by it (mirrors
+        # find_ui_elements) — polls without it would never trigger the dispatch.
+        params = {"request_id": uuid.uuid4().hex}
         result: dict[str, Any] = {}
         while True:
-            result = await route(bridge, "cmd_capture_game_screenshot")
+            result = await route(bridge, "cmd_capture_game_screenshot", params)
             # Done when the probe's frame arrived; ``{"ready": false}`` means the
             # grab is still pending (the addon dispatches one request per poll).
             if result.get("base64") or (result.get("ready") and result.get("error")):
