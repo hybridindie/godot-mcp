@@ -14,6 +14,7 @@ func _init(router: MCPCommandRouter) -> void:
 
 
 func register(handlers: Dictionary) -> void:
+	handlers["cmd_capture_game_screenshot"] = _cmd_capture_game_screenshot
 	handlers["cmd_get_game_scene_tree"] = _cmd_get_game_scene_tree
 	handlers["cmd_get_input_stats"] = _cmd_get_input_stats
 	handlers["cmd_is_playing"] = _cmd_is_playing
@@ -134,4 +135,26 @@ func _cmd_get_input_stats(_params: Dictionary) -> Dictionary:
 	var injected: int = _router._debugger.get_input_acks() if connected else 0
 	return _router._ok({"playing": playing, "connected": connected, "injected": injected})
 
+
+
+func _cmd_capture_game_screenshot(params: Dictionary) -> Dictionary:
+	var guard := _router._require_live_probe()
+	if not guard["ok"]:
+		return guard
+	# Each tool invocation carries a stable request_id (constant across its poll loop).
+	# The probe grab answers asynchronously (one rendered frame later); we dispatch the
+	# capture to the probe exactly once per request_id and match the cached frame by
+	# that id — repeated polls never re-dispatch, and a reused id can't return a prior
+	# request's stale frame (same pattern as find_ui_elements).
+	var request_id := str(params.get("request_id", ""))
+	var payload: Variant = _router._debugger.get_game_frame()
+	if payload is Dictionary and (payload as Dictionary).get("request_id") == request_id:
+		var body: Dictionary = (payload as Dictionary).duplicate()
+		body.erase("request_id")
+		body["ready"] = true
+		return _router._ok(body)
+	if _router._debugger.get_pending_frame_request() != request_id:
+		_router._debugger.begin_frame_request(request_id)
+		_router._debugger.send_to_probe("godot_mcp:capture_frame", [{"request_id": request_id}])
+	return _router._ok({"ready": false})
 

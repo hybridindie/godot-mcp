@@ -409,6 +409,16 @@ def test_router_registers_profiling_commands() -> None:
     assert "_performance_snapshot" in probe  # the probe answers get_performance
 
 
+def test_router_registers_game_capture_commands() -> None:
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
+    assert '"cmd_capture_game_screenshot"' in source
+    # The probe must grab the game's own viewport (issue #446) — the game runs
+    # as a separate child process, so its viewport exists only in-process.
+    probe = (ADDON_DIR / "mcp_runtime_probe.gd").read_text()
+    assert "capture_frame" in probe and "godot_mcp:game_frame" in probe
+    assert "get_viewport" in probe and "save_png_to_buffer" in probe
+
+
 def test_router_registers_batch_commands() -> None:
     source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in (

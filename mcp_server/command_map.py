@@ -113,6 +113,7 @@ BARE_TO_COMMAND: dict[str, str] = {
     "resources_edit_register_autoload": "cmd_register_autoload",
     "resources_edit_set_resource_property": "cmd_set_resource_property",
     "resources_edit_unregister_autoload": "cmd_unregister_autoload",
+    "runtime_capture_game_screenshot": "cmd_capture_game_screenshot",
     "runtime_find_ui_elements": "cmd_find_ui_elements",
     "runtime_get_game_scene_tree": "cmd_get_game_scene_tree",
     "runtime_get_property_samples": "cmd_get_property_samples",

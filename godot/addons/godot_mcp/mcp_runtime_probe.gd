@@ -70,6 +70,12 @@ func _capture(message: String, data: Array) -> bool:
 		"get_performance":
 			EngineDebugger.send_message("godot_mcp:performance", [_performance_snapshot()])
 			return true
+		"capture_frame":
+			# Deferred one rendered frame: an inline texture read-back can return the
+			# previous frame (or stall); the grab runs in _process and replies when done.
+			_frame_request_id = str(_payload(data).get("request_id", ""))
+			_frame_pending = true
+			return true
 		"clear_breakpoints":
 			EngineDebugger.clear_breakpoints()
 			return true
@@ -113,6 +119,46 @@ func _performance_snapshot() -> Dictionary:
 	for name in _PERF_MONITORS:
 		monitors[name] = Performance.get_monitor(_PERF_MONITORS[name])
 	return monitors
+
+
+# --- game frame capture (issue #446) ----------------------------------------
+
+var _frame_request_id := ""
+var _frame_pending := false
+
+
+## Grab the game's root viewport on the next rendered frame and push it to the
+## editor as base64 PNG. Runs in _process (outside _capture) so the read-back
+## happens after this frame has been drawn.
+func _grab_frame() -> void:
+	var viewport := get_viewport()
+	var err := ""
+	var image: Image = null
+	if viewport == null:
+		err = "Game viewport is unavailable."
+	else:
+		var texture := viewport.get_texture()
+		if texture == null:
+			err = "No viewport texture (no rendered frame)."
+		else:
+			image = texture.get_image()
+			if image == null or image.is_empty():
+				err = "Could not capture the game viewport image."
+	if err.is_empty():
+		EngineDebugger.send_message("godot_mcp:game_frame", [{
+			"request_id": _frame_request_id,
+			"format": "png",
+			"width": image.get_width(),
+			"height": image.get_height(),
+			"base64": Marshalls.raw_to_base64(image.save_png_to_buffer()),
+		}])
+	else:
+		# An error result still closes the request so the poller doesn't spin.
+		EngineDebugger.send_message("godot_mcp:game_frame", [{
+			"request_id": _frame_request_id,
+			"ready": true,
+			"error": err,
+		}])
 
 
 # --- input simulation (issue #36) ------------------------------------------
@@ -234,6 +280,10 @@ var _monitor_error := ""
 ## Also services force_break: an editor-requested break fires here (one ``breakpoint``
 ## inside this frame), so the game needs no cooperation.
 func _process(_delta: float) -> void:
+	if _frame_pending:
+		_frame_pending = false
+		_grab_frame()
+		return  # this frame's read-back replaces the sample pass
 	if check_force_break():
 		return  # resumed after the break; skip this frame's sample so monitors freeze while paused
 	if _monitor_remaining <= 0:

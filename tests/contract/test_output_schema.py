@@ -43,12 +43,12 @@ from tests.fakes import FakeAddonConnection, connector_for
 
 pytestmark = pytest.mark.asyncio
 
-# The one tool whose content is an image, not JSON: the spec says structured
-# content applies to JSON results, so this tool correctly declares no schema.
+# The tools whose content is an image, not JSON: the spec says structured
+# content applies to JSON results, so these tools correctly declare no schema.
 # Keyed by the original handler name — Provider.list_tools (all tools, gated
-# included) yields pre-transform names; the public client name is
-# godot_editor_capture_screenshot.
-IMAGE_TOOLS = {"capture_editor_screenshot"}
+# included) yields pre-transform names; the public client names are
+# godot_editor_capture_screenshot / godot_runtime_capture_game_screenshot.
+IMAGE_TOOLS = {"capture_editor_screenshot", "capture_game_screenshot"}
 
 
 def image_responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:

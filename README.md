@@ -589,6 +589,7 @@ The full surface is 180 tools across 29 categories (`core` + 28 toggleable tools
 ### Runtime (gated) — `runtime` / `read_only`
 - `godot_runtime_run_and_capture` — headless subprocess
 - `godot_runtime_play_scene`, `godot_runtime_stop_scene`, `godot_runtime_is_playing`, `godot_runtime_get_game_scene_tree` — editor play session
+- `godot_runtime_capture_game_screenshot` — PNG of the *running game's* viewport (probe in-process grab)
 
 ### Input Simulation (gated) — `runtime` / `read_only`
 - `godot_input_simulate_key`, `godot_input_simulate_mouse`, `godot_input_simulate_action`, `godot_input_play_sequence`
