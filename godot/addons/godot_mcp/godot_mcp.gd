@@ -215,3 +215,15 @@ func _server_version_label() -> String:
 ## execution time and round-trip latency from the bridge.
 func _on_command_completed(command: String, exec_ms: float, latency_ms: float) -> void:
 	_dock.set_command_stats(_dock.get_command_count(), exec_ms, latency_ms)
+	if command == "cmd_write_script" or command == "cmd_patch_script":
+		# #417: a script write may introduce a new ``class_name`` global. The
+		# parser's global class cache only refreshes on a filesystem scan, so
+		# without one the agent's next get_parse_errors reports transient
+		# "Could not find type" errors for correct code. Deferred (next frame)
+		# and idempotent: scan() is re-entrant-unsafe against the command
+		# handler that just returned, and consecutive writes coalesce.
+		_rescan_after_script_write.call_deferred()
+
+
+func _rescan_after_script_write() -> void:
+	EditorInterface.get_resource_filesystem().scan()
