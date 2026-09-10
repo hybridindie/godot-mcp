@@ -139,7 +139,11 @@ async def test_write_script_safety_and_dry_run() -> None:
     assert dry.structured_content["dry_run"] is True
     assert dry.structured_content["would_overwrite"] is True
     assert dry.structured_content["created"] is False
+    # #424 round-2 review: the preview must state the file's existence too — the
+    # tool sets previous_existed; the serializer must not drop it.
+    assert dry.structured_content["previous_existed"] is True
     assert dry_new.structured_content["would_overwrite"] is False
+    assert dry_new.structured_content["previous_existed"] is False
     assert dry_new.structured_content["created"] is True
     sent = [CommandEnvelope.model_validate_json(s).command for s in conn.sent]
     assert "cmd_write_script" not in sent  # dry-run writes nothing

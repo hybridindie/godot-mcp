@@ -51,6 +51,7 @@ class WriteScriptResult(BaseModel):
         if self.dry_run:
             data["dry_run"] = True
             data["would_overwrite"] = self.would_overwrite
+            data["previous_existed"] = self.previous_existed
         else:
             data["overwrote"] = self.overwrote
             data["previous_existed"] = self.previous_existed
