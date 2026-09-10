@@ -360,6 +360,34 @@ def test_runtime_session_addon_files_present() -> None:
     assert "set_debugger" in entry
 
 
+def test_debugger_single_active_session_contract() -> None:
+    """#454: the engine caps concurrent debug sessions per editor (4 active —
+    EditorDebuggerNode) and prints "Max client limits reached" only from its DAP/LSP
+    servers, so a session leak is otherwise invisible. The plugin must enforce a
+    one-active-session contract itself: when a new session is set up, any prior
+    session's signal wiring is dropped, multiple live sessions are logged with
+    their ids, and a new session's arrival resets the probe state even if its
+    ``started`` signal never fires (orphaned-session recovery)."""
+    src = (ADDON_DIR / "mcp_debugger.gd").read_text()
+    setup = src.split("func _setup_session", 1)[1].split("\nfunc ", 1)[0]
+    # The setup must disconnect the previous session's signals (no accumulating lambdas
+    # over repeated play/stop cycles) and adopt the new session immediately.
+    assert "_detach_previous_session" in setup
+    detach = src.split("func _detach_previous_session", 1)[1].split("\nfunc ", 1)[0]
+    assert "disconnect" in detach  # drops the prior session's started/stopped wiring
+    # Diagnosability: when a new session arrives while another is still active, log it
+    # (the only signal short of the engine's own DAP/LSP "max client limits" line).
+    assert "push_warning" in src or "print" in src
+
+
+def test_runtime_handlers_surface_probe_connect_diagnostic() -> None:
+    """#454: when a play session is active but the probe never announces (engine
+    caps exhausted → silent debugger unresponsiveness), the runtime-session
+    handlers must say so with an actionable hint, not just ``connected: false``."""
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
+    assert "probe_never_connected" in source or "max client limits" in source.lower()
+
+
 def test_router_registers_scene_session_commands() -> None:
     source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in (

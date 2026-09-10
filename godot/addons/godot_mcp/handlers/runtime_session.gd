@@ -76,12 +76,16 @@ func _cmd_get_game_scene_tree(_params: Dictionary) -> Dictionary:
 		return _router._fail("INTERNAL_ERROR", "Debugger plugin is unavailable.")
 	if not _router._debugger.is_connected_to_probe():
 		# Playing, but the probe hasn't announced itself — usually means the consuming
-		# project hasn't added the godot_mcp runtime probe autoload yet.
+		# project hasn't added the godot_mcp runtime probe autoload yet. #454: after
+		# several play/stop cycles the engine's debugger session caps (or its DAP/LSP
+		# client caps, which log "max client limits reached") can leave the new game
+		# silently unattached — name that so it's diagnosable from the addon.
 		return _router._ok({
 			"playing": true,
 			"connected": false,
 			"tree": null,
-			"hint": "Add the godot_mcp runtime probe (addons/godot_mcp/mcp_runtime_probe.gd) as an autoload in the game to enable live inspection.",
+			"hint": "Add the godot_mcp runtime probe (addons/godot_mcp/mcp_runtime_probe.gd) as an autoload in the game to enable live inspection. If the autoload IS registered and repeated play/stop cycles precede this, the engine may have exhausted its debugger session/client caps (editor log: \"max client limits reached\") — restart the editor to recover.",
+			"probe_never_connected": true,
 		})
 	var tree: Variant = _router._debugger.get_cached_scene_tree()
 	_router._debugger.request_scene_tree()  # refresh the cache for the next call
