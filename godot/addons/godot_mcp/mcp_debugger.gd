@@ -21,6 +21,8 @@ var _ui_elements: Variant = null  # last godot_mcp:ui_elements payload (#35)
 var _ui_pending := "__none__"  # request_id of the in-flight find_ui request (#35)
 var _recorded_input: Variant = null  # last godot_mcp:recorded_input payload (#68)
 var _performance: Variant = null  # last godot_mcp:performance payload (#38)
+var _game_frame: Variant = null  # last godot_mcp:game_frame payload (#446)
+var _frame_request_id := "__none__"  # request_id of the in-flight game frame capture (#446)
 var _breakpoints: Array = []  # tracked breakpoints for issue #110
 var _stack_frames: Variant = null  # last stack_dump payload (Tier 2)
 var _evaluation_result: Variant = null  # last evaluation_return payload (Tier 2)
@@ -65,6 +67,9 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 			return true
 		"godot_mcp:performance":
 			_performance = data[0] if not data.is_empty() else null
+			return true
+		"godot_mcp:game_frame":
+			_game_frame = data[0] if not data.is_empty() else null
 			return true
 		# Tier 2 debugger: raw Godot debugger protocol replies (issue #110)
 		"stack_dump":
@@ -127,6 +132,8 @@ func _on_stopped() -> void:
 	_ui_pending = "__none__"
 	_recorded_input = null
 	_performance = null
+	_game_frame = null
+	_frame_request_id = "__none__"
 	_stack_frames = null
 	_evaluation_result = null
 	_frame_vars = null
@@ -205,6 +212,22 @@ func clear_recorded_input() -> void:
 
 func get_performance() -> Variant:
 	return _performance
+
+
+## request_id of the in-flight game frame capture (so the router dispatches a
+## grab only once per invocation, mirroring the find_ui request pattern).
+func get_pending_frame_request() -> String:
+	return _frame_request_id
+
+
+## Mark a new game-frame capture as in-flight and drop any prior (stale) frame.
+func begin_frame_request(request_id: String) -> void:
+	_frame_request_id = request_id
+	_game_frame = null
+
+
+func get_game_frame() -> Variant:
+	return _game_frame
 
 
 ## Cache accessors for Tier 2 debugger tools (step, stack, eval).

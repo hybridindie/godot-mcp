@@ -756,6 +756,7 @@ answers `godot_mcp:` debugger queries. Play control is `runtime`; reads are `rea
 | `godot_runtime_stop_scene` | — | `PlayResult { playing }` |
 | `godot_runtime_is_playing` | — | `PlayResult { playing, scene, paused }` |
 | `godot_runtime_get_game_scene_tree` | — | `GameSceneTreeResult { playing, connected, tree?, hint }` (read_only) |
+| `godot_runtime_capture_game_screenshot` | `timeout_ms?` | image content (PNG) (read_only) |
 
 `godot_runtime_play_scene` runs `scene_path` (a `res://*.tscn`) or the main scene when omitted.
 `godot_runtime_get_game_scene_tree` returns the *running* game's live tree (`GameNode { name, type,
@@ -764,6 +765,17 @@ path, children }`) from the probe; with no play session it is a `PRECONDITION_FA
 `connected=false` with a `hint` to add the autoload. Replies are cached addon-side
 (poll-and-cache) so the synchronous bridge stays simple. This is the foundation for
 input simulation (#36) and the rest of runtime inspection (#35).
+
+`godot_runtime_capture_game_screenshot` (issue #446) returns the *running game's* rendered
+viewport as an image block — the pixels the player sees, which the editor-viewport capture
+(#33) cannot show (the game is a separate child process). The probe grabs
+`get_viewport().get_texture().get_image()` one rendered frame after the request and replies
+`godot_mcp:game_frame` (base64 PNG); the addon caches it per `request_id` (one grab per
+invocation, mirroring `find_ui_elements`), and the tool polls until ready/`timeout_ms`
+(default 2000). Requires a play session + probe (`PRECONDITION_FAILED` otherwise). Not
+headless-testable (`--headless` does not render; same caveat as #33). Note payload size:
+a 1920×1080 frame is ~1–4 MB base64 over the debugger channel. A frame captured while the
+game is paused at a debugger break shows the frozen viewport.
 
 #### Input simulation (issue #36) — category: `input` (gated off by default)
 
