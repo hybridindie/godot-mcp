@@ -40,4 +40,4 @@ CI runs all gates above via `.github/workflows/ci.yml` (zero-skip, lint, mypy, p
 
 ## Versioning
 
-CalVer `YYYY.MM.DD[-N]`. Current: **2026.09.02** (first stable).
+CalVer `YYYY.MM.DD[-N]`. Current: **2026.09.10**.

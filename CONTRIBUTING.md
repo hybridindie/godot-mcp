@@ -109,7 +109,7 @@ See [`skills/README.md`](skills/README.md) for details.
 
 ## Versioning
 
-CalVer `YYYY.MM.DD[-N]` (stable, e.g. `2026.09.02`); prerelease suffixes (`b1`, `rc1`) only when cutting a beta. The version is in `pyproject.toml`, `mcp_server/__init__.py`, `godot/addons/godot_mcp/plugin.cfg`, and the version references in `skills/godot-getting-started/SKILL.md` — all must stay in lockstep (the drift tests enforce it).
+CalVer `YYYY.MM.DD[-N]` (stable, e.g. `2026.09.10`); prerelease suffixes (`b1`, `rc1`) only when cutting a beta. The version is in `pyproject.toml`, `mcp_server/__init__.py`, `godot/addons/godot_mcp/plugin.cfg`, and the version references in `skills/godot-getting-started/SKILL.md` — all must stay in lockstep (the drift tests enforce it).
 
 ## Publishing
 
