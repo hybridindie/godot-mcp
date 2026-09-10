@@ -21,6 +21,10 @@ var _probe_ready: bool = false
 # session drops the previous session's signal wiring (no accumulating lambdas
 # across play/stop cycles) and a diagnostic names multiple live sessions.
 var _previous_session_id: int = -1
+# The specific callables THIS plugin connected on the current session (round-2
+# review: disconnect only ours — the editor's own debugger infrastructure also
+# listens on these signals, and a blanket disconnect breaks its tab bookkeeping).
+var _owned_connections: Array = []
 var _scene_tree: Variant = null  # last godot_mcp:scene_tree payload (Dictionary) or null
 var _input_acks: int = 0  # count of synthesized inputs the game has acknowledged (#36)
 var _property_samples: Variant = null  # last godot_mcp:property_samples payload (#35)
@@ -130,8 +134,15 @@ func _setup_session(session_id: int) -> void:
 	var session := get_session(session_id)
 	if session == null:
 		return
-	session.started.connect(func() -> void: _on_started(session_id))
+	var on_start := func() -> void: _on_started(session_id)
+	session.started.connect(on_start)
 	session.stopped.connect(_on_stopped)
+	# Track exactly what this plugin connected (round-2 review: the detach must
+	# only remove ours — the editor's own consumers share these signals).
+	_owned_connections = [
+		{"signal": session.started, "callable": on_start},
+		{"signal": session.stopped, "callable": _on_stopped},
+	]
 	# A session arriving while another is still live is the pre-condition for
 	# the engine's session cap — surface it instead of staying silent (#454).
 	var live: Array = []
@@ -153,15 +164,20 @@ func _on_started(session_id: int) -> void:
 
 ## Drop the previous session's signal wiring (#454). The engine keeps every
 ## debugger tab; without this, each play/stop cycle leaves one more connected
-## started/stopped lambda pair — invisible until a cap bites.
+## lambda pair — invisible until a cap bites. Only the plugin's OWN callables are
+## disconnected (tracked in _owned_connections): the editor's internal debugger
+## consumers also listen on these signals, and a blanket disconnect would break
+## their tab bookkeeping (Qodo #455 review).
 func _detach_previous_session(_new_session_id: int) -> void:
 	var previous := get_session(_previous_session_id)
 	if previous == null:
 		return
-	for conn in previous.started.get_connections():
-		previous.started.disconnect(conn["callable"])
-	for conn in previous.stopped.get_connections():
-		previous.stopped.disconnect(conn["callable"])
+	for owned in _owned_connections:
+		var signal_ref: Signal = owned["signal"]
+		var callable: Callable = owned["callable"]
+		if signal_ref.is_connected(callable):
+			signal_ref.disconnect(callable)
+	_owned_connections.clear()
 
 
 func _on_stopped() -> void:

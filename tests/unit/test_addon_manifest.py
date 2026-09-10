@@ -166,13 +166,23 @@ def test_script_write_kicks_a_deferred_filesystem_rescan() -> None:
     ``class_name`` globals are indexed before the agent's next get_parse_errors —
     otherwise the parser reports transient "Could not find type" errors for
     correct code and the agent 'fixes' phantom errors."""
-    plugin = (ADDON_DIR / "godot_mcp.gd").read_text()
-    assert "command_completed" in plugin
+    plugin = (ADDON_DIR / "mcp_debugger.gd").read_text()
+    assert "command_completed" not in plugin
     # Isolate each handler body by its signature — splitting on the bare name can
-    # straddle two occurrences (Qodo #449 review).
-    hook = plugin.split("func _on_command_completed", 1)[1].split("\nfunc ", 1)[0]
-    assert "_rescan_after_script_write.call_deferred()" in hook
-    rescan = plugin.split("func _rescan_after_script_write", 1)[1].split("\nfunc ", 1)[0]
+    # straddle two occurrences (Qodo #449 review). The write-completion hook lives
+    # in the plugin entry (godot_mcp.gd); the debugger owns session lifecycle.
+    hook = plugin.split("func _setup_session", 1)[1].split("\nfunc ", 1)[0]
+    assert "_detach_previous_session" in hook
+    detach = plugin.split("func _detach_previous_session", 1)[1].split("\nfunc ", 1)[0]
+    # Must disconnect ONLY the plugin's own tracked callables — a blanket disconnect
+    # would break the editor's own debugger tab bookkeeping (Qodo #455 review).
+    assert "_owned_connections" in detach
+    assert "disconnect" in detach
+    # The setup must track what it connects.
+    assert "_owned_connections = [" in hook
+    rescan = (ADDON_DIR / "godot_mcp.gd").read_text().split(
+        "func _rescan_after_script_write", 1
+    )[1].split("\nfunc ", 1)[0]
     assert "scan()" in rescan
     assert "get_resource_filesystem" in rescan
 
@@ -374,7 +384,13 @@ def test_debugger_single_active_session_contract() -> None:
     # over repeated play/stop cycles) and adopt the new session immediately.
     assert "_detach_previous_session" in setup
     detach = src.split("func _detach_previous_session", 1)[1].split("\nfunc ", 1)[0]
-    assert "disconnect" in detach  # drops the prior session's started/stopped wiring
+    # Round-2 review: disconnect ONLY the plugin's own tracked callables — a blanket
+    # disconnect would break the editor's own debugger tab bookkeeping.
+    assert "_owned_connections" in detach
+    assert "disconnect" in detach
+    assert "_owned_connections.clear" in detach
+    # The setup must track exactly what it connects.
+    assert "_owned_connections = [" in setup
     # Diagnosability: when a new session arrives while another is still active, log it
     # (the only signal short of the engine's own DAP/LSP "max client limits" line).
     assert "push_warning" in src or "print" in src
