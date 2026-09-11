@@ -30,6 +30,10 @@ BLANK_FILES = [
 SHADER_CODE = (
     "shader_type canvas_item;\n"
     "uniform float strength = 1.0;\n"
+    "uniform vec4 tint_array;\n"
+    "uniform vec4 tint_dict;\n"
+    "uniform vec4 tint_inferred;\n"
+    "uniform vec4 tint_string;\n"
     "void fragment() {\n\tCOLOR = vec4(strength);\n}\n"
 )
 
@@ -123,6 +127,25 @@ async def _run() -> None:
             bridge, "cmd_get_shader_param", {"node_path": "Shaderless", "name": "strength"}
         )
         assert blank["exists"] is False and blank["value"] is None, blank
+        # #464: vec4 uniforms, one per accepted input shape; the saved scene is the truth
+        vec4_sets: list[tuple[str, Any, str]] = [
+            ("tint_array", [1, 0.5, 0.25, 1], "vector4"),
+            ("tint_dict", {"x": 0.1, "y": 0.2, "z": 0.3, "w": 0.4}, "vector4"),
+            ("tint_inferred", [2, 3, 4, 5], ""),
+            ("tint_string", "Vector4(6, 7, 8, 9)", "vector4"),
+        ]
+        for uniform, value, param_type in vec4_sets:
+            await _ok(
+                bridge,
+                "cmd_set_shader_param",
+                {"node_path": "Sprite", "name": uniform, "value": value, "param_type": param_type},
+            )
+        await _ok(bridge, "cmd_save_scene", {})
+        saved = SCRATCH_FILE.read_text()
+        assert "shader_parameter/tint_array = Vector4(1, 0.5, 0.25, 1)" in saved, saved
+        assert "shader_parameter/tint_dict = Vector4(0.1, 0.2, 0.3, 0.4)" in saved, saved
+        assert "shader_parameter/tint_inferred = Vector4(2, 3, 4, 5)" in saved, saved
+        assert "shader_parameter/tint_string = Vector4(6, 7, 8, 9)" in saved, saved
 
         # validation: no material slot, no ShaderMaterial yet, bad paths
         await _create(bridge, "Plain", "Node")

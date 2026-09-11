@@ -22,3 +22,5 @@ def test_inspection_serializers() -> None:
         f"inspection smoke test did not pass (exit {result.returncode}):\n{output}"
     )
     assert result.returncode == 0, f"expected exit 0, got {result.returncode}:\n{output}"
+    # An aborted check records no failure, so a script error must fail the run (#464).
+    assert "SCRIPT ERROR" not in output, f"inspection smoke raised a script error:\n{output}"
