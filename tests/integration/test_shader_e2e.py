@@ -334,12 +334,31 @@ async def _run() -> None:
             "cmd_assign_shader_material", {"node_path": "Plain", "shader_path": SHADER_PATH}
         )
         assert no_slot.ok is False and no_slot.error == "VALIDATION_ERROR"
-        no_material = await bridge.send(
+        # #474: a uniform the shader does not declare must be refused BEFORE any
+        # undo action — the old code's read-back check never fired because
+        # ShaderMaterial caches any name it's handed (get returns the cached
+        # value), and the rejected set still became an undo step + cache entry.
+        undeclared_set = await bridge.send(
             "cmd_set_shader_param",
             {"node_path": "Mesh", "name": "x", "value": 1, "param_type": "int"},
         )
-        # Mesh has a ShaderMaterial (assigned above) -> this should succeed
-        assert no_material.ok is True
+        assert undeclared_set.ok is False, undeclared_set
+        assert undeclared_set.error == "VALIDATION_ERROR", undeclared_set
+        assert "x" in (undeclared_set.hint or ""), undeclared_set.hint  # names the uniform
+        # no cache entry: the refused name must not appear in the saved material
+        no_material = await bridge.send(
+            "cmd_set_shader_param",
+            {"node_path": "Mesh", "name": "x_declared", "value": 1, "param_type": "int"},
+        )
+        # Mesh has a ShaderMaterial (assigned above) but `x_declared` is not in the
+        # shader's uniform list either — declared names only: 'strength', 'tint_*'.
+        assert no_material.ok is False, no_material
+        declared = await _ok(
+            bridge,
+            "cmd_set_shader_param",
+            {"node_path": "Mesh", "name": "strength", "value": 1, "param_type": "float"},
+        )
+        assert declared["set"] is True, declared
         await _create(bridge, "Bare", "Sprite2D")
         bare = await bridge.send(
             "cmd_set_shader_param", {"node_path": "Bare", "name": "x", "value": 1}

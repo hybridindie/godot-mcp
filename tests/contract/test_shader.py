@@ -419,9 +419,9 @@ async def test_dry_run_preview_carries_persistence_truth() -> None:
 
 
 async def test_set_param_not_declared_is_a_structured_error() -> None:
-    """#460 round-2: a param that isn't declared on the shader reads back null —
-    the set did not land, which is a structured error (not a success envelope
-    with set:false)."""
+    """#474: a param the shader does not declare is refused before any undo
+    action — the fake addon answers like the real handler's uniform-list check
+    (VALIDATION_ERROR, no set, [required=param])."""
     def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
         if cmd.command == "cmd_node_exists":
             return ResponseEnvelope.success(cmd.id, {"exists": True})
@@ -429,8 +429,8 @@ async def test_set_param_not_declared_is_a_structured_error() -> None:
             return ResponseEnvelope.failure(
                 cmd.id,
                 "VALIDATION_ERROR",
-                "Uniform 'nope' is not declared on the material's shader; the set "
-                "did not land (reads back null). Declare the uniform on the shader first.",
+                "Uniform 'nope' is not declared on the material's shader (declared: "
+                "strength). Declare the uniform on the shader first; nothing was set.",
                 required="param",
             )
         return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
@@ -448,7 +448,7 @@ async def test_set_param_not_declared_is_a_structured_error() -> None:
     assert result.is_error
     text = str(result.content)
     assert "VALIDATION_ERROR" in text
-    assert "did not land" in text
+    assert "not declared" in text
     assert "param" in text  # [required=param] suffix
 
 
