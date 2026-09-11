@@ -33,6 +33,10 @@ def _shared_responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
             return ResponseEnvelope.success(cmd.id, {"exists": True})
         case "cmd_get_active_scene":
             return ResponseEnvelope.success(cmd.id, {"is_open": True, "path": "res://m.tscn"})
+        case "cmd_node_persistence":  # dry-run probe (#476)
+            return ResponseEnvelope.success(
+                cmd.id, {"node_path": cmd.params["node_path"], "persisted": True}
+            )
         case _:
             return ResponseEnvelope.failure(
                 cmd.id, "VALIDATION_ERROR", f"Unknown command '{cmd.command}'."

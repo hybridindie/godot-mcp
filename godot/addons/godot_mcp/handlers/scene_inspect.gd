@@ -136,6 +136,10 @@ func _cmd_node_persistence(params: Dictionary) -> Dictionary:
 	# dry_run preview carry the same persisted/reason fields as the real run.
 	# `resource_properties` names the node properties an edit reaches through (e.g. a
 	# material's slots); the first one holding a resource decides where it saves (#475).
+	# `animation` names an AnimationPlayer animation whose library an edit would write to
+	# — the one case a property lookup cannot express (#476). It follows the content
+	# handlers' chain (animation innermost, then its library), so the probe and the real
+	# run share the same rule.
 	if not params.has("node_path"):
 		return _router._fail("VALIDATION_ERROR", "'node_path' is required.")
 	var properties: Variant = params.get("resource_properties", [])
@@ -146,11 +150,19 @@ func _cmd_node_persistence(params: Dictionary) -> Dictionary:
 		return found
 	var node: Node = found["node"]
 	var chain := []
-	for property in properties:
-		var held: Variant = node.get(str(property))
-		if held is Resource:
-			chain.append(held)
-			break
+	if params.has("animation"):
+		if node is AnimationPlayer:
+			var anim_name := str(params["animation"])
+			if node.has_animation(anim_name):
+				var animation: Animation = node.get_animation(anim_name)
+				var library: AnimationLibrary = node.get_animation_library(node.find_animation_library(animation))
+				chain = [animation, library]
+	else:
+		for property in properties:
+			var held: Variant = node.get(str(property))
+			if held is Resource:
+				chain.append(held)
+				break
 	var truth := _router._resource_persistence(node, chain)
 	var body := {
 		"node_path": str(params["node_path"]),

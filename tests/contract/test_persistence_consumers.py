@@ -1,8 +1,9 @@
 """Contract tests: every Tier 1/2 scene mutation carries the addon's persistence verdict (#458).
 
 The addon decides ``persisted``/``reason``/``hint``; the server's job is to pass them
-through untouched — including tools that build their result by hand — and to leave them
-unknown on a ``dry_run`` preview, where no editor was asked.
+through untouched — including tools that build their result by hand. A ``dry_run``
+preview must predict the same verdict (#476): tools probe ``cmd_node_persistence`` and
+stamp its answer; the few that can't preview as unknown. No preview ever mutates.
 """
 
 from __future__ import annotations
@@ -180,6 +181,9 @@ class _Addon:
         p = cmd.params
         if cmd.command == "cmd_node_exists":  # require_node_exists precondition
             return ResponseEnvelope.success(cmd.id, {"exists": True})
+        if cmd.command == "cmd_node_persistence":  # dry-run probe (#476)
+            target = p.get("node_path", "")
+            return ResponseEnvelope.success(cmd.id, {"node_path": target, **VERDICTS[target]})
         schema = self.schemas.get(cmd.command)
         if schema is None:
             return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", f"unexpected {cmd.command}")
@@ -191,7 +195,7 @@ class _Addon:
         return ResponseEnvelope.success(cmd.id, {**result, **VERDICTS[target]})
 
 
-async def _build(addon: _Addon, client: Client) -> None:
+async def _build(addon: _Addon, client: Client[Any]) -> None:
     for category in sorted({category for _, category, _, _ in TOOLS}):
         await client.call_tool("godot_enable_toolset", {"category": category})
     listed = {t.name: t for t in await client.list_tools()}
@@ -234,18 +238,27 @@ async def test_group_removal_from_base_scene_is_reported() -> None:
     assert "base.tscn" in content["hint"]
 
 
-async def test_dry_run_leaves_persistence_unknown() -> None:
-    """Only the editor can judge persistence; a preview must not claim either way."""
+async def test_dry_run_previews_match_the_persistence_verdict() -> None:
+    """A preview predicts the real run: probe-able tools stamp the target's verdict
+    (``cmd_node_persistence``), the rest stay unknown — and nothing sends a mutation."""
     server, addon, conn = _server()
     async with Client(server) as client:
         await _build(addon, client)
         for tool, _, command, args in TOOLS:
+            before = set(conn.sent)
             result = await client.call_tool(
                 tool, {**_target(command, "Relic/Orb"), **args, "dry_run": True}
             )
+            sent_now = {CommandEnvelope.model_validate_json(s).command for s in conn.sent} - before
             content = result.structured_content
             assert content is not None, tool
-            assert content.get("persisted") is None, (tool, content)
-            assert content.get("reason") is None and content.get("hint") is None, tool
+            if "cmd_node_persistence" in sent_now:
+                assert content.get("persisted") == VERDICTS["Relic/Orb"]["persisted"], tool
+                for key in ("reason", "hint"):
+                    assert content.get(key) == VERDICTS["Relic/Orb"].get(key), (tool, key, content)
+            else:
+                assert content.get("persisted") is None, (tool, content)
+                assert content.get("reason") is None and content.get("hint") is None, tool
+            assert not sent_now & {command}, tool  # a preview must never mutate
     sent = {CommandEnvelope.model_validate_json(s).command for s in conn.sent}
     assert not sent & {command for _, _, command, _ in TOOLS}

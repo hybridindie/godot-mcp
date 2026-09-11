@@ -10,9 +10,10 @@ from pydantic import BaseModel
 class PersistenceReport(BaseModel):
     """Whether a change that applied live in the editor will survive a scene save.
 
-    ``persisted`` is ``None`` when unknown — a ``dry_run`` preview, since only the editor
-    can tell. ``False`` always comes with a stable ``reason`` token
-    (``instanced_child_not_editable``, ``node_not_owned``,
+    ``persisted`` is ``None`` when unknown — a preview the server could not probe (issue
+    #476 probes ``cmd_node_persistence`` for most previews; file-only resource authors
+    and legacy previews stay ``None``). ``False`` always comes with a stable ``reason``
+    token (``instanced_child_not_editable``, ``node_not_owned``,
     ``embedded_in_other_resource``, ``group_from_base_scene``) and an actionable ``hint``.
     """
 

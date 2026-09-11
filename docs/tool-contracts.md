@@ -173,6 +173,45 @@ can try them; the addon will produce its own structured error if an API is missi
   `require_confirmation(confirm, action)` — without `confirm=True` they fail with a
   `PRECONDITION_FAILED` (`required="confirm"`), never deleting anything.
 
+#### Persistence truth for scene mutations (issue #458, #476)
+
+Every scene-mutation result carries three extra fields: `persisted: bool?` —
+whether the change that applied live will survive a scene save — plus `reason?`
+and `hint?` when it will not. `reason` is a stable token
+(`instanced_child_not_editable`, `node_not_owned`, `embedded_in_other_resource`,
+`group_from_base_scene`); `hint` names the recovery action in plain words.
+
+The verdict is decided **only by the addon**, against the real editor (the scene
+owner chain and the edited resources' paths — `command_router.gd`):
+`_persistent_target()` walks the node's owner chain to the scene root; edits
+through a resource let the resource's *container* decide where it saves.
+
+A `dry_run` preview reproduces that verdict instead of leaving it unknown (issue
+#476): the tool sends the read-only `cmd_node_persistence` probe — target
+`node_path`, plus `resource_properties` naming the property an edit reaches
+through (e.g. `process_material`, `tree_root`, `tile_set`, `mesh_library`) or
+`animation` naming an AnimationPlayer animation whose library would host the edit
+— and stamps the addon's answer into the preview. The probe runs the *same* rules
+as the real handler, so the two agree. File-only resource authors
+(`create_tileset`/`create_mesh_library` with `save_path` on a fresh `.tres`,
+atlas-source/item additions against a `.tres`) are already on disk by the time
+the tool returns, so their previews report `persisted: true` without a probe.
+
+Consumer tools (each carries `persisted`/`reason`/`hint` in its result):
+
+- `scene_edit`: `rename_node`, `set_node_property`, `attach_script`, `add_to_group`,
+  `remove_from_group`
+- `theme_ui`: `create`, `set_color`, `set_font_size`, `set_stylebox`
+- `physics`: `setup_body`, `set_layers`
+- `navigation`: `bake_mesh`, `set_layers`
+- `particles`: `set_material`, `set_color_gradient`, `apply_preset`
+- `scene_3d`: `gridmap_set_cell`, `create_mesh_library`, `add_mesh_library_item`
+- `tilemap`: `tilemap_set_cell`, `tilemap_fill_rect`, `tilemap_clear`,
+  `create_tileset`, `add_tileset_atlas_source`, `create_tile`
+- `animation`: `create`, `add_track`, `insert_keyframe`, `add_state_machine_state`,
+  `set_blend_tree_node`
+- `shader`: `assign_material`, `set_param` (see its section below)
+
 ### Preconditions
 
 Checked before any side effect. Each is a function in `safety.py` that raises a typed

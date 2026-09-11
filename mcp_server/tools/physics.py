@@ -50,7 +50,13 @@ def register_physics(mcp: FastMCP, bridge: Bridge) -> None:
         params = {"node_path": node_path, "properties": properties}
         preview = {"node_path": node_path, "properties": {}}
         return await run_or_preview(
-            dry_run, SetupBodyResult, preview, bridge, "cmd_setup_physics_body", params
+            dry_run,
+            SetupBodyResult,
+            preview,
+            bridge,
+            "cmd_setup_physics_body",
+            params,
+            persistence_probe={"node_path": node_path},
         )
 
     @mcp.tool(meta=MUTATING, tags=PHYSICS)
@@ -107,7 +113,13 @@ def register_physics(mcp: FastMCP, bridge: Bridge) -> None:
         params = {"node_path": node_path, "layers": layers, "mask": mask}
         preview = {"node_path": node_path}
         return await run_or_preview(
-            dry_run, PhysicsLayersResult, preview, bridge, "cmd_set_physics_layers", params
+            dry_run,
+            PhysicsLayersResult,
+            preview,
+            bridge,
+            "cmd_set_physics_layers",
+            params,
+            persistence_probe={"node_path": node_path},
         )
 
     @mcp.tool(meta=MUTATING, tags=PHYSICS)

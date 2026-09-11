@@ -196,7 +196,13 @@ def register_scene_3d(mcp: FastMCP, bridge: Bridge) -> None:
         }
         preview = {"node_path": node_path, "position": position, "item": item}
         return await run_or_preview(
-            dry_run, GridMapCellResult, preview, bridge, "cmd_gridmap_set_cell", params
+            dry_run,
+            GridMapCellResult,
+            preview,
+            bridge,
+            "cmd_gridmap_set_cell",
+            params,
+            persistence_probe={"node_path": node_path},
         )
 
     @mcp.tool(meta=READ_ONLY, tags=SCENE_3D)
@@ -232,7 +238,13 @@ def register_scene_3d(mcp: FastMCP, bridge: Bridge) -> None:
         params = {"node_path": node_path, "save_path": save_path}
         preview = {"node_path": node_path, "library_path": save_path}
         return await run_or_preview(
-            dry_run, MeshLibraryResult, preview, bridge, "cmd_create_mesh_library", params
+            dry_run,
+            MeshLibraryResult,
+            preview,
+            bridge,
+            "cmd_create_mesh_library",
+            params,
+            persistence_probe={"node_path": node_path} if node_path else True,
         )
 
     @mcp.tool(meta=MUTATING, tags=SCENE_3D)
@@ -276,5 +288,15 @@ def register_scene_3d(mcp: FastMCP, bridge: Bridge) -> None:
             "mesh_path": mesh_path,
         }
         return await run_or_preview(
-            dry_run, MeshLibraryItemResult, preview, bridge, "cmd_add_mesh_library_item", params
+            dry_run,
+            MeshLibraryItemResult,
+            preview,
+            bridge,
+            "cmd_add_mesh_library_item",
+            params,
+            persistence_probe=(
+                {"node_path": node_path, "resource_properties": ["mesh_library"]}
+                if node_path
+                else True
+            ),
         )

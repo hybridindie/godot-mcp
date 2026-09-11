@@ -142,15 +142,31 @@ async def run_or_preview(
     bridge: Bridge,
     command: str,
     params: dict[str, Any] | None = None,
+    persistence_probe: dict[str, Any] | bool | None = None,
 ) -> T:
     """Return ``result_cls(**preview, dry_run=True)`` when ``dry_run`` is set,
     otherwise ``result_cls(**await route(...))``.
 
     Keeps tool handlers DRY: a single call replaces the
     ``if dry_run: return ...`` / ``return ... route(...)`` two-branch boilerplate.
+
+    ``persistence_probe`` is consulted on dry-run only (issue #476): a preview must
+    predict the real run's ``persisted``/``reason``/``hint`` instead of silently
+    leaving them unset. ``False``/``None`` (default) stamps nothing; ``True`` means the
+    edit is already on disk (a file-only resource author), so ``persisted=True``;
+    a dict is sent as the ``cmd_node_persistence`` probe params and its verdict is
+    stamped into the preview.
     """
     if dry_run:
-        return result_cls(**preview, dry_run=True)
+        fields = dict(preview)
+        if persistence_probe is True:
+            fields["persisted"] = True
+        elif isinstance(persistence_probe, dict):
+            truth = await route(bridge, "cmd_node_persistence", persistence_probe)
+            fields["persisted"] = truth.get("persisted")
+            fields["reason"] = truth.get("reason")
+            fields["hint"] = truth.get("hint")
+        return result_cls(**fields, dry_run=True)
     return result_cls(**await route(bridge, command, params or {}))
 
 

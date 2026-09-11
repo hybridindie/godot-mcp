@@ -46,7 +46,13 @@ def register_theme_ui(mcp: FastMCP, bridge: Bridge) -> None:
         params = {"node_path": node_path, "save_path": save_path}
         preview = {"node_path": node_path, "theme_path": save_path, "created": False}
         return await run_or_preview(
-            dry_run, ThemeResult, preview, bridge, "cmd_create_theme", params
+            dry_run,
+            ThemeResult,
+            preview,
+            bridge,
+            "cmd_create_theme",
+            params,
+            persistence_probe={"node_path": node_path},
         )
 
     @mcp.tool(meta=MUTATING, tags=THEME_UI)
@@ -62,7 +68,13 @@ def register_theme_ui(mcp: FastMCP, bridge: Bridge) -> None:
         params = {"node_path": node_path, "name": name, "color": color}
         preview = {"node_path": node_path, "name": name}
         return await run_or_preview(
-            dry_run, ThemeColorResult, preview, bridge, "cmd_set_theme_color", params
+            dry_run,
+            ThemeColorResult,
+            preview,
+            bridge,
+            "cmd_set_theme_color",
+            params,
+            persistence_probe={"node_path": node_path},
         )
 
     @mcp.tool(meta=MUTATING, tags=THEME_UI)
@@ -77,7 +89,13 @@ def register_theme_ui(mcp: FastMCP, bridge: Bridge) -> None:
         params = {"node_path": node_path, "name": name, "size": size}
         preview = {"node_path": node_path, "name": name, "size": size}
         return await run_or_preview(
-            dry_run, ThemeFontSizeResult, preview, bridge, "cmd_set_theme_font_size", params
+            dry_run,
+            ThemeFontSizeResult,
+            preview,
+            bridge,
+            "cmd_set_theme_font_size",
+            params,
+            persistence_probe={"node_path": node_path},
         )
 
     @mcp.tool(meta=MUTATING, tags=THEME_UI)
@@ -103,7 +121,13 @@ def register_theme_ui(mcp: FastMCP, bridge: Bridge) -> None:
         }
         preview = {"node_path": node_path, "name": name, "stylebox_type": stylebox_type}
         return await run_or_preview(
-            dry_run, ThemeStyleboxResult, preview, bridge, "cmd_set_theme_stylebox", params
+            dry_run,
+            ThemeStyleboxResult,
+            preview,
+            bridge,
+            "cmd_set_theme_stylebox",
+            params,
+            persistence_probe={"node_path": node_path},
         )
 
     @mcp.tool(meta=READ_ONLY, tags=THEME_UI)

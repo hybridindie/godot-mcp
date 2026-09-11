@@ -51,7 +51,13 @@ def register_animation(mcp: FastMCP, bridge: Bridge) -> None:
         params = {"node_path": node_path, "name": name, "length": length}
         preview = {"player_path": node_path, "animation": name, "length": length}
         return await run_or_preview(
-            dry_run, CreateAnimationResult, preview, bridge, "cmd_create_animation", params
+            dry_run,
+            CreateAnimationResult,
+            preview,
+            bridge,
+            "cmd_create_animation",
+            params,
+            persistence_probe={"node_path": node_path, "animation": name},
         )
 
     @mcp.tool(meta=MUTATING, tags=ANIMATION)
@@ -76,7 +82,13 @@ def register_animation(mcp: FastMCP, bridge: Bridge) -> None:
         }
         preview = {"animation": animation, "track_path": track_path}
         return await run_or_preview(
-            dry_run, AnimationTrackResult, preview, bridge, "cmd_add_animation_track", params
+            dry_run,
+            AnimationTrackResult,
+            preview,
+            bridge,
+            "cmd_add_animation_track",
+            params,
+            persistence_probe={"node_path": node_path, "animation": animation},
         )
 
     @mcp.tool(meta=MUTATING, tags=ANIMATION)
@@ -108,7 +120,13 @@ def register_animation(mcp: FastMCP, bridge: Bridge) -> None:
         }
         preview = {"animation": animation, "track": track, "time": time}
         return await run_or_preview(
-            dry_run, KeyframeResult, preview, bridge, "cmd_insert_keyframe", params
+            dry_run,
+            KeyframeResult,
+            preview,
+            bridge,
+            "cmd_insert_keyframe",
+            params,
+            persistence_probe={"node_path": node_path, "animation": animation},
         )
 
     @mcp.tool(meta=MUTATING, tags=ANIMATION)
@@ -152,7 +170,13 @@ def register_animation(mcp: FastMCP, bridge: Bridge) -> None:
             params["animation"] = animation
         preview = {"tree_path": tree_path, "state": state_name}
         return await run_or_preview(
-            dry_run, StateMachineStateResult, preview, bridge, "cmd_add_state_machine_state", params
+            dry_run,
+            StateMachineStateResult,
+            preview,
+            bridge,
+            "cmd_add_state_machine_state",
+            params,
+            persistence_probe={"node_path": tree_path, "resource_properties": ["tree_root"]},
         )
 
     @mcp.tool(meta=MUTATING, tags=ANIMATION)
@@ -167,7 +191,13 @@ def register_animation(mcp: FastMCP, bridge: Bridge) -> None:
         params = {"tree_path": tree_path, "node_name": node_name, "node_type": node_type}
         preview = {"tree_path": tree_path, "node": node_name, "node_type": node_type}
         return await run_or_preview(
-            dry_run, BlendTreeNodeResult, preview, bridge, "cmd_set_blend_tree_node", params
+            dry_run,
+            BlendTreeNodeResult,
+            preview,
+            bridge,
+            "cmd_set_blend_tree_node",
+            params,
+            persistence_probe={"node_path": tree_path, "resource_properties": ["tree_root"]},
         )
 
     @mcp.tool(meta=READ_ONLY, tags=ANIMATION)
