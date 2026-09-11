@@ -293,3 +293,74 @@ async def test_dry_run_preview_carries_persistence_truth() -> None:
     sent = [CommandEnvelope.model_validate_json(s).command for s in conn.sent]
     assert "cmd_node_persistence" in sent  # the honest preview paid one read-only probe
     assert "cmd_assign_shader_material" not in sent
+
+
+async def test_set_param_not_declared_is_a_structured_error() -> None:
+    """#460 round-2: a param that isn't declared on the shader reads back null —
+    the set did not land, which is a structured error (not a success envelope
+    with set:false)."""
+    def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_node_exists":
+            return ResponseEnvelope.success(cmd.id, {"exists": True})
+        if cmd.command == "cmd_set_shader_param":
+            return ResponseEnvelope.failure(
+                cmd.id,
+                "VALIDATION_ERROR",
+                "Uniform 'nope' is not declared on the material's shader; the set "
+                "did not land (reads back null). Declare the uniform on the shader first.",
+                required="param",
+            )
+        return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
+
+    conn = FakeAddonConnection(responder=responder)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    server = create_server(ServerConfig(), bridge=bridge)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "shader"})
+        result = await client.call_tool(
+            "godot_shader_set_param",
+            {"node_path": "Sprite2D", "name": "nope", "value": 0.5, "param_type": "float"},
+            raise_on_error=False,
+        )
+    assert result.is_error
+    text = str(result.content)
+    assert "VALIDATION_ERROR" in text
+    assert "did not land" in text
+    assert "param" in text  # [required=param] suffix
+
+
+async def test_set_param_persistence_truth_still_carries_on_success() -> None:
+    """#458: a *landing* set on an instanced child still carries
+    persisted:false + reason — both truths coexist (Qodo #463 round-2)."""
+    def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_node_exists":
+            return ResponseEnvelope.success(cmd.id, {"exists": True})
+        if cmd.command == "cmd_set_shader_param":
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "node_path": cmd.params["node_path"],
+                    "name": cmd.params["name"],
+                    "value": 0.5,
+                    "set": True,
+                    "persisted": False,
+                    "reason": "instanced_child_not_editable",
+                    "hint": "the change will not save",
+                },
+            )
+        return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
+
+    conn = FakeAddonConnection(responder=responder)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    server = create_server(ServerConfig(), bridge=bridge)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "shader"})
+        result = await client.call_tool(
+            "godot_shader_set_param",
+            {"node_path": "Relic4/Visual/Orb", "name": "strength", "value": 0.5},
+        )
+    sc = result.structured_content
+    assert sc["set"] is True
+    assert sc["value"] == 0.5
+    assert sc["persisted"] is False
+    assert sc["reason"] == "instanced_child_not_editable"

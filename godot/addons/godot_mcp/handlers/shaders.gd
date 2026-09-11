@@ -140,22 +140,27 @@ func _cmd_set_shader_param(params: Dictionary) -> Dictionary:
 	ur.commit_action()
 	# #460: read-back after commit — set:true must reflect the landed value, not
 	# the requested one (the #414 pattern). A param not declared on the shader
-	# reads back null: report that as a non-landing set instead of success.
+	# reads back null: the set did not land → structured error (#460 acceptance:
+	# "a non-landing set is a structured error").
 	var landed: Variant = material.get_shader_parameter(name)
 	var persist := _router._persistent_target(node)
+	if landed == null and value != null:
+		return _router._fail(
+			"VALIDATION_ERROR",
+			"Uniform '%s' is not declared on the material's shader; the set did not "
+				+ "land (reads back null). Declare the uniform on the shader first." % name,
+			"param",
+		)
 	var body := {
 		"node_path": str(params.get("node_path")),
 		"name": name,
 		"value": Coerce.to_json(landed),
-		"set": landed != null or value == null,
+		"set": true,
 	}
 	if not persist["ok"]:
 		body["persisted"] = false
 		body["reason"] = persist["reason"]
 		body["hint"] = persist["hint"]
-	if landed == null and value != null:
-		body["reason"] = "param_not_declared"
-		body["hint"] = "Uniform '%s' is not declared on the material's shader; the set did not land." % name
 	return _router._ok(body)
 
 
