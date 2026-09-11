@@ -147,6 +147,7 @@ declared type to reconstruct the Godot value) landed with the mutation tools in 
 |------------|------------|
 | `Vector2` / `Vector2i` | `{ "x": float, "y": float }` |
 | `Vector3` / `Vector3i` | `{ "x": float, "y": float, "z": float }` |
+| `Vector4` / `Vector4i` | `{ "x": float, "y": float, "z": float, "w": float }` |
 | `Color` | `{ "r": float, "g": float, "b": float, "a": float }` |
 | `Rect2` / `Rect2i` | `{ "position": {x,y}, "size": {x,y} }` |
 | `NodePath` / `StringName` | string |

@@ -55,6 +55,7 @@ The accepted shapes:
 |------------|---------------|---------|
 | `Vector2` / `Vector2i` | `{"x":…,"y":…}` or `[x, y]` or `"Vector2(x, y)"` | `{"x": 100, "y": 64}` |
 | `Vector3` / `Vector3i` | `{"x":…,"y":…,"z":…}` or `[x, y, z]` | `{"x": 1, "y": 2, "z": 3}` |
+| `Vector4` / `Vector4i` | `{"x":…,"y":…,"z":…,"w":…}` or `[x, y, z, w]` or `"Vector4(x, y, z, w)"` | `{"x": 1, "y": 0.5, "z": 0.25, "w": 1}` |
 | `Color` | `{"r":…,"g":…,"b":…,"a":…}` or hex string | `"#ff0000"` / `{"r":1,"g":0,"b":0,"a":1}` |
 | `Rect2` / `Rect2i` | `{"position":{x,y},"size":{x,y}}` or `"Rect2(x, y, w, h)"` | `{"position":{"x":0,"y":0},"size":{"x":4,"y":5}}` |
 | `NodePath` / `StringName` | string | `"Player/Sprite2D"` |
@@ -640,8 +641,8 @@ Author shaders — create/read `.gdshader` files, assign a ShaderMaterial, set u
 |------|--------|---------|
 | `godot_shader_create` | `shader_path, code=<canvas_item default>` | `ShaderResult { shader_path, created }` |
 | `godot_shader_read` | `shader_path` | `ShaderReadResult { shader_path, code }` (read_only) |
-| `godot_shader_assign_material` | `node_path, shader_path` | `ShaderMaterialResult { node_path, shader_path, material_property, persisted, reason?, hint? }` |
-| `godot_shader_set_param` | `node_path, name, value, param_type?` | `ShaderParamResult { node_path, name, persisted, reason?, hint? }` |
+| `godot_shader_assign_material` | `node_path, shader_path` | `ShaderMaterialResult { node_path, shader_path, material_property, assigned, persisted, reason?, hint? }` |
+| `godot_shader_set_param` | `node_path, name, value, param_type?` | `ShaderParamResult { node_path, name, value, set, persisted, reason?, hint? }` |
 | `godot_shader_get_param` | `node_path, name` | `ShaderParamReadResult { node_path, name, value, exists }` (`read_only`) |
 
 `godot_shader_create` writes a `res://*.gdshader` file (undo restores the prior content or
@@ -653,7 +654,10 @@ to `material` (CanvasItem) or `material_override` (GeometryInstance3D), reportin
 
 **Persistence truth (#458).** Both mutations always apply live, then report whether the change
 survives a scene save. `persisted: false` comes with a stable `reason` token and a `hint`;
-`persisted` is `null` on a `dry_run` preview (only the editor can tell).
+A `dry_run` preview applies nothing but asks the addon for the same verdict
+(`cmd_node_persistence`), so it carries `persisted`/`reason`/`hint` too. `set_param` reports
+the landed `value` read back after the set; a uniform the shader does not declare is a
+`VALIDATION_ERROR`.
 
 | `reason` | Meaning |
 |----------|---------|
