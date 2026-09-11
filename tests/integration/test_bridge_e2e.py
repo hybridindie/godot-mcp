@@ -17,13 +17,20 @@ import pytest
 
 from mcp_server.bridge import Bridge
 from mcp_server.config import BridgeConfig
-from tests.integration._godot import GODOT_BIN, GODOT_PROJECT, serve_and_await_editor
+from tests.integration._godot import (
+    GODOT_BIN,
+    GODOT_PROJECT,
+    e2e_bridge_url,
+    serve_and_await_editor,
+)
 
 pytestmark = pytest.mark.skipif(GODOT_BIN is None, reason="Godot binary not installed")
 
 # A non-default port so the test's listener never collides with a real editor session
 # (the addon picks it up via GODOT_MCP_BRIDGE_URL).
-BRIDGE_URL = "ws://127.0.0.1:9097"
+# Ephemeral per-run port (issue #444): no fixed port, so a concurrent
+# job's (or an orphaned) editor can never connect to this test's listener.
+BRIDGE_URL = e2e_bridge_url()
 
 
 async def _ping_live_bridge() -> None:
