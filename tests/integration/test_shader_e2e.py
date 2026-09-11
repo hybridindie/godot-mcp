@@ -94,6 +94,19 @@ async def _run() -> None:
         )
         assert param["name"] == "strength"
 
+        # #465: read the uniform back (set on the 2D material, unset on the 3D one) and a
+        # name the shader does not declare
+        got = await _ok(bridge, "cmd_get_shader_param", {"node_path": "Sprite", "name": "strength"})
+        assert got["exists"] is True and got["value"] == 0.5, got
+        unset = await _ok(bridge, "cmd_get_shader_param", {"node_path": "Mesh", "name": "strength"})
+        # declared but never set on this material: Godot reports no value (the shader's
+        # own default applies), and neither ShaderMaterial nor RenderingServer exposes it
+        assert unset["exists"] is True and unset["value"] is None, unset
+        undeclared = await _ok(
+            bridge, "cmd_get_shader_param", {"node_path": "Sprite", "name": "no_such_uniform"}
+        )
+        assert undeclared["exists"] is False and undeclared["value"] is None, undeclared
+
         # validation: no material slot, no ShaderMaterial yet, bad paths
         await _create(bridge, "Plain", "Node")
         no_slot = await bridge.send(

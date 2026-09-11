@@ -650,6 +650,9 @@ to `material` (CanvasItem) or `material_override` (GeometryInstance3D), reportin
 `godot_shader_set_param` sets a uniform on the node's ShaderMaterial; `param_type`
 (float/int/bool/vector2/vector3/vector4/color) coerces `value`, or it is inferred
 (number/bool as-is, `[x,y,z]` → vector, HTML string → color).
+`godot_shader_get_param` reads a uniform back: `exists` is whether the material's shader
+declares it, and `value` is the JSON-coerced current value, or `null` when the uniform has
+never been set on this material (the shader's own default applies).
 
 #### Visual shaders (issue #107) — category: `visual_shader` (gated off by default)
 

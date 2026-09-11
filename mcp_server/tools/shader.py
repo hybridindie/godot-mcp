@@ -97,7 +97,9 @@ def register_shader(mcp: FastMCP, bridge: Bridge) -> None:
     async def get_shader_param(node_path: str, name: str) -> ShaderParamReadResult:
         """Read the live value of shader uniform ``name`` on the node's
         ShaderMaterial — the read-only inverse of ``set_shader_param``. Returns
-        ``exists=False`` when the parameter is not declared on the material.
+        ``exists=False`` when the material's shader does not declare the uniform.
+        ``value`` is null when the uniform has never been set on this material (the
+        shader's own default applies).
         """
         await require_node_exists(bridge, node_path)
         params = {"node_path": node_path, "name": name}
