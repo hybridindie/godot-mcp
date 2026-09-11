@@ -35,13 +35,17 @@ func _initialize() -> void:
 
 
 func _eq(failures: Array[String], label: String, got: Variant, want: Variant) -> void:
-	if got != want:
+	# Type first: comparing mismatched types (e.g. Dictionary vs Vector4) is a script
+	# error in Godot 4 that aborts _eq before the failure can be recorded.
+	if typeof(got) != typeof(want) or got != want:
 		failures.append("%s: expected %s, got %s" % [label, str(want), str(got)])
 
 
 func _test_type_coerce(failures: Array[String]) -> void:
 	_eq(failures, "vector2", Coerce.to_json(Vector2(1, 2)), {"x": 1.0, "y": 2.0})
 	_eq(failures, "vector3", Coerce.to_json(Vector3(1, 2, 3)), {"x": 1.0, "y": 2.0, "z": 3.0})
+	_eq(failures, "vector4", Coerce.to_json(Vector4(1, 2, 3, 4)), {"x": 1.0, "y": 2.0, "z": 3.0, "w": 4.0})
+	_eq(failures, "vector4i", Coerce.to_json(Vector4i(1, 2, 3, 4)), {"x": 1, "y": 2, "z": 3, "w": 4})
 	_eq(failures, "color", Coerce.to_json(Color(1, 0, 0, 1)), {"r": 1.0, "g": 0.0, "b": 0.0, "a": 1.0})
 	_eq(failures, "nodepath", Coerce.to_json(NodePath("a/b")), "a/b")
 	_eq(failures, "array", Coerce.to_json([Vector2(0, 0), 5]), [{"x": 0.0, "y": 0.0}, 5])
@@ -60,6 +64,11 @@ func _test_from_json(failures: Array[String]) -> void:
 	_eq(failures, "fj.vector2.dict", Coerce.from_json({"x": 1, "y": 2}, TYPE_VECTOR2), Vector2(1, 2))
 	_eq(failures, "fj.vector2.arr", Coerce.from_json([1, 2], TYPE_VECTOR2), Vector2(1, 2))
 	_eq(failures, "fj.vector3", Coerce.from_json({"x": 1, "y": 2, "z": 3}, TYPE_VECTOR3), Vector3(1, 2, 3))
+	# Vector4 (#464): shader vec4 uniforms coerce through here.
+	_eq(failures, "fj.vector4.dict", Coerce.from_json({"x": 1, "y": 2, "z": 3, "w": 4}, TYPE_VECTOR4), Vector4(1, 2, 3, 4))
+	_eq(failures, "fj.vector4.arr", Coerce.from_json([1, 0.5, 0.25, 1], TYPE_VECTOR4), Vector4(1, 0.5, 0.25, 1))
+	_eq(failures, "fj.vector4i.arr", Coerce.from_json([1, 2, 3, 4], TYPE_VECTOR4I), Vector4i(1, 2, 3, 4))
+	_eq(failures, "fj.vector4.roundtrip", Coerce.from_json(Coerce.to_json(Vector4(5, 6, 7, 8)), TYPE_VECTOR4), Vector4(5, 6, 7, 8))
 	_eq(failures, "fj.color", Coerce.from_json({"r": 1, "g": 0, "b": 0, "a": 1}, TYPE_COLOR), Color(1, 0, 0, 1))
 	_eq(failures, "fj.nodepath", Coerce.from_json("a/b", TYPE_NODE_PATH), NodePath("a/b"))
 	_eq(failures, "fj.int", Coerce.from_json(5, TYPE_INT), 5)
@@ -76,6 +85,9 @@ func _test_from_json(failures: Array[String]) -> void:
 	# String forms (issue #51): "Vector2(...)" / "Rect2(...)" via str_to_var, hex via Color.html.
 	_eq(failures, "fj.str.vec2", Coerce.from_json("Vector2(100, 200)", TYPE_VECTOR2), Vector2(100, 200))
 	_eq(failures, "fj.str.vec3", Coerce.from_json("Vector3(1, 2, 3)", TYPE_VECTOR3), Vector3(1, 2, 3))
+	_eq(failures, "fj.str.vec4", Coerce.from_json("Vector4(1, 2, 3, 4)", TYPE_VECTOR4), Vector4(1, 2, 3, 4))
+	_eq(failures, "fj.str.vec4i", Coerce.from_json("Vector4i(1, 2, 3, 4)", TYPE_VECTOR4I), Vector4i(1, 2, 3, 4))
+	_eq(failures, "fj.str.vec4.bad", Coerce.from_json("nope", TYPE_VECTOR4), Vector4())
 	_eq(failures, "fj.str.rect2", Coerce.from_json("Rect2(0, 0, 4, 5)", TYPE_RECT2), Rect2(0, 0, 4, 5))
 	_eq(failures, "fj.str.color", Coerce.from_json("#00ff00", TYPE_COLOR), Color(0, 1, 0, 1))
 	_eq(failures, "fj.str.color.alpha", Coerce.from_json("#0000ffff", TYPE_COLOR), Color(0, 0, 1, 1))

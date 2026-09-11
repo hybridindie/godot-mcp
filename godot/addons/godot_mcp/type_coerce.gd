@@ -9,7 +9,7 @@ extends RefCounted
 ## now; from_json() lands with the mutation tools (#6).
 ##
 ## Shapes (documented in docs/architecture.md):
-##   Vector2 → {x, y}      Vector3 → {x, y, z}
+##   Vector2 → {x, y}      Vector3 → {x, y, z}      Vector4 → {x, y, z, w}
 ##   Color   → {r, g, b, a}  Rect2  → {position:{x,y}, size:{x,y}}
 ##   NodePath → string       Resource → its resource_path (or class name)
 ##   Arrays/Dictionaries are coerced element-wise; primitives pass through.
@@ -21,6 +21,8 @@ static func to_json(value: Variant) -> Variant:
 			return {"x": value.x, "y": value.y}
 		TYPE_VECTOR3, TYPE_VECTOR3I:
 			return {"x": value.x, "y": value.y, "z": value.z}
+		TYPE_VECTOR4, TYPE_VECTOR4I:
+			return {"x": value.x, "y": value.y, "z": value.z, "w": value.w}
 		TYPE_COLOR:
 			return {"r": value.r, "g": value.g, "b": value.b, "a": value.a}
 		TYPE_RECT2, TYPE_RECT2I:
@@ -55,7 +57,8 @@ static func to_json(value: Variant) -> Variant:
 ## ([x, y]); NodePath/StringName from string; primitives coerced to the type.
 ##
 ## Composite types also accept agent-friendly string forms (issue #51):
-##   "Vector2(100, 200)", "Vector3(1, 2, 3)", "Rect2(0, 0, 4, 5)" (via str_to_var)
+##   "Vector2(100, 200)", "Vector3(1, 2, 3)", "Vector4(1, 2, 3, 4)", "Rect2(0, 0, 4, 5)"
+##   (via str_to_var)
 ##   and HTML/hex colors "#ff0000" / "#ff0000ff" (via Color.html).
 static func from_json(value: Variant, type: int) -> Variant:
 	if value is String:
@@ -74,6 +77,16 @@ static func from_json(value: Variant, type: int) -> Variant:
 		TYPE_VECTOR3I:
 			return Vector3i(
 				_component(value, "x", 0), _component(value, "y", 1), _component(value, "z", 2)
+			)
+		TYPE_VECTOR4:
+			return Vector4(
+				_component(value, "x", 0), _component(value, "y", 1),
+				_component(value, "z", 2), _component(value, "w", 3)
+			)
+		TYPE_VECTOR4I:
+			return Vector4i(
+				_component(value, "x", 0), _component(value, "y", 1),
+				_component(value, "z", 2), _component(value, "w", 3)
 			)
 		TYPE_COLOR:
 			return Color(
@@ -112,6 +125,8 @@ const _CTOR_PREFIX := {
 	TYPE_VECTOR2I: "Vector2i(",
 	TYPE_VECTOR3: "Vector3(",
 	TYPE_VECTOR3I: "Vector3i(",
+	TYPE_VECTOR4: "Vector4(",
+	TYPE_VECTOR4I: "Vector4i(",
 	TYPE_RECT2: "Rect2(",
 	TYPE_RECT2I: "Rect2i(",
 }

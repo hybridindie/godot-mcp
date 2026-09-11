@@ -55,6 +55,7 @@ The accepted shapes:
 |------------|---------------|---------|
 | `Vector2` / `Vector2i` | `{"x":…,"y":…}` or `[x, y]` or `"Vector2(x, y)"` | `{"x": 100, "y": 64}` |
 | `Vector3` / `Vector3i` | `{"x":…,"y":…,"z":…}` or `[x, y, z]` | `{"x": 1, "y": 2, "z": 3}` |
+| `Vector4` / `Vector4i` | `{"x":…,"y":…,"z":…,"w":…}` or `[x, y, z, w]` or `"Vector4(x, y, z, w)"` | `{"x": 1, "y": 0.5, "z": 0.25, "w": 1}` |
 | `Color` | `{"r":…,"g":…,"b":…,"a":…}` or hex string | `"#ff0000"` / `{"r":1,"g":0,"b":0,"a":1}` |
 | `Rect2` / `Rect2i` | `{"position":{x,y},"size":{x,y}}` or `"Rect2(x, y, w, h)"` | `{"position":{"x":0,"y":0},"size":{"x":4,"y":5}}` |
 | `NodePath` / `StringName` | string | `"Player/Sprite2D"` |

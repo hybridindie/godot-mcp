@@ -10,18 +10,6 @@ const Coerce := preload("../type_coerce.gd")
 var _router: MCPCommandRouter
 
 
-
-func _to_vec4(value: Variant) -> Vector4:
-	if value is Array and (value as Array).size() == 4:
-		return Vector4(float(value[0]), float(value[1]), float(value[2]), float(value[3]))
-	if value is Dictionary:
-		return Vector4(
-			float(value.get("x", 0.0)), float(value.get("y", 0.0)),
-			float(value.get("z", 0.0)), float(value.get("w", 0.0))
-		)
-	return Vector4.ZERO
-
-
 func _init(router: MCPCommandRouter) -> void:
 	_router = router
 
@@ -177,7 +165,7 @@ func _coerce_shader_value(value: Variant, param_type: String) -> Variant:
 		"vector3":
 			return Coerce.from_json(value, TYPE_VECTOR3)
 		"vector4":
-			return _router._to_vec4(value)
+			return Coerce.from_json(value, TYPE_VECTOR4)
 		_:
 			if value is Array:
 				match (value as Array).size():
@@ -186,7 +174,7 @@ func _coerce_shader_value(value: Variant, param_type: String) -> Variant:
 					3:
 						return Coerce.from_json(value, TYPE_VECTOR3)
 					4:
-						return _router._to_vec4(value)
+						return Coerce.from_json(value, TYPE_VECTOR4)
 			if value is String and value.is_valid_html_color():
 				return Color.html(value)
 			return value
