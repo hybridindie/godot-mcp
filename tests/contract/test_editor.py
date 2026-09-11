@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+from pathlib import Path
 
 import pytest
 from fastmcp import Client, FastMCP
@@ -130,3 +131,21 @@ async def test_addon_reason_surfaces_in_timeout_error() -> None:
     text = str(result.content)
     assert "editor_not_drawing" in text
     assert "bridge" not in text.lower() or "not rendering" in text.lower()
+
+
+def test_editor_capture_state_is_reset_per_grab() -> None:
+    """Qodo #457 round-2: `_shot`/`_grab_queued`/`_pending_polls` are shared across
+    concurrent capture invocations. The handler must reset all three whenever it
+    returns a completed shot, so a second capture can't read the first's payload
+    or inherit a stale grace counter."""
+    src = (
+        Path(__file__).resolve().parents[2] / "godot/addons/godot_mcp/handlers/editor.gd"
+    ).read_text()
+    handler = src.split("func _cmd_capture_editor_screenshot", 1)[1].split("\nfunc ", 1)[0]
+    assert "_pending_polls = 0" in handler  # counter reset on the ready path
+    assert "_grab_queued = false" in handler  # queued flag reset on the ready path
+    # The grace counter must also reset when a NEW grab is queued, so a stale
+    # counter from a prior invocation can't shorten the next one's grace window.
+    assert "if not _grab_queued" in handler
+    body_after_queue = handler.split("if not _grab_queued", 1)[1]
+    assert "_pending_polls = 0" in body_after_queue

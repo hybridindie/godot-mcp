@@ -57,6 +57,10 @@ func _cmd_capture_editor_screenshot(_params: Dictionary) -> Dictionary:
 	if not _grab_queued:
 		tree.process_frame.connect(_grab_screenshot.bind(base_control), ConnectFlags.CONNECT_ONE_SHOT)
 		_grab_queued = true
+		# Qodo #457 round-2: the counter is shared across concurrent capture
+		# invocations; reset it whenever a NEW grab is queued so a prior
+		# invocation's polls can't shorten this one's grace window.
+		_pending_polls = 0
 	_pending_polls += 1
 	if _pending_polls > _PENDING_GRACE_POLLS:
 		# #416/#456: the grab stays pending across multiple rendered frames — the
