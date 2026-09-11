@@ -29,6 +29,21 @@ from mcp_server.tools._route import route, run_or_preview
 
 SHADER = {SHADER_TAG}
 
+# The slots a node's ShaderMaterial can sit in (CanvasItem, GeometryInstance3D).
+MATERIAL_PROPERTIES = ["material", "material_override"]
+
+
+def assign_material_probe(node_path: str) -> dict[str, Any]:
+    """``cmd_node_persistence`` params for an ``assign_shader_material`` preview: the new
+    material has no file yet, so it saves (or not) with its node."""
+    return {"node_path": node_path}
+
+
+def set_param_probe(node_path: str) -> dict[str, Any]:
+    """``cmd_node_persistence`` params for a ``set_shader_param`` preview: a uniform edit
+    saves wherever the node's current material lives (#475)."""
+    return {"node_path": node_path, "resource_properties": MATERIAL_PROPERTIES}
+
 
 def register_shader(mcp: FastMCP, bridge: Bridge) -> None:
     """Register the shader tools."""
@@ -58,18 +73,25 @@ def register_shader(mcp: FastMCP, bridge: Bridge) -> None:
         GeometryInstance3D). Returns which material property was set, and ``persisted``:
         ``False`` (with a ``reason`` token and ``hint``) when the material applies live but
         will not be saved — e.g. the node is inside an instanced scene without Editable
-        Children. ``persisted`` is ``None`` on a ``dry_run`` preview.
+        Children. A ``dry_run`` preview asks the addon for the same verdict without assigning.
         """
         await require_node_exists(bridge, node_path)
         params = {"node_path": node_path, "shader_path": shader_path}
-        preview = {
-            "node_path": node_path,
-            "shader_path": shader_path,
-            "material_property": "",
-        }
-        return await run_or_preview(
-            dry_run, ShaderMaterialResult, preview, bridge, "cmd_assign_shader_material", params
-        )
+        if dry_run:
+            # #458 round-2: the preview must be honest about persistence — probe
+            # the addon read-only instead of hardcoding persisted:true.
+            truth = await route(bridge, "cmd_node_persistence", assign_material_probe(node_path))
+            return ShaderMaterialResult(
+                node_path=node_path,
+                shader_path=shader_path,
+                material_property="",
+                assigned=False,
+                persisted=truth.get("persisted", True),
+                reason=truth.get("reason"),
+                hint=truth.get("hint"),
+                dry_run=True,
+            )
+        return ShaderMaterialResult(**await route(bridge, "cmd_assign_shader_material", params))
 
     @mcp.tool(meta=MUTATING, tags=SHADER)
     @enforce_preconditions
@@ -94,10 +116,21 @@ def register_shader(mcp: FastMCP, bridge: Bridge) -> None:
         """
         await require_node_exists(bridge, node_path)
         params = {"node_path": node_path, "name": name, "value": value, "param_type": param_type}
-        preview = {"node_path": node_path, "name": name}
-        return await run_or_preview(
-            dry_run, ShaderParamResult, preview, bridge, "cmd_set_shader_param", params
-        )
+        if dry_run:
+            # #458 round-2: the preview carries the same persistence truth as the
+            # real run (read-only probe), so an instanced-child preview isn't
+            # dishonest about saving.
+            truth = await route(bridge, "cmd_node_persistence", set_param_probe(node_path))
+            return ShaderParamResult(
+                node_path=node_path,
+                name=name,
+                set=False,
+                persisted=truth.get("persisted", True),
+                reason=truth.get("reason"),
+                hint=truth.get("hint"),
+                dry_run=True,
+            )
+        return ShaderParamResult(**await route(bridge, "cmd_set_shader_param", params))
 
     @mcp.tool(meta=READ_ONLY, tags=SHADER)
     async def get_shader_param(node_path: str, name: str) -> ShaderParamReadResult:

@@ -64,5 +64,7 @@ func _initialize() -> void:
 
 
 func _eq(failures: Array[String], label: String, got: Variant, want: Variant) -> void:
-	if got != want:
+	# Type first: comparing mismatched types (e.g. Dictionary vs Vector2) is a script
+	# error in Godot 4 that aborts _eq before the failure can be recorded (#467).
+	if typeof(got) != typeof(want) or got != want:
 		failures.append("%s: expected %s, got %s" % [label, str(want), str(got)])

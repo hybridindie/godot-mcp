@@ -11,6 +11,7 @@ import pytest
 
 from mcp_server.bridge import Bridge
 from mcp_server.config import BridgeConfig
+from mcp_server.tools.shader import assign_material_probe, set_param_probe
 from tests.integration._godot import GODOT_BIN, GODOT_PROJECT, serve_and_await_editor
 
 pytestmark = pytest.mark.skipif(GODOT_BIN is None, reason="Godot binary not installed")
@@ -116,6 +117,10 @@ material_override = SubResource("ShaderMaterial_main")
 SHADER_CODE = (
     "shader_type canvas_item;\n"
     "uniform float strength = 1.0;\n"
+    "uniform vec4 tint_array;\n"
+    "uniform vec4 tint_dict;\n"
+    "uniform vec4 tint_inferred;\n"
+    "uniform vec4 tint_string;\n"
     "void fragment() {\n\tCOLOR = vec4(strength);\n}\n"
 )
 
@@ -157,17 +162,26 @@ async def _check_persistence(bridge: Bridge) -> None:
 
     glow = "res://tmp_e2e_persist_glow.gdshader"
 
+    async def previewed(
+        probe: dict[str, Any], command: str, params: dict[str, Any]
+    ) -> dict[str, Any]:
+        # the dry_run preview's probe (sent exactly as the tool sends it) must predict the
+        # real run's verdict (#475)
+        preview = await _ok(bridge, "cmd_node_persistence", probe)
+        result = await _ok(bridge, command, params)
+        verdict = {k: result.get(k) for k in ("persisted", "reason")}
+        assert {k: preview.get(k) for k in ("persisted", "reason")} == verdict, (preview, result)
+        return result
+
     async def assign(node_path: str) -> dict[str, Any]:
-        return await _ok(
-            bridge, "cmd_assign_shader_material", {"node_path": node_path, "shader_path": glow}
-        )
+        params = {"node_path": node_path, "shader_path": glow}
+        probe = assign_material_probe(node_path)
+        return await previewed(probe, "cmd_assign_shader_material", params)
 
     async def set_param(node_path: str, value: float) -> dict[str, Any]:
-        return await _ok(
-            bridge,
-            "cmd_set_shader_param",
-            {"node_path": node_path, "name": "pulse_speed", "value": value, "param_type": "float"},
-        )
+        params = {"node_path": node_path, "name": "pulse_speed", "value": value}
+        probe = set_param_probe(node_path)
+        return await previewed(probe, "cmd_set_shader_param", {**params, "param_type": "float"})
 
     def assert_not_persisted(result: dict[str, Any], reason: str) -> None:
         assert result["persisted"] is False, result
@@ -257,6 +271,26 @@ async def _run() -> None:
             {"node_path": "Sprite", "name": "strength", "value": 0.5, "param_type": "float"},
         )
         assert param["name"] == "strength"
+
+        # #464: vec4 uniforms, one per accepted input shape; the saved scene is the truth
+        vec4_sets: list[tuple[str, Any, str]] = [
+            ("tint_array", [1, 0.5, 0.25, 1], "vector4"),
+            ("tint_dict", {"x": 0.1, "y": 0.2, "z": 0.3, "w": 0.4}, "vector4"),
+            ("tint_inferred", [2, 3, 4, 5], ""),
+            ("tint_string", "Vector4(6, 7, 8, 9)", "vector4"),
+        ]
+        for uniform, value, param_type in vec4_sets:
+            await _ok(
+                bridge,
+                "cmd_set_shader_param",
+                {"node_path": "Sprite", "name": uniform, "value": value, "param_type": param_type},
+            )
+        await _ok(bridge, "cmd_save_scene", {})
+        saved = SCRATCH_FILE.read_text()
+        assert "shader_parameter/tint_array = Vector4(1, 0.5, 0.25, 1)" in saved, saved
+        assert "shader_parameter/tint_dict = Vector4(0.1, 0.2, 0.3, 0.4)" in saved, saved
+        assert "shader_parameter/tint_inferred = Vector4(2, 3, 4, 5)" in saved, saved
+        assert "shader_parameter/tint_string = Vector4(6, 7, 8, 9)" in saved, saved
 
         # validation: no material slot, no ShaderMaterial yet, bad paths
         await _create(bridge, "Plain", "Node")

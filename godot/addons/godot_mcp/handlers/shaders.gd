@@ -10,18 +10,6 @@ const Coerce := preload("../type_coerce.gd")
 var _router: MCPCommandRouter
 
 
-
-func _to_vec4(value: Variant) -> Vector4:
-	if value is Array and (value as Array).size() == 4:
-		return Vector4(float(value[0]), float(value[1]), float(value[2]), float(value[3]))
-	if value is Dictionary:
-		return Vector4(
-			float(value.get("x", 0.0)), float(value.get("y", 0.0)),
-			float(value.get("z", 0.0)), float(value.get("w", 0.0))
-		)
-	return Vector4.ZERO
-
-
 func _init(router: MCPCommandRouter) -> void:
 	_router = router
 
@@ -99,6 +87,7 @@ func _cmd_assign_shader_material(params: Dictionary) -> Dictionary:
 		"node_path": str(params.get("node_path")),
 		"shader_path": shader_path,
 		"material_property": prop,
+		"assigned": true,
 	}, persistence))
 
 
@@ -125,7 +114,25 @@ func _cmd_set_shader_param(params: Dictionary) -> Dictionary:
 	ur.add_do_method(material, "set_shader_parameter", name, value)
 	ur.add_undo_method(material, "set_shader_parameter", name, prev)
 	ur.commit_action()
-	return _router._ok(_router._with_persistence({"node_path": str(params.get("node_path")), "name": name}, persistence))
+	# #460: read-back after commit — set:true must reflect the landed value, not
+	# the requested one (the #414 pattern). A param not declared on the shader
+	# reads back null: the set did not land → structured error (#460 acceptance:
+	# "a non-landing set is a structured error").
+	var landed: Variant = material.get_shader_parameter(name)
+	if landed == null and value != null:
+		# `%` binds tighter than `+`: format the whole message, not its last piece.
+		return _router._fail(
+			"VALIDATION_ERROR",
+			("Uniform '%s' is not declared on the material's shader; the set did not "
+				+ "land (reads back null). Declare the uniform on the shader first.") % name,
+			"param",
+		)
+	return _router._ok(_router._with_persistence({
+		"node_path": str(params.get("node_path")),
+		"name": name,
+		"value": Coerce.to_json(landed),
+		"set": true,
+	}, persistence))
 
 
 func _cmd_get_shader_param(params: Dictionary) -> Dictionary:
@@ -179,7 +186,7 @@ func _coerce_shader_value(value: Variant, param_type: String) -> Variant:
 		"vector3":
 			return Coerce.from_json(value, TYPE_VECTOR3)
 		"vector4":
-			return _router._to_vec4(value)
+			return Coerce.from_json(value, TYPE_VECTOR4)
 		_:
 			if value is Array:
 				match (value as Array).size():
@@ -188,7 +195,7 @@ func _coerce_shader_value(value: Variant, param_type: String) -> Variant:
 					3:
 						return Coerce.from_json(value, TYPE_VECTOR3)
 					4:
-						return _router._to_vec4(value)
+						return Coerce.from_json(value, TYPE_VECTOR4)
 			if value is String and value.is_valid_html_color():
 				return Color.html(value)
 			return value
