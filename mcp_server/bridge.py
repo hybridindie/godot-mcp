@@ -271,13 +271,39 @@ class Bridge:
 
     def _resolve(self, raw: str) -> None:
         try:
-            response = ResponseEnvelope.model_validate(json.loads(raw))
-        except (json.JSONDecodeError, ValueError):
+            payload = json.loads(raw)
+        except json.JSONDecodeError:
             logger.error("dropping unparseable bridge message")
+            return
+        try:
+            response = ResponseEnvelope.model_validate(payload)
+        except ValueError:
+            self._fail_malformed(payload)
             return
         future = self._pending.pop(response.id, None)
         if future is not None and not future.done():
             future.set_result(response)
+
+    def _fail_malformed(self, payload: Any) -> None:
+        """Answer a reply that isn't a valid envelope but still names a waiting request.
+
+        The addon did reply (typically a handler that hit a GDScript error), so the caller
+        gets ``INTERNAL_ERROR`` now instead of waiting out the request timeout (#466).
+        """
+        msg_id = payload.get("id") if isinstance(payload, dict) else None
+        if not isinstance(msg_id, str) or (future := self._pending.pop(msg_id, None)) is None:
+            logger.error("dropping unparseable bridge message")
+            return
+        logger.error("malformed response envelope", extra={"id": msg_id})
+        if not future.done():
+            future.set_result(
+                ResponseEnvelope.failure(
+                    msg_id,
+                    ErrorCode.INTERNAL_ERROR,
+                    "Godot replied without a valid response envelope; the addon handler "
+                    "most likely hit a GDScript error (see the editor Output panel).",
+                )
+            )
 
     def _fail_pending(self, error: str, hint: str) -> None:
         for msg_id, future in list(self._pending.items()):

@@ -149,11 +149,14 @@ func _cmd_get_shader_param(params: Dictionary) -> Dictionary:
 	var name := str(params.get("name", ""))
 	if name.is_empty():
 		return _router._fail("VALIDATION_ERROR", "'name' must be a non-empty string.")
+	# The uniform list lives on the Shader; ShaderMaterial has no list of its own (#465).
 	var exists := false
-	for param in material.get_shader_parameter_list():
-		if param.name == name:
-			exists = true
-			break
+	var shader: Shader = material.shader
+	if shader != null:
+		for uniform in shader.get_shader_uniform_list():
+			if str(uniform.get("name", "")) == name:
+				exists = true
+				break
 	var value: Variant = material.get_shader_parameter(name)
 	return _router._ok({
 		"node_path": str(params.get("node_path")),
