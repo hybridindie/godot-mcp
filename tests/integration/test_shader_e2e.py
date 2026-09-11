@@ -22,6 +22,11 @@ SCRATCH_FILE = GODOT_PROJECT / "tmp_e2e_shader.tscn"
 SHADER_PATH = "res://tmp_e2e_shader.gdshader"
 SHADER_FILE = GODOT_PROJECT / "tmp_e2e_shader.gdshader"
 SHADER_UID_FILE = GODOT_PROJECT / "tmp_e2e_shader.gdshader.uid"  # Godot 4.4+ sidecar
+BLANK = "res://tmp_e2e_blank_material.tres"  # a ShaderMaterial with no shader (#465)
+BLANK_FILES = [
+    GODOT_PROJECT / "tmp_e2e_blank_material.tres",
+    GODOT_PROJECT / "tmp_e2e_blank_material.tres.uid",
+]
 
 # #458: an instanced scene placed twice — "Relic" without Editable Children, "Relic2" with —
 # plus scene-owned nodes carrying an external (.tres) and an embedded material. "Shell"/"Shell2"
@@ -272,6 +277,30 @@ async def _run() -> None:
         )
         assert param["name"] == "strength"
 
+        # #465: read the uniform back (set on the 2D material, unset on the 3D one) and a
+        # name the shader does not declare
+        got = await _ok(bridge, "cmd_get_shader_param", {"node_path": "Sprite", "name": "strength"})
+        assert got["exists"] is True and got["value"] == 0.5, got
+        unset = await _ok(bridge, "cmd_get_shader_param", {"node_path": "Mesh", "name": "strength"})
+        # declared but never set on this material: Godot reports no value (the shader's
+        # own default applies), and neither ShaderMaterial nor RenderingServer exposes it
+        assert unset["exists"] is True and unset["value"] is None, unset
+        undeclared = await _ok(
+            bridge, "cmd_get_shader_param", {"node_path": "Sprite", "name": "no_such_uniform"}
+        )
+        assert undeclared["exists"] is False and undeclared["value"] is None, undeclared
+        # a ShaderMaterial with no shader declares nothing: exists false, not a script error
+        await _ok(bridge, "cmd_create_resource", {"type": "ShaderMaterial", "resource_path": BLANK})
+        await _create(bridge, "Shaderless", "Sprite2D")
+        await _ok(
+            bridge,
+            "cmd_set_node_property",
+            {"node_path": "Shaderless", "property": "material", "value": BLANK},
+        )
+        blank = await _ok(
+            bridge, "cmd_get_shader_param", {"node_path": "Shaderless", "name": "strength"}
+        )
+        assert blank["exists"] is False and blank["value"] is None, blank
         # #464: vec4 uniforms, one per accepted input shape; the saved scene is the truth
         vec4_sets: list[tuple[str, Any, str]] = [
             ("tint_array", [1, 0.5, 0.25, 1], "vector4"),
@@ -349,3 +378,5 @@ def test_live_shader() -> None:
         SHADER_UID_FILE.unlink(missing_ok=True)
         for leftover in GODOT_PROJECT.glob("tmp_e2e_persist_*"):
             leftover.unlink(missing_ok=True)
+        for path in BLANK_FILES:
+            path.unlink(missing_ok=True)

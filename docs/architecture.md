@@ -116,6 +116,9 @@ Precondition failure (richer form, so the agent knows what to satisfy):
   bridge boundary on its own side and converted to an `ok: false` envelope.
 - **Stable error codes only**, drawn from the enumerated set below — never ad-hoc strings.
 - **A timed-out request resolves to a `TIMEOUT` envelope**; it never hangs the agent.
+- **A handler that dies on a GDScript error resolves to `INTERNAL_ERROR`**, not a `TIMEOUT`:
+  the router answers for it, and the server resolves any reply that names a pending `id`
+  but isn't a valid envelope (#466).
 - **No partial success.** Half-completed work returns `ok: false`, not `ok: true` with a
   truncated `result`.
 
