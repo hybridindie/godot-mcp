@@ -6,6 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from mcp_server.models.persistence import PersistenceReport
+
 
 class ShaderResult(BaseModel):
     shader_path: str
@@ -18,27 +20,20 @@ class ShaderReadResult(BaseModel):
     code: str
 
 
-class ShaderMaterialResult(BaseModel):
+class ShaderMaterialResult(PersistenceReport):
     node_path: str
     shader_path: str
     material_property: str
-    # #458: persistence truth — an instanced child renders live but never saves.
     assigned: bool = False
-    persisted: bool = True
-    reason: str | None = None
-    hint: str | None = None
     dry_run: bool = False
 
 
-class ShaderParamResult(BaseModel):
+class ShaderParamResult(PersistenceReport):
     node_path: str
     name: str
     # #460: the landed value (read-back after commit), not the requested one.
     value: Any = None
     set: bool = False
-    persisted: bool = True
-    reason: str | None = None
-    hint: str | None = None
     dry_run: bool = False
 
 

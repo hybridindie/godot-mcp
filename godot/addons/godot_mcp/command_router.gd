@@ -410,38 +410,6 @@ func _require_live_probe() -> Dictionary:
 
 # -- instantiation helpers (shared by domain handlers) ------------------------
 
-## Persistence truth for node-targeted mutations (#458). Godot saves a node in the
-## edited scene if (a) its owner IS the edited scene root, or (b) it sits inside an
-## **editable instance** — every instance root on the path up to the edited root has
-## `editable_instance` set (`packed_scene.cpp:806-812` saves those children as
-## editable-instance overrides). Otherwise the change renders live but never saves.
-## Returns {ok: true} when the target persists, else
-## {ok: false, persisted: false, reason: "instanced_child_not_editable", hint}.
-func _persistent_target(node: Node) -> Dictionary:
-	var root := EditorInterface.get_edited_scene_root()
-	if root == null:
-		return _fail("PRECONDITION_FAILED", "No scene is open.", "active_scene")
-	if node == root:
-		return {"ok": true}
-	# Walk the owner chain from the node up to the edited scene root; the node
-	# persists iff every instance-root hop in between is flagged editable.
-	var iterated: Node = node
-	while iterated.get_owner() != null and iterated.get_owner() != root:
-		var instance_root: Node = iterated.get_owner()
-		if not root.is_editable_instance(instance_root):
-			var instanced_path := instance_root.scene_file_path if instance_root != null else ""
-			return {
-				"ok": false,
-				"persisted": false,
-				"reason": "instanced_child_not_editable",
-				"hint": "Node '%s' lives inside an instanced scene (%s) without "
-					+ "Editable Children. The change renders live but Godot will not "
-					+ "save it — enable Editable Children on the instance, or target "
-					+ "a scene-owned node." % [node.name, instanced_path],
-			}
-		iterated = instance_root
-	return {"ok": true}
-
 ## Instantiate a class via ClassDB, validating it inherits from expected_base.
 ## Returns {ok: true, obj: Object} on success, or a VALIDATION_ERROR envelope;
 ## a type mismatch frees a non-RefCounted instance before failing (RefCounted
@@ -504,6 +472,77 @@ func _resolve(raw_path: Variant) -> Dictionary:
 	if node == null:
 		return _fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(raw_path))
 	return {"ok": true, "node": node}
+
+
+# -- persistence truth (#458) -------------------------------------------------
+
+## Whether a change to this node survives a scene save. Mirrors 4.7's
+## SceneState::_parse_node: a node is packed only when its owner is the edited root or
+## an editable instance, and a skipped node's subtree is never visited — so every node
+## on the path up to the root must qualify. Returns {ok: true} or {ok: false, reason, hint}.
+func _persistent_target(node: Node) -> Dictionary:
+	var root := EditorInterface.get_edited_scene_root()
+	if root == null or node == null:
+		return _not_persisted("node_not_owned", "No scene is open, so nothing can be saved.")
+	var current := node
+	while current != root:
+		if current == null:
+			return _not_persisted("node_not_owned", "The target is not inside the edited scene, so changes to it are never saved.")
+		var node_owner := current.owner
+		if node_owner == null:
+			return _not_persisted(
+				"node_not_owned",
+				"'%s' has no owner in the edited scene (e.g. it was added by a @tool script), so it is not saved — the change shows in the editor but is lost on reload." % root.get_path_to(current)
+			)
+		if node_owner != root and not root.is_editable_instance(node_owner):
+			var instance := str(root.get_path_to(node_owner))
+			return _not_persisted(
+				"instanced_child_not_editable",
+				"'%s' is inside the instanced scene '%s', which does not have Editable Children enabled — the change shows in the editor but will not be saved. Enable Editable Children on '%s', or target a node the scene owns." % [root.get_path_to(node), instance, instance]
+			)
+		current = current.get_parent()
+	return {"ok": true}
+
+
+func _not_persisted(reason: String, hint: String) -> Dictionary:
+	return {"ok": false, "reason": reason, "hint": hint}
+
+
+## Stamp a persistence verdict onto a mutation result: always `persisted`, plus `reason`
+## and `hint` when the applied change will not be saved.
+func _with_persistence(result: Dictionary, verdict: Dictionary) -> Dictionary:
+	var persisted := bool(verdict.get("ok", false))
+	result["persisted"] = persisted
+	if not persisted:
+		result["reason"] = str(verdict.get("reason", ""))
+		result["hint"] = str(verdict.get("hint", ""))
+	return result
+
+
+## Whether an edit to a resource the node uses survives a scene save. `chain` lists the
+## edited resource and what holds it, innermost first; the first one with a path decides.
+## Embedded in the edited scene: saved with its node. Its own file: the editor saves it
+## alongside the scene (EditorNode::_save_external_resources, 4.7). A sub-resource of a
+## loaded non-scene file: saved with that file. A sub-resource of another scene: never
+## re-saved. No path anywhere: saved (or not) with its node.
+func _resource_persistence(node: Node, chain: Array) -> Dictionary:
+	var root := EditorInterface.get_edited_scene_root()
+	for item in chain:
+		var resource := item as Resource
+		if resource == null or resource.resource_path.is_empty():
+			continue
+		var container := resource.resource_path.get_slice("::", 0)
+		if root != null and container == root.scene_file_path:
+			break
+		if not resource.resource_path.contains("::"):
+			return {"ok": true}
+		if ResourceLoader.has_cached(container) and not (ResourceLoader.get_cached_ref(container) is PackedScene):
+			return {"ok": true}
+		return _not_persisted(
+			"embedded_in_other_resource",
+			"This %s is embedded in '%s', which is not saved with the current scene — the change shows in the editor but is lost on reload. Edit it in '%s' directly, or give the node its own %s." % [resource.get_class(), container, container, resource.get_class()]
+		)
+	return _persistent_target(node)
 
 
 ## The Variant.Type of an object's property, or -1 if it has no such property.

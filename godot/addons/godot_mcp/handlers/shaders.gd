@@ -62,7 +62,6 @@ func _cmd_assign_shader_material(params: Dictionary) -> Dictionary:
 	if not found["ok"]:
 		return found
 	var node: Node = found["node"]
-	var persist := _router._persistent_target(node)
 	var prop := _material_property_for(node)
 	if prop.is_empty():
 		return _router._fail("VALIDATION_ERROR", "Node has no material slot (not a CanvasItem/GeometryInstance3D).")
@@ -72,6 +71,7 @@ func _cmd_assign_shader_material(params: Dictionary) -> Dictionary:
 	var shader: Resource = ResourceLoader.load(shader_path)
 	if not (shader is Shader):
 		return _router._fail("VALIDATION_ERROR", "'%s' is not a Shader." % shader_path)
+	var persistence := _router._persistent_target(node)
 	var material := ShaderMaterial.new()
 	material.shader = shader
 	var prev: Variant = node.get(prop)
@@ -83,25 +83,12 @@ func _cmd_assign_shader_material(params: Dictionary) -> Dictionary:
 	if prev is Resource:  # keep the prior material alive for undo
 		ur.add_undo_reference(prev)
 	ur.commit_action()
-	# #458: report persistence truth — an instanced child renders live but never
-	# saves; the agent must know instead of trusting a success tone.
-	if not persist["ok"]:
-		return _router._ok({
-			"node_path": str(params.get("node_path")),
-			"shader_path": shader_path,
-			"material_property": prop,
-			"assigned": true,
-			"persisted": false,
-			"reason": persist["reason"],
-			"hint": persist["hint"],
-		})
-	return _router._ok({
+	return _router._ok(_router._with_persistence({
 		"node_path": str(params.get("node_path")),
 		"shader_path": shader_path,
 		"material_property": prop,
 		"assigned": true,
-		"persisted": true,
-	})
+	}, persistence))
 
 
 
@@ -120,6 +107,7 @@ func _cmd_set_shader_param(params: Dictionary) -> Dictionary:
 	if name.is_empty():
 		return _router._fail("VALIDATION_ERROR", "'name' must be a non-empty string.")
 	var value: Variant = _coerce_shader_value(params.get("value"), str(params.get("param_type", "")))
+	var persistence := _router._resource_persistence(node, [material])
 	var prev: Variant = material.get_shader_parameter(name)
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Set shader param %s" % name)
@@ -131,25 +119,20 @@ func _cmd_set_shader_param(params: Dictionary) -> Dictionary:
 	# reads back null: the set did not land → structured error (#460 acceptance:
 	# "a non-landing set is a structured error").
 	var landed: Variant = material.get_shader_parameter(name)
-	var persist := _router._persistent_target(node)
 	if landed == null and value != null:
+		# `%` binds tighter than `+`: format the whole message, not its last piece.
 		return _router._fail(
 			"VALIDATION_ERROR",
-			"Uniform '%s' is not declared on the material's shader; the set did not "
-				+ "land (reads back null). Declare the uniform on the shader first." % name,
+			("Uniform '%s' is not declared on the material's shader; the set did not "
+				+ "land (reads back null). Declare the uniform on the shader first.") % name,
 			"param",
 		)
-	var body := {
+	return _router._ok(_router._with_persistence({
 		"node_path": str(params.get("node_path")),
 		"name": name,
 		"value": Coerce.to_json(landed),
 		"set": true,
-	}
-	if not persist["ok"]:
-		body["persisted"] = false
-		body["reason"] = persist["reason"]
-		body["hint"] = persist["hint"]
-	return _router._ok(body)
+	}, persistence))
 
 
 func _cmd_get_shader_param(params: Dictionary) -> Dictionary:
