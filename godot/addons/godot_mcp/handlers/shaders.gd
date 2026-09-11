@@ -172,7 +172,7 @@ func _material_persistence(node: Node, material: Resource) -> Dictionary:
 	if ResourceLoader.has_cached(container) and not (ResourceLoader.get_cached_ref(container) is PackedScene):
 		return {"ok": true}
 	return _router._not_persisted(
-		"material_embedded_in_other_resource",
+		"embedded_in_other_resource",
 		"This material is embedded in '%s', which is not saved with the current scene — the change shows in the editor but is lost on reload. Edit the material in '%s' directly, or assign a material this scene owns." % [container, container]
 	)
 

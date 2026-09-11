@@ -659,7 +659,7 @@ survives a scene save. `persisted: false` comes with a stable `reason` token and
 |----------|---------|
 | `instanced_child_not_editable` | The node (or an ancestor) is inside an instanced scene without Editable Children — Godot never packs it. |
 | `node_not_owned` | The node (or an ancestor) has no owner in the edited scene (e.g. added by a `@tool` script). |
-| `material_embedded_in_other_resource` | `set_param` only: the ShaderMaterial is a sub-resource of another scene (or of a resource file that is no longer loaded), which the editor does not re-save. |
+| `embedded_in_other_resource` | `set_param` only: the ShaderMaterial is a sub-resource of another scene (or of a resource file that is no longer loaded), which the editor does not re-save. |
 
 A material in its own `.tres` file is saved by the editor alongside the scene, so edits to it
 report `persisted: true` even when the node itself is an instanced child.

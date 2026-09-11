@@ -31,7 +31,7 @@ def _persistence(node_path: str, *, material: bool = False) -> dict[str, Any]:
     if material and node_path == FOREIGN_MATERIAL:
         return {
             "persisted": False,
-            "reason": "material_embedded_in_other_resource",
+            "reason": "embedded_in_other_resource",
             "hint": "Edit the material in 'res://relic.tscn', or assign one this scene owns.",
         }
     return {"persisted": True}
@@ -176,7 +176,7 @@ async def test_set_param_on_material_owned_by_other_resource_reports_not_persist
         )
     content = result.structured_content
     assert content["persisted"] is False
-    assert content["reason"] == "material_embedded_in_other_resource"
+    assert content["reason"] == "embedded_in_other_resource"
     assert content["hint"]
 
 

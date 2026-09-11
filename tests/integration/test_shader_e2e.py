@@ -182,8 +182,8 @@ async def _check_persistence(bridge: Bridge) -> None:
     assert editable["persisted"] is True and "reason" not in editable, editable
     assert (await set_param("Relic2/Plain", 6.0))["persisted"] is True
     # a material embedded in the instanced scene file never saves with this scene
-    assert_not_persisted(await set_param("Relic2/Orb", 7.0), "material_embedded_in_other_resource")
-    assert_not_persisted(await set_param("Relic/Orb", 8.0), "material_embedded_in_other_resource")
+    assert_not_persisted(await set_param("Relic2/Orb", 7.0), "embedded_in_other_resource")
+    assert_not_persisted(await set_param("Relic/Orb", 8.0), "embedded_in_other_resource")
     # external .tres (saved alongside the scene) and a material this scene embeds
     assert (await set_param("OwnExt", 9.0))["persisted"] is True
     assert (await set_param("OwnEmbedded", 5.0))["persisted"] is True

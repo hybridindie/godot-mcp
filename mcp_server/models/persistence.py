@@ -11,7 +11,7 @@ class PersistenceReport(BaseModel):
     ``persisted`` is ``None`` when unknown — a ``dry_run`` preview, since only the editor
     can tell. ``False`` always comes with a stable ``reason`` token
     (``instanced_child_not_editable``, ``node_not_owned``,
-    ``material_embedded_in_other_resource``) and an actionable ``hint``.
+    ``embedded_in_other_resource``) and an actionable ``hint``.
     """
 
     persisted: bool | None = None
