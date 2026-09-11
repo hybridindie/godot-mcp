@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import os
 import shutil
+import socket
 import subprocess
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 
 import pytest
@@ -70,6 +72,21 @@ needs_display = pytest.mark.skipif(
 QUIT_AFTER_FRAMES = 1800
 
 
+def e2e_bridge_url() -> str:
+    """A fresh loopback bridge URL on an ephemeral, currently-free port (issue #444).
+
+    Each e2e session binds its listener and editor to its own port so a
+    concurrent job's (or an orphaned) editor can never connect to the wrong
+    test's listener. The port is grabbed via an ephemeral bind and closed again;
+    the listener rebinds it moments later, so on loopback the race window is
+    negligible.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    return f"ws://127.0.0.1:{port}"
+
+
 def run_godot(args: list[str], timeout: int = 120) -> subprocess.CompletedProcess[str]:
     """Run the Godot binary against the addon project and capture output.
 
@@ -94,18 +111,48 @@ def run_godot(args: list[str], timeout: int = 120) -> subprocess.CompletedProces
     )
 
 
-async def serve_and_await_editor(bridge: object, attempts: int = 120, delay: float = 0.5) -> bool:
+async def serve_and_await_editor(
+    bridge: object,
+    attempts: int = 5,
+    delay: float = 0.5,
+    sleep: Callable[[float], Awaitable[None]] | None = None,
+) -> bool:
     """Inverted-bridge e2e setup (#276): start the server's listener, then wait for the
     Godot addon (the client) to connect out to it. The editor is launched separately by
     the caller; the addon reconnects with backoff, so launch order doesn't matter.
-    Returns whether the editor connected within the budget."""
+    Returns whether the editor connected within the budget.
+
+    Contention-aware (#444): the whole serve/connect setup is retried across
+    ``attempts`` rounds with exponential backoff between rounds (capped at
+    ``8 * delay``), so a cold/contended editor boot — or a listener port a
+    concurrent job still holds (bind conflict) — fails into a retry instead of
+    failing the run. Each round polls for the addon for up to 24 ticks of
+    ``delay``; a round that times out releases the listener before the next one
+    so the port can't leak. ``sleep`` is injectable for deterministic tests; with
+    it, poll ticks do not sleep (only the between-round backoff does).
+    """
     import asyncio
 
-    await bridge.serve()  # type: ignore[attr-defined]
-    for _ in range(attempts):
-        if bridge.connected:  # type: ignore[attr-defined]
-            return True
-        await asyncio.sleep(delay)
+    doze = sleep or asyncio.sleep
+    for attempt in range(attempts):
+        try:
+            await bridge.serve()  # type: ignore[attr-defined]
+        except OSError:
+            # Bind conflict: another listener still holds the port. Back off and
+            # retry the whole setup rather than failing the run (#444).
+            if attempt < attempts - 1:
+                await doze(min(8 * delay, delay * 2**attempt))
+            continue
+        for _ in range(24):
+            if bridge.connected:  # type: ignore[attr-defined]
+                return True
+            if sleep is None:
+                await doze(delay)
+        # The addon never connected on this round: release the listener before
+        # retrying so the port can't leak across rounds (#276 review).
+        await bridge.close()  # type: ignore[attr-defined]
+        if attempt < attempts - 1:
+            await doze(min(8 * delay, delay * 2**attempt))
     # Timed out: callers raise before their `finally: bridge.close()`, so release the
     # listener here or its port leaks and breaks the rest of the suite (#276 review).
     await bridge.close()  # type: ignore[attr-defined]

@@ -35,9 +35,12 @@ on:
   schedule:
     - cron: "0 6 * * *" # 06:00 UTC nightly regression safety net
 
-# One in-flight run per ref; cancel superseded PR pushes so the runner isn't queued up.
+# One in-flight live-editor run across the whole repo (issue #444): the single
+# self-hosted runner is shared, and two concurrent PRs' jobs contend for the
+# editor, `godot/.godot/`, and the bridge port — the documented flake source.
+# Superseded pushes within a ref still cancel in place.
 concurrency:
-  group: e2e-${{ github.ref }}
+  group: e2e
   cancel-in-progress: true
 
 permissions:
