@@ -26,6 +26,7 @@ func _cmd_create_mesh_library(params: Dictionary) -> Dictionary:
 	if node_path.is_empty() and save_path.is_empty():
 		return _router._fail("VALIDATION_ERROR", "Provide 'node_path' to assign the MeshLibrary and/or 'save_path' to save it as a .tres.")
 	var library := MeshLibrary.new()
+	var persistence := {"ok": true}  # a file-only library is already on disk
 	if not save_path.is_empty():
 		if not save_path.begins_with("res://"):
 			return _router._fail("VALIDATION_ERROR", "save_path must be a res:// path.")
@@ -49,11 +50,12 @@ func _cmd_create_mesh_library(params: Dictionary) -> Dictionary:
 		if prev != null:  # keep the prior MeshLibrary alive for undo
 			ur.add_undo_reference(prev)
 		ur.commit_action()
-	return _router._ok({
+		persistence = _router._persistent_target(node)
+	return _router._ok(_router._with_persistence({
 		"node_path": node_path,
 		"library_path": save_path,
 		"created": true,
-	})
+	}, persistence))
 
 
 
@@ -91,14 +93,16 @@ func _cmd_add_mesh_library_item(params: Dictionary) -> Dictionary:
 		var saved := _save_mesh_library_file(library, resolved["path"])
 		if not saved["ok"]:
 			return saved
-	return _router._ok({
+	# A file-backed library was just saved; one the GridMap holds saves wherever it lives.
+	var persistence: Dictionary = _router._resource_persistence(resolved["node"], [library]) if resolved["backing"] == "node" else {"ok": true}
+	return _router._ok(_router._with_persistence({
 		"node_path": str(params.get("node_path", "")),
 		"library_path": str(params.get("library_path", "")),
 		"item_id": item_id,
 		"name": item_name,
 		"mesh_type": str(params.get("mesh_type", "")),
 		"mesh_path": str(params.get("mesh_path", "")),
-	})
+	}, persistence))
 
 
 func _resolve_mesh_library(params: Dictionary) -> Dictionary:

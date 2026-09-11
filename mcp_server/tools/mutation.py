@@ -43,9 +43,13 @@ from mcp_server.safety import (
     require_node_exists,
 )
 from mcp_server.suggestions import suggest
+from mcp_server.tools._persistence import node_probe
 from mcp_server.tools._route import route, run_or_preview
 
 SCENE_EDIT = {SCENE_EDIT_TAG}
+
+
+_PERSISTENCE_PROBE = "cmd_node_persistence"  # dry-run probe (#476)
 
 
 async def _node_property_names(bridge: Bridge, node_path: str) -> list[str]:
@@ -131,7 +135,13 @@ def register_mutation(
         params = {"node_path": node_path, "new_name": new_name}
         preview = {"node_path": node_path, "new_name": new_name, "renamed": False}
         return await run_or_preview(
-            dry_run, RenameNodeResult, preview, bridge, "cmd_rename_node", params
+            dry_run,
+            RenameNodeResult,
+            preview,
+            bridge,
+            "cmd_rename_node",
+            params,
+            persistence_probe=node_probe(node_path),
         )
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
@@ -153,7 +163,12 @@ def register_mutation(
         params = {"node_path": node_path, "property": property, "value": value}
         preview = {"node_path": node_path, "property": property, "value": value, "set": False}
         if dry_run:
-            return SetPropertyResult(**preview, dry_run=True)
+            fields = dict(preview)
+            truth = await route(bridge, _PERSISTENCE_PROBE, node_probe(node_path))
+            fields["persisted"] = truth.get("persisted")
+            fields["reason"] = truth.get("reason")
+            fields["hint"] = truth.get("hint")
+            return SetPropertyResult(**fields, dry_run=True)
         return await _try_set_with_suggestions(bridge, params, node_path, property)
 
     @mcp.tool(meta=DESTRUCTIVE, tags=SCENE_EDIT)
@@ -185,7 +200,13 @@ def register_mutation(
         params = {"node_path": node_path, "script_path": script_path}
         preview = {"node_path": node_path, "script_path": script_path, "attached": False}
         return await run_or_preview(
-            dry_run, AttachScriptResult, preview, bridge, "cmd_attach_script", params
+            dry_run,
+            AttachScriptResult,
+            preview,
+            bridge,
+            "cmd_attach_script",
+            params,
+            persistence_probe=node_probe(node_path),
         )
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)

@@ -113,11 +113,11 @@ func _cmd_gridmap_set_cell(params: Dictionary) -> Dictionary:
 	ur.add_do_method(grid_map, "set_cell_item", position, item, orientation)
 	ur.add_undo_method(grid_map, "set_cell_item", position, prev_item, prev_orientation)
 	ur.commit_action()
-	return _router._ok({
+	return _router._ok(_router._with_persistence({
 		"node_path": str(params.get("node_path")),
 		"position": [position.x, position.y, position.z],
 		"item": item,
-	})
+	}, _router._persistent_target(node)))
 
 
 ## Read a GridMap cell — item + orientation (issue #219 G5). Inverts gridmap_set_cell

@@ -8,6 +8,8 @@ group membership, and signal-connection listing/disconnect. Extends the gated
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
@@ -19,7 +21,9 @@ from mcp_server.models.node_ops import (
     MoveNodeResult,
     SignalConnectionList,
 )
+from mcp_server.models.persistence import persistence_fields as _persistence
 from mcp_server.safety import MUTATING, READ_ONLY, enforce_preconditions, require_node_exists
+from mcp_server.tools._persistence import node_probe
 from mcp_server.tools._route import route, run_or_preview
 
 SCENE_EDIT = {SCENE_EDIT_TAG}
@@ -63,11 +67,25 @@ def register_node_ops(mcp: FastMCP, bridge: Bridge) -> None:
         """Add the node to ``group`` (persistent — saved into the scene). Reversible."""
         await require_node_exists(bridge, node_path)
         if dry_run:
-            return GroupResult(
-                node_path=node_path, group=group, in_group=True, changed=False, dry_run=True
-            )
+            fields: dict[str, Any] = {
+                "node_path": node_path,
+                "group": group,
+                "in_group": True,
+                "changed": False,
+            }
+            truth = await route(bridge, "cmd_node_persistence", node_probe(node_path))
+            fields["persisted"] = truth.get("persisted")
+            fields["reason"] = truth.get("reason")
+            fields["hint"] = truth.get("hint")
+            return GroupResult(**fields, dry_run=True)
         result = await route(bridge, "cmd_add_to_group", {"node_path": node_path, "group": group})
-        return GroupResult(node_path=node_path, group=group, in_group=True, changed=result["added"])
+        return GroupResult(
+            node_path=node_path,
+            group=group,
+            in_group=True,
+            changed=result["added"],
+            **_persistence(result),
+        )
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
     @enforce_preconditions
@@ -75,14 +93,28 @@ def register_node_ops(mcp: FastMCP, bridge: Bridge) -> None:
         """Remove the node from ``group``. Reversible via undo."""
         await require_node_exists(bridge, node_path)
         if dry_run:
-            return GroupResult(
-                node_path=node_path, group=group, in_group=False, changed=False, dry_run=True
+            fields: dict[str, Any] = {
+                "node_path": node_path,
+                "group": group,
+                "in_group": False,
+                "changed": False,
+            }
+            truth = await route(
+                bridge, "cmd_node_persistence", {**node_probe(node_path), "group": group}
             )
+            fields["persisted"] = truth.get("persisted")
+            fields["reason"] = truth.get("reason")
+            fields["hint"] = truth.get("hint")
+            return GroupResult(**fields, dry_run=True)
         result = await route(
             bridge, "cmd_remove_from_group", {"node_path": node_path, "group": group}
         )
         return GroupResult(
-            node_path=node_path, group=group, in_group=False, changed=result["removed"]
+            node_path=node_path,
+            group=group,
+            in_group=False,
+            changed=result["removed"],
+            **_persistence(result),
         )
 
     @mcp.tool(meta=READ_ONLY, tags=SCENE_EDIT)

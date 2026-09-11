@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
+from mcp_server.models.persistence import PersistenceReport
+
 
 class NavigationRegionResult(BaseModel):
     node_path: str
@@ -19,7 +21,7 @@ class NavigationAgentResult(BaseModel):
     dry_run: bool = False
 
 
-class BakeNavigationResult(BaseModel):
+class BakeNavigationResult(PersistenceReport):
     node_path: str
     baked: bool = False
     # Only present on a real (non-dry-run) bake: the produced polygon/vertex
@@ -29,7 +31,7 @@ class BakeNavigationResult(BaseModel):
     dry_run: bool = False
 
 
-class NavigationLayersResult(BaseModel):
+class NavigationLayersResult(PersistenceReport):
     node_path: str
     navigation_layers: int = 0
     dry_run: bool = False

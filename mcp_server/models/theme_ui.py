@@ -6,28 +6,30 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from mcp_server.models.persistence import PersistenceReport
 
-class ThemeResult(BaseModel):
+
+class ThemeResult(PersistenceReport):
     node_path: str
     theme_path: str = ""
     created: bool = False
     dry_run: bool = False
 
 
-class ThemeColorResult(BaseModel):
+class ThemeColorResult(PersistenceReport):
     node_path: str
     name: str
     dry_run: bool = False
 
 
-class ThemeFontSizeResult(BaseModel):
+class ThemeFontSizeResult(PersistenceReport):
     node_path: str
     name: str
     size: int = 0
     dry_run: bool = False
 
 
-class ThemeStyleboxResult(BaseModel):
+class ThemeStyleboxResult(PersistenceReport):
     node_path: str
     name: str
     stylebox_type: str

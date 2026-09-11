@@ -73,7 +73,9 @@ func _cmd_create_animation(params: Dictionary) -> Dictionary:
 	if created_lib:
 		ur.add_undo_method(player, "remove_animation_library", "")
 	ur.commit_action()
-	return _router._ok({"player_path": str(params.get("node_path")), "animation": anim_name, "length": animation.length})
+	# A library created here is a new property on the player; an existing one saves wherever it lives.
+	var persistence: Dictionary = _router._persistent_target(player) if created_lib else _router._resource_persistence(player, [library])
+	return _router._ok(_router._with_persistence({"player_path": str(params.get("node_path")), "animation": anim_name, "length": animation.length}, persistence))
 
 
 
@@ -96,7 +98,7 @@ func _cmd_add_animation_track(params: Dictionary) -> Dictionary:
 	ur.add_do_method(animation, "track_set_path", index, NodePath(track_path))
 	ur.add_undo_method(animation, "remove_track", index)
 	ur.commit_action()
-	return _router._ok({"animation": str(params.get("animation")), "track": index, "track_path": track_path})
+	return _router._ok(_router._with_persistence({"animation": str(params.get("animation")), "track": index, "track_path": track_path}, _router._resource_persistence(found["player"], [animation, found["library"]])))
 
 
 
@@ -120,7 +122,7 @@ func _cmd_insert_keyframe(params: Dictionary) -> Dictionary:
 	ur.add_do_method(animation, "track_insert_key", track, time, value, easing)
 	ur.add_undo_method(animation, "track_remove_key_at_time", track, time)
 	ur.commit_action()
-	return _router._ok({"animation": str(params.get("animation")), "track": track, "time": time})
+	return _router._ok(_router._with_persistence({"animation": str(params.get("animation")), "track": track, "time": time}, _router._resource_persistence(found["player"], [animation, found["library"]])))
 
 
 
@@ -175,7 +177,7 @@ func _cmd_add_state_machine_state(params: Dictionary) -> Dictionary:
 	ur.add_do_reference(state)
 	ur.add_undo_method(state_machine, "remove_node", state_name)
 	ur.commit_action()
-	return _router._ok({"tree_path": str(params.get("tree_path")), "state": state_name})
+	return _router._ok(_router._with_persistence({"tree_path": str(params.get("tree_path")), "state": state_name}, _router._resource_persistence(tree, [state_machine])))
 
 
 
@@ -204,7 +206,7 @@ func _cmd_set_blend_tree_node(params: Dictionary) -> Dictionary:
 	ur.add_do_reference(anim_node_obj)
 	ur.add_undo_method(blend_tree, "remove_node", node_name)
 	ur.commit_action()
-	return _router._ok({"tree_path": str(params.get("tree_path")), "node": node_name, "node_type": node_type})
+	return _router._ok(_router._with_persistence({"tree_path": str(params.get("tree_path")), "node": node_name, "node_type": node_type}, _router._resource_persistence(tree, [blend_tree])))
 
 
 func _resolve_player_animation(params: Dictionary) -> Dictionary:
@@ -217,7 +219,10 @@ func _resolve_player_animation(params: Dictionary) -> Dictionary:
 	var anim_name := str(params.get("animation", ""))
 	if not player.has_animation(anim_name):
 		return _router._fail("RESOURCE_NOT_FOUND", "No animation '%s' on the AnimationPlayer." % anim_name)
-	return {"ok": true, "animation": player.get_animation(anim_name)}
+	var animation: Animation = player.get_animation(anim_name)
+	# The library holding the animation decides where an edit to it is saved (#458).
+	var library: AnimationLibrary = player.get_animation_library(player.find_animation_library(animation))
+	return {"ok": true, "animation": animation, "player": player, "library": library}
 
 
 # -- read tools (rollback enabler G4, issue #218) ----------------------------

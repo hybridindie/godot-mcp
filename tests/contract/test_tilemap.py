@@ -120,6 +120,10 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                     "size": p["size"],
                 },
             )
+        case "cmd_node_persistence":  # dry-run probe (#476)
+            return ResponseEnvelope.success(
+                cmd.id, {"node_path": p["node_path"], "persisted": True}
+            )
     return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
 
 

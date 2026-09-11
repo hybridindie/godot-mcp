@@ -38,6 +38,7 @@ from mcp_server.safety import (
     enforce_preconditions,
     require_node_exists,
 )
+from mcp_server.tools._persistence import node_probe
 from mcp_server.tools._route import route, run_or_preview
 
 TILEMAP = {TILEMAP_TAG}
@@ -92,7 +93,13 @@ def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
             "layer": layer,
         }
         return await run_or_preview(
-            dry_run, TileCellResult, preview, bridge, "cmd_tilemap_set_cell", params
+            dry_run,
+            TileCellResult,
+            preview,
+            bridge,
+            "cmd_tilemap_set_cell",
+            params,
+            persistence_probe=node_probe(node_path),
         )
 
     @mcp.tool(meta=MUTATING, tags=TILEMAP)
@@ -127,7 +134,13 @@ def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
             "layer": layer,
         }
         return await run_or_preview(
-            dry_run, TileFillResult, preview, bridge, "cmd_tilemap_fill_rect", params
+            dry_run,
+            TileFillResult,
+            preview,
+            bridge,
+            "cmd_tilemap_fill_rect",
+            params,
+            persistence_probe=node_probe(node_path),
         )
 
     @mcp.tool(meta=READ_ONLY, tags=TILEMAP)
@@ -166,7 +179,13 @@ def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
         params = {"node_path": node_path, "layer": layer}
         preview = {"node_path": node_path, "layer": layer}
         return await run_or_preview(
-            dry_run, TileClearResult, preview, bridge, "cmd_tilemap_clear", params
+            dry_run,
+            TileClearResult,
+            preview,
+            bridge,
+            "cmd_tilemap_clear",
+            params,
+            persistence_probe=node_probe(node_path),
         )
 
     @mcp.tool(meta=READ_ONLY, tags=TILEMAP)
@@ -203,7 +222,13 @@ def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
         params = {"node_path": node_path, "save_path": save_path, "tile_size": size}
         preview = {"node_path": node_path, "tileset_path": save_path, "tile_size": size}
         return await run_or_preview(
-            dry_run, TileSetResult, preview, bridge, "cmd_create_tileset", params
+            dry_run,
+            TileSetResult,
+            preview,
+            bridge,
+            "cmd_create_tileset",
+            params,
+            persistence_probe=node_probe(node_path) if node_path else True,
         )
 
     @mcp.tool(meta=MUTATING, tags=TILEMAP)
@@ -247,6 +272,7 @@ def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
             bridge,
             "cmd_add_tileset_atlas_source",
             params,
+            persistence_probe=node_probe(node_path, ["tile_set"]) if node_path else True,
         )
 
     @mcp.tool(meta=MUTATING, tags=TILEMAP)
@@ -285,5 +311,11 @@ def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
             "size": tile_size,
         }
         return await run_or_preview(
-            dry_run, TileCreateResult, preview, bridge, "cmd_create_tile", params
+            dry_run,
+            TileCreateResult,
+            preview,
+            bridge,
+            "cmd_create_tile",
+            params,
+            persistence_probe=node_probe(node_path, ["tile_set"]) if node_path else True,
         )

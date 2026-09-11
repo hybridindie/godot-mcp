@@ -519,12 +519,12 @@ func _with_persistence(result: Dictionary, verdict: Dictionary) -> Dictionary:
 	return result
 
 
-## Whether an edit to a resource the node uses survives a scene save. `chain` lists the
-## edited resource and what holds it, innermost first; the first one with a path decides.
-## Embedded in the edited scene: saved with its node. Its own file: the editor saves it
-## alongside the scene (EditorNode::_save_external_resources, 4.7). A sub-resource of a
-## loaded non-scene file: saved with that file. A sub-resource of another scene: never
-## re-saved. No path anywhere: saved (or not) with its node.
+## Whether an edit to a resource the node uses survives a scene save. `chain` is the edited
+## resource first, then each resource embedding it, out to the one the node holds; the first
+## with a path decides. A sub-resource of the edited scene saves with the node. A resource
+## file, or a sub-resource of a loaded non-scene file, is saved by the editor alongside the
+## scene (EditorNode::_save_external_resources, 4.7) even when the node is not. A sub-resource
+## of another scene is never re-saved. No path at all: embedded through the node itself.
 func _resource_persistence(node: Node, chain: Array) -> Dictionary:
 	var root := EditorInterface.get_edited_scene_root()
 	for item in chain:
@@ -543,6 +543,56 @@ func _resource_persistence(node: Node, chain: Array) -> Dictionary:
 			"This %s is embedded in '%s', which is not saved with the current scene — the change shows in the editor but is lost on reload. Edit it in '%s' directly, or give the node its own %s." % [resource.get_class(), container, container, resource.get_class()]
 		)
 	return _persistent_target(node)
+
+
+## Whether removing `group` from this node survives a save. The packer writes only the groups
+## a node adds on top of the scenes it comes from (SceneState::_parse_node, 4.7), so a group an
+## instanced or inherited scene gives the node is back after a reload.
+func _group_removal_persistence(node: Node, group: String) -> Dictionary:
+	var verdict := _persistent_target(node)
+	if not verdict["ok"]:
+		return verdict
+	for entry in _base_states(node):
+		var state: SceneState = entry[0]
+		if group in state.get_node_groups(entry[1]):
+			var source := state.get_path() if not state.get_path().is_empty() else "the scene it comes from"
+			return _not_persisted(
+				"group_from_base_scene",
+				"'%s' gets group '%s' from '%s', so removing it is not saved — the group is back after a reload. Remove it in '%s' instead." % [EditorInterface.get_edited_scene_root().get_path_to(node), group, source, source]
+			)
+	return verdict
+
+
+## The saved scene states this node comes from, as [SceneState, node index] pairs — the
+## GDScript mirror of 4.7's PropertyUtils::get_node_states_stack, which the packer diffs a
+## node against. Empty for a node only the edited scene defines. Node's own state accessors
+## are not exposed to scripts, so each level's state is read from its (cached) PackedScene.
+func _base_states(node: Node) -> Array:
+	var root := EditorInterface.get_edited_scene_root()
+	var states := []
+	var current := node
+	while current != null:
+		var state: SceneState = null
+		if current == root:
+			if not root.scene_file_path.is_empty() and ResourceLoader.exists(root.scene_file_path):
+				var own := load(root.scene_file_path) as PackedScene
+				if own != null:
+					state = own.get_state().get_base_scene_state()
+		elif not current.scene_file_path.is_empty():
+			var instanced := load(current.scene_file_path) as PackedScene
+			if instanced != null:
+				state = instanced.get_state()
+		var relative := current.get_path_to(node)
+		while state != null:
+			for i in state.get_node_count():
+				if str(state.get_node_path(i)).trim_prefix("./") == str(relative):  # SceneState paths read "./Label"
+					states.append([state, i])
+					break
+			state = state.get_base_scene_state()
+		if current == root:
+			break
+		current = current.owner
+	return states
 
 
 ## The Variant.Type of an object's property, or -1 if it has no such property.

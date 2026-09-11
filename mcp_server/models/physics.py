@@ -6,8 +6,10 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from mcp_server.models.persistence import PersistenceReport
 
-class SetupBodyResult(BaseModel):
+
+class SetupBodyResult(PersistenceReport):
     node_path: str
     properties: dict[str, Any] = Field(default_factory=dict)
     dry_run: bool = False
@@ -20,7 +22,7 @@ class CollisionShapeResult(BaseModel):
     dry_run: bool = False
 
 
-class PhysicsLayersResult(BaseModel):
+class PhysicsLayersResult(PersistenceReport):
     node_path: str
     collision_layer: int = 0
     collision_mask: int = 0
