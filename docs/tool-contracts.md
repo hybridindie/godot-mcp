@@ -293,6 +293,13 @@ UndoRedo-wrapped `cmd_*` handler and runs preconditions first.
 |------|--------|---------|-------|
 | `godot_scene_edit_create_node` | `parent_path, node_type, node_name` | `CreateNodeResult { node_path, created }` | `mutating` |
 | `godot_scene_edit_rename_node` | `node_path, new_name` | `RenameNodeResult { node_path, old_name?, new_name, renamed }` | `mutating` |
+
+  `rename_node` refuses (`VALIDATION_ERROR`) the renames the editor itself refuses
+  (#473): a node inside an instanced scene (Editable Children or not) and a node the
+  edited scene inherits from its base — renaming either corrupts the save (dropped /
+  duplicated node). The error hint names the source scene to rename in. Still allowed:
+  scene-owned nodes, instance roots the scene owns, and the edited root (inherited
+  roots included).
 | `godot_scene_edit_set_node_property` | `node_path, property, value` | `SetPropertyResult { node_path, property, value, set }` | `mutating` |
 | `godot_scene_edit_delete_node` | `node_path, confirm=False` | `DeleteNodeResult { node_path, deleted }` | **`destructive`** |
 | `godot_scene_edit_attach_script` | `node_path, script_path` | `AttachScriptResult { node_path, script_path, attached }` | `mutating` |

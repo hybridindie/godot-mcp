@@ -58,11 +58,55 @@ func _cmd_create_node(params: Dictionary) -> Dictionary:
 
 
 
+## Whether the node is an entry the edited scene's *base* scene defines (not
+## the root). GDScript has no `Node.get_scene_inherited_state()`, so read the
+## base state off the edited scene's PackedScene and match node paths (4.7).
+func _inherited_from_base(node: Node, root: Node) -> bool:
+	var scene_path := root.scene_file_path
+	if scene_path.is_empty():
+		return false
+	var scene: PackedScene = ResourceLoader.load(scene_path)
+	if scene == null:
+		return false
+	var base_state: SceneState = scene.get_state().get_base_scene_state()
+	if base_state == null:
+		return false
+	var path := str(root.get_path_to(node))
+	for i in range(base_state.get_node_count()):
+		var base_path := str(base_state.get_node_path(i, false))
+		# `path(false)` is scene-relative ("./Cold"); the root entry is "" and
+		# must stay renamable, so only nested paths can refuse.
+		if base_path == "./" + path and not base_state.is_node_instance_placeholder(i):
+			return true
+	return false
+
+
 func _cmd_rename_node(params: Dictionary) -> Dictionary:
 	var found := _router._resolve(params.get("node_path", ""))
 	if not found["ok"]:
 		return found
 	var node: Node = found["node"]
+	var root := EditorInterface.get_edited_scene_root()
+	# #473: refuse the renames the editor itself refuses
+	# (SceneTreeDock::_validate_no_foreign_selected, 4.7) — allowing them
+	# corrupts the save (an inherited-scene rename duplicates the node; an
+	# instanced-child rename is silently dropped). The refusal must precede
+	# any UndoRedo action so the rejected rename never becomes an undo step.
+	if node != root and node.owner != root:
+		var source := "the edited scene's root"
+		if node.owner != null and not node.owner.scene_file_path.is_empty():
+			source = node.owner.scene_file_path
+		return _router._fail(
+			"VALIDATION_ERROR",
+			"Node '%s' comes from the instanced scene '%s'; the editor refuses to rename it here — the rename would be lost on save. Rename it in '%s' (or its source scene) instead." % [root.get_path_to(node), source, source],
+			"node_path",
+		)
+	if node != root and _inherited_from_base(node, root):
+		return _router._fail(
+			"VALIDATION_ERROR",
+			"Node '%s' comes from the base scene this scene inherits; renaming it here packs a duplicate node on save. Rename it in the base scene instead." % root.get_path_to(node),
+			"node_path",
+		)
 	var old_name := String(node.name)
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Rename %s" % old_name)
