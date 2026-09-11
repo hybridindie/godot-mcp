@@ -515,6 +515,32 @@ func _with_persistence(result: Dictionary, verdict: Dictionary) -> Dictionary:
 	return result
 
 
+## Whether an edit to a resource the node uses survives a scene save. `chain` lists the
+## edited resource and what holds it, innermost first; the first one with a path decides.
+## Embedded in the edited scene: saved with its node. Its own file: the editor saves it
+## alongside the scene (EditorNode::_save_external_resources, 4.7). A sub-resource of a
+## loaded non-scene file: saved with that file. A sub-resource of another scene: never
+## re-saved. No path anywhere: saved (or not) with its node.
+func _resource_persistence(node: Node, chain: Array) -> Dictionary:
+	var root := EditorInterface.get_edited_scene_root()
+	for item in chain:
+		var resource := item as Resource
+		if resource == null or resource.resource_path.is_empty():
+			continue
+		var container := resource.resource_path.get_slice("::", 0)
+		if root != null and container == root.scene_file_path:
+			break
+		if not resource.resource_path.contains("::"):
+			return {"ok": true}
+		if ResourceLoader.has_cached(container) and not (ResourceLoader.get_cached_ref(container) is PackedScene):
+			return {"ok": true}
+		return _not_persisted(
+			"embedded_in_other_resource",
+			"This %s is embedded in '%s', which is not saved with the current scene — the change shows in the editor but is lost on reload. Edit it in '%s' directly, or give the node its own %s." % [resource.get_class(), container, container, resource.get_class()]
+		)
+	return _persistent_target(node)
+
+
 ## The Variant.Type of an object's property, or -1 if it has no such property.
 ## Uses a per-object cache so repeated lookups (e.g. batch operations) are O(1)
 ## instead of O(n) over the property list. Cache refreshes automatically on a

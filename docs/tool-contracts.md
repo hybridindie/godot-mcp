@@ -655,7 +655,8 @@ to `material` (CanvasItem) or `material_override` (GeometryInstance3D), reportin
 **Persistence truth (#458).** Both mutations always apply live, then report whether the change
 survives a scene save. `persisted: false` comes with a stable `reason` token and a `hint`;
 A `dry_run` preview applies nothing but asks the addon for the same verdict
-(`cmd_node_persistence`), so it carries `persisted`/`reason`/`hint` too. `set_param` reports
+(`cmd_node_persistence`), so it carries `persisted`/`reason`/`hint` too — for `set_param` the
+probe follows the node's current material, like the real run. `set_param` reports
 the landed `value` read back after the set; a uniform the shader does not declare is a
 `VALIDATION_ERROR`.
 

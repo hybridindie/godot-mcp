@@ -29,6 +29,21 @@ from mcp_server.tools._route import route, run_or_preview
 
 SHADER = {SHADER_TAG}
 
+# The slots a node's ShaderMaterial can sit in (CanvasItem, GeometryInstance3D).
+MATERIAL_PROPERTIES = ["material", "material_override"]
+
+
+def assign_material_probe(node_path: str) -> dict[str, Any]:
+    """``cmd_node_persistence`` params for an ``assign_shader_material`` preview: the new
+    material has no file yet, so it saves (or not) with its node."""
+    return {"node_path": node_path}
+
+
+def set_param_probe(node_path: str) -> dict[str, Any]:
+    """``cmd_node_persistence`` params for a ``set_shader_param`` preview: a uniform edit
+    saves wherever the node's current material lives (#475)."""
+    return {"node_path": node_path, "resource_properties": MATERIAL_PROPERTIES}
+
 
 def register_shader(mcp: FastMCP, bridge: Bridge) -> None:
     """Register the shader tools."""
@@ -65,7 +80,7 @@ def register_shader(mcp: FastMCP, bridge: Bridge) -> None:
         if dry_run:
             # #458 round-2: the preview must be honest about persistence — probe
             # the addon read-only instead of hardcoding persisted:true.
-            truth = await route(bridge, "cmd_node_persistence", {"node_path": node_path})
+            truth = await route(bridge, "cmd_node_persistence", assign_material_probe(node_path))
             return ShaderMaterialResult(
                 node_path=node_path,
                 shader_path=shader_path,
@@ -105,7 +120,7 @@ def register_shader(mcp: FastMCP, bridge: Bridge) -> None:
             # #458 round-2: the preview carries the same persistence truth as the
             # real run (read-only probe), so an instanced-child preview isn't
             # dishonest about saving.
-            truth = await route(bridge, "cmd_node_persistence", {"node_path": node_path})
+            truth = await route(bridge, "cmd_node_persistence", set_param_probe(node_path))
             return ShaderParamResult(
                 node_path=node_path,
                 name=name,

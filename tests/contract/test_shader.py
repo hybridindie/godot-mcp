@@ -73,8 +73,10 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                 },
             )
         case "cmd_node_persistence":  # the read-only probe behind a dry_run preview
+            material = "material" in p.get("resource_properties", [])
             return ResponseEnvelope.success(
-                cmd.id, {"node_path": p["node_path"], **_persistence(p["node_path"])}
+                cmd.id,
+                {"node_path": p["node_path"], **_persistence(p["node_path"], material=material)},
             )
         case "cmd_get_shader_param":
             if p.get("name") == "missing":
@@ -208,6 +210,27 @@ async def test_dry_run_carries_the_probed_verdict_without_mutating() -> None:
     assert sent.count("cmd_node_persistence") == 2
     assert "cmd_assign_shader_material" not in sent
     assert "cmd_set_shader_param" not in sent
+
+
+async def test_set_param_preview_follows_the_material_not_just_the_node() -> None:
+    """#475: a uniform edit saves wherever the material lives, so the preview's probe
+    must name the material slots — otherwise it predicts the node's verdict instead."""
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "shader"})
+        param = await client.call_tool(
+            "godot_shader_set_param",
+            {"node_path": FOREIGN_MATERIAL, "name": "pulse_speed", "value": 3.0, "dry_run": True},
+        )
+        assigned = await client.call_tool(
+            "godot_shader_assign_material",
+            {"node_path": FOREIGN_MATERIAL, "shader_path": "res://fx.gdshader", "dry_run": True},
+        )
+    assert param.structured_content["persisted"] is False
+    assert param.structured_content["reason"] == "embedded_in_other_resource"
+    # assign replaces the material with a fresh one, so only the node decides
+    assert assigned.structured_content["persisted"] is True
+    assert "cmd_set_shader_param" not in _commands(conn)
 
 
 async def test_default_code_passed_when_omitted() -> None:

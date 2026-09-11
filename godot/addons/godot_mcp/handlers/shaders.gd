@@ -107,7 +107,7 @@ func _cmd_set_shader_param(params: Dictionary) -> Dictionary:
 	if name.is_empty():
 		return _router._fail("VALIDATION_ERROR", "'name' must be a non-empty string.")
 	var value: Variant = _coerce_shader_value(params.get("value"), str(params.get("param_type", "")))
-	var persistence := _material_persistence(node, material)
+	var persistence := _router._resource_persistence(node, [material])
 	var prev: Variant = material.get_shader_parameter(name)
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Set shader param %s" % name)
@@ -161,27 +161,6 @@ func _cmd_get_shader_param(params: Dictionary) -> Dictionary:
 		"value": Coerce.to_json(value),
 		"exists": exists,
 	})
-
-
-## Whether a uniform edit on this material survives a scene save (#458), decided by where
-## the material lives. Embedded in the edited scene (or never saved): it saves with its
-## node. Its own resource file: the editor saves it alongside the scene
-## (EditorNode::_save_external_resources, 4.7). A sub-resource of another file: saved only
-## while that container is loaded and is not a PackedScene — the editor never re-saves
-## other scenes.
-func _material_persistence(node: Node, material: Resource) -> Dictionary:
-	var path := material.resource_path
-	var container := path.get_slice("::", 0)
-	if path.is_empty() or container == EditorInterface.get_edited_scene_root().scene_file_path:
-		return _router._persistent_target(node)
-	if not path.contains("::"):
-		return {"ok": true}
-	if ResourceLoader.has_cached(container) and not (ResourceLoader.get_cached_ref(container) is PackedScene):
-		return {"ok": true}
-	return _router._not_persisted(
-		"embedded_in_other_resource",
-		"This material is embedded in '%s', which is not saved with the current scene — the change shows in the editor but is lost on reload. Edit the material in '%s' directly, or assign a material this scene owns." % [container, container]
-	)
 
 
 func _material_property_for(node: Node) -> String:
