@@ -22,6 +22,7 @@ func register(handlers: Dictionary) -> void:
 	handlers["cmd_get_selected_node"] = _cmd_get_selected_node
 	handlers["cmd_get_node_properties"] = _cmd_get_node_properties
 	handlers["cmd_node_exists"] = _cmd_node_exists
+	handlers["cmd_node_persistence"] = _cmd_node_persistence
 	handlers["cmd_get_node_property"] = _cmd_get_node_property
 	handlers["cmd_get_node_property_list"] = _cmd_get_node_property_list
 	handlers["cmd_get_node_groups"] = _cmd_get_node_groups
@@ -127,6 +128,27 @@ func _cmd_node_exists(params: Dictionary) -> Dictionary:
 	if node == null:
 		return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(params["node_path"]))
 	return _router._ok({"exists": true})
+
+
+
+func _cmd_node_persistence(params: Dictionary) -> Dictionary:
+	# #458 dry-run probe: persistence truth for a target, no mutation. Lets a
+	# dry_run preview carry the same persisted/reason fields as the real run.
+	if not params.has("node_path"):
+		return _router._fail("VALIDATION_ERROR", "'node_path' is required.")
+	var found := _router._resolve(params["node_path"])
+	if not found["ok"]:
+		return found
+	var node: Node = found["node"]
+	var truth := _router._persistent_target(node)
+	var body := {
+		"node_path": str(params["node_path"]),
+		"persisted": truth["ok"],
+	}
+	if not truth["ok"]:
+		body["reason"] = truth["reason"]
+		body["hint"] = truth["hint"]
+	return _router._ok(body)
 
 
 func _cmd_get_node_property(params: Dictionary) -> Dictionary:

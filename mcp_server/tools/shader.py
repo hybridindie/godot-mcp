@@ -59,14 +59,21 @@ def register_shader(mcp: FastMCP, bridge: Bridge) -> None:
         """
         await require_node_exists(bridge, node_path)
         params = {"node_path": node_path, "shader_path": shader_path}
-        preview = {
-            "node_path": node_path,
-            "shader_path": shader_path,
-            "material_property": "",
-        }
-        return await run_or_preview(
-            dry_run, ShaderMaterialResult, preview, bridge, "cmd_assign_shader_material", params
-        )
+        if dry_run:
+            # #458 round-2: the preview must be honest about persistence — probe
+            # the addon read-only instead of hardcoding persisted:true.
+            truth = await route(bridge, "cmd_node_persistence", {"node_path": node_path})
+            return ShaderMaterialResult(
+                node_path=node_path,
+                shader_path=shader_path,
+                material_property="",
+                assigned=False,
+                persisted=truth.get("persisted", True),
+                reason=truth.get("reason"),
+                hint=truth.get("hint"),
+                dry_run=True,
+            )
+        return ShaderMaterialResult(**await route(bridge, "cmd_assign_shader_material", params))
 
     @mcp.tool(meta=MUTATING, tags=SHADER)
     @enforce_preconditions
@@ -88,10 +95,21 @@ def register_shader(mcp: FastMCP, bridge: Bridge) -> None:
         """
         await require_node_exists(bridge, node_path)
         params = {"node_path": node_path, "name": name, "value": value, "param_type": param_type}
-        preview = {"node_path": node_path, "name": name}
-        return await run_or_preview(
-            dry_run, ShaderParamResult, preview, bridge, "cmd_set_shader_param", params
-        )
+        if dry_run:
+            # #458 round-2: the preview carries the same persistence truth as the
+            # real run (read-only probe), so an instanced-child preview isn't
+            # dishonest about saving.
+            truth = await route(bridge, "cmd_node_persistence", {"node_path": node_path})
+            return ShaderParamResult(
+                node_path=node_path,
+                name=name,
+                set=False,
+                persisted=truth.get("persisted", True),
+                reason=truth.get("reason"),
+                hint=truth.get("hint"),
+                dry_run=True,
+            )
+        return ShaderParamResult(**await route(bridge, "cmd_set_shader_param", params))
 
     @mcp.tool(meta=READ_ONLY, tags=SHADER)
     async def get_shader_param(node_path: str, name: str) -> ShaderParamReadResult:
