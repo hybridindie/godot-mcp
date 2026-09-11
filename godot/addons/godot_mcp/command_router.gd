@@ -170,6 +170,10 @@ func _init() -> void:
 ## Dispatch one envelope ({ id, command, params }) and return a response envelope.
 func handle(envelope: Dictionary) -> Dictionary:
 	var body := _route(envelope)
+	if not body.has("ok"):
+		# A handler that died on a GDScript error returns nothing. Answer now instead of
+		# sending an ok-less body the server can only drop and time out on (#466).
+		body = _fail("INTERNAL_ERROR", "'%s' failed inside the addon without producing a response (a GDScript error — see the editor Output panel)." % str(envelope.get("command", "")))
 	body["id"] = str(envelope.get("id", ""))
 	return body
 

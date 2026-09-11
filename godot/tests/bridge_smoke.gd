@@ -48,6 +48,21 @@ func _initialize() -> void:
 	if bad_params.get("error") != "VALIDATION_ERROR":
 		failures.append("bad params error code: %s" % str(bad_params.get("error")))
 
+	# A handler that dies on a GDScript error yields nothing; handle() must answer with
+	# INTERNAL_ERROR naming the command, not an ok-less body the server drops (#466).
+	# (The SCRIPT ERROR this prints is expected.)
+	router._handlers["cmd_test_script_error"] = func(_params: Dictionary) -> Dictionary:
+		var target: Variant = RefCounted.new()
+		target.call("no_such_method")
+		return {"ok": true, "result": {}}
+	var crashed: Dictionary = router.handle({"id": "5", "command": "cmd_test_script_error", "params": {}})
+	if crashed.get("id") != "5":
+		failures.append("crashed handler id not echoed: %s" % str(crashed))
+	if crashed.get("ok") != false or crashed.get("error") != "INTERNAL_ERROR":
+		failures.append("crashed handler should be INTERNAL_ERROR: %s" % str(crashed))
+	if not str(crashed.get("hint", "")).contains("cmd_test_script_error"):
+		failures.append("crashed handler hint should name the command: %s" % str(crashed))
+
 	router = null
 
 	if failures.is_empty():
