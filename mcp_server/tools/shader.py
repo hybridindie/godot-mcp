@@ -55,7 +55,10 @@ def register_shader(mcp: FastMCP, bridge: Bridge) -> None:
     ) -> ShaderMaterialResult:
         """Create a ShaderMaterial wrapping the shader at ``shader_path`` and assign it to
         the node at ``node_path`` (``material`` for CanvasItem, ``material_override`` for
-        GeometryInstance3D). Returns which material property was set.
+        GeometryInstance3D). Returns which material property was set, and ``persisted``:
+        ``False`` (with a ``reason`` token and ``hint``) when the material applies live but
+        will not be saved — e.g. the node is inside an instanced scene without Editable
+        Children. ``persisted`` is ``None`` on a ``dry_run`` preview.
         """
         await require_node_exists(bridge, node_path)
         params = {"node_path": node_path, "shader_path": shader_path}
@@ -85,6 +88,9 @@ def register_shader(mcp: FastMCP, bridge: Bridge) -> None:
         ``{"x":1,"y":2}``/``[1,2]``, Color as ``{"r":1,"g":0,"b":0,"a":1}`` or
         ``"#ff0000"``, Rect2 as ``{"position":{...},"size":{...}}``, NodePath/StringName
         as a string, primitives as-is. See docs/tool-contracts.md#value-shapes.
+        Reports ``persisted`` like ``assign_shader_material``: ``False`` when the edit will
+        not be saved — the node is inside an instance without Editable Children, or the
+        material is embedded in another scene/resource file (``reason`` says which).
         """
         await require_node_exists(bridge, node_path)
         params = {"node_path": node_path, "name": name, "value": value, "param_type": param_type}

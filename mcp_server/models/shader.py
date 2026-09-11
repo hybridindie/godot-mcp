@@ -6,6 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from mcp_server.models.persistence import PersistenceReport
+
 
 class ShaderResult(BaseModel):
     shader_path: str
@@ -18,14 +20,14 @@ class ShaderReadResult(BaseModel):
     code: str
 
 
-class ShaderMaterialResult(BaseModel):
+class ShaderMaterialResult(PersistenceReport):
     node_path: str
     shader_path: str
     material_property: str
     dry_run: bool = False
 
 
-class ShaderParamResult(BaseModel):
+class ShaderParamResult(PersistenceReport):
     node_path: str
     name: str
     dry_run: bool = False

@@ -470,6 +470,51 @@ func _resolve(raw_path: Variant) -> Dictionary:
 	return {"ok": true, "node": node}
 
 
+# -- persistence truth (#458) -------------------------------------------------
+
+## Whether a change to this node survives a scene save. Mirrors 4.7's
+## SceneState::_parse_node: a node is packed only when its owner is the edited root or
+## an editable instance, and a skipped node's subtree is never visited — so every node
+## on the path up to the root must qualify. Returns {ok: true} or {ok: false, reason, hint}.
+func _persistent_target(node: Node) -> Dictionary:
+	var root := EditorInterface.get_edited_scene_root()
+	if root == null or node == null:
+		return _not_persisted("node_not_owned", "No scene is open, so nothing can be saved.")
+	var current := node
+	while current != root:
+		if current == null:
+			return _not_persisted("node_not_owned", "The target is not inside the edited scene, so changes to it are never saved.")
+		var node_owner := current.owner
+		if node_owner == null:
+			return _not_persisted(
+				"node_not_owned",
+				"'%s' has no owner in the edited scene (e.g. it was added by a @tool script), so it is not saved — the change shows in the editor but is lost on reload." % root.get_path_to(current)
+			)
+		if node_owner != root and not root.is_editable_instance(node_owner):
+			var instance := str(root.get_path_to(node_owner))
+			return _not_persisted(
+				"instanced_child_not_editable",
+				"'%s' is inside the instanced scene '%s', which does not have Editable Children enabled — the change shows in the editor but will not be saved. Enable Editable Children on '%s', or target a node the scene owns." % [root.get_path_to(node), instance, instance]
+			)
+		current = current.get_parent()
+	return {"ok": true}
+
+
+func _not_persisted(reason: String, hint: String) -> Dictionary:
+	return {"ok": false, "reason": reason, "hint": hint}
+
+
+## Stamp a persistence verdict onto a mutation result: always `persisted`, plus `reason`
+## and `hint` when the applied change will not be saved.
+func _with_persistence(result: Dictionary, verdict: Dictionary) -> Dictionary:
+	var persisted := bool(verdict.get("ok", false))
+	result["persisted"] = persisted
+	if not persisted:
+		result["reason"] = str(verdict.get("reason", ""))
+		result["hint"] = str(verdict.get("hint", ""))
+	return result
+
+
 ## The Variant.Type of an object's property, or -1 if it has no such property.
 ## Uses a per-object cache so repeated lookups (e.g. batch operations) are O(1)
 ## instead of O(n) over the property list. Cache refreshes automatically on a

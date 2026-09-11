@@ -640,8 +640,8 @@ Author shaders — create/read `.gdshader` files, assign a ShaderMaterial, set u
 |------|--------|---------|
 | `godot_shader_create` | `shader_path, code=<canvas_item default>` | `ShaderResult { shader_path, created }` |
 | `godot_shader_read` | `shader_path` | `ShaderReadResult { shader_path, code }` (read_only) |
-| `godot_shader_assign_material` | `node_path, shader_path` | `ShaderMaterialResult { node_path, shader_path, material_property }` |
-| `godot_shader_set_param` | `node_path, name, value, param_type?` | `ShaderParamResult { node_path, name }` |
+| `godot_shader_assign_material` | `node_path, shader_path` | `ShaderMaterialResult { node_path, shader_path, material_property, persisted, reason?, hint? }` |
+| `godot_shader_set_param` | `node_path, name, value, param_type?` | `ShaderParamResult { node_path, name, persisted, reason?, hint? }` |
 | `godot_shader_get_param` | `node_path, name` | `ShaderParamReadResult { node_path, name, value, exists }` (`read_only`) |
 
 `godot_shader_create` writes a `res://*.gdshader` file (undo restores the prior content or
@@ -650,6 +650,19 @@ to `material` (CanvasItem) or `material_override` (GeometryInstance3D), reportin
 `godot_shader_set_param` sets a uniform on the node's ShaderMaterial; `param_type`
 (float/int/bool/vector2/vector3/vector4/color) coerces `value`, or it is inferred
 (number/bool as-is, `[x,y,z]` → vector, HTML string → color).
+
+**Persistence truth (#458).** Both mutations always apply live, then report whether the change
+survives a scene save. `persisted: false` comes with a stable `reason` token and a `hint`;
+`persisted` is `null` on a `dry_run` preview (only the editor can tell).
+
+| `reason` | Meaning |
+|----------|---------|
+| `instanced_child_not_editable` | The node (or an ancestor) is inside an instanced scene without Editable Children — Godot never packs it. |
+| `node_not_owned` | The node (or an ancestor) has no owner in the edited scene (e.g. added by a `@tool` script). |
+| `material_embedded_in_other_resource` | `set_param` only: the ShaderMaterial is a sub-resource of another scene (or of a resource file that is no longer loaded), which the editor does not re-save. |
+
+A material in its own `.tres` file is saved by the editor alongside the scene, so edits to it
+report `persisted: true` even when the node itself is an instanced child.
 
 #### Visual shaders (issue #107) — category: `visual_shader` (gated off by default)
 

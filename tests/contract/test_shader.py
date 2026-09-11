@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from fastmcp import Client, FastMCP
 
@@ -12,6 +14,27 @@ from mcp_server.server import create_server
 from tests.fakes import FakeAddonConnection, connector_for
 
 pytestmark = pytest.mark.asyncio
+
+# #458: node paths the fake addon treats as non-persistable targets.
+INSTANCED_CHILD = "Relic/Orb"  # inside an instance without Editable Children
+FOREIGN_MATERIAL = "Relic2/Orb"  # editable child whose material lives in the instanced scene
+
+
+def _persistence(node_path: str, *, material: bool = False) -> dict[str, Any]:
+    """The persistence fields the addon stamps on a shader mutation result (#458)."""
+    if node_path == INSTANCED_CHILD:
+        return {
+            "persisted": False,
+            "reason": "instanced_child_not_editable",
+            "hint": "Enable Editable Children on 'Relic', or target a node the scene owns.",
+        }
+    if material and node_path == FOREIGN_MATERIAL:
+        return {
+            "persisted": False,
+            "reason": "material_embedded_in_other_resource",
+            "hint": "Edit the material in 'res://relic.tscn', or assign one this scene owns.",
+        }
+    return {"persisted": True}
 
 
 def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
@@ -34,11 +57,17 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                     "node_path": p["node_path"],
                     "shader_path": p["shader_path"],
                     "material_property": "material",
+                    **_persistence(p["node_path"]),
                 },
             )
         case "cmd_set_shader_param":
             return ResponseEnvelope.success(
-                cmd.id, {"node_path": p["node_path"], "name": p["name"]}
+                cmd.id,
+                {
+                    "node_path": p["node_path"],
+                    "name": p["name"],
+                    **_persistence(p["node_path"], material=True),
+                },
             )
         case "cmd_get_shader_param":
             if p.get("name") == "missing":
@@ -99,7 +128,78 @@ async def test_create_read_assign_set() -> None:
     assert created.structured_content["created"] is True
     assert read.structured_content["code"].startswith("shader_type")
     assert assigned.structured_content["material_property"] == "material"
+    assert assigned.structured_content["persisted"] is True
+    assert assigned.structured_content.get("reason") is None
     assert param.structured_content["name"] == "strength"
+    assert param.structured_content["persisted"] is True
+    assert param.structured_content.get("reason") is None
+
+
+async def test_assign_on_instanced_child_reports_not_persisted() -> None:
+    """#415: the material IS applied (effect reported) but the result must say it won't save."""
+    server, _ = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "shader"})
+        result = await client.call_tool(
+            "godot_shader_assign_material",
+            {"node_path": INSTANCED_CHILD, "shader_path": "res://fx.gdshader"},
+        )
+    content = result.structured_content
+    assert content["material_property"] == "material"
+    assert content["persisted"] is False
+    assert content["reason"] == "instanced_child_not_editable"
+    assert "Editable Children" in content["hint"]
+
+
+async def test_set_param_on_instanced_child_reports_not_persisted() -> None:
+    server, _ = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "shader"})
+        result = await client.call_tool(
+            "godot_shader_set_param",
+            {"node_path": INSTANCED_CHILD, "name": "pulse_speed", "value": 3.0},
+        )
+    content = result.structured_content
+    assert content["name"] == "pulse_speed"
+    assert content["persisted"] is False
+    assert content["reason"] == "instanced_child_not_editable"
+    assert content["hint"]
+
+
+async def test_set_param_on_material_owned_by_other_resource_reports_not_persisted() -> None:
+    server, _ = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "shader"})
+        result = await client.call_tool(
+            "godot_shader_set_param",
+            {"node_path": FOREIGN_MATERIAL, "name": "pulse_speed", "value": 3.0},
+        )
+    content = result.structured_content
+    assert content["persisted"] is False
+    assert content["reason"] == "material_embedded_in_other_resource"
+    assert content["hint"]
+
+
+async def test_dry_run_leaves_persistence_unknown() -> None:
+    """Persistence is only knowable editor-side; a preview must not claim either way."""
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "shader"})
+        assigned = await client.call_tool(
+            "godot_shader_assign_material",
+            {"node_path": INSTANCED_CHILD, "shader_path": "res://fx.gdshader", "dry_run": True},
+        )
+        param = await client.call_tool(
+            "godot_shader_set_param",
+            {"node_path": INSTANCED_CHILD, "name": "pulse_speed", "value": 3.0, "dry_run": True},
+        )
+    for content in (assigned.structured_content, param.structured_content):
+        assert content["dry_run"] is True
+        assert content.get("persisted") is None
+        assert content.get("reason") is None
+    sent = _commands(conn)
+    assert "cmd_assign_shader_material" not in sent
+    assert "cmd_set_shader_param" not in sent
 
 
 async def test_default_code_passed_when_omitted() -> None:
