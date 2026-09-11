@@ -134,13 +134,24 @@ func _cmd_node_exists(params: Dictionary) -> Dictionary:
 func _cmd_node_persistence(params: Dictionary) -> Dictionary:
 	# #458 dry-run probe: persistence truth for a target, no mutation. Lets a
 	# dry_run preview carry the same persisted/reason fields as the real run.
+	# `resource_properties` names the node properties an edit reaches through (e.g. a
+	# material's slots); the first one holding a resource decides where it saves (#475).
 	if not params.has("node_path"):
 		return _router._fail("VALIDATION_ERROR", "'node_path' is required.")
+	var properties: Variant = params.get("resource_properties", [])
+	if not (properties is Array):
+		return _router._fail("VALIDATION_ERROR", "'resource_properties' must be an array of property names.")
 	var found := _router._resolve(params["node_path"])
 	if not found["ok"]:
 		return found
 	var node: Node = found["node"]
-	var truth := _router._persistent_target(node)
+	var chain := []
+	for property in properties:
+		var held: Variant = node.get(str(property))
+		if held is Resource:
+			chain.append(held)
+			break
+	var truth := _router._resource_persistence(node, chain)
 	var body := {
 		"node_path": str(params["node_path"]),
 		"persisted": truth["ok"],
