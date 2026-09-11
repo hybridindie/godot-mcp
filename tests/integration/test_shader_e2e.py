@@ -162,7 +162,9 @@ async def _check_persistence(bridge: Bridge) -> None:
 
     glow = "res://tmp_e2e_persist_glow.gdshader"
 
-    async def previewed(probe: dict[str, Any], command: str, params: dict[str, Any]) -> Any:
+    async def previewed(
+        probe: dict[str, Any], command: str, params: dict[str, Any]
+    ) -> dict[str, Any]:
         # the dry_run preview's probe (sent exactly as the tool sends it) must predict the
         # real run's verdict (#475)
         preview = await _ok(bridge, "cmd_node_persistence", probe)
