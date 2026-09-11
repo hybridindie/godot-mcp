@@ -506,3 +506,14 @@ def test_mutations_use_undo_redo() -> None:
     # Every create/rename/delete/set must register with EditorUndoRedoManager.
     assert "get_editor_undo_redo" in source
     assert source.count("create_action") >= 6  # the UndoRedo-wrapped mutations
+
+
+def test_router_registers_node_persistence_probe() -> None:
+    # #458 round-2: dry-run previews need a read-only persistence probe so they
+    # can be honest about instanced children without mutating.
+    source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
+    assert '"cmd_node_persistence"' in source
+    # The helper must consult EditableChildren state (is_editable_instance), not
+    # just the owner chain — editable instances DO persist their overrides.
+    debugger_or_router = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
+    assert "is_editable_instance" in debugger_or_router

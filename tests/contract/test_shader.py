@@ -255,3 +255,41 @@ async def test_set_param_reports_landed_value_read_back() -> None:
     sc = result.structured_content
     assert sc["set"] is True
     assert sc["value"] == 0.5
+
+
+async def test_dry_run_preview_carries_persistence_truth() -> None:
+    """#458 round-2: the dry-run preview must be honest about persistence — it
+    probes `cmd_node_persistence` read-only and reports the instanced-child
+    reason instead of hardcoding persisted:true."""
+    def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_node_exists":
+            return ResponseEnvelope.success(cmd.id, {"exists": True})
+        if cmd.command == "cmd_node_persistence":
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "node_path": cmd.params["node_path"],
+                    "persisted": False,
+                    "reason": "instanced_child_not_editable",
+                    "hint": "the change will not save",
+                },
+            )
+        return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
+
+    conn = FakeAddonConnection(responder=responder)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    server = create_server(ServerConfig(), bridge=bridge)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "shader"})
+        dry = await client.call_tool(
+            "godot_shader_assign_material",
+            {"node_path": "Relic4/Visual/Orb", "shader_path": "res://fx.gdshader", "dry_run": True},
+        )
+    sc = dry.structured_content
+    assert sc["dry_run"] is True
+    assert sc["assigned"] is False
+    assert sc["persisted"] is False
+    assert sc["reason"] == "instanced_child_not_editable"
+    sent = [CommandEnvelope.model_validate_json(s).command for s in conn.sent]
+    assert "cmd_node_persistence" in sent  # the honest preview paid one read-only probe
+    assert "cmd_assign_shader_material" not in sent

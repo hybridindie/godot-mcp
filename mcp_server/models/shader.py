@@ -36,6 +36,7 @@ class ShaderParamResult(BaseModel):
     # #460: the landed value (read-back after commit), not the requested one.
     value: Any = None
     set: bool = False
+    persisted: bool = True
     reason: str | None = None
     hint: str | None = None
     dry_run: bool = False

@@ -406,31 +406,37 @@ func _require_live_probe() -> Dictionary:
 
 # -- instantiation helpers (shared by domain handlers) ------------------------
 
-## Persistence truth for node-targeted mutations (#458). A node inside a
-## non-editable instance renders live but Godot never saves overrides on it —
-## the mutation IS applied, the saved scene just won't carry it. Returns
-## {ok: true} when the target persists to the edited scene, else
-## {ok: false, persisted: false, reason, hint} so the handler can report the
-## truth instead of a success tone (#415). Godot API note: `scene_file_path`
-## is non-empty only on instance roots; a child of an instanced scene has
-## owner == the instance root, not the edited scene root.
+## Persistence truth for node-targeted mutations (#458). Godot saves a node in the
+## edited scene if (a) its owner IS the edited scene root, or (b) it sits inside an
+## **editable instance** — every instance root on the path up to the edited root has
+## `editable_instance` set (`packed_scene.cpp:806-812` saves those children as
+## editable-instance overrides). Otherwise the change renders live but never saves.
+## Returns {ok: true} when the target persists, else
+## {ok: false, persisted: false, reason: "instanced_child_not_editable", hint}.
 func _persistent_target(node: Node) -> Dictionary:
 	var root := EditorInterface.get_edited_scene_root()
 	if root == null:
 		return _fail("PRECONDITION_FAILED", "No scene is open.", "active_scene")
-	if node == root or node.get_owner() == root:
+	if node == root:
 		return {"ok": true}
-	# Node belongs to an instanced scene (its owner is that instance's root).
-	var instanced_root := node.get_owner()
-	var instanced_path := instanced_root.scene_file_path if instanced_root != null else ""
-	return {
-		"ok": false,
-		"persisted": false,
-		"reason": "instanced_child_not_editable",
-		"hint": "Node '%s' lives inside an instanced scene (%s). The change renders live "
-			+ "but Godot will not save it — enable Editable Children on the instance, "
-			+ "or target a scene-owned node." % [node.name, instanced_path],
-	}
+	# Walk the owner chain from the node up to the edited scene root; the node
+	# persists iff every instance-root hop in between is flagged editable.
+	var iterated: Node = node
+	while iterated.get_owner() != null and iterated.get_owner() != root:
+		var instance_root: Node = iterated.get_owner()
+		if not root.is_editable_instance(instance_root):
+			var instanced_path := instance_root.scene_file_path if instance_root != null else ""
+			return {
+				"ok": false,
+				"persisted": false,
+				"reason": "instanced_child_not_editable",
+				"hint": "Node '%s' lives inside an instanced scene (%s) without "
+					+ "Editable Children. The change renders live but Godot will not "
+					+ "save it — enable Editable Children on the instance, or target "
+					+ "a scene-owned node." % [node.name, instanced_path],
+			}
+		iterated = instance_root
+	return {"ok": true}
 
 ## Instantiate a class via ClassDB, validating it inherits from expected_base.
 ## Returns {ok: true, obj: Object} on success, or a VALIDATION_ERROR envelope;
