@@ -63,6 +63,8 @@ def register_shader(mcp: FastMCP, bridge: Bridge) -> None:
             "node_path": node_path,
             "shader_path": shader_path,
             "material_property": "",
+            "assigned": False,
+            "persisted": True,
         }
         return await run_or_preview(
             dry_run, ShaderMaterialResult, preview, bridge, "cmd_assign_shader_material", params
@@ -88,7 +90,7 @@ def register_shader(mcp: FastMCP, bridge: Bridge) -> None:
         """
         await require_node_exists(bridge, node_path)
         params = {"node_path": node_path, "name": name, "value": value, "param_type": param_type}
-        preview = {"node_path": node_path, "name": name}
+        preview = {"node_path": node_path, "name": name, "set": False}
         return await run_or_preview(
             dry_run, ShaderParamResult, preview, bridge, "cmd_set_shader_param", params
         )

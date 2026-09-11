@@ -34,11 +34,19 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                     "node_path": p["node_path"],
                     "shader_path": p["shader_path"],
                     "material_property": "material",
+                    "assigned": True,
+                    "persisted": True,
                 },
             )
         case "cmd_set_shader_param":
             return ResponseEnvelope.success(
-                cmd.id, {"node_path": p["node_path"], "name": p["name"]}
+                cmd.id,
+                {
+                    "node_path": p["node_path"],
+                    "name": p["name"],
+                    "value": p.get("value"),
+                    "set": True,
+                },
             )
         case "cmd_get_shader_param":
             if p.get("name") == "missing":
@@ -145,3 +153,105 @@ async def test_get_shader_param_is_read_only() -> None:
         )
     grouped_result = grouped.structured_content["tools_by_safety_class"]["read_only"]
     assert "godot_shader_get_param" in grouped_result
+
+
+async def test_assign_material_on_instanced_child_reports_persistence_truth() -> None:
+    """#458/#415: a target inside a non-editable instance renders live but never
+    saves — the response must say so (persisted:false + reason) instead of a
+    success tone that reads as persisted."""
+    def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_node_exists":  # require_node_exists precondition
+            return ResponseEnvelope.success(cmd.id, {"exists": True})
+        if cmd.command == "cmd_assign_shader_material":
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "node_path": cmd.params["node_path"],
+                    "shader_path": cmd.params["shader_path"],
+                    "material_property": "material_override",
+                    "assigned": True,
+                    "persisted": False,
+                    "reason": "instanced_child_not_editable",
+                    "hint": "Enable Editable Children on the instance, or target a "
+                    "scene-owned node — this change will not save.",
+                },
+            )
+        return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
+
+    conn = FakeAddonConnection(responder=responder)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    server = create_server(ServerConfig(), bridge=bridge)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "shader"})
+        result = await client.call_tool(
+            "godot_shader_assign_material",
+            {"node_path": "Relic4/Visual/Orb", "shader_path": "res://fx.gdshader"},
+        )
+    sc = result.structured_content
+    assert sc["assigned"] is True
+    assert sc["persisted"] is False
+    assert sc["reason"] == "instanced_child_not_editable"
+    assert "not save" in sc["hint"]
+
+
+async def test_assign_material_persists_for_scene_owned_node() -> None:
+    def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_node_exists":  # require_node_exists precondition
+            return ResponseEnvelope.success(cmd.id, {"exists": True})
+        if cmd.command == "cmd_assign_shader_material":
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "node_path": cmd.params["node_path"],
+                    "shader_path": cmd.params["shader_path"],
+                    "material_property": "material",
+                    "assigned": True,
+                    "persisted": True,
+                },
+            )
+        return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
+
+    conn = FakeAddonConnection(responder=responder)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    server = create_server(ServerConfig(), bridge=bridge)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "shader"})
+        result = await client.call_tool(
+            "godot_shader_assign_material",
+            {"node_path": "Sprite2D", "shader_path": "res://fx.gdshader"},
+        )
+    sc = result.structured_content
+    assert sc["assigned"] is True
+    assert sc["persisted"] is True
+
+
+async def test_set_param_reports_landed_value_read_back() -> None:
+    """#460: set:true must reflect the landed value (read-back after commit),
+    not echo the requested value."""
+    def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_node_exists":  # require_node_exists precondition
+            return ResponseEnvelope.success(cmd.id, {"exists": True})
+        if cmd.command == "cmd_set_shader_param":
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "node_path": cmd.params["node_path"],
+                    "name": cmd.params["name"],
+                    "value": 0.5,
+                    "set": True,
+                },
+            )
+        return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
+
+    conn = FakeAddonConnection(responder=responder)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    server = create_server(ServerConfig(), bridge=bridge)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "shader"})
+        result = await client.call_tool(
+            "godot_shader_set_param",
+            {"node_path": "Sprite2D", "name": "strength", "value": 0.5, "param_type": "float"},
+        )
+    sc = result.structured_content
+    assert sc["set"] is True
+    assert sc["value"] == 0.5
