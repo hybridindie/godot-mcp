@@ -6,8 +6,10 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from mcp_server.models.persistence import PersistenceReport
 
-class CreateAnimationResult(BaseModel):
+
+class CreateAnimationResult(PersistenceReport):
     player_path: str
     animation: str
     length: float = 0.0
@@ -43,14 +45,14 @@ class AnimationDetail(BaseModel):
     tracks: list[AnimationTrack] = Field(default_factory=list)
 
 
-class AnimationTrackResult(BaseModel):
+class AnimationTrackResult(PersistenceReport):
     animation: str
     track: int = -1
     track_path: str = ""
     dry_run: bool = False
 
 
-class KeyframeResult(BaseModel):
+class KeyframeResult(PersistenceReport):
     animation: str
     track: int
     time: float
@@ -63,13 +65,13 @@ class AnimationTreeResult(BaseModel):
     dry_run: bool = False
 
 
-class StateMachineStateResult(BaseModel):
+class StateMachineStateResult(PersistenceReport):
     tree_path: str
     state: str
     dry_run: bool = False
 
 
-class BlendTreeNodeResult(BaseModel):
+class BlendTreeNodeResult(PersistenceReport):
     tree_path: str
     node: str
     node_type: str

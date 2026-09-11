@@ -51,12 +51,12 @@ func _cmd_tilemap_set_cell(params: Dictionary) -> Dictionary:
 		prev["source_id"], prev["atlas_coords"], prev["alternative_tile"]
 	)
 	ur.commit_action()
-	return _router._ok({
+	return _router._ok(_router._with_persistence({
 		"node_path": str(params.get("node_path")),
 		"coords": [coords.x, coords.y],
 		"source_id": source_id,
 		"layer": layer,
-	})
+	}, _router._persistent_target(node)))
 
 
 
@@ -96,12 +96,12 @@ func _cmd_tilemap_fill_rect(params: Dictionary) -> Dictionary:
 			)
 			count += 1
 	ur.commit_action()
-	return _router._ok({
+	return _router._ok(_router._with_persistence({
 		"node_path": str(params.get("node_path")),
 		"rect": [origin.x, origin.y, width, height],
 		"cells": count,
 		"layer": layer,
-	})
+	}, _router._persistent_target(node)))
 
 
 
@@ -178,11 +178,11 @@ func _cmd_tilemap_clear(params: Dictionary) -> Dictionary:
 	ur.commit_action()
 	# TileMapLayer has no layer concept; report null. TileMap reports the cleared layer.
 	var result_layer: Variant = null if node is TileMapLayer else layer
-	return _router._ok({
+	return _router._ok(_router._with_persistence({
 		"node_path": str(params.get("node_path")),
 		"layer": result_layer,
 		"cleared": used.size(),
-	})
+	}, _router._persistent_target(node)))
 
 
 

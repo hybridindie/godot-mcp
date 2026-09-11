@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from mcp_server.models.persistence import PersistenceReport
+
 
 class MeshInstanceResult(BaseModel):
     node_path: str
@@ -32,7 +34,7 @@ class EnvironmentResult(BaseModel):
     dry_run: bool = False
 
 
-class GridMapCellResult(BaseModel):
+class GridMapCellResult(PersistenceReport):
     node_path: str
     position: list[int]
     item: int
@@ -50,7 +52,7 @@ class GridMapCellGet(BaseModel):
     empty: bool = True
 
 
-class MeshLibraryResult(BaseModel):
+class MeshLibraryResult(PersistenceReport):
     """Result of creating a MeshLibrary (issue #83). ``library_path`` is set when saved
     as a ``.tres``; ``node_path`` when assigned to a GridMap."""
 
@@ -60,7 +62,7 @@ class MeshLibraryResult(BaseModel):
     dry_run: bool = False
 
 
-class MeshLibraryItemResult(BaseModel):
+class MeshLibraryItemResult(PersistenceReport):
     """Result of adding an item to a MeshLibrary (issue #83). Exactly one of
     ``mesh_type`` (a primitive) or ``mesh_path`` (a Mesh resource) is set."""
 

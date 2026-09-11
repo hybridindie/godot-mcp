@@ -9,6 +9,8 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from mcp_server.models.persistence import PersistenceReport
+
 
 class CreateNodeResult(BaseModel):
     node_path: str
@@ -16,7 +18,7 @@ class CreateNodeResult(BaseModel):
     dry_run: bool = False
 
 
-class RenameNodeResult(BaseModel):
+class RenameNodeResult(PersistenceReport):
     node_path: str
     new_name: str
     renamed: bool
@@ -24,7 +26,7 @@ class RenameNodeResult(BaseModel):
     dry_run: bool = False
 
 
-class SetPropertyResult(BaseModel):
+class SetPropertyResult(PersistenceReport):
     node_path: str
     property: str
     value: Any = None
@@ -38,7 +40,7 @@ class DeleteNodeResult(BaseModel):
     dry_run: bool = False
 
 
-class AttachScriptResult(BaseModel):
+class AttachScriptResult(PersistenceReport):
     node_path: str
     script_path: str
     attached: bool

@@ -69,12 +69,12 @@ func _cmd_rename_node(params: Dictionary) -> Dictionary:
 	ur.add_do_property(node, "name", str(params.get("new_name", old_name)))
 	ur.add_undo_property(node, "name", old_name)
 	ur.commit_action()
-	return _router._ok({
+	return _router._ok(_router._with_persistence({
 		"node_path": Inspect.relative_path(node, EditorInterface.get_edited_scene_root()),
 		"old_name": old_name,
 		"new_name": String(node.name),
 		"renamed": true,
-	})
+	}, _router._persistent_target(node)))
 
 
 
@@ -121,12 +121,12 @@ func _cmd_set_node_property(params: Dictionary) -> Dictionary:
 				+ "incompatible with the property's expected type." % property,
 			"value",
 		)
-	return _router._ok({
+	return _router._ok(_router._with_persistence({
 		"node_path": str(params.get("node_path")),
 		"property": property,
 		"value": Coerce.to_json(read_back),
 		"set": true,
-	})
+	}, _router._persistent_target(node)))
 
 
 
@@ -174,7 +174,7 @@ func _cmd_attach_script(params: Dictionary) -> Dictionary:
 	ur.add_do_method(node, "set_script", script)
 	ur.add_undo_method(node, "set_script", old_script)
 	ur.commit_action()
-	return _router._ok({"node_path": str(params.get("node_path")), "script_path": script_path, "attached": true})
+	return _router._ok(_router._with_persistence({"node_path": str(params.get("node_path")), "script_path": script_path, "attached": true}, _router._persistent_target(node)))
 
 
 

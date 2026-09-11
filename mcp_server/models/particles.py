@@ -6,6 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from mcp_server.models.persistence import PersistenceReport
+
 
 class CreateParticlesResult(BaseModel):
     node_path: str
@@ -14,19 +16,19 @@ class CreateParticlesResult(BaseModel):
     dry_run: bool = False
 
 
-class ParticleMaterialResult(BaseModel):
+class ParticleMaterialResult(PersistenceReport):
     node_path: str
     properties: dict[str, Any] = Field(default_factory=dict)
     dry_run: bool = False
 
 
-class ParticleGradientResult(BaseModel):
+class ParticleGradientResult(PersistenceReport):
     node_path: str
     stops: int = 0
     dry_run: bool = False
 
 
-class ParticlePresetResult(BaseModel):
+class ParticlePresetResult(PersistenceReport):
     node_path: str
     preset: str
     dry_run: bool = False

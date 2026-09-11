@@ -51,7 +51,7 @@ func _cmd_create_theme(params: Dictionary) -> Dictionary:
 	if prev_theme != null:  # keep the prior theme alive for undo
 		ur.add_undo_reference(prev_theme)
 	ur.commit_action()
-	return _router._ok({"node_path": str(params.get("node_path")), "theme_path": save_path, "created": true})
+	return _router._ok(_router._with_persistence({"node_path": str(params.get("node_path")), "theme_path": save_path, "created": true}, _router._persistent_target(node)))
 
 
 
@@ -71,7 +71,7 @@ func _cmd_set_theme_color(params: Dictionary) -> Dictionary:
 	ur.add_do_method(node, "add_theme_color_override", name, color)
 	ur.add_undo_method(self, "_restore_theme_color", node, name, had, prev)
 	ur.commit_action()
-	return _router._ok({"node_path": str(params.get("node_path")), "name": name})
+	return _router._ok(_router._with_persistence({"node_path": str(params.get("node_path")), "name": name}, _router._persistent_target(node)))
 
 
 
@@ -93,7 +93,7 @@ func _cmd_set_theme_font_size(params: Dictionary) -> Dictionary:
 	ur.add_do_method(node, "add_theme_font_size_override", name, size)
 	ur.add_undo_method(self, "_restore_theme_font_size", node, name, had, prev)
 	ur.commit_action()
-	return _router._ok({"node_path": str(params.get("node_path")), "name": name, "size": size})
+	return _router._ok(_router._with_persistence({"node_path": str(params.get("node_path")), "name": name, "size": size}, _router._persistent_target(node)))
 
 
 
@@ -125,11 +125,11 @@ func _cmd_set_theme_stylebox(params: Dictionary) -> Dictionary:
 	if prev != null:  # keep the prior override StyleBox alive for undo
 		ur.add_undo_reference(prev)
 	ur.commit_action()
-	return _router._ok({
+	return _router._ok(_router._with_persistence({
 		"node_path": str(params.get("node_path")),
 		"name": name,
 		"stylebox_type": stylebox_type,
-	})
+	}, _router._persistent_target(node)))
 
 
 ## Read a Control's per-node theme overrides — colors / font_sizes / styleboxes (issue

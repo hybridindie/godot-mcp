@@ -122,12 +122,13 @@ func _cmd_bake_navigation_mesh(params: Dictionary) -> Dictionary:
 				+ "the root_node_type the mesh parses) and retry." % vertex_count,
 			"polygon_count",
 		)
-	return _router._ok({
+	# The bake assigns a fresh duplicate to the region, so it saves like any node property.
+	return _router._ok(_router._with_persistence({
 		"node_path": str(params.get("node_path")),
 		"baked": true,
 		"polygon_count": polygon_count,
 		"vertex_count": vertex_count,
-	})
+	}, _router._persistent_target(region)))
 
 
 
@@ -194,6 +195,6 @@ func _cmd_set_navigation_layers(params: Dictionary) -> Dictionary:
 	ur.add_do_property(node, "navigation_layers", mask)
 	ur.add_undo_property(node, "navigation_layers", node.navigation_layers)
 	ur.commit_action()
-	return _router._ok({"node_path": str(params.get("node_path")), "navigation_layers": mask})
+	return _router._ok(_router._with_persistence({"node_path": str(params.get("node_path")), "navigation_layers": mask}, _router._persistent_target(node)))
 
 

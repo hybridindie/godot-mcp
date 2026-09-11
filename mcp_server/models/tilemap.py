@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from mcp_server.models.persistence import PersistenceReport
 
-class TileCellResult(BaseModel):
+
+class TileCellResult(PersistenceReport):
     node_path: str
     coords: list[int]
     source_id: int
@@ -13,7 +15,7 @@ class TileCellResult(BaseModel):
     dry_run: bool = False
 
 
-class TileFillResult(BaseModel):
+class TileFillResult(PersistenceReport):
     node_path: str
     rect: list[int]
     cells: int = 0
@@ -49,7 +51,7 @@ class TileUsedCellsResult(BaseModel):
     cells: list[TileCellSnapshot] = Field(default_factory=list)
 
 
-class TileClearResult(BaseModel):
+class TileClearResult(PersistenceReport):
     node_path: str
     layer: int | None = None
     cleared: int = 0
@@ -68,7 +70,7 @@ class TileLayersResult(BaseModel):
     layers: list[TileLayerInfo] = Field(default_factory=list)
 
 
-class TileSetResult(BaseModel):
+class TileSetResult(PersistenceReport):
     """Result of creating a TileSet (issue #82). ``tileset_path`` is set when saved
     as a ``.tres``; ``node_path`` when assigned to a TileMap/TileMapLayer."""
 
@@ -79,7 +81,7 @@ class TileSetResult(BaseModel):
     dry_run: bool = False
 
 
-class TileSetSourceResult(BaseModel):
+class TileSetSourceResult(PersistenceReport):
     """Result of adding an atlas source to a TileSet (issue #82)."""
 
     node_path: str = ""
@@ -90,7 +92,7 @@ class TileSetSourceResult(BaseModel):
     dry_run: bool = False
 
 
-class TileCreateResult(BaseModel):
+class TileCreateResult(PersistenceReport):
     """Result of creating a tile in an atlas source (issue #82)."""
 
     node_path: str = ""

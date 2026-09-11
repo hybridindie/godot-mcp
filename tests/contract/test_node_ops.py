@@ -29,11 +29,23 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
             )
         case "cmd_add_to_group":
             return ResponseEnvelope.success(
-                cmd.id, {"node_path": p["node_path"], "group": p["group"], "added": True}
+                cmd.id,
+                {
+                    "node_path": p["node_path"],
+                    "group": p["group"],
+                    "added": True,
+                    "persisted": True,
+                },
             )
         case "cmd_remove_from_group":
             return ResponseEnvelope.success(
-                cmd.id, {"node_path": p["node_path"], "group": p["group"], "removed": True}
+                cmd.id,
+                {
+                    "node_path": p["node_path"],
+                    "group": p["group"],
+                    "removed": True,
+                    "persisted": True,
+                },
             )
         case "cmd_list_signal_connections":
             return ResponseEnvelope.success(
@@ -118,8 +130,12 @@ async def test_group_tools() -> None:
         "in_group": True,
         "changed": True,
         "dry_run": False,
+        "persisted": True,  # #458: the addon's verdict passes through
+        "reason": None,
+        "hint": None,
     }
     assert removed.structured_content["in_group"] is False
+    assert removed.structured_content["persisted"] is True
 
 
 async def test_list_and_disconnect_signals() -> None:

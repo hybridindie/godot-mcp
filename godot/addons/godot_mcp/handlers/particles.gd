@@ -103,7 +103,9 @@ func _cmd_set_particle_material(params: Dictionary) -> Dictionary:
 			ur.add_do_property(material, str(key), Coerce.from_json(properties[key], pt))
 			ur.add_undo_property(material, str(key), material.get(str(key)))
 	ur.commit_action()
-	return _router._ok({"node_path": str(params.get("node_path")), "properties": _applied_props(material, properties)})
+	# A material staged just now has no path yet, so the node rule decides; an existing one
+	# saves wherever it lives.
+	return _router._ok(_router._with_persistence({"node_path": str(params.get("node_path")), "properties": _applied_props(material, properties)}, _router._resource_persistence(node, [material])))
 
 
 
@@ -123,7 +125,7 @@ func _cmd_set_particle_color_gradient(params: Dictionary) -> Dictionary:
 	ur.add_do_reference(texture)
 	ur.add_undo_property(material, "color_ramp", material.color_ramp)
 	ur.commit_action()
-	return _router._ok({"node_path": str(params.get("node_path")), "stops": (raw_colors as Array).size()})
+	return _router._ok(_router._with_persistence({"node_path": str(params.get("node_path")), "stops": (raw_colors as Array).size()}, _router._resource_persistence(node, [material])))
 
 
 
@@ -154,7 +156,7 @@ func _cmd_apply_particle_preset(params: Dictionary) -> Dictionary:
 			ur.add_do_property(node, str(key), Coerce.from_json(node_props[key], pt))
 			ur.add_undo_property(node, str(key), node.get(str(key)))
 	ur.commit_action()
-	return _router._ok({"node_path": str(params.get("node_path")), "preset": preset_name})
+	return _router._ok(_router._with_persistence({"node_path": str(params.get("node_path")), "preset": preset_name}, _router._persistent_target(node)))
 
 
 ## Read a particle node's ProcessMaterial — props + color ramp (issue #219 P4). The

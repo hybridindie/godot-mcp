@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from mcp_server.models.persistence import PersistenceReport
+
 
 class DuplicateNodeResult(BaseModel):
     node_path: str  # the new node's scene-relative path ("" on dry_run)
@@ -17,7 +19,7 @@ class MoveNodeResult(BaseModel):
     dry_run: bool = False
 
 
-class GroupResult(BaseModel):
+class GroupResult(PersistenceReport):
     node_path: str
     group: str
     in_group: bool  # membership after the call

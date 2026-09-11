@@ -96,7 +96,7 @@ func _cmd_add_to_group(params: Dictionary) -> Dictionary:
 	if group.is_empty():
 		return _router._fail("VALIDATION_ERROR", "'group' must be a non-empty string.")
 	if node.is_in_group(group):
-		return _router._ok({"node_path": str(params.get("node_path")), "group": group, "added": false})
+		return _router._ok(_router._with_persistence({"node_path": str(params.get("node_path")), "group": group, "added": false}, _router._persistent_target(node)))
 
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Add %s to group %s" % [node.name, group])
@@ -104,7 +104,7 @@ func _cmd_add_to_group(params: Dictionary) -> Dictionary:
 	ur.add_do_method(node, "add_to_group", group, true)
 	ur.add_undo_method(node, "remove_from_group", group)
 	ur.commit_action()
-	return _router._ok({"node_path": str(params.get("node_path")), "group": group, "added": true})
+	return _router._ok(_router._with_persistence({"node_path": str(params.get("node_path")), "group": group, "added": true}, _router._persistent_target(node)))
 
 
 
@@ -117,14 +117,14 @@ func _cmd_remove_from_group(params: Dictionary) -> Dictionary:
 	if group.is_empty():
 		return _router._fail("VALIDATION_ERROR", "'group' must be a non-empty string.")
 	if not node.is_in_group(group):
-		return _router._ok({"node_path": str(params.get("node_path")), "group": group, "removed": false})
+		return _router._ok(_router._with_persistence({"node_path": str(params.get("node_path")), "group": group, "removed": false}, _router._persistent_target(node)))
 
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Remove %s from group %s" % [node.name, group])
 	ur.add_do_method(node, "remove_from_group", group)
 	ur.add_undo_method(node, "add_to_group", group, true)
 	ur.commit_action()
-	return _router._ok({"node_path": str(params.get("node_path")), "group": group, "removed": true})
+	return _router._ok(_router._with_persistence({"node_path": str(params.get("node_path")), "group": group, "removed": true}, _router._group_removal_persistence(node, group)))
 
 
 

@@ -46,7 +46,7 @@ func _cmd_setup_physics_body(params: Dictionary) -> Dictionary:
 	for key in properties:
 		if _router._property_type(node, str(key)) != -1:
 			applied[str(key)] = Coerce.to_json(node.get(str(key)))
-	return _router._ok({"node_path": str(params.get("node_path")), "properties": applied})
+	return _router._ok(_router._with_persistence({"node_path": str(params.get("node_path")), "properties": applied}, _router._persistent_target(node)))
 
 
 
@@ -150,11 +150,11 @@ func _cmd_set_physics_layers(params: Dictionary) -> Dictionary:
 		ur.add_do_property(node, "collision_mask", _router._bitmask(params["mask"]))
 		ur.add_undo_property(node, "collision_mask", node.collision_mask)
 	ur.commit_action()
-	return _router._ok({
+	return _router._ok(_router._with_persistence({
 		"node_path": str(params.get("node_path")),
 		"collision_layer": node.collision_layer,
 		"collision_mask": node.collision_mask,
-	})
+	}, _router._persistent_target(node)))
 
 
 

@@ -19,6 +19,7 @@ from mcp_server.models.node_ops import (
     MoveNodeResult,
     SignalConnectionList,
 )
+from mcp_server.models.persistence import persistence_fields as _persistence
 from mcp_server.safety import MUTATING, READ_ONLY, enforce_preconditions, require_node_exists
 from mcp_server.tools._route import route, run_or_preview
 
@@ -67,7 +68,13 @@ def register_node_ops(mcp: FastMCP, bridge: Bridge) -> None:
                 node_path=node_path, group=group, in_group=True, changed=False, dry_run=True
             )
         result = await route(bridge, "cmd_add_to_group", {"node_path": node_path, "group": group})
-        return GroupResult(node_path=node_path, group=group, in_group=True, changed=result["added"])
+        return GroupResult(
+            node_path=node_path,
+            group=group,
+            in_group=True,
+            changed=result["added"],
+            **_persistence(result),
+        )
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
     @enforce_preconditions
@@ -82,7 +89,11 @@ def register_node_ops(mcp: FastMCP, bridge: Bridge) -> None:
             bridge, "cmd_remove_from_group", {"node_path": node_path, "group": group}
         )
         return GroupResult(
-            node_path=node_path, group=group, in_group=False, changed=result["removed"]
+            node_path=node_path,
+            group=group,
+            in_group=False,
+            changed=result["removed"],
+            **_persistence(result),
         )
 
     @mcp.tool(meta=READ_ONLY, tags=SCENE_EDIT)

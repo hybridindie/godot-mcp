@@ -34,6 +34,7 @@ func _cmd_create_tileset(params: Dictionary) -> Dictionary:
 		return _router._fail("VALIDATION_ERROR", "'tile_size' components must be positive.")
 	var tileset := TileSet.new()
 	tileset.tile_size = tile_size
+	var persistence := {"ok": true}  # a file-only TileSet is already on disk
 	if not save_path.is_empty():
 		if not save_path.begins_with("res://"):
 			return _router._fail("VALIDATION_ERROR", "save_path must be a res:// path.")
@@ -57,12 +58,13 @@ func _cmd_create_tileset(params: Dictionary) -> Dictionary:
 		if prev != null:  # keep the prior TileSet alive for undo
 			ur.add_undo_reference(prev)
 		ur.commit_action()
-	return _router._ok({
+		persistence = _router._persistent_target(node)
+	return _router._ok(_router._with_persistence({
 		"node_path": node_path,
 		"tileset_path": save_path,
 		"tile_size": [tile_size.x, tile_size.y],
 		"created": true,
-	})
+	}, persistence))
 
 
 
@@ -106,13 +108,15 @@ func _cmd_add_tileset_atlas_source(params: Dictionary) -> Dictionary:
 		var saved := _save_tileset_file(tileset, resolved["path"])
 		if not saved["ok"]:
 			return saved
-	return _router._ok({
+	# A file-backed TileSet was just saved; one the node holds saves wherever it lives.
+	var persistence: Dictionary = _router._resource_persistence(resolved["node"], [tileset]) if resolved["backing"] == "node" else {"ok": true}
+	return _router._ok(_router._with_persistence({
 		"node_path": str(params.get("node_path", "")),
 		"tileset_path": str(params.get("tileset_path", "")),
 		"source_id": source_id,
 		"texture_path": texture_path,
 		"region_size": [region.x, region.y],
-	})
+	}, persistence))
 
 
 
@@ -152,13 +156,15 @@ func _cmd_create_tile(params: Dictionary) -> Dictionary:
 		var saved := _save_tileset_file(tileset, resolved["path"])
 		if not saved["ok"]:
 			return saved
-	return _router._ok({
+	# The tile lives in the atlas source, which lives in the TileSet.
+	var persistence: Dictionary = _router._resource_persistence(resolved["node"], [source, tileset]) if resolved["backing"] == "node" else {"ok": true}
+	return _router._ok(_router._with_persistence({
 		"node_path": str(params.get("node_path", "")),
 		"tileset_path": str(params.get("tileset_path", "")),
 		"source_id": source_id,
 		"atlas_coords": [coords.x, coords.y],
 		"size": [size.x, size.y],
-	})
+	}, persistence))
 
 
 func _resolve_tileset(params: Dictionary) -> Dictionary:
