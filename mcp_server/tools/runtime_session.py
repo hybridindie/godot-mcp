@@ -100,16 +100,25 @@ def register_runtime_session(mcp: FastMCP, bridge: Bridge) -> None:
         # find_ui_elements) — polls without it would never trigger the dispatch.
         params = {"request_id": uuid.uuid4().hex}
         result: dict[str, Any] = {}
+        reason = ""
         while True:
             result = await route(bridge, "cmd_capture_game_screenshot", params)
             # Done when the probe's frame arrived; ``{"ready": false}`` means the
             # grab is still pending (the addon dispatches one request per poll).
             if result.get("base64") or (result.get("ready") and result.get("error")):
                 break
+            # #416/#456: relay the addon's readiness reason (e.g. game not
+            # rendering) in the expiry error — the agent needs the actual cause.
+            reason = str(result.get("reason", "")).strip()
             if asyncio.get_event_loop().time() >= deadline:
+                hint = (
+                    f" — addon reason: '{reason}' (game window not rendering; "
+                    "occluded or minimized?)"
+                    if reason
+                    else " — is the game window rendering (not fully hidden/minimized)?"
+                )
                 raise ToolError(
-                    f"Game frame capture did not complete within {timeout_ms}ms — "
-                    "is the game window rendering (not fully hidden/minimized)?"
+                    f"Game frame capture did not complete within {timeout_ms}ms{hint}"
                 )
             await asyncio.sleep(DEFAULT_POLL_INTERVAL_SECONDS)
         if not result.get("base64"):

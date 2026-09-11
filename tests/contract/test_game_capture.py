@@ -139,6 +139,26 @@ async def test_capture_never_ready_times_out_with_actionable_error() -> None:
     assert "did not complete" in str(result.content)
 
 
+async def test_addon_reason_surfaces_in_timeout_error() -> None:
+    """#416/#456: the game-side probe self-reports why the frame never arrived
+    (e.g. game not rendering); the tool's expiry error must relay that reason."""
+    def responder(cmd: CommandEnvelope) -> ResponseEnvelope:
+        return ResponseEnvelope.success(
+            cmd.id, {"ready": False, "pending": True, "reason": "editor_not_drawing"}
+        )
+
+    conn = FakeAddonConnection(responder=responder)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    server = create_server(ServerConfig(), bridge=bridge)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "runtime"})
+        result = await client.call_tool(
+            "godot_runtime_capture_game_screenshot", {"timeout_ms": 250}, raise_on_error=False
+        )
+    assert result.is_error
+    assert "editor_not_drawing" in str(result.content)
+
+
 async def test_no_play_session_is_structured_precondition_error() -> None:
     def responder(cmd: CommandEnvelope) -> ResponseEnvelope:
         if cmd.command == "cmd_capture_game_screenshot":
