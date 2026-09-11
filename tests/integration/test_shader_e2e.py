@@ -23,11 +23,13 @@ SHADER_FILE = GODOT_PROJECT / "tmp_e2e_shader.gdshader"
 SHADER_UID_FILE = GODOT_PROJECT / "tmp_e2e_shader.gdshader.uid"  # Godot 4.4+ sidecar
 
 # #458: an instanced scene placed twice — "Relic" without Editable Children, "Relic2" with —
-# plus scene-owned nodes carrying an external (.tres) and an embedded material.
+# plus scene-owned nodes carrying an external (.tres) and an embedded material. "Shell"/"Shell2"
+# nest that scene one level deeper (Mid -> Core): editable at the outer level only, and at both.
 PERSIST_GLOW = GODOT_PROJECT / "tmp_e2e_persist_glow.gdshader"
 PERSIST_MAT = GODOT_PROJECT / "tmp_e2e_persist_mat.tres"
 PERSIST_MAT_INNER = GODOT_PROJECT / "tmp_e2e_persist_mat_inner.tres"
 PERSIST_INNER = GODOT_PROJECT / "tmp_e2e_persist_inner.tscn"
+PERSIST_MID = GODOT_PROJECT / "tmp_e2e_persist_mid.tscn"
 PERSIST_MAIN = GODOT_PROJECT / "tmp_e2e_persist_main.tscn"
 PERSIST_FIXTURES = {
     PERSIST_GLOW: (
@@ -69,11 +71,20 @@ material_override = SubResource("ShaderMaterial_inner")
 [node name="ExtOrb" type="MeshInstance3D" parent="."]
 material_override = ExtResource("2")
 """,
+    PERSIST_MID: """[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://tmp_e2e_persist_inner.tscn" id="1"]
+
+[node name="Mid" type="Node3D"]
+
+[node name="Core" parent="." instance=ExtResource("1")]
+""",
     PERSIST_MAIN: """[gd_scene format=3]
 
 [ext_resource type="PackedScene" path="res://tmp_e2e_persist_inner.tscn" id="1"]
 [ext_resource type="Shader" path="res://tmp_e2e_persist_glow.gdshader" id="2"]
 [ext_resource type="ShaderMaterial" path="res://tmp_e2e_persist_mat.tres" id="3"]
+[ext_resource type="PackedScene" path="res://tmp_e2e_persist_mid.tscn" id="4"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_main"]
 shader = ExtResource("2")
@@ -91,7 +102,14 @@ material_override = ExtResource("3")
 [node name="OwnEmbedded" type="MeshInstance3D" parent="."]
 material_override = SubResource("ShaderMaterial_main")
 
+[node name="Shell" parent="." instance=ExtResource("4")]
+
+[node name="Shell2" parent="." instance=ExtResource("4")]
+
 [editable path="Relic2"]
+[editable path="Shell"]
+[editable path="Shell2"]
+[editable path="Shell2/Core"]
 """,
 }
 
@@ -177,6 +195,10 @@ async def _check_persistence(bridge: Bridge) -> None:
     assert_not_persisted(await assign("Relic/Plain/Extra"), "instanced_child_not_editable")
     await _create(bridge, "Extra", "MeshInstance3D", parent="Relic2/Plain")
     assert (await assign("Relic2/Plain/Extra"))["persisted"] is True
+    # nested instances: Editable Children on the outer instance does not reach the instance
+    # inside it — the root stores a flag per level ("Shell2/Core") and every level needs one
+    assert_not_persisted(await assign("Shell/Core/Plain"), "instanced_child_not_editable")
+    assert (await assign("Shell2/Core/Plain"))["persisted"] is True
 
     await _ok(bridge, "cmd_save_scene", {})
     main_text = PERSIST_MAIN.read_text()
@@ -190,6 +212,8 @@ async def _check_persistence(bridge: Bridge) -> None:
     assert "pulse_speed = 4.0" not in main_text
     assert "pulse_speed = 9.0" in PERSIST_MAT.read_text()
     assert "pulse_speed = 2.5" in PERSIST_MAT_INNER.read_text()
+    assert 'parent="Shell/Core' not in main_text, "override in a non-editable nested instance saved"
+    assert 'parent="Shell2/Core"' in main_text, "override in an editable nested instance lost"
 
 
 async def _run() -> None:
