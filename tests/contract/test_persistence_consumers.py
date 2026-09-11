@@ -34,6 +34,11 @@ VERDICTS: dict[str, dict[str, Any]] = {
         "reason": "embedded_in_other_resource",
         "hint": "Edit it in 'res://relic.tscn' directly.",
     },
+    "Stray/Leaf": {
+        "persisted": False,
+        "reason": "node_not_owned",
+        "hint": "Edit it in 'res://owner.tscn' instead.",
+    },
     "Base/Label": {
         "persisted": False,
         "reason": "group_from_base_scene",
@@ -211,7 +216,7 @@ def _server() -> tuple[FastMCP, _Addon, FakeAddonConnection]:
     return create_server(ServerConfig(), bridge=bridge), addon, conn
 
 
-@pytest.mark.parametrize("node_path", ["Own", "Relic/Orb", "Relic2/Orb"])
+@pytest.mark.parametrize("node_path", ["Own", "Relic/Orb", "Relic2/Orb", "Stray/Leaf"])
 async def test_every_mutation_passes_the_verdict_through(node_path: str) -> None:
     server, addon, _ = _server()
     async with Client(server) as client:
@@ -238,27 +243,43 @@ async def test_group_removal_from_base_scene_is_reported() -> None:
     assert "base.tscn" in content["hint"]
 
 
-async def test_dry_run_previews_match_the_persistence_verdict() -> None:
-    """A preview predicts the real run: probe-able tools stamp the target's verdict
-    (``cmd_node_persistence``), the rest stay unknown — and nothing sends a mutation."""
+@pytest.mark.parametrize("node_path", ["Own", "Relic/Orb", "Relic2/Orb", "Stray/Leaf"])
+async def test_dry_run_previews_match_the_persistence_verdict(node_path: str) -> None:
+    """A preview predicts the real run: every probe-able tool must send
+    ``cmd_node_persistence`` for its target and stamp the verdict verbatim — a future
+    refactor that drops the probe from any tool fails this suite (#476). And nothing
+    sends a mutation."""
     server, addon, conn = _server()
     async with Client(server) as client:
         await _build(addon, client)
         for tool, _, command, args in TOOLS:
             before = set(conn.sent)
             result = await client.call_tool(
-                tool, {**_target(command, "Relic/Orb"), **args, "dry_run": True}
+                tool, {**_target(command, node_path), **args, "dry_run": True}
             )
             sent_now = {CommandEnvelope.model_validate_json(s).command for s in conn.sent} - before
             content = result.structured_content
             assert content is not None, tool
-            if "cmd_node_persistence" in sent_now:
-                assert content.get("persisted") == VERDICTS["Relic/Orb"]["persisted"], tool
-                for key in ("reason", "hint"):
-                    assert content.get(key) == VERDICTS["Relic/Orb"].get(key), (tool, key, content)
-            else:
-                assert content.get("persisted") is None, (tool, content)
-                assert content.get("reason") is None and content.get("hint") is None, tool
+            assert "cmd_node_persistence" in sent_now, f"{tool} dropped its probe"
+            assert content.get("persisted") == VERDICTS[node_path]["persisted"], tool
+            for key in ("reason", "hint"):
+                assert content.get(key) == VERDICTS[node_path].get(key), (tool, key, content)
             assert not sent_now & {command}, tool  # a preview must never mutate
     sent = {CommandEnvelope.model_validate_json(s).command for s in conn.sent}
     assert not sent & {command for _, _, command, _ in TOOLS}
+
+
+async def test_dry_run_group_removal_previews_the_base_scene_reason() -> None:
+    """The group-removal branch hands back the base-scene reason on preview too."""
+    server, addon, _ = _server()
+    async with Client(server) as client:
+        await _build(addon, client)
+        result = await client.call_tool(
+            "godot_scene_edit_remove_from_group",
+            {"node_path": "Base/Label", "group": "inherited", "dry_run": True},
+        )
+    content = result.structured_content
+    assert content["changed"] is False
+    assert content["persisted"] is False
+    assert content["reason"] == "group_from_base_scene"
+    assert "base.tscn" in content["hint"]

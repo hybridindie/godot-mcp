@@ -149,6 +149,18 @@ func _cmd_node_persistence(params: Dictionary) -> Dictionary:
 	if not found["ok"]:
 		return found
 	var node: Node = found["node"]
+	var group: Variant = params.get("group")
+	if group != null:
+		# a removal preview keys on the group rule, not the node's resource chain: the
+		# packer writes only the groups the node adds, so a base-scene group is back
+		if not (group is String) or str(group).is_empty():
+			return _router._fail("VALIDATION_ERROR", "'group' must be a non-empty string.")
+		return _router._ok(
+			_router._with_persistence(
+				{"node_path": str(params["node_path"])},
+				_router._group_removal_persistence(node, str(group)),
+			)
+		)
 	var chain := []
 	if params.has("animation"):
 		if node is AnimationPlayer:

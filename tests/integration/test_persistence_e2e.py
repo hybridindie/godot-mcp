@@ -19,6 +19,7 @@ import pytest
 
 from mcp_server.bridge import Bridge
 from mcp_server.config import BridgeConfig
+from mcp_server.tools._persistence import animation_probe, node_probe
 from tests.integration._godot import GODOT_BIN, GODOT_PROJECT, serve_and_await_editor
 
 pytestmark = pytest.mark.skipif(GODOT_BIN is None, reason="Godot binary not installed")
@@ -531,10 +532,69 @@ async def _open(bridge: Bridge, scene: str) -> None:
     raise AssertionError(f"{scene} did not become the active scene")
 
 
+def _probe_for(command: str, params: dict[str, Any]) -> dict[str, Any] | None:
+    """The exact ``cmd_node_persistence`` probe the matching Python tool sends (#476).
+
+    Kept in lockstep with ``mcp_server/tools/*``: both use the same ``node_probe`` /
+    ``animation_probe`` builders, so a probe regression on either side diverges here.
+    """
+    node_path = params.get("node_path", "")
+    if command in {  # resource-slot probes: the slot the real handler keys on
+        "cmd_add_tileset_atlas_source",
+        "cmd_create_tile",
+    }:
+        return node_probe(node_path, ["tile_set"])
+    if command == "cmd_add_mesh_library_item":
+        return node_probe(node_path, ["mesh_library"])
+    if command in {"cmd_set_particle_material", "cmd_set_particle_color_gradient"}:
+        return node_probe(node_path, ["process_material"])
+    if command in {"cmd_add_state_machine_state", "cmd_set_blend_tree_node"}:
+        return node_probe(params.get("tree_path", ""), ["tree_root"])
+    if command == "cmd_create_animation":
+        return animation_probe(node_path, params["name"])
+    if command in {"cmd_add_animation_track", "cmd_insert_keyframe"}:
+        return animation_probe(node_path, params["animation"])
+    if command in {"cmd_create_tileset", "cmd_create_mesh_library"}:
+        return node_probe(node_path)
+    if command == "cmd_remove_from_group":
+        return {**node_probe(node_path), "group": params["group"]}
+    if command in {
+        "cmd_set_node_property",
+        "cmd_attach_script",
+        "cmd_rename_node",
+        "cmd_add_to_group",
+        "cmd_set_theme_color",
+        "cmd_set_theme_font_size",
+        "cmd_set_theme_stylebox",
+        "cmd_create_theme",
+        "cmd_setup_physics_body",
+        "cmd_set_physics_layers",
+        "cmd_set_navigation_layers",
+        "cmd_apply_particle_preset",
+        "cmd_tilemap_set_cell",
+        "cmd_tilemap_fill_rect",
+        "cmd_gridmap_set_cell",
+        "cmd_tilemap_clear",
+    }:
+        return node_probe(node_path)
+    return None
+
+
 async def _apply(bridge: Bridge, ops: list[Op]) -> list[str]:
-    """Run each op; return every verdict that differs from the expected one."""
+    """Run each op; the dry-run probe must predict its verdict, then the real run must
+    match both. Returns every mismatch."""
     mismatches = []
     for command, params, reason in ops:
+        probe = _probe_for(command, params)
+        preview_result: dict[str, Any] | None = None
+        if probe is not None and reason != SETUP:
+            preview = await bridge.send("cmd_node_persistence", probe)
+            if not preview.ok or preview.result is None:
+                mismatches.append(
+                    f"{command} {params}: probe failed {preview.error} {preview.hint}"
+                )
+            else:
+                preview_result = preview.result
         response = await bridge.send(command, params)
         if not response.ok or response.result is None:
             mismatches.append(f"{command} {params}: failed {response.error} {response.hint}")
@@ -542,6 +602,13 @@ async def _apply(bridge: Bridge, ops: list[Op]) -> list[str]:
         result = response.result
         if reason == SETUP:
             continue
+        if preview_result is not None:
+            for key in ("persisted", "reason", "hint"):
+                if preview_result.get(key) != result.get(key):
+                    mismatches.append(
+                        f"{command} {params}: preview {preview_result.get(key)!r} != "
+                        f"real {result.get(key)!r} for {key}"
+                    )
         if reason is None:
             if result.get("persisted") is not True or "reason" in result:
                 mismatches.append(f"{command} {params}: expected persisted, got {result}")

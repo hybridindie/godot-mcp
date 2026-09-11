@@ -26,6 +26,7 @@ from mcp_server.models.physics import (
     SetupBodyResult,
 )
 from mcp_server.safety import MUTATING, enforce_preconditions, require_node_exists
+from mcp_server.tools._persistence import node_probe
 from mcp_server.tools._route import run_or_preview
 
 PHYSICS = {PHYSICS_TAG}
@@ -56,7 +57,7 @@ def register_physics(mcp: FastMCP, bridge: Bridge) -> None:
             bridge,
             "cmd_setup_physics_body",
             params,
-            persistence_probe={"node_path": node_path},
+            persistence_probe=node_probe(node_path),
         )
 
     @mcp.tool(meta=MUTATING, tags=PHYSICS)
@@ -119,7 +120,7 @@ def register_physics(mcp: FastMCP, bridge: Bridge) -> None:
             bridge,
             "cmd_set_physics_layers",
             params,
-            persistence_probe={"node_path": node_path},
+            persistence_probe=node_probe(node_path),
         )
 
     @mcp.tool(meta=MUTATING, tags=PHYSICS)

@@ -43,6 +43,7 @@ from mcp_server.safety import (
     require_node_exists,
 )
 from mcp_server.suggestions import suggest
+from mcp_server.tools._persistence import node_probe
 from mcp_server.tools._route import route, run_or_preview
 
 SCENE_EDIT = {SCENE_EDIT_TAG}
@@ -140,7 +141,7 @@ def register_mutation(
             bridge,
             "cmd_rename_node",
             params,
-            persistence_probe={"node_path": node_path},
+            persistence_probe=node_probe(node_path),
         )
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
@@ -163,7 +164,7 @@ def register_mutation(
         preview = {"node_path": node_path, "property": property, "value": value, "set": False}
         if dry_run:
             fields = dict(preview)
-            truth = await route(bridge, _PERSISTENCE_PROBE, {"node_path": node_path})
+            truth = await route(bridge, _PERSISTENCE_PROBE, node_probe(node_path))
             fields["persisted"] = truth.get("persisted")
             fields["reason"] = truth.get("reason")
             fields["hint"] = truth.get("hint")
@@ -205,7 +206,7 @@ def register_mutation(
             bridge,
             "cmd_attach_script",
             params,
-            persistence_probe={"node_path": node_path},
+            persistence_probe=node_probe(node_path),
         )
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)

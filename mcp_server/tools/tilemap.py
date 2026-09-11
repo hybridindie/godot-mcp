@@ -38,6 +38,7 @@ from mcp_server.safety import (
     enforce_preconditions,
     require_node_exists,
 )
+from mcp_server.tools._persistence import node_probe
 from mcp_server.tools._route import route, run_or_preview
 
 TILEMAP = {TILEMAP_TAG}
@@ -98,7 +99,7 @@ def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
             bridge,
             "cmd_tilemap_set_cell",
             params,
-            persistence_probe={"node_path": node_path},
+            persistence_probe=node_probe(node_path),
         )
 
     @mcp.tool(meta=MUTATING, tags=TILEMAP)
@@ -139,7 +140,7 @@ def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
             bridge,
             "cmd_tilemap_fill_rect",
             params,
-            persistence_probe={"node_path": node_path},
+            persistence_probe=node_probe(node_path),
         )
 
     @mcp.tool(meta=READ_ONLY, tags=TILEMAP)
@@ -184,7 +185,7 @@ def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
             bridge,
             "cmd_tilemap_clear",
             params,
-            persistence_probe={"node_path": node_path},
+            persistence_probe=node_probe(node_path),
         )
 
     @mcp.tool(meta=READ_ONLY, tags=TILEMAP)
@@ -227,7 +228,7 @@ def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
             bridge,
             "cmd_create_tileset",
             params,
-            persistence_probe={"node_path": node_path} if node_path else True,
+            persistence_probe=node_probe(node_path) if node_path else True,
         )
 
     @mcp.tool(meta=MUTATING, tags=TILEMAP)
@@ -271,11 +272,7 @@ def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
             bridge,
             "cmd_add_tileset_atlas_source",
             params,
-            persistence_probe=(
-                {"node_path": node_path, "resource_properties": ["tile_set"]}
-                if node_path
-                else True
-            ),
+            persistence_probe=node_probe(node_path, ["tile_set"]) if node_path else True,
         )
 
     @mcp.tool(meta=MUTATING, tags=TILEMAP)
@@ -320,9 +317,5 @@ def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
             bridge,
             "cmd_create_tile",
             params,
-            persistence_probe=(
-                {"node_path": node_path, "resource_properties": ["tile_set"]}
-                if node_path
-                else True
-            ),
+            persistence_probe=node_probe(node_path, ["tile_set"]) if node_path else True,
         )

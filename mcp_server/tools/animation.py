@@ -31,6 +31,7 @@ from mcp_server.models.animation import (
     StateMachineStateResult,
 )
 from mcp_server.safety import MUTATING, READ_ONLY, enforce_preconditions, require_node_exists
+from mcp_server.tools._persistence import animation_probe, node_probe
 from mcp_server.tools._route import route, run_or_preview
 
 ANIMATION = {ANIMATION_TAG}
@@ -57,7 +58,7 @@ def register_animation(mcp: FastMCP, bridge: Bridge) -> None:
             bridge,
             "cmd_create_animation",
             params,
-            persistence_probe={"node_path": node_path, "animation": name},
+            persistence_probe=animation_probe(node_path, name),
         )
 
     @mcp.tool(meta=MUTATING, tags=ANIMATION)
@@ -88,7 +89,7 @@ def register_animation(mcp: FastMCP, bridge: Bridge) -> None:
             bridge,
             "cmd_add_animation_track",
             params,
-            persistence_probe={"node_path": node_path, "animation": animation},
+            persistence_probe=animation_probe(node_path, animation),
         )
 
     @mcp.tool(meta=MUTATING, tags=ANIMATION)
@@ -126,7 +127,7 @@ def register_animation(mcp: FastMCP, bridge: Bridge) -> None:
             bridge,
             "cmd_insert_keyframe",
             params,
-            persistence_probe={"node_path": node_path, "animation": animation},
+            persistence_probe=animation_probe(node_path, animation),
         )
 
     @mcp.tool(meta=MUTATING, tags=ANIMATION)
@@ -176,7 +177,7 @@ def register_animation(mcp: FastMCP, bridge: Bridge) -> None:
             bridge,
             "cmd_add_state_machine_state",
             params,
-            persistence_probe={"node_path": tree_path, "resource_properties": ["tree_root"]},
+            persistence_probe=node_probe(tree_path, ["tree_root"]),
         )
 
     @mcp.tool(meta=MUTATING, tags=ANIMATION)
@@ -197,7 +198,7 @@ def register_animation(mcp: FastMCP, bridge: Bridge) -> None:
             bridge,
             "cmd_set_blend_tree_node",
             params,
-            persistence_probe={"node_path": tree_path, "resource_properties": ["tree_root"]},
+            persistence_probe=node_probe(tree_path, ["tree_root"]),
         )
 
     @mcp.tool(meta=READ_ONLY, tags=ANIMATION)

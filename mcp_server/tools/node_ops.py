@@ -23,6 +23,7 @@ from mcp_server.models.node_ops import (
 )
 from mcp_server.models.persistence import persistence_fields as _persistence
 from mcp_server.safety import MUTATING, READ_ONLY, enforce_preconditions, require_node_exists
+from mcp_server.tools._persistence import node_probe
 from mcp_server.tools._route import route, run_or_preview
 
 SCENE_EDIT = {SCENE_EDIT_TAG}
@@ -72,7 +73,7 @@ def register_node_ops(mcp: FastMCP, bridge: Bridge) -> None:
                 "in_group": True,
                 "changed": False,
             }
-            truth = await route(bridge, "cmd_node_persistence", {"node_path": node_path})
+            truth = await route(bridge, "cmd_node_persistence", node_probe(node_path))
             fields["persisted"] = truth.get("persisted")
             fields["reason"] = truth.get("reason")
             fields["hint"] = truth.get("hint")
@@ -98,7 +99,9 @@ def register_node_ops(mcp: FastMCP, bridge: Bridge) -> None:
                 "in_group": False,
                 "changed": False,
             }
-            truth = await route(bridge, "cmd_node_persistence", {"node_path": node_path})
+            truth = await route(
+                bridge, "cmd_node_persistence", {**node_probe(node_path), "group": group}
+            )
             fields["persisted"] = truth.get("persisted")
             fields["reason"] = truth.get("reason")
             fields["hint"] = truth.get("hint")

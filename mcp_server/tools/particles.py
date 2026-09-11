@@ -28,6 +28,7 @@ from mcp_server.models.particles import (
     ParticlePresetResult,
 )
 from mcp_server.safety import MUTATING, READ_ONLY, enforce_preconditions, require_node_exists
+from mcp_server.tools._persistence import node_probe
 from mcp_server.tools._route import route, run_or_preview
 
 PARTICLES = {PARTICLES_TAG}
@@ -87,10 +88,7 @@ def register_particles(mcp: FastMCP, bridge: Bridge) -> None:
             bridge,
             "cmd_set_particle_material",
             params,
-            persistence_probe={
-                "node_path": node_path,
-                "resource_properties": ["process_material"],
-            },
+            persistence_probe=node_probe(node_path, ["process_material"]),
         )
 
     @mcp.tool(meta=MUTATING, tags=PARTICLES)
@@ -118,10 +116,7 @@ def register_particles(mcp: FastMCP, bridge: Bridge) -> None:
             bridge,
             "cmd_set_particle_color_gradient",
             params,
-        persistence_probe={
-                "node_path": node_path,
-                "resource_properties": ["process_material"],
-            },
+        persistence_probe=node_probe(node_path, ["process_material"]),
         )
 
     @mcp.tool(meta=MUTATING, tags=PARTICLES)
@@ -143,7 +138,7 @@ def register_particles(mcp: FastMCP, bridge: Bridge) -> None:
             bridge,
             "cmd_apply_particle_preset",
             params,
-            persistence_probe={"node_path": node_path},
+            persistence_probe=node_probe(node_path),
         )
 
     @mcp.tool(meta=READ_ONLY, tags=PARTICLES)
