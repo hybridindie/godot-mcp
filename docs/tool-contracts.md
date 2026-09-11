@@ -403,7 +403,11 @@ the path is later recreated (#422).
 The addon captures the editor viewport and returns a base64 PNG; the tool decodes it
 into a FastMCP `Image` so a vision-capable client receives an image block (no temp
 files). Returns a structured `INTERNAL_ERROR` if no frame is available (e.g. headless,
-no display).
+no display). Frame-dependent commands are non-stalling (#416/#456): a pending grab
+answers every poll with `{ready: false, pending: true, reason: "editor_not_drawing"}`
+once it stops progressing, and the tool's expiry error relays that `reason` — the agent
+sees the actual cause (occluded/minimized editor) instead of the bridge's generic
+`TIMEOUT` text.
 
 #### Physics (issue #41) — category: `physics` (gated off by default)
 
@@ -775,7 +779,9 @@ invocation, mirroring `find_ui_elements`), and the tool polls until ready/`timeo
 (default 2000). Requires a play session + probe (`PRECONDITION_FAILED` otherwise). Not
 headless-testable (`--headless` does not render; same caveat as #33). Note payload size:
 a 1920×1080 frame is ~1–4 MB base64 over the debugger channel. A frame captured while the
-game is paused at a debugger break shows the frozen viewport.
+game is paused at a debugger break shows the frozen viewport. Same non-stalling readiness
+envelope as the editor capture (#416/#456): a stalled grab reports
+`reason: "editor_not_drawing"` on every poll and the tool relays it in the expiry error.
 
 #### Input simulation (issue #36) — category: `input` (gated off by default)
 

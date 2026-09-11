@@ -13,6 +13,12 @@ var _router: MCPCommandRouter
 # observed as a server-side timeout on macOS); callers poll until ready.
 var _shot: Dictionary = {}
 var _grab_queued := false
+# #416/#456: frame-dependent handlers self-report why the editor isn't
+# cooperating instead of stalling into the bridge's generic TIMEOUT. When the
+# deferred grab hasn't landed for this many polls, report the reason so the
+# server relays the actual cause (e.g. editor not redrawing) to the agent.
+const _PENDING_GRACE_POLLS := 2
+var _pending_polls := 0
 
 
 
@@ -40,6 +46,7 @@ func _cmd_capture_editor_screenshot(_params: Dictionary) -> Dictionary:
 		var done := _shot
 		_shot = {}
 		_grab_queued = false
+		_pending_polls = 0
 		return _router._ok(done)
 	var base_control := EditorInterface.get_base_control()
 	if base_control == null:
@@ -50,6 +57,16 @@ func _cmd_capture_editor_screenshot(_params: Dictionary) -> Dictionary:
 	if not _grab_queued:
 		tree.process_frame.connect(_grab_screenshot.bind(base_control), ConnectFlags.CONNECT_ONE_SHOT)
 		_grab_queued = true
+	_pending_polls += 1
+	if _pending_polls > _PENDING_GRACE_POLLS:
+		# #416/#456: the grab stays pending across multiple rendered frames — the
+		# editor isn't redrawing (occluded/minimized). Say so instead of letting
+		# the poller starve into the bridge's generic timeout text.
+		return _router._ok({
+			"ready": false,
+			"pending": true,
+			"reason": "editor_not_drawing",
+		})
 	return _router._ok({"ready": false})
 
 

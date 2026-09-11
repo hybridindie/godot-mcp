@@ -41,16 +41,26 @@ def register_editor(mcp: FastMCP, bridge: Bridge) -> None:
         """
         deadline = asyncio.get_event_loop().time() + timeout_ms / 1000
         result: dict[str, Any] = {}
+        reason = ""
         while True:
             result = await route(bridge, "cmd_capture_editor_screenshot")
             # Done when a payload arrived (``ready`` truthy or a base64 body from
             # an older addon); ``{"ready": false}`` means "grab still pending".
             if result.get("base64") or result.get("ready"):
                 break
+            # #416/#456: the addon self-reports why the editor isn't cooperating
+            # (e.g. "editor_not_drawing") — keep it for the expiry error so the
+            # agent gets the actual cause, not the bridge's generic timeout text.
+            reason = str(result.get("reason", "")).strip()
             if asyncio.get_event_loop().time() >= deadline:
+                hint = (
+                    f" — addon reason: '{reason}' (editor viewport not rendering; "
+                    "occluded or minimized editor?)"
+                    if reason
+                    else " — is the editor window rendering (not fully hidden/minimized)?"
+                )
                 raise ToolError(
-                    f"Editor viewport capture did not complete within {timeout_ms}ms — "
-                    "is the editor window rendering (not fully hidden/minimized)?"
+                    f"Editor viewport capture did not complete within {timeout_ms}ms{hint}"
                 )
             await asyncio.sleep(DEFAULT_POLL_INTERVAL_SECONDS)
         if not result.get("base64"):

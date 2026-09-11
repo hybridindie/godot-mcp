@@ -107,3 +107,26 @@ async def test_capture_never_ready_times_out_with_actionable_error() -> None:
         )
     assert result.is_error
     assert "did not complete" in str(result.content)
+
+
+async def test_addon_reason_surfaces_in_timeout_error() -> None:
+    """#416: the addon self-reports why the editor isn't cooperating
+    ({ready: false, pending: true, reason: "editor_not_drawing"}); the tool's
+    expiry error must relay that reason instead of the bridge's generic
+    "no response from Godot" — the agent needs the actual cause."""
+    def responder(cmd: CommandEnvelope) -> ResponseEnvelope:
+        return ResponseEnvelope.success(
+            cmd.id, {"ready": False, "pending": True, "reason": "editor_not_drawing"}
+        )
+
+    conn = FakeAddonConnection(responder=responder)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    async with Client(create_server(ServerConfig(), bridge=bridge)) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "editor"})
+        result = await client.call_tool(
+            "godot_editor_capture_screenshot", {"timeout_ms": 250}, raise_on_error=False
+        )
+    assert result.is_error
+    text = str(result.content)
+    assert "editor_not_drawing" in text
+    assert "bridge" not in text.lower() or "not rendering" in text.lower()
