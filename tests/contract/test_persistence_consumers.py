@@ -283,3 +283,26 @@ async def test_dry_run_group_removal_previews_the_base_scene_reason() -> None:
     assert content["persisted"] is False
     assert content["reason"] == "group_from_base_scene"
     assert "base.tscn" in content["hint"]
+
+
+async def test_create_tile_probe_carries_the_atlas_source_id() -> None:
+    """#481: the tile-create preview must probe the same parent-then-source chain
+    the real run stamps — source_id in the probe params, source first in the
+    resolution order — so the hint names the same class (TileSetAtlasSource)."""
+    server, _, conn = _server()
+    async with Client(server) as client:
+        await _build(_Addon(), client)
+        await client.call_tool("godot_enable_toolset", {"category": "tilemap"})
+        await client.call_tool(
+            "godot_tilemap_create_tile",
+            {"node_path": "Own", "source_id": 3, "atlas_coords": [1, 0], "dry_run": True},
+        )
+    probes = [
+        CommandEnvelope.model_validate_json(s)
+        for s in conn.sent
+        if CommandEnvelope.model_validate_json(s).command == "cmd_node_persistence"
+    ]
+    assert probes, "create_tile preview must probe cmd_node_persistence"
+    params = probes[-1].params
+    assert params["resource_properties"] == ["tile_set"]
+    assert params["source_id"] == 3  # the same source the real run mutates
