@@ -376,7 +376,7 @@ def test_live_shader() -> None:
         SCRATCH_FILE.unlink(missing_ok=True)
         SHADER_FILE.unlink(missing_ok=True)
         SHADER_UID_FILE.unlink(missing_ok=True)
-for leftover in GODOT_PROJECT.glob("tmp_e2e_persist_*"):
+        for leftover in GODOT_PROJECT.glob("tmp_e2e_persist_*"):
             leftover.unlink(missing_ok=True)
         for path in BLANK_FILES:
             path.unlink(missing_ok=True)
