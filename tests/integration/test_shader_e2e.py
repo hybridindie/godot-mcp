@@ -21,6 +21,11 @@ SCRATCH_FILE = GODOT_PROJECT / "tmp_e2e_shader.tscn"
 SHADER_PATH = "res://tmp_e2e_shader.gdshader"
 SHADER_FILE = GODOT_PROJECT / "tmp_e2e_shader.gdshader"
 SHADER_UID_FILE = GODOT_PROJECT / "tmp_e2e_shader.gdshader.uid"  # Godot 4.4+ sidecar
+BLANK = "res://tmp_e2e_blank_material.tres"  # a ShaderMaterial with no shader (#465)
+BLANK_FILES = [
+    GODOT_PROJECT / "tmp_e2e_blank_material.tres",
+    GODOT_PROJECT / "tmp_e2e_blank_material.tres.uid",
+]
 
 SHADER_CODE = (
     "shader_type canvas_item;\n"
@@ -106,6 +111,18 @@ async def _run() -> None:
             bridge, "cmd_get_shader_param", {"node_path": "Sprite", "name": "no_such_uniform"}
         )
         assert undeclared["exists"] is False and undeclared["value"] is None, undeclared
+        # a ShaderMaterial with no shader declares nothing: exists false, not a script error
+        await _ok(bridge, "cmd_create_resource", {"type": "ShaderMaterial", "resource_path": BLANK})
+        await _create(bridge, "Shaderless", "Sprite2D")
+        await _ok(
+            bridge,
+            "cmd_set_node_property",
+            {"node_path": "Shaderless", "property": "material", "value": BLANK},
+        )
+        blank = await _ok(
+            bridge, "cmd_get_shader_param", {"node_path": "Shaderless", "name": "strength"}
+        )
+        assert blank["exists"] is False and blank["value"] is None, blank
 
         # validation: no material slot, no ShaderMaterial yet, bad paths
         await _create(bridge, "Plain", "Node")
@@ -158,3 +175,5 @@ def test_live_shader() -> None:
         SCRATCH_FILE.unlink(missing_ok=True)
         SHADER_FILE.unlink(missing_ok=True)
         SHADER_UID_FILE.unlink(missing_ok=True)
+        for path in BLANK_FILES:
+            path.unlink(missing_ok=True)
