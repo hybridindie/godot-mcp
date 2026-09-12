@@ -107,6 +107,24 @@ func _cmd_set_shader_param(params: Dictionary) -> Dictionary:
 	if name.is_empty():
 		return _router._fail("VALIDATION_ERROR", "'name' must be a non-empty string.")
 	var value: Variant = _coerce_shader_value(params.get("value"), str(params.get("param_type", "")))
+	# #474: refuse an undeclared name BEFORE building the undo action. The old
+	# read-back check never fired — ShaderMaterial::set_shader_parameter caches
+	# any name (declared or not), so the read-back of a non-null value is never
+	# null, and the rejected set still became an undo step + a saved
+	# shader_parameter/<name> cache entry. Declared names come from the shader
+	# itself (#465/#470 read the same list for get_param).
+	var shader: Variant = material.shader
+	var uniform_names := PackedStringArray()
+	if shader is Shader:
+		for uniform in (shader as Shader).get_shader_uniform_list():
+			uniform_names.append(str(uniform.get("name", "")))
+	if not uniform_names.has(name):
+		var expected := ", ".join(uniform_names) if uniform_names.size() > 0 else "(no uniforms)"
+		return _router._fail(
+			"VALIDATION_ERROR",
+			"Uniform '%s' is not declared on the material's shader (declared: %s). Declare the uniform on the shader first; nothing was set." % [name, expected],
+			"param",
+		)
 	var persistence := _router._resource_persistence(node, [material])
 	var prev: Variant = material.get_shader_parameter(name)
 	var ur := EditorInterface.get_editor_undo_redo()
@@ -114,19 +132,10 @@ func _cmd_set_shader_param(params: Dictionary) -> Dictionary:
 	ur.add_do_method(material, "set_shader_parameter", name, value)
 	ur.add_undo_method(material, "set_shader_parameter", name, prev)
 	ur.commit_action()
-	# #460: read-back after commit — set:true must reflect the landed value, not
-	# the requested one (the #414 pattern). A param not declared on the shader
-	# reads back null: the set did not land → structured error (#460 acceptance:
-	# "a non-landing set is a structured error").
+	# #460: read-back after commit — set:true reflects the landed value, not the
+	# requested one (the #414 pattern). Undeclared names are refused above, so a
+	# non-null request always lands in the cache here.
 	var landed: Variant = material.get_shader_parameter(name)
-	if landed == null and value != null:
-		# `%` binds tighter than `+`: format the whole message, not its last piece.
-		return _router._fail(
-			"VALIDATION_ERROR",
-			("Uniform '%s' is not declared on the material's shader; the set did not "
-				+ "land (reads back null). Declare the uniform on the shader first.") % name,
-			"param",
-		)
 	return _router._ok(_router._with_persistence({
 		"node_path": str(params.get("node_path")),
 		"name": name,

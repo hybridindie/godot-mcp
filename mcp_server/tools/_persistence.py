@@ -18,13 +18,22 @@ from typing import Any
 PersistenceProbe = dict[str, Any] | bool
 
 
-def node_probe(node_path: str, resource_properties: Iterable[str] = ()) -> dict[str, Any]:
+def node_probe(
+    node_path: str,
+    resource_properties: Iterable[str] = (),
+    *,
+    source_id: int | None = None,
+) -> dict[str, Any]:
     """Probe the verdict for a node, optionally keying on the first Resource-typed
     property (e.g. ``tile_set``, ``mesh_library``, ``tree_root``, ``process_material``)
-    the real handler would follow."""
+    the real handler would follow. ``source_id`` names the TileSet atlas source an edit
+    targets, so the probe resolves the same parent-then-source chain — and names the
+    same class in its hint — the real run does (#481)."""
     probe: dict[str, Any] = {"node_path": node_path}
     if resource_properties:
         probe["resource_properties"] = list(resource_properties)
+    if source_id is not None:
+        probe["source_id"] = source_id
     return probe
 
 

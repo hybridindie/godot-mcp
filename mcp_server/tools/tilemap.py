@@ -317,5 +317,9 @@ def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
             bridge,
             "cmd_create_tile",
             params,
-            persistence_probe=node_probe(node_path, ["tile_set"]) if node_path else True,
+            # The real run mutates the atlas source inside the TileSet, so the
+            # probe resolves the same source (the hint names its class, #481).
+            persistence_probe=(
+                node_probe(node_path, ["tile_set"], source_id=source_id) if node_path else True
+            ),
         )
