@@ -550,7 +550,9 @@ def _probe_for(command: str, params: dict[str, Any]) -> dict[str, Any] | None:
         "cmd_add_tileset_atlas_source",
         "cmd_create_tile",
     }:
-        return node_probe(node_path, ["tile_set"])
+        # create_tile mutates a specific atlas source; the probe carries the same
+        # source_id so both paths name the same class in their hints (#481).
+        return node_probe(node_path, ["tile_set"], source_id=params.get("source_id"))
     if command == "cmd_add_mesh_library_item":
         return node_probe(node_path, ["mesh_library"])
     if command in {"cmd_set_particle_material", "cmd_set_particle_color_gradient"}:

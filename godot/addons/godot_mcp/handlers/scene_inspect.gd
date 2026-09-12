@@ -165,15 +165,33 @@ func _cmd_node_persistence(params: Dictionary) -> Dictionary:
 	if params.has("animation"):
 		if node is AnimationPlayer:
 			var anim_name := str(params["animation"])
+			# The preview runs BEFORE the create: a not-yet-existing animation is
+			# created into the default ("") library (or a brand-new one when the
+			# player has none) — mirror _cmd_create_animation's target choice so
+			# the probe resolves the same library chain the real run stamps (#481).
 			if node.has_animation(anim_name):
 				var animation: Animation = node.get_animation(anim_name)
 				var library: AnimationLibrary = node.get_animation_library(node.find_animation_library(animation))
 				chain = [animation, library]
+			elif node.has_animation_library(""):
+				chain = [node.get_animation_library("")]
+			# else: the create also makes the library as a new player property —
+			# no resource chain, the node rule decides.
 	else:
 		for property in properties:
 			var held: Variant = node.get(str(property))
 			if held is Resource:
 				chain.append(held)
+				# A resource that owns its own sources (a TileSet -> TileSetAtlasSource)
+				# is edited through the child object the handler mutates: the real run
+				# resolves the same chain with the SOURCE first (chain head decides the
+				# hint's class word), so the probe mirrors that order (#481). The source
+				# id comes with the probe (default 0, matching the atlas tools).
+				if held is TileSet and str(property) == "tile_set":
+					var tileset := held as TileSet
+					var source_id := int(params.get("source_id", 0))
+					if tileset.has_source(source_id):
+						chain.push_front(tileset.get_source(source_id))
 				break
 	var truth := _router._resource_persistence(node, chain)
 	var body := {

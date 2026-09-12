@@ -73,8 +73,15 @@ func _cmd_create_animation(params: Dictionary) -> Dictionary:
 	if created_lib:
 		ur.add_undo_method(player, "remove_animation_library", "")
 	ur.commit_action()
-	# A library created here is a new property on the player; an existing one saves wherever it lives.
-	var persistence: Dictionary = _router._persistent_target(player) if created_lib else _router._resource_persistence(player, [library])
+	# A library created here is a new property on the player; an existing one saves
+	# wherever it lives — the same animation→library chain the dry-run probe
+	# (cmd_node_persistence with `animation`) resolves, so preview and real run
+	# name the same resource class in their hints (#481).
+	var persistence: Dictionary = (
+		_router._persistent_target(player)
+		if created_lib
+		else _router._resource_persistence(player, [animation, library])
+	)
 	return _router._ok(_router._with_persistence({"player_path": str(params.get("node_path")), "animation": anim_name, "length": animation.length}, persistence))
 
 

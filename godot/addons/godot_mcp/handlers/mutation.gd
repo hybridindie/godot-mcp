@@ -108,6 +108,11 @@ func _cmd_rename_node(params: Dictionary) -> Dictionary:
 			"node_path",
 		)
 	var old_name := String(node.name)
+	# The persistence verdict is stamped BEFORE the rename (#481): the probe a
+	# preview sent named this node by its pre-rename path, so the real run's
+	# verdict must describe the same target (the hint says 'Relic/Cold/Extra',
+	# not 'Relic/Cold/Extra2') — the node is the same object either way.
+	var persistence := _router._persistent_target(node)
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Rename %s" % old_name)
 	ur.add_do_property(node, "name", str(params.get("new_name", old_name)))
@@ -118,7 +123,7 @@ func _cmd_rename_node(params: Dictionary) -> Dictionary:
 		"old_name": old_name,
 		"new_name": String(node.name),
 		"renamed": true,
-	}, _router._persistent_target(node)))
+	}, persistence))
 
 
 

@@ -701,6 +701,11 @@ to `material` (CanvasItem) or `material_override` (GeometryInstance3D), reportin
 declares it, and `value` is the JSON-coerced current value, or `null` when the uniform has
 never been set on this material (the shader's own default applies).
 
+`set_param` validates the name against the shader's uniform list **before** any undo
+action (#474): an undeclared name (or a material with no shader) is a `VALIDATION_ERROR`
+naming the uniform and the declared ones, and nothing is set — the old read-back check
+never fired because `ShaderMaterial` caches any name it is handed.
+
 **Persistence truth (#458).** Both mutations always apply live, then report whether the change
 survives a scene save. `persisted: false` comes with a stable `reason` token and a `hint`;
 A `dry_run` preview applies nothing but asks the addon for the same verdict
