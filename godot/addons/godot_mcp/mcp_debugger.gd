@@ -201,6 +201,28 @@ func _on_stopped() -> void:
 	_frame_vars_globals = []
 
 
+## Release the plugin's own references so it can be freed when the editor exits.
+##
+## _setup_session() stores Callables bound to ``self`` and connects them to the
+## session, so the plugin keeps a reference to itself — and the session keeps one
+## too — until both sides let go; remove_debugger_plugin() only unregisters the
+## plugin and does not drop them. RefCounted cycles are never freed automatically
+## (see the RefCounted class reference), which left this plugin and
+## mcp_debugger.gd alive as leaked instances at editor exit. Called from the
+## plugin's _exit_tree() before remove_debugger_plugin().
+func dispose() -> void:
+	for owned in _owned_connections:
+		var signal_ref: Signal = owned["signal"]
+		var callable: Callable = owned["callable"]
+		if is_instance_valid(signal_ref.get_object()) and signal_ref.is_connected(callable):
+			signal_ref.disconnect(callable)
+	_owned_connections.clear()
+	_previous_session_id = -1
+	_session_id = -1
+	_session_active = false
+	_probe_ready = false
+
+
 ## Ask the running game's probe to (re)send the scene tree. The reply lands in the cache
 ## on a later frame via _capture; callers read get_cached_scene_tree().
 func request_scene_tree() -> void:

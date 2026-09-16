@@ -91,11 +91,14 @@ func _exit_tree() -> void:
 	_selection = null
 
 	if _bridge != null:
-		_bridge.stop()
+		# dispose() drops the router/handler references before the node goes away.
+		_bridge.dispose()
 		_bridge.queue_free()
 		_bridge = null
 
 	if _debugger != null:
+		# dispose() drops the plugin's own references before it is unregistered.
+		_debugger.dispose()
 		remove_debugger_plugin(_debugger)
 		_debugger = null
 

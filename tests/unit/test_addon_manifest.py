@@ -106,7 +106,12 @@ def test_bridge_uses_websocket_transport() -> None:
 def test_plugin_wires_the_bridge() -> None:
     source = (ADDON_DIR / "godot_mcp.gd").read_text()
     assert "MCPBridge" in source, "plugin must start the bridge"
-    assert "_bridge.stop()" in source, "plugin must stop the bridge on _exit_tree"
+    # _exit_tree() disposes the bridge: it stops the connection and releases the
+    # router, breaking the router/handler RefCounted cycle that otherwise leaked
+    # at editor exit (tests/integration/test_addon_exit_leaks.py).
+    assert "_bridge.dispose()" in source, "plugin must dispose the bridge on _exit_tree"
+    bridge = (ADDON_DIR / "mcp_bridge.gd").read_text()
+    assert "func dispose()" in bridge, "the bridge owns the teardown"
 
 
 def test_inspection_helpers_exist() -> None:
