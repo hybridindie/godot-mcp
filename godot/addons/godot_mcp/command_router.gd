@@ -90,6 +90,49 @@ func set_debugger(debugger: Object) -> void:
 	_debugger = debugger
 
 
+## Break the router/handler reference cycle so this cluster can actually be freed.
+##
+## Every handler keeps a `_router` back-reference, so neither side ever reaches a
+## zero reference count; RefCounted cycles are never freed automatically (see the
+## RefCounted class reference and weakref()). Called once from MCPBridge.dispose()
+## on the plugin's exit path; commands arriving afterwards return the usual
+## "Unknown command" error instead of dispatching.
+func dispose() -> void:
+	_handlers.clear()
+	_debugger = null
+	_scene_inspect = null
+	_mutation = null
+	_scripts = null
+	_node_parity = null
+	_animation = null
+	_physics = null
+	_scene_3d = null
+	_mesh_library = null
+	_particles = null
+	_navigation = null
+	_audio = null
+	_tilemap = null
+	_tileset = null
+	_theme_ui = null
+	_shaders = null
+	_runtime_session = null
+	_runtime_inspect = null
+	_input_recording = null
+	_profiling = null
+	_batch = null
+	_composite = null
+	_export = null
+	_editor = null
+	_project_fs = null
+	_resources = null
+	_scene_session = null
+	_input_map = null
+	_debugger_handlers = null
+	_import_asset = null
+	_visual_shader = null
+	_project_scaffold = null
+
+
 func _init() -> void:
 	# Wire command strings are the cmd_<verb>_<noun> handler names (the matching MCP
 	# tool drops the cmd_ prefix); see docs/architecture.md.

@@ -60,6 +60,17 @@ func stop() -> void:
 	_set_status(Status.DISCONNECTED)
 
 
+## Stop the bridge and release the router, breaking the router/handler reference
+## cycle so the router, its handler instances and their scripts can be freed on
+## plugin exit. RefCounted cycles never reach a zero reference count on their own
+## (see the RefCounted class reference), so the plugin calls this from _exit_tree().
+func dispose() -> void:
+	stop()
+	if _router != null:
+		_router.dispose()
+		_router = null
+
+
 func is_connected_to_server() -> bool:
 	return _status == Status.CONNECTED
 
