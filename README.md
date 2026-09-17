@@ -314,8 +314,9 @@ phone over VPN, with the server and editor on a different machine than the LLM.
   `godot_inspection_get_scene_tree` → `<id>_godot_inspection_get_scene_tree`).
   Keep the ID short, or instruct the model to ignore the prefix — small local
   models otherwise try to call tools under their literal prefixed names.
-- Only `core` + `inspection` tools are exposed by default (toolset gating).
-  For scene editing the agent must first call `godot_enable_toolset("scene_edit")`
+- Only `core` + `inspection` tools are exposed by default (toolset gating) —
+  unless `GODOT_MCP_DEFAULT_TOOLSETS` seeds more at startup. For scene editing
+  the agent must first call `godot_enable_toolset("scene_edit")`
   — or you can mention it in the prompt, e.g. *"enable the scene_edit toolset,
   then add a button below the Quit button"*.
 

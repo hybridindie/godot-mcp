@@ -7,6 +7,8 @@ the ``toolset_discovery`` prompt. Both must now compose from the same constants 
 
 from __future__ import annotations
 
+import pytest
+
 from mcp_server.server import create_server
 from mcp_server.toolset_protocol import (
     COMMON_TOOLSETS,
@@ -43,3 +45,37 @@ def test_shared_protocol_is_self_consistent() -> None:
     # And it still names the two calls the agent must make.
     assert "godot_list_toolsets" in TOOLSET_PROTOCOL
     assert "godot_enable_toolset" in TOOLSET_PROTOCOL
+
+
+def test_gating_intro_states_effective_default_from_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The gating text must reflect the *effective* default (issue #425): when
+    GODOT_MCP_DEFAULT_TOOLSETS seeds more/all toolsets, static 'only core +
+    inspection' text would tell the agent to enable toolsets it already has."""
+    import importlib
+
+    import mcp_server.toolset_protocol as protocol
+    import mcp_server.toolsets as toolsets
+
+    monkeypatch.setenv("GODOT_MCP_DEFAULT_TOOLSETS", "all")
+    # protocol imports DEFAULT_ENABLED by name from toolsets — reload the source
+    # module first, then the consumer, so the env change is observed.
+    importlib.reload(toolsets)
+    importlib.reload(protocol)
+    intro = protocol.GATING_INTRO
+    # With `all` seeded, the text must not claim everything is hidden...
+    assert "Every other capability is hidden" not in intro
+    # ...and must name the env override so the agent understands why.
+    assert "GODOT_MCP_DEFAULT_TOOLSETS" in intro
+
+    monkeypatch.delenv("GODOT_MCP_DEFAULT_TOOLSETS", raising=False)
+    importlib.reload(toolsets)
+    importlib.reload(protocol)
+    # Unset keeps the documented default (core + inspection).
+    assert "Only 'core'" in protocol.GATING_INTRO
+    assert "inspection" in protocol.GATING_INTRO
+    # Restore the ambient default for other tests (import-time state).
+    from mcp_server.toolsets import DEFAULT_ENABLED
+
+    assert DEFAULT_ENABLED == frozenset({"inspection"})
