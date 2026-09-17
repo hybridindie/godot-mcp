@@ -143,13 +143,23 @@ TOOLSET_MIN_GODOT: dict[str, tuple[int, int]] = {
 # Enabled at startup (plus `core`, which is always on). Everything else is gated
 # off until the agent enables it — keeping the default surface small and read-only.
 # Override with GODOT_MCP_DEFAULT_TOOLSETS: comma-separated categories, or "all"
-# to expose the full catalog at startup.
+# to expose the full catalog at startup. The toolset-protocol instructions text
+# (mcp_server/toolset_protocol.py) derives its wording from this value so the
+# agent-facing "what is enabled" claim always matches the live surface (#425).
 def _default_enabled_from_env() -> frozenset[str]:
     raw = os.environ.get("GODOT_MCP_DEFAULT_TOOLSETS", "").strip()
     if raw.lower() == "all":
         return frozenset(TOOLSETS)
     wanted = {t.strip() for t in raw.split(",") if t.strip()}
     valid = wanted & set(TOOLSETS)
+    ignored = wanted - valid
+    if ignored:
+        logger.warning(
+            "GODOT_MCP_DEFAULT_TOOLSETS: ignoring unknown toolset names: %s "
+            "(valid: %s)",
+            ", ".join(sorted(ignored)),
+            ", ".join(sorted(TOOLSETS)),
+        )
     return frozenset(valid) if valid else frozenset({INSPECTION_TAG})
 
 

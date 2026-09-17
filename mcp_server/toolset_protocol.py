@@ -4,9 +4,17 @@ This protocol — how the agent discovers and enables gated toolsets — was
 duplicated across the server ``instructions`` block and the ``toolset_discovery``
 prompt, risking drift and paying a per-session token cost. Both now compose from
 the constants here.
+
+The gating intro reflects the **effective** default: when
+``GODOT_MCP_DEFAULT_TOOLSETS`` seeds toolsets at startup, the static
+"only core + inspection" claim would tell agents to enable toolsets they
+already have (issue #425).
 """
 
 from __future__ import annotations
+
+from mcp_server.categories import INSPECTION_TAG
+from mcp_server.toolsets import DEFAULT_ENABLED
 
 DOC_LINKS = (
     "- Tutorial: https://github.com/hybridindie/godot-mcp/blob/main/TUTORIAL.md\n"
@@ -14,21 +22,52 @@ DOC_LINKS = (
     "- Architecture: https://github.com/hybridindie/godot-mcp/blob/main/docs/architecture.md"
 )
 
-GATING_INTRO = (
+_ENV_DEFAULT_TEXT = (
+    "The default exposure can be overridden by the GODOT_MCP_DEFAULT_TOOLSETS "
+    "environment variable (issue #393): set it to 'all' or a comma-separated "
+    "category list to seed more toolsets at startup."
+)
+
+_DEFAULT_INTRO = (
     "You are connected to a godot-mcp server that gates its tools into categories "
     "called 'toolsets'. Only 'core' (diagnostics, toolset management) and 'inspection' "
     "(read-only project/scene/node reading) are enabled by default. Every other "
     "capability is hidden until you explicitly enable it."
 )
 
+_SEEDED_INTRO = (
+    "You are connected to a godot-mcp server that gates its tools into categories "
+    "called 'toolsets'. The default exposure is 'core' (diagnostics, toolset "
+    "management) plus the toolsets seeded at startup via GODOT_MCP_DEFAULT_TOOLSETS "
+    "— this server was started with extra toolsets already enabled, so some or all "
+    "categories are available without calling godot_enable_toolset. Always check "
+    "godot_list_toolsets() for the live enabled state."
+)
+
+
+def _gating_intro() -> str:
+    """Build the gating intro from the effective startup default (issue #425).
+
+    Read at import time of *this* module — ``DEFAULT_ENABLED`` is likewise fixed
+    at import (see ``mcp_server.toolsets``), so the two cannot disagree.
+    """
+    if DEFAULT_ENABLED == frozenset({INSPECTION_TAG}):
+        return _DEFAULT_INTRO
+    return _SEEDED_INTRO + "\n\n" + _ENV_DEFAULT_TEXT
+
+
+GATING_INTRO = _gating_intro()
+
 MANDATORY_PROTOCOL = (
     "MANDATORY PROTOCOL — follow this order exactly:\n"
     "1. Call godot_get_server_info() for a full capability snapshot "
     "(toolsets, bridge state, troubleshooting).\n"
-    "2. Call godot_list_toolsets() to see what is available and which are enabled.\n"
-    "3. Call godot_enable_toolset(category) for EVERY category you plan to use.\n"
-    "4. Only after enabling can you call the tools in that category.\n\n"
-    "WARNING: skip step 3 and EVERY gated tool call fails with "
+    "2. Call godot_list_toolsets() to see what is available and which are enabled — "
+    "this is the authoritative enabled state, not any static claim in this text.\n"
+    "3. Call godot_enable_toolset(category) for every category you plan to use that "
+    "godot_list_toolsets() reports as disabled.\n"
+    "4. Only after a toolset is enabled can you call the tools in it.\n\n"
+    "WARNING: calling a gated tool whose toolset is disabled fails with "
     "'ToolError: unknown tool'. There is NO fallback."
 )
 

@@ -22,7 +22,7 @@ godot_get_server_info()   # version, contract_version, toolsets, active scene, n
 
 ## 2. Toolsets are gated — enable before you use
 
-Only `core` (always on) and `inspection` (read-only) are enabled by default. **Every other capability is hidden until you enable it.** Calling a hidden tool returns `unknown tool` — there is no fallback. Some toolsets require Godot 4.4+ (`scene_edit`, `input_map`, `tilemap`, `scene_3d`); `godot_list_toolsets()` reports `min_godot` per toolset.
+Only `core` (always on) and `inspection` (read-only) are enabled by default — unless the server was started with `GODOT_MCP_DEFAULT_TOOLSETS` seeding more (check `godot_list_toolsets()` for the live state; it is authoritative). **Every toolset reported disabled is hidden until you enable it.** Calling such a tool returns `unknown tool` — there is no fallback. Some toolsets require Godot 4.4+ (`scene_edit`, `input_map`, `tilemap`, `scene_3d`); `godot_list_toolsets()` reports `min_godot` per toolset.
 
 ```
 godot_list_toolsets()                 # what exists / what's enabled / min Godot
