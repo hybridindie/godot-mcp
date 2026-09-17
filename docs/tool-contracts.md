@@ -879,7 +879,11 @@ game's* InputMap is dropped by the probe). `godot_input_play_sequence` replays `
 `{type: key|mouse|action, …}`) `delay_ms` apart; every event's shape is validated up
 front (bad `type`/missing field/unknown button → `VALIDATION_ERROR`), so `count` =
 events sent. All injection requires a live probe (else `PRECONDITION_FAILED`,
-`required=play_session` / `runtime_probe`). `get_input_stats.injected` is the count of
+`required=play_session` / `runtime_probe`) **and a game that is not paused at a
+debugger break** (#443: injection into a frozen game is refused with
+`PRECONDITION_FAILED`, `required=game_not_breaked`, hint naming
+`continue_execution`/unpause) — the probe would otherwise ack input it can never
+process. `get_input_stats.injected` is the count of
 synthesized events the game has acknowledged — use it to confirm delivery.
 `godot_input_record` (issue #68) captures the input the game receives — key + mouse button, plus
 mouse motion when `include_motion` — via the probe's `_input` hook; `godot_input_stop_recording`
