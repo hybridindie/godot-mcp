@@ -163,9 +163,14 @@ func _cmd_batch_set_property(params: Dictionary) -> Dictionary:
 		applied.append(Inspect.relative_path(node, root))
 		to_apply.append({"node": node, "value": Coerce.from_json(value, prop_type)})
 	# Only open an UndoRedo action when at least one set is scheduled (no no-op steps).
+	# #461: batches above the UndoRedo threshold bypass the undo stack for perf —
+	# the response must say so, or the agent believes undo covers the whole batch.
+	var undoable := true
+	var undo_threshold := 20
 	if not dry_run and not to_apply.is_empty():
 		# For very large batches, skip UndoRedo to avoid EditorUndoRedoManager overhead.
 		if to_apply.size() > 20:
+			undoable = false
 			for item in to_apply:
 				item["node"].set(property, item["value"])
 		else:
@@ -184,6 +189,10 @@ func _cmd_batch_set_property(params: Dictionary) -> Dictionary:
 		"skipped": skipped,
 		"count": applied.size(),
 		"dry_run": dry_run,
+		"undoable": undoable,
+		"hint": "" if undoable else (
+			"%d nodes exceeds the 20-node UndoRedo threshold: this batch was applied directly without undo support. Undo will not revert it." % to_apply.size()
+		),
 	})
 
 

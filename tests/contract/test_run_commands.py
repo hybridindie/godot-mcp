@@ -24,10 +24,17 @@ pytestmark = pytest.mark.asyncio
 
 
 def _fake_run_commands(p: dict[str, Any]) -> dict[str, Any]:
-    """Simulate the addon executing each sub-command in one frame, in order."""
+    """Simulate the addon executing each sub-command in one frame, in order.
+
+    #461: the addon now reports honest partial completion — when ``stop_on_error``
+    halts the batch, the response names the index of the failing command
+    (``aborted_at``) and counts the skipped trailing commands.
+    """
     results: list[dict[str, Any]] = []
     ok_all = True
-    for entry in p.get("commands", []):
+    aborted_at: int | None = None
+    commands = p.get("commands", [])
+    for i, entry in enumerate(commands):
         cmd = entry.get("command", "")
         is_ghost = entry.get("params", {}).get("node_path") == "Ghost"
         if cmd == "cmd_set_node_property" and is_ghost:
@@ -35,11 +42,22 @@ def _fake_run_commands(p: dict[str, Any]) -> dict[str, Any]:
                 {"command": cmd, "ok": False, "error": "RESOURCE_NOT_FOUND", "hint": "No node."}
             )
             ok_all = False
+            aborted_at = i
             if p.get("stop_on_error", True):
                 break
         else:
             results.append({"command": cmd, "ok": True, "result": {"echo": cmd}})
-    return {"results": results, "ok_all": ok_all, "count": len(results)}
+    out: dict[str, Any] = {"results": results, "ok_all": ok_all, "count": len(results)}
+    if aborted_at is not None and p.get("stop_on_error", True):
+        out["aborted_at"] = aborted_at
+        out["skipped_count"] = len(commands) - (aborted_at + 1)
+        out["hint"] = (
+            f"Batch stopped at command {aborted_at}; "
+            f"{len(commands) - (aborted_at + 1)} later commands were not run — the "
+            "scene may be unsaved. Re-run the remaining commands with "
+            "stop_on_error=false or fix the failing command first."
+        )
+    return out
 
 
 def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
@@ -103,6 +121,7 @@ async def test_run_commands_stop_on_error_truncates() -> None:
                 "commands": [
                     {"command": "cmd_set_node_property", "params": {"node_path": "Ghost"}},
                     {"command": "cmd_set_node_property", "params": {"node_path": "A"}},
+                    {"command": "cmd_save_scene", "params": {}},
                 ],
                 "stop_on_error": True,
             },
@@ -111,9 +130,15 @@ async def test_run_commands_stop_on_error_truncates() -> None:
     assert data["ok_all"] is False
     assert data["count"] == 1  # stopped after the first failure
     assert data["results"][0]["error"] == "RESOURCE_NOT_FOUND"
+    # #461: partial completion is named, never silent — which command aborted the
+    # batch, how many were skipped, and the unsaved-scene consequence.
+    assert data["aborted_at"] == 0
+    assert data["skipped_count"] == 2
+    assert "may be unsaved" in data["hint"]
+    assert "2 later commands were not run" in data["hint"]
 
 
-async def test_run_commands_continue_on_error_runs_all() -> None:
+async def test_run_commands_continue_on_error_reports_no_abort() -> None:
     server, _ = _build()
     async with Client(server) as client:
         await client.call_tool("godot_enable_toolset", {"category": "composite"})
@@ -131,6 +156,9 @@ async def test_run_commands_continue_on_error_runs_all() -> None:
     assert data["ok_all"] is False
     assert data["count"] == 2  # both ran despite the first failing
     assert data["results"][1]["ok"] is True
+    # #461: nothing was skipped, so the abort fields stay absent/None.
+    assert data.get("aborted_at") in (None, {})
+    assert not data.get("hint")
 
 
 async def test_run_commands_dry_run_sends_nothing() -> None:

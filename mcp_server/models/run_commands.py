@@ -35,6 +35,11 @@ class RunCommandsResult(BaseModel):
     itself is still a success (the commands ran) even if individual sub-commands
     failed — inspect ``results`` for per-command status. ``dry_run`` returns the
     ``planned`` command names without executing anything.
+
+    #461: when ``stop_on_error`` halted the batch early, ``aborted_at`` names
+    the index of the failing sub-command and ``skipped_count``/``hint`` make the
+    trailing work explicit (default ``stop_on_error=True`` means trailing
+    commands — e.g. ``save_scene`` — silently never ran before this field).
     """
 
     results: list[SubCommandResult] = []
@@ -42,3 +47,6 @@ class RunCommandsResult(BaseModel):
     count: int
     planned: list[str] = []
     dry_run: bool = False
+    aborted_at: int | None = None
+    skipped_count: int = 0
+    hint: str | None = None

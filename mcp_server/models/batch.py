@@ -30,6 +30,11 @@ class BatchSetResult(BaseModel):
     skipped: list[dict[str, Any]] = Field(default_factory=list)
     count: int = 0
     dry_run: bool = False
+    # #461: false when the batch exceeded the 20-node UndoRedo threshold and was
+    # applied directly — undo will not revert it. True when every applied set is
+    # undo-tracked (or nothing was applied).
+    undoable: bool = True
+    hint: str | None = None
 
 
 class CrossSceneSceneResult(BaseModel):

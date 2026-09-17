@@ -81,6 +81,53 @@ async def _run() -> None:
             {"type": "Sprite2D", "property": "visible", "value": False},
         )
         assert batch["count"] == 2 and batch["skipped"] == []
+        # #461: small batches are undo-tracked — reported explicitly
+        assert batch["undoable"] is True
+
+        # #461: a batch above the 20-node threshold bypasses UndoRedo; the
+        # response says so (undoable=false + hint), never silent. Node has
+        # process_mode (every Node does), so all 25+ apply.
+        for i in range(25):
+            await _create(bridge, f"Bulk{i}", "Node")
+        big = await _ok(
+            bridge,
+            "cmd_batch_set_property",
+            {"type": "Node", "property": "process_mode", "value": 2},
+        )
+        assert big["count"] > 20, f"precondition: batch too small ({big['count']})"
+        assert big["undoable"] is False, big
+        assert "UndoRedo threshold" in big["hint"] and "Undo will not revert" in big["hint"]
+
+        # #461: run_commands names its early stop instead of burying it — a
+        # failing command at index 0 halts the batch and the skipped tail is
+        # counted (stop_on_error defaults to True).
+        ghost_set = {
+            "command": "cmd_set_node_property",
+            "params": {"node_path": "Ghost", "property": "visible", "value": False},
+        }
+        failed = await bridge.send(
+            "cmd_run_commands",
+            {"commands": [ghost_set, {"command": "cmd_save_scene", "params": {}}]},
+        )
+        assert failed.ok is True  # the batch itself ran; sub-command 0 failed
+        assert (failed.result or {}).get("ok_all") is False
+        assert failed.result is not None
+        assert failed.result["aborted_at"] == 0
+        assert failed.result["skipped_count"] == 1
+        assert "may be unsaved" in failed.result["hint"]
+
+        # stop_on_error=False runs everything and leaves the abort fields unset
+        all_ran = await _ok(
+            bridge,
+            "cmd_run_commands",
+            {
+                "commands": [ghost_set, {"command": "cmd_save_scene", "params": {}}],
+                "stop_on_error": False,
+            },
+        )
+        assert all_ran["count"] == 2 and all_ran["ok_all"] is False
+        # not aborted: the addon omits the fields entirely
+        assert "aborted_at" not in all_ran and "hint" not in all_ran
 
         # batch_set by explicit paths reports a node missing the property as skipped
         mixed = await _ok(
