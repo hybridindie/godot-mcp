@@ -4,6 +4,17 @@
 # This job runs them on a SELF-HOSTED runner that has a Godot editor binary —
 # closing the CI gap behind #263/#269.
 #
+# *** TEMPORARILY DISABLED (2026-09-17) ***
+# The runner's outbound network has been failing for ~2 days (issues in this
+# order, all before any repo code executes): `actions/checkout` and
+# `astral-sh/setup-uv` tarball downloads die on codeload.github.com (HttpClient
+# 100s timeouts, then SSL connect failures), and setup-uv's own manifest fetch
+# dies with a bare "fetch failed". Same-host curl succeeds in ~0.1s, so this is
+# runner-host network instability, not repo code — but it makes every PR show a
+# red e2e and hides real regressions. Re-enable by removing the `if:` guard on
+# the job below once the runner's network is verified (run a workflow_dispatch
+# and confirm all steps green).
+#
 # RUNNER REQUIREMENTS (k3s self-hosted, label `godot`):
 #   - Godot 4.7 *editor* binary (not the export-template/server build — the suites
 #     need `--editor`). Runs fully headless via `--headless` (dummy display/audio).
@@ -22,18 +33,7 @@
 name: e2e
 
 on:
-  pull_request:
-    # Editor suites validate the addon + bridge + server; skip doc-only churn.
-    paths:
-      - "godot/**"
-      - "mcp_server/**"
-      - "tests/**"
-      - "pyproject.toml"
-      - "uv.lock"
-      - ".github/workflows/e2e.yml"
   workflow_dispatch:
-  schedule:
-    - cron: "0 6 * * *" # 06:00 UTC nightly regression safety net
 
 # One in-flight live-editor run across the whole repo (issue #444): the single
 # self-hosted runner is shared, and two concurrent PRs' jobs contend for the

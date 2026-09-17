@@ -374,7 +374,7 @@ writes, and writes register `UndoRedo`). `godot_scripts_get_parse_errors` shells
 | `godot_scripts_get_for_node` | `node_path = ""` (else selected) | `NodeScript { node_path, script_path?, content? }` | `read_only` |
 | `godot_scripts_write` | `script_path, content, dry_run=False` | `WriteScriptResult { script_path, created, would_overwrite, dry_run }` | `mutating` |
 | `godot_scripts_patch` | `script_path, find, replace, dry_run=False` | `PatchScriptResult { script_path, replacements, dry_run }` | `mutating` |
-| `godot_scripts_get_parse_errors` | `script_path` | `ParseCheckResult { script_path, ok, errors: [ParseError{message, source?, line?}] }` | `read_only` |
+| `godot_scripts_get_parse_errors` | `script_path` | `ParseCheckResult { script_path, ok, errors: [ParseError{message, source?, line?}], rescan_pending }` | `read_only` |
 
 Non-`.gd` paths, missing files, and a `find` string that isn't present return structured
 errors. A `script_path` that isn't a `res://` path **or that escapes the project root**
@@ -385,6 +385,15 @@ replacing hand-written code; it stays `mutating` because the change is reversibl
 editor's undo (the prior content is restored, and undoing a *created* script also removes
 its `.uid` sidecar). The agent composes `godot_scripts_get_parse_errors` to validate after a write —
 `godot_scripts_write` does not auto-validate.
+
+`get_parse_errors` is deterministic across the deferred rescan (#453): the subprocess
+reads `global_script_class_cache.cfg` from disk, and the editor's post-write scan (#417)
+is asynchronous, so the tool first polls the addon's scan state (`cmd_get_scan_state`
+→ `EditorFileSystem.is_scanning()`) and waits — bounded at 2s — for it to flush. If a
+scan is still in flight after the budget, the result carries `rescan_pending: true`
+alongside the errors: a fresh-class_name "Could not find type" then may be stale cache,
+not a real parse error (re-check after a moment). An unreachable bridge skips the gate
+(best-effort) and stamps `rescan_pending: false`.
 
 #### Resource files & autoloads (issue #34) — category: `resources_edit` (gated off by default)
 

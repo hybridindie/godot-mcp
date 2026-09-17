@@ -10,6 +10,7 @@ errors. All in the gated ``scripts`` toolset.
 
 from __future__ import annotations
 
+import asyncio
 from typing import Annotated
 
 from fastmcp import FastMCP
@@ -130,6 +131,35 @@ def register_scripts(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
         """
         require_godot_binary(runner.binary)
         project_dir = await resolve_project_dir(bridge, config)
+        # #453: the check's subprocess reads global_script_class_cache.cfg from
+        # disk, and the editor's scan after a write (issue #417) is asynchronous.
+        # Wait — bounded — for the scan to flush so the read is deterministic;
+        # if it is still scanning, the result carries rescan_pending=true so the
+        # agent knows a fresh class_name error may be stale-cache, not real.
+        rescan_pending = await _wait_for_scan_quiet(bridge)
         output = await runner.check_script(project_dir, script_path, timeout=30.0)
         errors = parse_check_errors(output.stdout + "\n" + output.stderr)
-        return ParseCheckResult(script_path=script_path, ok=not errors, errors=errors)
+        return ParseCheckResult(
+            script_path=script_path, ok=not errors, errors=errors,
+            rescan_pending=rescan_pending,
+        )
+
+
+async def _wait_for_scan_quiet(
+    bridge: Bridge, max_wait_s: float = 2.0, poll_s: float = 0.05
+) -> bool:
+    """Wait (bounded) for the editor's filesystem scan to finish. Returns whether
+    a scan was still in flight when the budget ran out (issue #453).
+
+    Never raises: the scan-state probe is best-effort — an unreachable bridge
+    just means no scan knowledge, so the check proceeds without gating.
+    """
+    try:
+        for _ in range(max(1, int(max_wait_s / poll_s))):
+            response = await bridge.send("cmd_get_scan_state", timeout=2.0)
+            if not response.ok or not (response.result or {}).get("scanning"):
+                return False
+            await asyncio.sleep(poll_s)
+        return True
+    except Exception:
+        return False
