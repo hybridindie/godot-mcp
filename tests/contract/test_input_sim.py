@@ -130,3 +130,51 @@ async def test_record_input_safety_classes() -> None:
         tools = {t.name: t for t in await client.list_tools()}
     assert tools["godot_input_record"].meta["safety_class"] == "runtime"
     assert tools["godot_input_stop_recording"].meta["safety_class"] == "read_only"
+
+
+async def test_input_sim_refused_while_game_paused_at_break() -> None:
+    """While the game is paused at a debugger break, injected input cannot be
+    processed — the addon must refuse with a structured precondition instead of
+    acking ``sent: true`` for input that will never run (#443)."""
+    server, _ = _build()
+
+    def breaked_responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command in {
+            "cmd_simulate_key",
+            "cmd_simulate_mouse",
+            "cmd_simulate_action",
+            "cmd_play_input_sequence",
+        }:
+            # NOTE: this fake responder is aspirational — the REAL addon does not
+            # yet refuse (that is the #442/#443 work). Written red-first per TDD:
+            # it pins the envelope the live handler must return. The live check is
+            # tests/integration/test_input_sim_e2e.py (added in the same change).
+            return ResponseEnvelope.failure(
+                cmd.id,
+                "PRECONDITION_FAILED",
+                "The game is paused at a debugger break — injected input is frozen "
+                "alongside the game. Call continue_execution or unpause first.",
+                "game_not_breaked",
+            )
+        return _responder(cmd)
+
+    conn = FakeAddonConnection(responder=breaked_responder)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    server = create_server(ServerConfig(), bridge=bridge)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "input"})
+        for tool, args in (
+            ("godot_input_simulate_key", {"key": "Space", "pressed": True}),
+            ("godot_input_simulate_mouse", {"x": 10, "y": 20, "button": "left"}),
+            ("godot_input_simulate_action", {"action": "ui_accept"}),
+            (
+                "godot_input_play_sequence",
+                {"events": [{"type": "key", "key": "A"}], "delay_ms": 10},
+            ),
+        ):
+            refused = await client.call_tool(tool, args, raise_on_error=False)
+            assert refused.is_error, f"{tool} was not refused while breaked"
+            text = str(refused.content)
+            assert "PRECONDITION_FAILED" in text, tool
+            assert "paused at a debugger break" in text, tool
+            assert "continue_execution" in text or "unpause" in text, tool

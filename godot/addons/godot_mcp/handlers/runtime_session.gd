@@ -13,6 +13,22 @@ func _init(router: MCPCommandRouter) -> void:
 	_router = router
 
 
+## Live-probe guard + the #443 break gate: injected input while the game is
+## frozen at a debugger break can never be processed, so it must be refused
+## (an acked-but-frozen sent-true reads as a gameplay bug — the #411 trap for
+## the input domain). continue_execution or unpause clears the refusal.
+func _require_unpaused_live_probe() -> Dictionary:
+	var guard := _router._require_live_probe()
+	if not guard["ok"]:
+		return guard
+	var debugger := _router._debugger as MCPDebugger
+	var session := debugger.get_session(debugger.get_session_id())
+	if session != null and session.is_breaked():
+		var hint := "The game is paused at a debugger break; injected input is frozen alongside the game. Call continue_execution or unpause before injecting input."
+		return _router._fail("PRECONDITION_FAILED", hint, "game_not_breaked")
+	return {"ok": true}
+
+
 func register(handlers: Dictionary) -> void:
 	handlers["cmd_capture_game_screenshot"] = _cmd_capture_game_screenshot
 	handlers["cmd_get_game_scene_tree"] = _cmd_get_game_scene_tree
@@ -94,7 +110,7 @@ func _cmd_get_game_scene_tree(_params: Dictionary) -> Dictionary:
 
 
 func _cmd_simulate_key(params: Dictionary) -> Dictionary:
-	var guard := _router._require_live_probe()
+	var guard := _require_unpaused_live_probe()
 	if not guard["ok"]:
 		return guard
 	if str(params.get("key", "")).is_empty():
@@ -104,7 +120,7 @@ func _cmd_simulate_key(params: Dictionary) -> Dictionary:
 
 
 func _cmd_simulate_mouse(params: Dictionary) -> Dictionary:
-	var guard := _router._require_live_probe()
+	var guard := _require_unpaused_live_probe()
 	if not guard["ok"]:
 		return guard
 	var button := str(params.get("button", ""))
@@ -115,7 +131,7 @@ func _cmd_simulate_mouse(params: Dictionary) -> Dictionary:
 
 
 func _cmd_simulate_action(params: Dictionary) -> Dictionary:
-	var guard := _router._require_live_probe()
+	var guard := _require_unpaused_live_probe()
 	if not guard["ok"]:
 		return guard
 	if str(params.get("action", "")).is_empty():
@@ -126,7 +142,7 @@ func _cmd_simulate_action(params: Dictionary) -> Dictionary:
 
 
 func _cmd_play_input_sequence(params: Dictionary) -> Dictionary:
-	var guard := _router._require_live_probe()
+	var guard := _require_unpaused_live_probe()
 	if not guard["ok"]:
 		return guard
 	var events: Variant = params.get("events")

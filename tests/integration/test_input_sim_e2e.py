@@ -118,6 +118,39 @@ async def _run() -> None:
         assert bad_button.ok is False and bad_button.error == "VALIDATION_ERROR"
         bad_seq = await bridge.send("cmd_play_input_sequence", {"events": [{"type": "bogus"}]})
         assert bad_seq.ok is False and bad_seq.error == "VALIDATION_ERROR"
+        pre_break_count = (await _ok(bridge, "cmd_get_input_stats", {}))["injected"]
+
+        # #443: input injected while the game is paused at a debugger break must
+        # be REFUSED (structured precondition), not acked sent:true for input the
+        # frozen game can never process. force_break first (the probe services it
+        # on its own frame, as in test_runtime_session_e2e).
+        await _ok(bridge, "cmd_force_break", {})
+        breaked = False
+        for _ in range(40):
+            state = await _ok(bridge, "cmd_get_debug_break_state", {})
+            if state["breaked"]:
+                breaked = True
+                break
+            await asyncio.sleep(0.2)
+        assert breaked, "force_break did not report the game entering the break loop"
+        for command, params in (
+            ("cmd_simulate_key", {"key": "Space", "pressed": True}),
+            ("cmd_simulate_mouse", {"x": 1, "y": 1, "button": "left"}),
+            ("cmd_simulate_action", {"action": "ui_accept"}),
+            ("cmd_play_input_sequence", {"events": [{"type": "key", "key": "A"}]}),
+        ):
+            refused = await bridge.send(command, params)
+            assert refused.ok is False and refused.error == "PRECONDITION_FAILED", (
+                f"{command} was acked while the game is frozen at a break"
+            )
+            assert "paused at a debugger break" in (refused.hint or ""), command
+            assert refused.required == "game_not_breaked", command
+        # The injected counter must NOT have moved while frozen (input was refused,
+        # not queued): it stays at the pre-break count.
+        frozen_stats = await _ok(bridge, "cmd_get_input_stats", {})
+        assert frozen_stats["injected"] == pre_break_count, frozen_stats
+        resume = await _ok(bridge, "cmd_continue_execution", {})
+        assert resume.get("resumed") is not False
 
         await _ok(bridge, "cmd_stop_scene", {})
     finally:
