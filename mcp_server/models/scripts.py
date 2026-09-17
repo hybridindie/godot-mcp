@@ -82,3 +82,8 @@ class ParseCheckResult(BaseModel):
     script_path: str
     ok: bool
     errors: list[ParseError] = Field(default_factory=list)
+    # #453: true when the editor's filesystem scan (deferred after the write,
+    # issue #417) had not flushed by the time the check ran — the subprocess
+    # parser reads global_script_class_cache.cfg from disk, so a "Could not
+    # find type" error on a fresh class_name may be stale-cache, not real.
+    rescan_pending: bool = False

@@ -277,6 +277,72 @@ async def test_get_parse_errors_reports_structured_errors() -> None:
     assert payload["errors"][0]["line"] == 5
 
 
+async def test_get_parse_errors_waits_for_editor_scan() -> None:
+    """The tool must consult the editor's scan state before parsing (#453): it
+    polls cmd_get_scan_state, and only reports rescan_pending=true when the
+    scan is STILL in flight after the bounded budget (a quiet editor parses
+    immediately with rescan_pending=false)."""
+    check = RunOutput(
+        command=["fake"],
+        stderr="SCRIPT ERROR: Parse Error: bad\n   at: GDScript::reload (res://a.gd:5)",
+    )
+    # Simulate: the first two polls report scanning, then it goes quiet.
+    state = {"scans": [True, True, False, False, False, False, False, False, False, False]}
+
+    def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_get_scan_state":
+            scanning = state["scans"].pop(0) if len(state["scans"]) > 1 else False
+            return ResponseEnvelope.success(cmd.id, {"scanning": scanning})
+        return _responder(cmd)
+
+    conn = FakeAddonConnection(responder=responder)
+    config = ServerConfig(godot_project_dir="/tmp/proj")
+    bridge = Bridge(config.bridge, connector=connector_for(conn))
+    runner = _FakeRunner(check_output=check)
+    server = create_server(config, bridge=bridge, runner=runner)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "scripts"})
+        result = await client.call_tool(
+            "godot_scripts_get_parse_errors", {"script_path": "res://a.gd"}
+        )
+    payload = result.structured_content
+    # The scan went quiet within budget → rescan_pending stays false.
+    assert payload["rescan_pending"] is False
+    # The fake saw the poll before the check ran.
+    assert "cmd_get_scan_state" in [
+        CommandEnvelope.model_validate_json(s).command for s in conn.sent
+    ]
+
+
+async def test_get_parse_errors_reports_rescan_pending_when_scan_stuck() -> None:
+    """A scan that never finishes within the bounded budget stamps
+    rescan_pending=true on the result — the agent then knows a fresh-class_name
+    'Could not find type' error may be stale cache, not a real parse error (#453)."""
+    check = RunOutput(
+        command=["fake"],
+        stderr='SCRIPT ERROR: Parse Error: Could not find type "Enemy" (res://a.gd:3)',
+    )
+
+    def stuck_responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_get_scan_state":
+            return ResponseEnvelope.success(cmd.id, {"scanning": True})
+        return _responder(cmd)
+
+    conn = FakeAddonConnection(responder=stuck_responder)
+    config = ServerConfig(godot_project_dir="/tmp/proj")
+    bridge = Bridge(config.bridge, connector=connector_for(conn))
+    runner = _FakeRunner(check_output=check)
+    server = create_server(config, bridge=bridge, runner=runner)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "scripts"})
+        result = await client.call_tool(
+            "godot_scripts_get_parse_errors", {"script_path": "res://a.gd"}
+        )
+    payload = result.structured_content
+    assert payload["rescan_pending"] is True
+    assert payload["ok"] is False
+
+
 async def test_missing_script_is_structured_error() -> None:
     server, _ = _build()
     async with Client(server) as client:

@@ -17,6 +17,7 @@ func _init(router: MCPCommandRouter) -> void:
 
 func register(handlers: Dictionary) -> void:
 	handlers["cmd_get_script_for_node"] = _cmd_get_script_for_node
+	handlers["cmd_get_scan_state"] = _cmd_get_scan_state
 	handlers["cmd_list_scripts"] = _cmd_list_scripts
 	handlers["cmd_patch_script"] = _cmd_patch_script
 	handlers["cmd_read_script"] = _cmd_read_script
@@ -24,6 +25,14 @@ func register(handlers: Dictionary) -> void:
 
 
 # -- handlers ----------------------------------------------------------------
+
+## #453: is the editor's filesystem scan still in flight? The parse check's
+## subprocess reads global_script_class_cache.cfg from disk — the deferred scan
+## after a script write (issue #417) must have *flushed*, not merely started,
+## for the read to be deterministic. get_parse_errors polls this before it runs.
+func _cmd_get_scan_state(_params: Dictionary) -> Dictionary:
+	var fs := EditorInterface.get_resource_filesystem()
+	return _router._ok({"scanning": fs.is_scanning()})
 
 func _cmd_read_script(params: Dictionary) -> Dictionary:
 	var path := str(params.get("script_path", ""))
