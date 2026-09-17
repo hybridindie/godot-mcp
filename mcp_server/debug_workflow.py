@@ -98,8 +98,14 @@ def build_report(
     run_skipped: str | None,
     parse_errors: list[ParseError],
     parse_skipped: str | None,
+    expected_timeout: bool = False,
 ) -> tuple[list[str], list[str]]:
-    """Turn the collected diagnostics into (findings, suggestions). Pure."""
+    """Turn the collected diagnostics into (findings, suggestions). Pure.
+
+    ``expected_timeout`` marks runs of games that legitimately never quit on
+    their own (sandbox/live-service games): a timeout then means the game ran
+    as designed, so no timeout finding is emitted (issue #490).
+    """
     findings: list[str] = []
     suggestions: list[str] = []
 
@@ -132,12 +138,17 @@ def build_report(
             findings.append(
                 f"RUNTIME WARNINGS: {len(run_result.warnings)} warning(s) captured."
             )
-        if run_result.timed_out:
+        if run_result.timed_out and not expected_timeout:
             findings.append("RUN TIMED OUT: The game did not exit within the timeout.")
             suggestions.append(
-                "Check for infinite loops in _process/_physics_process or missing quit() calls."
+                "If the game should quit on its own, check for missing quit() calls "
+                "or stuck loops in _process/_physics_process. If it is meant to run "
+                "indefinitely (sandbox/live-service), pass expected_timeout=true so "
+                "the timeout is not reported as an issue."
             )
-        if run_result.exit_code != 0:
+        # exit_code is None when the run was killed by the timeout — that is not a
+        # crash, so only a real non-zero exit is a finding (issue #490).
+        if not run_result.timed_out and run_result.exit_code not in (None, 0):
             findings.append(
                 f"NON-ZERO EXIT: headless run exited with code {run_result.exit_code}."
             )
@@ -161,7 +172,12 @@ def build_report(
 
 
 async def run_debug_workflow(
-    bridge: Bridge, config: ServerConfig, runner: Runner, scene: str, timeout_seconds: float
+    bridge: Bridge,
+    config: ServerConfig,
+    runner: Runner,
+    scene: str,
+    timeout_seconds: float,
+    expected_timeout: bool = False,
 ) -> DebugWorkflowResult:
     """Run all diagnostics and assemble the unified report model."""
     parse_errors, parse_skipped = await collect_parse_errors(bridge, config, runner)
@@ -176,6 +192,7 @@ async def run_debug_workflow(
         run_skipped=run_skipped,
         parse_errors=parse_errors,
         parse_skipped=parse_skipped,
+        expected_timeout=expected_timeout,
     )
 
     return DebugWorkflowResult(

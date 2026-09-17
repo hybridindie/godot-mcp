@@ -62,8 +62,41 @@ def test_build_report_run_errors_warnings_timeout() -> None:
     assert any(f.startswith("RUNTIME ERRORS") for f in findings)
     assert any(f.startswith("RUNTIME WARNINGS") for f in findings)
     assert any(f.startswith("RUN TIMED OUT") for f in findings)
-    assert any(f.startswith("NON-ZERO EXIT") for f in findings)  # exit_code None != 0
+    # A timeout is not a crash: exit_code None (issue #490) must not emit NON-ZERO EXIT.
+    assert not any(f.startswith("NON-ZERO EXIT") for f in findings)
+    # The suggestion must not blame infinite loops unconditionally — running past a
+    # timeout is expected for games that never self-quit.
+    assert any("timeout" in s.lower() or "quit" in s.lower() for s in suggestions)
+    assert not any("infinite loop" in s.lower() for s in suggestions)
     assert "  [ERROR] boom at res://x.gd:5" in suggestions
+
+
+def test_build_report_actual_nonzero_exit_after_clean_run() -> None:
+    """A real non-zero exit (crash) with no timeout still emits NON-ZERO EXIT."""
+    run = _run(timed_out=False, exit_code=1)
+    findings, _ = build_report(
+        bridge_connected=True, tree_result={"tree": {}}, run_result=run,
+        run_skipped=None, parse_errors=[], parse_skipped=None,
+    )
+    assert "NON-ZERO EXIT: headless run exited with code 1." in findings
+
+
+def test_build_report_timeout_expected_suppresses_finding() -> None:
+    """expected_timeout=True: a game that legitimately never quits produces no
+    timeout/non-zero-exit finding for the run itself (issue #490) — the run is
+    still reported as run."""
+    run = _run(timed_out=True, exit_code=None)
+    findings, suggestions = build_report(
+        bridge_connected=True, tree_result={"tree": {}}, run_result=run,
+        run_skipped=None, parse_errors=[], parse_skipped=None,
+        expected_timeout=True,
+    )
+    assert not any("TIMED OUT" in f for f in findings)
+    assert not any("NON-ZERO EXIT" in f for f in findings)
+    # No crash-blaming suggestions either.
+    assert not any("infinite loop" in s.lower() for s in suggestions)
+    # Unrelated diagnostics (e.g. no open scene) still surface.
+    assert not any(f.startswith("HEADLESS RUN") for f in findings)
 
 
 def test_build_report_run_skipped_is_first_finding() -> None:

@@ -28,6 +28,7 @@ def register_debug_workflow(
     async def debug_workflow(
         scene: str = "",
         timeout_seconds: TimeoutSeconds = 5.0,
+        expected_timeout: bool = False,
     ) -> DebugWorkflowResult:
         """Run a comprehensive debug check on the project and return a unified report.
 
@@ -41,5 +42,10 @@ def register_debug_workflow(
         4. Bridge connection state and Godot version
 
         ``scene`` — optional res:// path to focus the headless run on a specific scene.
+        ``expected_timeout`` — set true when the game legitimately runs until killed
+        (sandbox/live-service games with no quit path): a timeout then means the run
+        behaved as designed and is not reported as a finding.
         """
-        return await run_debug_workflow(bridge, config, runner, scene, timeout_seconds)
+        return await run_debug_workflow(
+            bridge, config, runner, scene, timeout_seconds, expected_timeout
+        )
