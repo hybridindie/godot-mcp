@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from fastmcp import Client, FastMCP
 
@@ -144,3 +146,69 @@ async def test_batch_set_dry_run_forwards_flag() -> None:
     assert result.structured_content["dry_run"] is True
     # dry_run is forwarded to the addon (which computes the plan), not short-circuited
     assert "cmd_batch_set_property" in _commands(conn)
+
+
+async def test_batch_set_reports_undoable_true_within_threshold() -> None:
+    """A small batch is undo-tracked — the result says so explicitly (#461)."""
+    server, _ = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "batch"})
+        result = await client.call_tool(
+            "godot_batch_set_property",
+            {"property": "visible", "value": False, "node_type": "Sprite2D"},
+        )
+    data = result.structured_content
+    assert data["undoable"] is True
+    assert not data.get("hint")
+
+
+async def test_batch_set_reports_non_undoable_over_threshold() -> None:
+    """>20 applied nodes bypasses UndoRedo for perf — the result must say
+    ``undoable: false`` with the threshold in the hint, or the agent believes
+    undo covers the whole batch (#461, silent-failure class)."""
+    server, _ = _build()
+
+    def big_batch_responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_batch_set_property":
+            applied = [f"Node{i}" for i in range(25)]
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "property": cmd.params["property"],
+                    "applied": applied,
+                    "skipped": [],
+                    "count": len(applied),
+                    "dry_run": cmd.params.get("dry_run", False),
+                    "undoable": False,
+                    "hint": (
+                        "25 nodes exceeds the 20-node UndoRedo threshold: this batch "
+                        "was applied directly without undo support. Undo will not revert it."
+                    ),
+                },
+            )
+        return _responder(cmd)
+
+    conn = FakeAddonConnection(responder=big_batch_responder)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    server = create_server(ServerConfig(), bridge=bridge)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "batch"})
+        result = await client.call_tool(
+            "godot_batch_set_property", {"property": "visible", "value": False}
+        )
+    data = result.structured_content
+    assert data["undoable"] is False
+    assert "20-node UndoRedo threshold" in data["hint"]
+    assert "Undo will not revert" in data["hint"]
+
+
+async def test_batch_undoable_flag_addon_source_pins_gate_order() -> None:
+    """Structural pin: the undoable flag is computed from the threshold branch,
+    so the addon cannot silently regress to always-true (#461)."""
+    addon_dir = Path(__file__).resolve().parents[2] / "godot" / "addons" / "godot_mcp"
+    source = (addon_dir / "handlers" / "batch.gd").read_text()
+    fn = source[source.index("func _cmd_batch_set_property") :]
+    assert '"undoable"' in fn
+    threshold_line = fn.index("to_apply.size() > 20")
+    flag_line = fn.index("undoable = false")
+    assert threshold_line < flag_line  # only the bypass branch flips the flag

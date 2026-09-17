@@ -791,7 +791,7 @@ support `dry_run`; `save=True` also saves the scene (a file write after the undo
 | `godot_composite_compose_node` | `parent_path, node_type, node_name, properties?, script_path?, children?, save=False, dry_run=False` | `ComposeNodeResult { node_path, created, children[], script_attached, properties_set[], saved }` | `mutating` |
 | `godot_composite_batch_create_nodes` | `parent_path, node_type, names[], properties?, save=False, dry_run=False` | `BatchCreateNodesResult { created[], count, saved }` | `mutating` |
 | `godot_composite_apply_node_edits` | `edits[] ({node_path, properties}), save=False, dry_run=False` | `ApplyNodeEditsResult { edited[], skipped[], count, saved }` | `mutating` |
-| `godot_composite_run_commands` | `commands[] ({command, params}), stop_on_error=True, dry_run=False` | `RunCommandsResult { results[] ({command, ok, result?, error?, hint?}), ok_all, count, planned[], dry_run }` | `mutating` |
+| `godot_composite_run_commands` | `commands[] ({command, params}), stop_on_error=True, dry_run=False` | `RunCommandsResult { results[] ({command, ok, result?, error?, hint?}), ok_all, count, planned[], dry_run, aborted_at?, skipped_count?, hint? }` | `mutating` |
 
 Every result model also carries `dry_run` (true on a preview), as for all `dry_run`-aware tools.
 
@@ -809,6 +809,9 @@ Every result model also carries `dry_run` (true on a preview), as for all `dry_r
   `UndoRedo` action; order is preserved. `ok_all` is true only if every sub-command
   succeeded — the batch envelope itself is a success (it ran); inspect `results[].ok`.
   `stop_on_error=True` (default) halts at the first failure; `False` runs them all.
+  #461: a halt is **never silent** — the result then carries `aborted_at` (index of
+  the failing sub-command), `skipped_count`, and a `hint` naming the consequence
+  ("the scene may be unsaved"); `stop_on_error=False` leaves all three unset.
 - These are game-agnostic, generic Godot operations — no game vocabulary (see the
   game-agnostic scope rule in `AGENTS.md`).
 
@@ -964,14 +967,17 @@ Operate over many nodes/scenes. Finds/deps are `read_only`; writes are `mutating
 | Tool | Params | Returns |
 |------|--------|---------|
 | `godot_batch_find_nodes_by_type` | `node_type, parent_path=".", recursive=True` | `FindNodesResult { type, nodes[], count }` |
-| `godot_batch_set_property` | `property, value, node_paths?, node_type?, dry_run=False` | `BatchSetResult { property, applied[], skipped[], count, dry_run }` |
+| `godot_batch_set_property` | `property, value, node_paths?, node_type?, dry_run=False` | `BatchSetResult { property, applied[], skipped[], count, dry_run, undoable, hint? }` |
 | `godot_batch_cross_scene_set_property` | `scenes[], node_type, property, value, dry_run=False` | `CrossSceneResult { results[], total_modified, scenes, dry_run }` |
 | `godot_batch_get_dependencies` | `path` | `DependenciesResult { path, dependencies[], count }` |
 
 `godot_batch_find_nodes_by_type` matches by class (incl. derived) under `parent_path` in the open
 scene. `godot_batch_set_property` sets one property on many nodes in the open scene in a single
 undoable action — target by explicit `node_paths` or by `node_type`; nodes lacking the
-property are reported in `skipped`. `godot_batch_cross_scene_set_property` edits scene **files** on
+property are reported in `skipped`. #461: batches of **more than 20** applicable nodes bypass
+`EditorUndoRedoManager` (perf guard) and are applied directly — the result then reports
+`undoable: false` plus a `hint` stating undo will not revert the batch; everything ≤20
+reports `undoable: true`. `godot_batch_cross_scene_set_property` edits scene **files** on
 disk: it loads each (`GEN_EDIT_STATE_MAIN`), sets the property on every `node_type` node,
 re-packs and saves, and re-scans — the **currently-edited** scene is skipped (its
 in-memory copy would clobber the change; reported as an `error`), and each scene's

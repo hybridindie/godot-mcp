@@ -288,6 +288,10 @@ func _cmd_run_commands(params: Dictionary) -> Dictionary:
 	var stop_on_error := bool(params.get("stop_on_error", true))
 	var results: Array = []
 	var ok_all := true
+	# #461: honest partial completion — when stop_on_error halts the batch, the
+	# response names the failing index and the skipped trailing count (e.g. a
+	# trailing save_scene silently never ran). Reported regardless of the flag.
+	var aborted_at := -1
 	for entry in (raw as Array):
 		if typeof(entry) != TYPE_DICTIONARY:
 			# Every sub-result carries a "command" key so the server's SubCommandResult
@@ -296,6 +300,7 @@ func _cmd_run_commands(params: Dictionary) -> Dictionary:
 			bad["command"] = ""
 			results.append(bad)
 			ok_all = false
+			aborted_at = results.size() - 1
 			if stop_on_error:
 				break
 			continue
@@ -312,9 +317,19 @@ func _cmd_run_commands(params: Dictionary) -> Dictionary:
 		results.append(sub)
 		if not bool(sub.get("ok", false)):
 			ok_all = false
+			aborted_at = results.size() - 1
 			if stop_on_error:
 				break
-	return _ok({"results": results, "ok_all": ok_all, "count": results.size()})
+	var body := {"results": results, "ok_all": ok_all, "count": results.size()}
+	if stop_on_error and aborted_at >= 0:
+		var skipped := (raw as Array).size() - (aborted_at + 1)
+		body["aborted_at"] = aborted_at
+		body["skipped_count"] = skipped
+		body["hint"] = (
+			"Batch stopped at command %d; %d later commands were not run — the scene may be unsaved. Re-run the remaining commands with stop_on_error=false or fix the failing command first."
+			% [aborted_at, skipped]
+		)
+	return _ok(body)
 
 
 func _cmd_get_project_info(_params: Dictionary) -> Dictionary:
