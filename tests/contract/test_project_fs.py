@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from fastmcp import Client, FastMCP
 
@@ -123,6 +125,71 @@ async def test_set_setting_safety_and_dry_run() -> None:
         )
     assert dry.structured_content["dry_run"] is True
     assert "cmd_set_setting" not in _commands(conn)
+
+
+async def test_set_setting_unknown_key_fails_structured() -> None:
+    """Setting a ProjectSettings key the engine does not know (e.g. the classic
+    application/config/main_scene typo for application/run/main_scene) must fail
+    with a structured, actionable error — not persist a dead key silently (#462).
+
+    This is a *contract-level* pin: the real addon (cmd_set_setting) must return
+    VALIDATION_ERROR with a hint naming the likely intended key, and the Python
+    layer must surface that failure instead of swallowing it. The fake responder
+    here mirrors the acceptance criterion; the addon-side behavior is asserted by
+    tests/unit/test_addon_manifest.py's command map and the live-editor e2e.
+    """
+    server, conn = _build()
+
+    def bad_key_responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_set_setting":
+            if cmd.params.get("name") == "application/config/main_scene":
+                return ResponseEnvelope.failure(
+                    cmd.id,
+                    "VALIDATION_ERROR",
+                    "Unknown ProjectSettings key 'application/config/main_scene'. "
+                    "Godot only persists keys it knows; this typo would be written "
+                    "but never read. Did you mean 'application/run/main_scene'?",
+                )
+            return ResponseEnvelope.success(
+                cmd.id, {"name": cmd.params["name"], "value": cmd.params["value"], "set": True}
+            )
+        return _responder(cmd)
+
+    conn._responder = bad_key_responder
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "project"})
+        bad = await client.call_tool(
+            "godot_project_set_setting",
+            {"name": "application/config/main_scene", "value": "res://a.tscn"},
+            raise_on_error=False,
+        )
+        assert bad.is_error
+        text = str(bad.content).lower()
+        assert "unknown projectsettings key" in text
+        assert "application/run/main_scene" in text
+        # The known key still behaves as today.
+        good = await client.call_tool(
+            "godot_project_set_setting",
+            {"name": "application/config/name", "value": "demo"},
+        )
+    assert good.structured_content["set"] is True
+
+
+async def test_set_setting_unknown_key_addon_handler_refuses() -> None:
+    """The GDScript handler itself refuses unknown keys — pinned structurally
+    against the addon source so the contract cannot silently regress (#462)."""
+    addon_dir = Path(__file__).resolve().parents[2] / "godot" / "addons" / "godot_mcp"
+    source = (addon_dir / "handlers" / "project_fs.gd").read_text()
+    assert "VALIDATION_ERROR" in source
+    # _cmd_set_setting must consult the refusal helper before any write runs.
+    fn_line = source.index("func _cmd_set_setting")
+    call_line = source.index("_unknown_setting_refusal(setting)", fn_line)
+    write_line = source.index("ProjectSettings.set_setting(setting, value)", fn_line)
+    assert call_line < write_line
+    # And the helper must exist with the known-section gate.
+    assert source.index("func _unknown_setting_refusal") < fn_line or (
+        source.index("func _unknown_setting_refusal") > fn_line
+    )
 
 
 async def test_resolve_uid_both_directions() -> None:

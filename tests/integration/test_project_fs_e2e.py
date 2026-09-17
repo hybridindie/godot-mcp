@@ -76,6 +76,32 @@ async def _run() -> None:
         readback = await _ok(bridge, "cmd_get_setting", {"name": "application/config/description"})
         assert readback["value"] == "e2e test description"
 
+        # #462: an obvious typo'd key inside a known engine section is refused
+        # with a structured VALIDATION_ERROR + a hint naming the likely intended
+        # key — nothing is written.
+        typo = await bridge.send(
+            "cmd_set_setting",
+            {"name": "application/config/main_scene", "value": "res://main.tscn"},
+        )
+        assert typo.ok is False and typo.error == "VALIDATION_ERROR", (
+            f"typo'd key accepted: {typo.error} {typo.hint}"
+        )
+        assert "main_scene" in (typo.hint or "")
+        still_missing = await _ok(
+            bridge, "cmd_get_setting", {"name": "application/config/main_scene"}
+        )
+        assert still_missing["exists"] is False
+
+        # #462: a custom user-section key (no engine declaration) stays allowed.
+        custom = await _ok(
+            bridge,
+            "cmd_set_setting",
+            {"name": "godot_mcp_e2e/custom_key", "value": 42},
+        )
+        assert custom["set"] is True
+        custom_read = await _ok(bridge, "cmd_get_setting", {"name": "godot_mcp_e2e/custom_key"})
+        assert custom_read["value"] == 42
+
         # UID round-trip on a script that has a .uid
         to_uid = await _ok(
             bridge, "cmd_path_to_uid", {"path": "res://addons/godot_mcp/godot_mcp.gd"}
@@ -260,3 +286,24 @@ def test_live_delete_open_scene_multi_tab_closes_correct_tab() -> None:
         (GODOT_PROJECT / "tmp_e2e_delete_tab_victim.tscn.uid").unlink(missing_ok=True)
         (GODOT_PROJECT / "tmp_e2e_delete_tab_bystander.tscn").unlink(missing_ok=True)
         (GODOT_PROJECT / "tmp_e2e_delete_tab_bystander.tscn.uid").unlink(missing_ok=True)
+
+
+def test_live_project_fs() -> None:
+    """The fs-tree/search/settings/UID round-trips (#32) + the #462 key gate."""
+    assert GODOT_BIN is not None
+    snapshot = PROJECT_GODOT.read_text()
+    editor = subprocess.Popen(
+        [GODOT_BIN, "--headless", "--editor", "--path", str(GODOT_PROJECT)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        env={**os.environ, "GODOT_MCP_BRIDGE_URL": BRIDGE_URL},
+    )
+    try:
+        asyncio.run(_run())
+    finally:
+        editor.terminate()
+        try:
+            editor.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            editor.kill()
+        PROJECT_GODOT.write_text(snapshot)  # undo the set_setting writes

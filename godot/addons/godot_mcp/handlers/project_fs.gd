@@ -136,6 +136,9 @@ func _cmd_set_setting(params: Dictionary) -> Dictionary:
 	var setting := str(params.get("name", ""))
 	if setting.is_empty():
 		return _router._fail("VALIDATION_ERROR", "'name' must be a non-empty string.")
+	var refusal := _unknown_setting_refusal(setting)
+	if not refusal.is_empty():
+		return _router._fail("VALIDATION_ERROR", refusal)
 	var raw: Variant = params.get("value")
 	var value: Variant = raw
 	if ProjectSettings.has_setting(setting):
@@ -148,6 +151,90 @@ func _cmd_set_setting(params: Dictionary) -> Dictionary:
 		"value": Coerce.to_json(ProjectSettings.get_setting(setting)),
 		"set": true,
 	})
+
+
+## Refusal text for an obvious typo'd ProjectSettings key, or "" when the write
+## is allowed (issue #462).
+##
+## Godot silently persists any key you set — a typo like
+## `application/config/main_scene` (the real key is `application/run/main_scene`)
+## is written to project.godot, never read, and never errors. The engine's own
+## known-key set is the singleton's property list (#425-adjacent: same list the
+## Inspector shows). A hard refusal must only fire when we can be sure the key
+## is dead, so the gate is:
+##   - key is already set / in the known list → allowed (round-trip keys like
+##     `config_version` are not all in the list but are real),
+##   - key under a user-owned namespace (autoload, custom, or a section the
+##     engine does not declare, e.g. a game's own `my_game/…`) → allowed —
+##     Godot documents custom sections as a supported pattern,
+##   - otherwise (typo inside a known engine section) → refuse with a hint
+##     suggesting the closest real key.
+func _unknown_setting_refusal(setting: String) -> String:
+	if ProjectSettings.has_setting(setting):
+		return ""
+	var known: Array = []
+	for p in ProjectSettings.get_property_list():
+		known.append(str(p.get("name", "")))
+	if known.has(setting):
+		return ""
+	var slash := setting.find("/")
+	if slash <= 0:
+		# No section (or root special keys like config_version): engine accepts these.
+		return ""
+	var section := setting.substr(0, slash)
+	if not _KNOWN_SECTIONS.has(section):
+		return ""
+	var suggestion := _closest_known_key(setting, known)
+	var hint := "Unknown ProjectSettings key '%s'. Godot would write it to project.godot but never read it." % setting
+	if not suggestion.is_empty():
+		hint += " Did you mean '%s'?" % suggestion
+	return hint
+
+
+const _KNOWN_SECTIONS := {
+	"application": true,
+	"accessibility": true,
+	"audio": true,
+	"collada": true,
+	"compression": true,
+	"debug": true,
+	"display": true,
+	"editor": true,
+	"editor_plugins": true,
+	"filesystem": true,
+	"gui": true,
+	"input": true,
+	"input_devices": true,
+	"internationalization": true,
+	"layer_names": true,
+	"memory": true,
+	"navigation": true,
+	"network": true,
+	"physics": true,
+	"rendering": true,
+	"threading": true,
+	"xr": true,
+}
+
+
+## Nearest known key by shared prefix depth — surfaces `application/run/main_scene`
+## for the `application/config/main_scene` typo without pulling in a full
+## edit-distance implementation.
+func _closest_known_key(setting: String, known: Array) -> String:
+	var parts := setting.split("/")
+	var best := ""
+	var best_score := 0
+	for candidate in known:
+		var c_parts: PackedStringArray = str(candidate).split("/")
+		var score := 0
+		for i in range(mini(parts.size(), c_parts.size())):
+			if parts[i] != c_parts[i]:
+				break
+			score += 1
+		if score > best_score:
+			best_score = score
+			best = str(candidate)
+	return best
 
 
 
