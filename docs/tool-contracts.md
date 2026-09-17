@@ -308,6 +308,12 @@ UndoRedo-wrapped `cmd_*` handler and runs preconditions first.
  | `godot_scene_edit_create_scene` | `root_type, scene_path` | `CreateSceneResult { scene_path, root_type, created }` | `mutating` |
  | `godot_scene_edit_instance_scene` | `parent_path, scene_path, name=""` | `InstanceSceneResult { node_path, scene_path, instanced }` | `mutating` |
 
+`godot_scene_edit_create_scene`'s `root_type` accepts **built-in ClassDB node types only**
+(#429): a custom registered `class_name` script is rejected with `VALIDATION_ERROR: Unknown
+or non-instantiable root type '<name>'` (the addon instantiates via `ClassDB`, which does not
+cover script classes). To root a scene on a custom class: `create_scene(root_type=<base
+built-in type>)`, then `attach_script` on the root.
+
 
  - `godot_scene_edit_set_node_property` coerces JSON to the property's declared Godot type via
    `type_coerce.from_json` (Vector2/3 & Color as `{…}` objects or arrays, NodePath as string,

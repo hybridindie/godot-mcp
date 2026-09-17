@@ -257,6 +257,10 @@ def register_mutation(
     ) -> CreateSceneResult:
         """Create a new scene file at ``scene_path`` (``res://…​.tscn``) with a root
         node of ``root_type``, and open it for editing.
+
+        ``root_type`` must be a built-in ClassDB node type (e.g. "Node2D",
+        "CharacterBody3D") — custom ``class_name`` scripts are not accepted here;
+        create with the base built-in type, then attach_script to the root.
         """
         require_bridge_connected(bridge)
         params = {"root_type": root_type, "scene_path": scene_path}
