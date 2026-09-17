@@ -9,8 +9,12 @@ without a server-initiated hook.
 
 from __future__ import annotations
 
+import asyncio
+
+import mcp_types
 import pytest
 from fastmcp import Client, FastMCP
+from fastmcp.client.messages import MessageHandler
 
 from mcp_server.bridge import Bridge
 from mcp_server.config import ServerConfig
@@ -104,3 +108,53 @@ async def test_call_tool_blocked_when_not_enabled() -> None:
         assert result.is_error
         msg = str(result.content).lower()
         assert "not enabled" in msg or "toolset" in msg
+
+
+# ---------------------------------------------------------------------------
+# 4. tools/list_changed notification (issue #485)
+# ---------------------------------------------------------------------------
+
+
+class _ToolListChangedRecorder(MessageHandler):
+    """Records ToolListChangedNotification receipts."""
+
+    def __init__(self) -> None:
+        self.count = 0
+        self.received = asyncio.Event()
+
+    async def on_tool_list_changed(
+        self, message: mcp_types.ToolListChangedNotification
+    ) -> None:
+        self.count += 1
+        self.received.set()
+
+
+async def _wait_for(handler: _ToolListChangedRecorder, timeout: float = 5.0) -> None:
+    """Wait deterministically for the notification event (no sleep-waits)."""
+    await asyncio.wait_for(handler.received.wait(), timeout=timeout)
+
+
+async def test_enable_toolset_sends_list_changed_notification() -> None:
+    """Enabling a toolset sends a tools/list_changed notification to the client."""
+    server, _ = _build()
+    handler = _ToolListChangedRecorder()
+    async with Client(server, mode="legacy", message_handler=handler) as client:
+        assert handler.count == 0
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
+        await _wait_for(handler)
+    assert handler.count >= 1
+
+
+async def test_disable_toolset_sends_list_changed_notification() -> None:
+    """Disabling a toolset sends a tools/list_changed notification to the client."""
+    server, _ = _build()
+    handler = _ToolListChangedRecorder()
+    async with Client(server, mode="legacy", message_handler=handler) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
+        await _wait_for(handler)
+        handler.count = 0  # reset after enable
+        handler.received.clear()
+        await client.call_tool("godot_disable_toolset", {"category": "scene_edit"})
+        await _wait_for(handler)
+    assert handler.count >= 1
+

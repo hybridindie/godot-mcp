@@ -4,8 +4,10 @@ A large flat tool surface degrades agent tool-selection and burns context, so we
 keep the *live* surface small. Every tool carries a category tag; `core` is always
 on; other categories ship gated off and the agent turns them on with
 `enable_toolset`. As the catalog grows toward full Godot coverage, the exposed set
-stays small. Built on FastMCP's tag-based `enable`/`disable` (which emit
-`tools/list_changed`).
+stays small. Built on FastMCP's tag-based `enable`/`disable`. After mutating the
+enabled set, ``enable_toolset`` / ``disable_toolset`` emit a
+``notifications/tools/list_changed`` so clients refresh their cached tool registry
+(issue #485).
 
 Some toolsets require a minimum Godot version because they rely on editor APIs
 added in later releases (e.g. ``input_map`` needs Godot 4.4+).
@@ -13,12 +15,14 @@ added in later releases (e.g. ``input_map`` needs Godot 4.4+).
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from typing import Any
 
 from fastmcp import Context, FastMCP
 from fastmcp.exceptions import ToolError
+from mcp_types import ToolListChangedNotification
 from pydantic import BaseModel
 
 from mcp_server.bridge import Bridge
@@ -55,6 +59,8 @@ from mcp_server.categories import (
 )
 from mcp_server.safety import READ_ONLY
 from mcp_server.toolset_middleware import ToolsetMiddleware
+
+logger = logging.getLogger(__name__)
 
 # Toggleable toolsets (category → agent-facing description). `core` is not here.
 TOOLSETS: dict[str, str] = {
@@ -311,9 +317,34 @@ def register_toolset_tools(mcp: FastMCP, manager: ToolsetManager) -> None:
         """Expose a toolset's tools (e.g. "scene_edit") for this session. Returns the
         toolset's new state. Does not change anything in the Godot project.
         """
-        return await manager.enable(category, ctx=ctx)
+        result = await manager.enable(category, ctx=ctx)
+        await _notify_tools_changed(ctx)
+        return result
 
     @mcp.tool(meta=READ_ONLY, tags={CORE_TAG})
     async def disable_toolset(category: str, *, ctx: Context) -> ToolsetInfo:
         """Hide a toolset's tools again to keep the active tool surface small."""
-        return await manager.disable(category, ctx=ctx)
+        result = await manager.disable(category, ctx=ctx)
+        await _notify_tools_changed(ctx)
+        return result
+
+
+async def _notify_tools_changed(ctx: Context) -> None:
+    """Emit ``notifications/tools/list_changed`` after the enabled set changes so
+    clients refresh their cached tool registry (issue #485).
+
+    Fire-and-forget by design: the toggle already succeeded, so a delivery
+    failure must not fail the tool call — but it is logged, never swallowed
+    silently. Note: OpenCode has a known bug
+    (https://github.com/anomalyco/opencode/issues/48196) where local MCP servers
+    silently fail to register tools during handshake; this notification helps
+    the moment that upstream issue is fixed.
+    """
+    try:
+        await ctx.send_notification(ToolListChangedNotification())
+    except Exception:
+        logger.warning(
+            "tools/list_changed notification failed to send "
+            "(client may have disconnected); toolset toggle already applied",
+            exc_info=True,
+        )
