@@ -283,6 +283,42 @@ The Godot editor addon also needs to know where to connect. Set
 `GODOT_MCP_BRIDGE_URL` in the editor's environment or project settings to point
 at the host's bridge port (default `ws://127.0.0.1:9080`):
 
+**OpenWebUI setup** (community-contributed in [#484](https://github.com/hybridindie/godot-mcp/issues/484)).
+
+OpenWebUI ≥ 0.11 speaks MCP Streamable HTTP, so it works as a client against the
+HTTP transport. This is a good fit for driving Godot remotely — e.g. from a
+phone over VPN, with the server and editor on a different machine than the LLM.
+
+1. **Server**: run over HTTP with a token (required for non-loopback binds):
+   ```bash
+   GODOT_MCP_TRANSPORT=http GODOT_MCP_HTTP_HOST=0.0.0.0 \
+   GODOT_MCP_AUTH_TOKEN=<token> uv run godot-editor-mcp
+   ```
+2. **Godot**: open the project with the addon enabled and confirm the MCP dock
+   shows *connected* (green).
+3. **OpenWebUI → Settings → Tools → Integrations → External tool servers → +**,
+   switch the type from OpenAPI to **MCP Streamable HTTP**, then set:
+   - **URL**: `http://<server-host>:9090/mcp`
+   - **Auth**: Bearer → paste the same `GODOT_MCP_AUTH_TOKEN`
+   - **ID**: a short, simple name (e.g. `godot`) — see the caveat below
+4. **Enable function calling per model**: Settings → Models → edit the model →
+   Advanced Params → set **Function calling = `native`** (the `default` mode
+   does not emit tool calls). Verified with small local models from the
+   qwen2.5-coder, gemma, and llama3.1 families.
+5. In a chat, enable the `godot` tool (wrench icon) and try:
+   *"show the scene tree from the current connected project"*.
+
+**Caveats:**
+
+- OpenWebUI prefixes every tool name with the integration ID (e.g.
+  `godot_inspection_get_scene_tree` → `<id>_godot_inspection_get_scene_tree`).
+  Keep the ID short, or instruct the model to ignore the prefix — small local
+  models otherwise try to call tools under their literal prefixed names.
+- Only `core` + `inspection` tools are exposed by default (toolset gating).
+  For scene editing the agent must first call `godot_enable_toolset("scene_edit")`
+  — or you can mention it in the prompt, e.g. *"enable the scene_edit toolset,
+  then add a button below the Quit button"*.
+
 ---
 
 ## Using godot-mcp
