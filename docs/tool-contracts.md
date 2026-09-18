@@ -660,7 +660,7 @@ Set up audio — stream players, the AudioServer bus layout, and bus effects.
 | Tool | Params | Returns |
 |------|--------|---------|
 | `godot_audio_add_player` | `parent_path, player_type="AudioStreamPlayer", name?, stream_path?, properties?` | `AudioPlayerResult { node_path, player_type, created }` |
-| `godot_audio_get_bus_layout` | — | `AudioBusLayoutResult { buses[] }` (read_only) |
+| `godot_audio_get_bus_layout` | — | `AudioBusLayoutResult { buses[] }` — each effect echoes `properties` (#427) (read_only) |
 | `godot_audio_add_bus` | `name, volume_db=0.0` | `AudioBusResult { index, name }` |
 | `godot_audio_add_bus_effect` | `bus, effect_type, properties?` | `AudioBusEffectResult { bus, bus_index, effect_type, effect_index }` |
 | `godot_audio_remove_bus` | `bus, confirm` | `AudioBusRemoveResult { name, index, removed }` (destructive) |

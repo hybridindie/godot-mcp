@@ -6,6 +6,8 @@ extends RefCounted
 ## Registered by the router on _init().  Each handler receives params dict and
 ## returns a response body (without id) via the router's _ok / _fail builders.
 
+const Coerce := preload("../type_coerce.gd")
+
 const AudioBusCapture := preload("../audio_bus_capture.gd")
 
 var _router: MCPCommandRouter
@@ -63,10 +65,19 @@ func _cmd_get_audio_bus_layout(_params: Dictionary) -> Dictionary:
 		var effects: Array = []
 		for e in AudioServer.get_bus_effect_count(i):
 			var effect := AudioServer.get_bus_effect(i, e)
+			# #427: echo the effect's exported property values — add_bus_effect
+			# accepts them, so the layout read must verify them back.
+			var properties: Dictionary = {}
+			if effect != null:
+				for entry in effect.get_property_list():
+					if entry.get("usage", 0) & PROPERTY_USAGE_EDITOR:
+						var prop := str(entry["name"])
+						properties[prop] = Coerce.to_json(effect.get(prop))
 			effects.append({
 				"index": e,
 				"type": effect.get_class() if effect != null else "",
 				"enabled": AudioServer.is_bus_effect_enabled(i, e),
+				"properties": properties,
 			})
 		buses.append({
 			"index": i,
