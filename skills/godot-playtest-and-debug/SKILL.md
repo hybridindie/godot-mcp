@@ -9,7 +9,7 @@ Drive a live game session and diagnose failures. Godot must be open with the add
 
 **Two run modes — pick the right one:**
 
-- **Headless smoke test** (`runtime` toolset): `godot_runtime_run_and_capture(scene='res://scenes/main.tscn', timeout_seconds=5)` runs the project headless (no editor play session, no probe needed) and returns `errors`/`warnings`/`output` + exit code. Use it to answer "does it run at all".
+- **Headless smoke test** (`runtime` toolset): `godot_runtime_run_and_capture(scene='res://scenes/main.tscn', timeout_seconds=5)` runs the project headless (no editor play session, no probe needed) and returns `errors`/`warnings`/`output` + exit code. Use it to answer "does it run at all". For the full one-call report (parse + tree + run + bridge), `godot_debug_workflow(scene='res://scenes/main.tscn', expected_timeout=<true if the game never quits>)` is in `core` — no extra toolset needed.
 - **Live play session** (`runtime` + `input` + `testing` + `debugger` toolsets): everything below — interactive inspection, input simulation, assertions, breakpoints. This needs the runtime probe.
 
 ## 1. Enable the toolsets
@@ -22,6 +22,8 @@ godot_enable_toolset('debugger')        # breakpoints, stepping, expressions
 godot_enable_toolset('resources_edit')  # to register the runtime probe if needed
 godot_enable_toolset('profiling')       # optional: FPS/draw calls/memory while running
 ```
+
+**Efficiency note:** enable only the toolsets the current task needs — `runtime` alone answers "does it run"; add `input`/`testing`/`debugger` only when driving the game live.
 
 ## 2. Make sure the runtime probe is registered
 
@@ -74,9 +76,10 @@ godot_runtime_stop_scene()
 
 ## Debugging failures
 
-- **Crash on play** → `godot_runtime_run_and_capture(scene='res://scenes/main.tscn', timeout_seconds=5)`, then read `errors`/`warnings` (null refs, missing nodes, bad signal connections).
-- **Script won't parse** → `godot_scripts_get_parse_errors(script_path='res://scripts/x.gd')`, fix the reported line/column.
-- **Input does nothing** → confirm `godot_runtime_is_playing()` is true and the probe autoload is present (step 2); check a full-screen overlay isn't eating input (`mouse_filter`).
+- **Crash on play** → `godot_runtime_run_and_capture(scene='res://scenes/main.tscn', timeout_seconds=5)`, then read `errors`/`warnings` (null refs, missing nodes, bad signal connections). A `timed_out: true` result is **not** a crash — games that never self-quit always time out; pass `expected_timeout=true` on `godot_debug_workflow` or treat the timeout as success when the game has no quit path.
+- **Script won't parse** → `godot_scripts_get_parse_errors(script_path='res://scripts/x.gd')`, fix the reported line/column. If the errors follow a *fresh* `class_name` write and carry `rescan_pending: true`, the editor's rescan hadn't flushed — re-check before "fixing" code that is already correct.
+- **Input does nothing** → confirm `godot_runtime_is_playing()` is true and the probe autoload is present (step 2); check a full-screen overlay isn't eating input (`mouse_filter`). If input tools return `PRECONDITION_FAILED` with `required=game_not_breaked`, the game is frozen at a debugger break — `godot_debugger_continue_execution()` before injecting input.
 - **Break and step through code** → pause on the spot with `godot_debugger_force_break()`, or pre-arm `godot_debugger_set_breakpoint(path='res://scripts/player.gd', line=42)`. Then read `godot_debugger_get_stack_frames()`, `godot_debugger_get_frame_variables()`, `godot_debugger_evaluate_expression(expression='player.health')`, and step with `godot_debugger_step_into()` / `godot_debugger_step_over()` / `godot_debugger_step_out()`. Resume with `godot_debugger_continue_execution()`. Clean up with `godot_debugger_remove_breakpoint(path=..., line=...)` or `godot_debugger_clear_breakpoints()`.
   - Note: `force_break` only lands if the game's main loop calls `check_force_break()` (the probe sets `force_break_pending`); breakpoints trigger on their own line.
+  - While breaked, `godot_input_get_stats().injected` does not move — refused input is not queued. That's the signal, not a bug.
 - Stuck? Run `godot_get_server_info()` and follow `next_steps`, or use the `troubleshoot` prompt.

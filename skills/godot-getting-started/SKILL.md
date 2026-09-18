@@ -45,6 +45,8 @@ Always-on `core` extras: `godot_undo` (undo the last editor action), `godot_list
 - **Destructive** tools (delete/overwrite, e.g. `godot_scene_edit_delete_node`) require `confirm=True` or they refuse; they also support `dry_run`.
 - **Runtime** tools control game execution (play/stop/breakpoints) — no `dry_run`.
 
+Read results as ground truth, not decoration: batch results carry honesty flags — `godot_batch_set_property` returns `undoable` (false above 20 nodes: undo will NOT revert it), `godot_composite_run_commands` reports `aborted_at`/`skipped_count` when it halted early — and `godot_scripts_get_parse_errors` returns `rescan_pending` (a fresh-class_name "Could not find type" may be stale cache; re-check before fixing). Read these fields; they prevent double-work.
+
 ## 4. Use the built-in workflow prompts
 
 The server ships step-by-step recipes as MCP prompts (slash commands like `/mcp__godot-mcp__build_scene`): `toolset_discovery`, `build_scene`, `play_test`, `script_edit`, `debug_scene`, `troubleshoot`, `author_resource`, `export_build`, `batch_refactor`. Reach for them, or use the companion skills `godot-playtest-and-debug` and `godot-expert`.
@@ -52,5 +54,13 @@ The server ships step-by-step recipes as MCP prompts (slash commands like `/mcp_
 ## When something fails
 
 - `unknown tool` → the toolset isn't enabled (step 2), or you mixed up a server-side tool with an editor tool.
-- `PRECONDITION_FAILED` → read `required`: `active_scene` (open a scene), `confirm` (add `confirm=True`), `bridge_connected` (step 1).
+- `PRECONDITION_FAILED` → read `required`: `active_scene` (open a scene), `confirm` (add `confirm=True`), `bridge_connected` (step 1), `game_not_breaked` (the game is frozen at a debugger break — `godot_debugger_continue_execution()` first), `godot_version` (the toolset needs a newer editor).
+- `VALIDATION_ERROR` on `godot_project_set_setting` → the hint names the likely intended key (e.g. typo'd `application/config/main_scene` → did-you-mean `application/run/main_scene`).
 - Run `godot_get_server_info()` first — its `next_steps` field usually names the fix.
+
+## Working efficiently
+
+- **Enable only what the task needs, right before you need it** — the exposed surface stays small on purpose; don't pre-enable everything.
+- **Batch round-trips**: independent editor operations belong in one `godot_composite_run_commands` call (one editor frame for N commands) instead of N tool calls. Same for bulk property sets (`godot_batch_set_property`) and same-shape node creation (`godot_composite_batch_create_nodes`).
+- **Verify before you build**: `godot_debug_workflow()` in `core` is one call returning parse errors + scene tree + headless run + bridge state — cheaper than four separate diagnostics calls.
+- **`dry_run` first on unfamiliar mutations** — the preview includes the projected honesty flags (`undoable`, persistence verdicts).
