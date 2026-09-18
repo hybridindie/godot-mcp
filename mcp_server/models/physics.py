@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from mcp_server.models.persistence import PersistenceReport
 
@@ -15,7 +15,7 @@ class SetupBodyResult(PersistenceReport):
     dry_run: bool = False
 
 
-class CollisionShapeResult(BaseModel):
+class CollisionShapeResult(PersistenceReport):
     node_path: str
     shape_type: str
     created: bool = False
@@ -29,7 +29,7 @@ class PhysicsLayersResult(PersistenceReport):
     dry_run: bool = False
 
 
-class RaycastResult(BaseModel):
+class RaycastResult(PersistenceReport):
     node_path: str
     created: bool = False
     dry_run: bool = False

@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from mcp_server.models.persistence import PersistenceReport
 
 
-class CreateNodeResult(BaseModel):
+class CreateNodeResult(PersistenceReport):
     node_path: str
     created: bool
     dry_run: bool = False
@@ -34,7 +34,7 @@ class SetPropertyResult(PersistenceReport):
     dry_run: bool = False
 
 
-class DeleteNodeResult(BaseModel):
+class DeleteNodeResult(PersistenceReport):
     node_path: str
     deleted: bool
     dry_run: bool = False
@@ -72,7 +72,7 @@ class CreateSceneResult(BaseModel):
     dry_run: bool = False
 
 
-class InstanceSceneResult(BaseModel):
+class InstanceSceneResult(PersistenceReport):
     node_path: str
     scene_path: str
     instanced: bool

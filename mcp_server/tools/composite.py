@@ -31,6 +31,7 @@ from mcp_server.safety import (
     require_bridge_connected,
     require_node_exists,
 )
+from mcp_server.tools._persistence import node_probe
 from mcp_server.tools._route import run_or_preview
 
 COMPOSITE = {COMPOSITE_TAG}
@@ -123,7 +124,13 @@ def register_composite(mcp: FastMCP, bridge: Bridge) -> None:
             "saved": False,
         }
         return await run_or_preview(
-            dry_run, ComposeNodeResult, preview, bridge, "cmd_compose_node", params
+            dry_run,
+            ComposeNodeResult,
+            preview,
+            bridge,
+            "cmd_compose_node",
+            params,
+            persistence_probe=node_probe(parent_path, probe_parent=True),
         )
 
     @mcp.tool(meta=MUTATING, tags=COMPOSITE)
@@ -151,7 +158,13 @@ def register_composite(mcp: FastMCP, bridge: Bridge) -> None:
         }
         preview = {"created": [], "count": 0, "saved": False}
         return await run_or_preview(
-            dry_run, BatchCreateNodesResult, preview, bridge, "cmd_batch_create_nodes", params
+            dry_run,
+            BatchCreateNodesResult,
+            preview,
+            bridge,
+            "cmd_batch_create_nodes",
+            params,
+            persistence_probe=node_probe(parent_path, probe_parent=True),
         )
 
     @mcp.tool(meta=MUTATING, tags=COMPOSITE)
@@ -169,7 +182,12 @@ def register_composite(mcp: FastMCP, bridge: Bridge) -> None:
         params: dict[str, Any] = {"edits": edits, "save": save}
         preview = {"edited": [], "skipped": [], "count": 0, "saved": False}
         return await run_or_preview(
-            dry_run, ApplyNodeEditsResult, preview, bridge, "cmd_apply_node_edits", params
+            dry_run,
+            ApplyNodeEditsResult,
+            preview,
+            bridge,
+            "cmd_apply_node_edits",
+            params,
         )
 
     @mcp.tool(meta=MUTATING, tags=COMPOSITE)
@@ -216,5 +234,10 @@ def register_composite(mcp: FastMCP, bridge: Bridge) -> None:
             "planned": [c["command"] for c in normalized],
         }
         return await run_or_preview(
-            dry_run, RunCommandsResult, preview, bridge, "cmd_run_commands", params
+            dry_run,
+            RunCommandsResult,
+            preview,
+            bridge,
+            "cmd_run_commands",
+            params,
         )

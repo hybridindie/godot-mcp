@@ -37,6 +37,7 @@ from mcp_server.safety import (
     require_confirmation,
     require_node_exists,
 )
+from mcp_server.tools._persistence import node_probe
 from mcp_server.tools._route import route, run_or_preview
 
 AUDIO = {AUDIO_TAG}
@@ -70,7 +71,13 @@ def register_audio(mcp: FastMCP, bridge: Bridge) -> None:
         }
         preview = {"node_path": "", "player_type": player_type, "created": False}
         return await run_or_preview(
-            dry_run, AudioPlayerResult, preview, bridge, "cmd_add_audio_player", params
+            dry_run,
+            AudioPlayerResult,
+            preview,
+            bridge,
+            "cmd_add_audio_player",
+            params,
+            persistence_probe=node_probe(parent_path, probe_parent=True),
         )
 
     @mcp.tool(meta=READ_ONLY, tags=AUDIO)
@@ -93,7 +100,12 @@ def register_audio(mcp: FastMCP, bridge: Bridge) -> None:
         params = {"name": name, "volume_db": volume_db}
         preview = {"index": -1, "name": name}
         return await run_or_preview(
-            dry_run, AudioBusResult, preview, bridge, "cmd_add_audio_bus", params
+            dry_run,
+            AudioBusResult,
+            preview,
+            bridge,
+            "cmd_add_audio_bus",
+            params,
         )
 
     @mcp.tool(meta=MUTATING, tags=AUDIO)
@@ -111,7 +123,12 @@ def register_audio(mcp: FastMCP, bridge: Bridge) -> None:
         params = {"bus": bus, "effect_type": effect_type, "properties": properties or {}}
         preview = {"bus": bus, "bus_index": -1, "effect_type": effect_type, "effect_index": -1}
         return await run_or_preview(
-            dry_run, AudioBusEffectResult, preview, bridge, "cmd_add_audio_bus_effect", params
+            dry_run,
+            AudioBusEffectResult,
+            preview,
+            bridge,
+            "cmd_add_audio_bus_effect",
+            params,
         )
 
     @mcp.tool(meta=DESTRUCTIVE, tags=AUDIO)
@@ -130,7 +147,12 @@ def register_audio(mcp: FastMCP, bridge: Bridge) -> None:
         params = {"bus": bus, "confirm": True}
         preview = {"name": bus, "index": -1, "removed": False}
         return await run_or_preview(
-            dry_run, AudioBusRemoveResult, preview, bridge, "cmd_remove_audio_bus", params
+            dry_run,
+            AudioBusRemoveResult,
+            preview,
+            bridge,
+            "cmd_remove_audio_bus",
+            params,
         )
 
     @mcp.tool(meta=DESTRUCTIVE, tags=AUDIO)

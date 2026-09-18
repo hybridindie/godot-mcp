@@ -96,7 +96,14 @@ def register_physics(mcp: FastMCP, bridge: Bridge) -> None:
         }
         preview = {"node_path": "", "shape_type": shape_type, "created": False}
         return await run_or_preview(
-            dry_run, CollisionShapeResult, preview, bridge, "cmd_setup_collision", params
+            dry_run,
+            CollisionShapeResult,
+            preview,
+            bridge,
+            "cmd_setup_collision",
+            params,
+            # #477: the create keys on the parent (the node_path target).
+            persistence_probe=node_probe(node_path, probe_parent=True),
         )
 
     @mcp.tool(meta=MUTATING, tags=PHYSICS)
@@ -144,5 +151,12 @@ def register_physics(mcp: FastMCP, bridge: Bridge) -> None:
         }
         preview = {"node_path": "", "created": False}
         return await run_or_preview(
-            dry_run, RaycastResult, preview, bridge, "cmd_add_raycast", params
+            dry_run,
+            RaycastResult,
+            preview,
+            bridge,
+            "cmd_add_raycast",
+            params,
+            # #477: the create keys on the parent.
+            persistence_probe=node_probe(parent_path, probe_parent=True),
         )

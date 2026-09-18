@@ -115,6 +115,8 @@ func _cmd_setup_collision(params: Dictionary) -> Dictionary:
 		)
 	collision.name = str(params.get("name", collision_node_type))
 	collision.set("shape", shape)
+	# #477 (parent rule): a collision shape under an instanced child is lost on save.
+	var persistence := _router._persistent_target(parent)
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Add collision shape to %s" % parent.name)
 	ur.add_do_method(parent, "add_child", collision)
@@ -122,11 +124,11 @@ func _cmd_setup_collision(params: Dictionary) -> Dictionary:
 	ur.add_do_reference(collision)
 	ur.add_undo_method(parent, "remove_child", collision)
 	ur.commit_action()
-	return _router._ok({
+	return _router._ok(_router._with_persistence({
 		"node_path": Inspect.relative_path(collision, root),
 		"shape_type": shape_type,
 		"created": true,
-	})
+	}, persistence))
 
 
 
@@ -181,6 +183,8 @@ func _cmd_add_raycast(params: Dictionary) -> Dictionary:
 		if pt != -1:
 			ray.set(str(key), Coerce.from_json(ray_props[key], pt))
 
+	# #477 (parent rule): a raycast under an instanced child is lost on save.
+	var persistence := _router._persistent_target(parent)
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Add %s" % ray.name)
 	ur.add_do_method(parent, "add_child", ray)
@@ -188,6 +192,9 @@ func _cmd_add_raycast(params: Dictionary) -> Dictionary:
 	ur.add_do_reference(ray)
 	ur.add_undo_method(parent, "remove_child", ray)
 	ur.commit_action()
-	return _router._ok({"node_path": Inspect.relative_path(ray, root), "created": true})
+	return _router._ok(_router._with_persistence({
+		"node_path": Inspect.relative_path(ray, root),
+		"created": true,
+	}, persistence))
 
 

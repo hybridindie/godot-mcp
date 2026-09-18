@@ -10,6 +10,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from mcp_server.models.persistence import TargetPersistence
+
 
 class ComposeNodeResult(BaseModel):
     """Outcome of ``compose_node`` (create a node with properties/script/children)."""
@@ -40,3 +42,6 @@ class ApplyNodeEditsResult(BaseModel):
     count: int = 0
     saved: bool = False
     dry_run: bool = False
+    # #477: per-entry verdict for every edited node — an entry inside a
+    # non-editable instance applies live but is lost on save.
+    persistence: list[TargetPersistence] = Field(default_factory=list)

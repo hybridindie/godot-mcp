@@ -6,6 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from mcp_server.models.persistence import TargetPersistence
+
 
 class NodeRef(BaseModel):
     path: str
@@ -35,6 +37,11 @@ class BatchSetResult(BaseModel):
     # undo-tracked (or nothing was applied).
     undoable: bool = True
     hint: str | None = None
+    # #477: one verdict per applied target (node_path/persisted/reason/hint).
+    # `_batch_targets` descends into instanced children, so a target inside a
+    # non-editable instance is individually lost on save even when the batch
+    # reports ok.
+    persistence: list[TargetPersistence] = Field(default_factory=list)
 
 
 class CrossSceneSceneResult(BaseModel):

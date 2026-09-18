@@ -105,6 +105,9 @@ func _cmd_compose_node(params: Dictionary) -> Dictionary:
 		node.add_child(child_node)
 		child_nodes.append(child_node)
 
+	# #477 (parent rule): a composed node under a non-editable instanced parent
+	# (and its whole subtree) is lost on save.
+	var persistence := _router._persistent_target(parent)
 	var undo_redo := EditorInterface.get_editor_undo_redo()
 	undo_redo.create_action("Compose %s" % node.name)
 	undo_redo.add_do_method(parent, "add_child", node)
@@ -117,14 +120,14 @@ func _cmd_compose_node(params: Dictionary) -> Dictionary:
 
 	for child_node in child_nodes:
 		child_names.append(String(child_node.name))
-	return _router._ok({
+	return _router._ok(_router._with_persistence({
 		"node_path": Inspect.relative_path(node, root),
 		"created": true,
 		"children": child_names,
 		"script_attached": not str(params.get("script_path", "")).is_empty(),
 		"properties_set": built["properties_set"],
 		"saved": _maybe_save(params),
-	})
+	}, persistence))
 
 
 func _cmd_batch_create_nodes(params: Dictionary) -> Dictionary:
@@ -151,6 +154,10 @@ func _cmd_batch_create_nodes(params: Dictionary) -> Dictionary:
 		nodes.append(built["node"])
 
 	var undo_redo := EditorInterface.get_editor_undo_redo()
+	# #477 (parent rule): batch-created nodes under a non-editable instanced
+	# parent are all lost on save — one verdict covers them (they share the
+	# parent); a per-node verdict would repeat the same token.
+	var persistence := _router._persistent_target(parent)
 	undo_redo.create_action("Batch create %d %s" % [nodes.size(), node_type])
 	for node in nodes:
 		undo_redo.add_do_method(parent, "add_child", node)
@@ -162,7 +169,11 @@ func _cmd_batch_create_nodes(params: Dictionary) -> Dictionary:
 	var created: Array = []
 	for node in nodes:
 		created.append(Inspect.relative_path(node, root))
-	return _router._ok({"created": created, "count": created.size(), "saved": _maybe_save(params)})
+	return _router._ok(_router._with_persistence({
+		"created": created,
+		"count": created.size(),
+		"saved": _maybe_save(params),
+	}, persistence))
 
 
 func _cmd_apply_node_edits(params: Dictionary) -> Dictionary:
@@ -176,6 +187,7 @@ func _cmd_apply_node_edits(params: Dictionary) -> Dictionary:
 	var to_apply: Array = []  # each: {node, property, value, old}
 	var edited_paths: Array = []
 	var skipped: Array = []
+	var persistence: Array = []  # #477: one verdict per edited node
 	for edit in edits:
 		var found := _router._resolve(edit.get("node_path", ""))
 		if not found["ok"]:
@@ -201,7 +213,16 @@ func _cmd_apply_node_edits(params: Dictionary) -> Dictionary:
 			})
 			applied_any = true
 		if applied_any:
-			edited_paths.append(Inspect.relative_path(node, root))
+			var node_path := Inspect.relative_path(node, root)
+			edited_paths.append(node_path)
+			# #477: each edited node gets its own verdict — one aggregate ok
+			# must never hide a target the save drops.
+			var verdict := _router._persistent_target(node)
+			var entry := {"node_path": node_path, "persisted": bool(verdict.get("ok", false))}
+			if not verdict.get("ok", false):
+				entry["reason"] = str(verdict.get("reason", ""))
+				entry["hint"] = str(verdict.get("hint", ""))
+			persistence.append(entry)
 
 	if not to_apply.is_empty():
 		var undo_redo := EditorInterface.get_editor_undo_redo()
@@ -218,4 +239,5 @@ func _cmd_apply_node_edits(params: Dictionary) -> Dictionary:
 		"skipped": skipped,
 		"count": edited_paths.size(),
 		"saved": _maybe_save(params),
+		"persistence": persistence,
 	})

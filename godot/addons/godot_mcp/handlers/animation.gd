@@ -153,6 +153,8 @@ func _cmd_create_animation_tree(params: Dictionary) -> Dictionary:
 	tree.tree_root = tree_root_obj
 	if params.get("anim_player") != null:
 		tree.anim_player = NodePath(str(params["anim_player"]))
+	# #477 (parent rule): an AnimationTree under an instanced child is lost on save.
+	var persistence := _router._persistent_target(parent)
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Create AnimationTree %s" % tree.name)
 	ur.add_do_method(parent, "add_child", tree)
@@ -160,7 +162,10 @@ func _cmd_create_animation_tree(params: Dictionary) -> Dictionary:
 	ur.add_do_reference(tree)
 	ur.add_undo_method(parent, "remove_child", tree)
 	ur.commit_action()
-	return _router._ok({"node_path": Inspect.relative_path(tree, root), "root_type": root_type})
+	return _router._ok(_router._with_persistence({
+		"node_path": Inspect.relative_path(tree, root),
+		"root_type": root_type,
+	}, persistence))
 
 
 

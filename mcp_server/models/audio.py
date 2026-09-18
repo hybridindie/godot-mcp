@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from mcp_server.models.persistence import PersistenceReport
 
-class AudioPlayerResult(BaseModel):
+
+class AudioPlayerResult(PersistenceReport):
     node_path: str
     player_type: str
     created: bool = False

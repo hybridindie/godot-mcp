@@ -173,7 +173,7 @@ can try them; the addon will produce its own structured error if an API is missi
   `require_confirmation(confirm, action)` — without `confirm=True` they fail with a
   `PRECONDITION_FAILED` (`required="confirm"`), never deleting anything.
 
-#### Persistence truth for scene mutations (issue #458, #476)
+#### Persistence truth for scene mutations (issue #458, #476, #477)
 
 Every scene-mutation result carries three extra fields: `persisted: bool?` —
 whether the change that applied live will survive a scene save — plus `reason?`
@@ -197,6 +197,42 @@ as the real handler, so the two agree. File-only resource authors
 atlas-source/item additions against a `.tres`) are already on disk by the time
 the tool returns, so their previews report `persisted: true` without a probe.
 
+**Structural edits carry the parent rule (#477).** A change is packed only when
+its *owner* is the edited root or an editable instance — and a skipped node's
+subtree is never visited — so a **create/instance/duplicate under a parent that
+does not persist is lost on save**, and a **move is decided by its destination
+parent** (a node moved into a non-editable instance is lost; the removal from
+the source that the scene owns saves fine). Structural handlers probe the verdict
+*before* the mutation (the target does not exist yet) and stamp the same
+`persisted`/`reason`/`hint` fields:
+
+- `scene_edit`: `create_node`, `delete_node` (node rule — the node itself is what
+  stops being packed), `move_node` (destination), `duplicate_node` (parent),
+  `instance_scene` (parent)
+- `physics`: `setup_collision`, `add_raycast` (parent rule)
+- `composite`: `compose_node`, `batch_create_nodes` (parent rule; the batch
+  shares one parent, so one verdict covers every created node)
+- `scene_3d`: `add_mesh_instance`, `setup_camera`, `setup_lighting`,
+  `setup_environment` (parent rule)
+- `navigation`: `setup_navigation_region`, `setup_navigation_agent`
+- `particles`: `create_particles` · `animation`: `create_animation_tree`
+- `audio`: `add_audio_player`
+
+**Multi-target batches report per-target verdicts (#477).** `_batch_targets`
+(and `apply_node_edits`) descend into instanced children, so their
+`applied[]`/`edited[]` entries are *not* uniformly persistent. The batch result
+carries a `persistence[]` array — one `{node_path, persisted, reason?, hint?}`
+entry per applied/edited target. A target inside a non-editable instance applies
+live, reports `persisted: false` with `reason: instanced_child_not_editable`,
+and is lost on save while the same batch's scene-owned targets persist.
+Previews of these two handlers stamp the per-target array directly from the
+probe rules (no extra round-trip per target).
+
+Structural preview probes: `cmd_node_persistence` gains `probe_parent: true`
+(keys on the resolved parent — creates/instances/moves: the target does not
+exist yet) and `probe_parent_of: true` (duplicates: resolves the *parent of* the
+named node). The probe and the real run name the same paths in their hints.
+
 Consumer tools (each carries `persisted`/`reason`/`hint` in its result):
 
 - `scene_edit`: `rename_node`, `set_node_property`, `attach_script`, `add_to_group`,
@@ -211,6 +247,9 @@ Consumer tools (each carries `persisted`/`reason`/`hint` in its result):
 - `animation`: `create`, `add_track`, `insert_keyframe`, `add_state_machine_state`,
   `set_blend_tree_node`
 - `shader`: `assign_material`, `set_param` (see its section below)
+
+(The structural create/move/delete family and the multi-target batch shapes are
+listed in the #477 section above — same fields, different deciding rule.)
 
 ### Preconditions
 
@@ -291,7 +330,7 @@ UndoRedo-wrapped `cmd_*` handler and runs preconditions first.
 
 | Tool | Params | Returns | Class |
 |------|--------|---------|-------|
-| `godot_scene_edit_create_node` | `parent_path, node_type, node_name` | `CreateNodeResult { node_path, created }` | `mutating` |
+| `godot_scene_edit_create_node` | `parent_path, node_type, node_name` | `CreateNodeResult { node_path, created, persisted, reason?, hint? }` | `mutating` |
 | `godot_scene_edit_rename_node` | `node_path, new_name` | `RenameNodeResult { node_path, old_name?, new_name, renamed }` | `mutating` |
 
   `rename_node` refuses (`VALIDATION_ERROR`) the renames the editor itself refuses
@@ -301,12 +340,12 @@ UndoRedo-wrapped `cmd_*` handler and runs preconditions first.
   scene-owned nodes, instance roots the scene owns, and the edited root (inherited
   roots included).
 | `godot_scene_edit_set_node_property` | `node_path, property, value` | `SetPropertyResult { node_path, property, value, set }` | `mutating` |
-| `godot_scene_edit_delete_node` | `node_path, confirm=False` | `DeleteNodeResult { node_path, deleted }` | **`destructive`** |
+| `godot_scene_edit_delete_node` | `node_path, confirm=False` | `DeleteNodeResult { node_path, deleted, persisted, reason?, hint? }` | **`destructive`** |
 | `godot_scene_edit_attach_script` | `node_path, script_path` | `AttachScriptResult { node_path, script_path, attached }` | `mutating` |
 | `godot_scene_edit_connect_signal` | `source_path, signal_name, target_path, method_name` | `ConnectSignalResult { …, connected }` | `mutating` |
  | `godot_scene_edit_save_scene` | — | `SaveSceneResult { path?, saved }` | `mutating` |
  | `godot_scene_edit_create_scene` | `root_type, scene_path` | `CreateSceneResult { scene_path, root_type, created }` | `mutating` |
- | `godot_scene_edit_instance_scene` | `parent_path, scene_path, name=""` | `InstanceSceneResult { node_path, scene_path, instanced }` | `mutating` |
+ | `godot_scene_edit_instance_scene` | `parent_path, scene_path, name=""` | `InstanceSceneResult { node_path, scene_path, instanced, persisted, reason?, hint? }` | `mutating` |
 
 `godot_scene_edit_create_scene`'s `root_type` accepts **built-in ClassDB node types only**
 (#429): a custom registered `class_name` script is rejected with `VALIDATION_ERROR: Unknown
@@ -333,8 +372,8 @@ Node parity (issue #31), also in `scene_edit`:
 
 | Tool | Params | Returns | Class |
 |------|--------|---------|-------|
-| `godot_scene_edit_duplicate_node` | `node_path` | `DuplicateNodeResult { node_path, source_path }` | `mutating` |
-| `godot_scene_edit_move_node` | `node_path, new_parent_path, index=-1` | `MoveNodeResult { node_path, moved }` | `mutating` |
+| `godot_scene_edit_duplicate_node` | `node_path` | `DuplicateNodeResult { node_path, source_path, persisted, reason?, hint? }` | `mutating` |
+| `godot_scene_edit_move_node` | `node_path, new_parent_path, index=-1` | `MoveNodeResult { node_path, moved, persisted, reason?, hint? }` | `mutating` |
 | `godot_scene_edit_add_to_group` / `godot_scene_edit_remove_from_group` | `node_path, group` | `GroupResult { node_path, group, in_group, changed }` | `mutating` |
 | `godot_scene_edit_list_signal_connections` | `node_path` | `SignalConnectionList { node_path, connections: [{signal, target_path, method, persistent}] }` | `read_only` |
 | `godot_scene_edit_disconnect_signal` | `source_path, signal_name, target_path, method_name` | `DisconnectSignalResult { …, disconnected }` | `mutating` |
@@ -478,7 +517,7 @@ Generic over 2D/3D — pass the Godot type names. All `mutating` (UndoRedo-wrapp
 | Tool | Params | Returns |
 |------|--------|---------|
 | `godot_physics_setup_body` | `node_path, properties` | `SetupBodyResult { node_path, properties }` |
-| `godot_physics_setup_collision` | `node_path, shape_type, collision_node_type="CollisionShape2D", properties?` | `CollisionShapeResult { node_path, shape_type, created }` |
+| `godot_physics_setup_collision` | `node_path, shape_type, collision_node_type="CollisionShape2D", properties?` | `CollisionShapeResult { node_path, shape_type, created, persisted, reason?, hint? }` |
 | `godot_physics_set_layers` | `node_path, layers?, mask?` (1-based bit indices) | `PhysicsLayersResult { node_path, collision_layer, collision_mask }` |
 | `godot_physics_add_raycast` | `parent_path, name="RayCast", raycast_type="RayCast2D", properties?` | `RaycastResult { node_path, created }` |
 
@@ -796,7 +835,7 @@ support `dry_run`; `save=True` also saves the scene (a file write after the undo
 |------|--------|---------|-------|
 | `godot_composite_compose_node` | `parent_path, node_type, node_name, properties?, script_path?, children?, save=False, dry_run=False` | `ComposeNodeResult { node_path, created, children[], script_attached, properties_set[], saved }` | `mutating` |
 | `godot_composite_batch_create_nodes` | `parent_path, node_type, names[], properties?, save=False, dry_run=False` | `BatchCreateNodesResult { created[], count, saved }` | `mutating` |
-| `godot_composite_apply_node_edits` | `edits[] ({node_path, properties}), save=False, dry_run=False` | `ApplyNodeEditsResult { edited[], skipped[], count, saved }` | `mutating` |
+| `godot_composite_apply_node_edits` | `edits[] ({node_path, properties}), save=False, dry_run=False` | `ApplyNodeEditsResult { edited[], skipped[], count, saved, persistence[] }` | `mutating` |
 | `godot_composite_run_commands` | `commands[] ({command, params}), stop_on_error=True, dry_run=False` | `RunCommandsResult { results[] ({command, ok, result?, error?, hint?}), ok_all, count, planned[], dry_run, aborted_at?, skipped_count?, hint? }` | `mutating` |
 
 Every result model also carries `dry_run` (true on a preview), as for all `dry_run`-aware tools.
@@ -973,7 +1012,7 @@ Operate over many nodes/scenes. Finds/deps are `read_only`; writes are `mutating
 | Tool | Params | Returns |
 |------|--------|---------|
 | `godot_batch_find_nodes_by_type` | `node_type, parent_path=".", recursive=True` | `FindNodesResult { type, nodes[], count }` |
-| `godot_batch_set_property` | `property, value, node_paths?, node_type?, dry_run=False` | `BatchSetResult { property, applied[], skipped[], count, dry_run, undoable, hint? }` |
+| `godot_batch_set_property` | `property, value, node_paths?, node_type?, dry_run=False` | `BatchSetResult { property, applied[], skipped[], count, dry_run, undoable, hint?, persistence[] }` |
 | `godot_batch_cross_scene_set_property` | `scenes[], node_type, property, value, dry_run=False` | `CrossSceneResult { results[], total_modified, scenes, dry_run }` |
 | `godot_batch_get_dependencies` | `path` | `DependenciesResult { path, dependencies[], count }` |
 

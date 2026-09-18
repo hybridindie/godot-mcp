@@ -412,6 +412,17 @@ func _commit_add_child(parent: Node, child: Node, action_name: String) -> String
 	return Inspect.relative_path(child, root)
 
 
+## #477: the same commit as :meth:`_commit_add_child`, plus the persistence verdict
+## for the create (the parent rule — probed BEFORE the child is added). Returns
+## {path, persistence} so create-family handlers stamp their results uniformly.
+func _commit_add_child_with_persistence(
+	parent: Node, child: Node, action_name: String
+) -> Dictionary:
+	var persistence := _persistent_target(parent)
+	var path := _commit_add_child(parent, child, action_name)
+	return {"path": path, "persistence": persistence}
+
+
 ## Parse {ok, value: Vector2i} from a JSON [x, y] array or {x, y} dict, or a structured
 ## VALIDATION_ERROR keyed by `field`. Rejects missing/short/invalid input rather than
 ## silently defaulting components to 0 (which would target the wrong cell).

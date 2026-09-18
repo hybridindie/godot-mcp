@@ -100,7 +100,13 @@ def register_scene_3d(mcp: FastMCP, bridge: Bridge) -> None:
         }
         preview = {"node_path": "", "mesh_type": mesh_type, "created": False}
         return await run_or_preview(
-            dry_run, MeshInstanceResult, preview, bridge, "cmd_add_mesh_instance", params
+            dry_run,
+            MeshInstanceResult,
+            preview,
+            bridge,
+            "cmd_add_mesh_instance",
+            params,
+            persistence_probe=node_probe(parent_path, probe_parent=True),
         )
 
     @mcp.tool(meta=MUTATING, tags=SCENE_3D)
@@ -124,7 +130,13 @@ def register_scene_3d(mcp: FastMCP, bridge: Bridge) -> None:
         }
         preview = {"node_path": "", "current": make_current, "created": False}
         return await run_or_preview(
-            dry_run, CameraResult, preview, bridge, "cmd_setup_camera", params
+            dry_run,
+            CameraResult,
+            preview,
+            bridge,
+            "cmd_setup_camera",
+            params,
+            persistence_probe=node_probe(parent_path, probe_parent=True),
         )
 
     @mcp.tool(meta=MUTATING, tags=SCENE_3D)
@@ -149,7 +161,13 @@ def register_scene_3d(mcp: FastMCP, bridge: Bridge) -> None:
         }
         preview = {"node_path": "", "light_type": light_type, "created": False}
         return await run_or_preview(
-            dry_run, LightResult, preview, bridge, "cmd_setup_lighting", params
+            dry_run,
+            LightResult,
+            preview,
+            bridge,
+            "cmd_setup_lighting",
+            params,
+            persistence_probe=node_probe(parent_path, probe_parent=True),
         )
 
     @mcp.tool(meta=MUTATING, tags=SCENE_3D)
@@ -172,7 +190,13 @@ def register_scene_3d(mcp: FastMCP, bridge: Bridge) -> None:
         }
         preview = {"node_path": "", "created": False}
         return await run_or_preview(
-            dry_run, EnvironmentResult, preview, bridge, "cmd_setup_environment", params
+            dry_run,
+            EnvironmentResult,
+            preview,
+            bridge,
+            "cmd_setup_environment",
+            params,
+            persistence_probe=node_probe(parent_path, probe_parent=True),
         )
 
     @mcp.tool(meta=MUTATING, tags=SCENE_3D)

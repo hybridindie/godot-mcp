@@ -125,6 +125,8 @@ def register_mutation(
             bridge,
             "cmd_create_node",
             params,
+            # #477: the create keys on the parent (the node does not exist yet).
+            persistence_probe=node_probe(parent_path, probe_parent=True),
         )
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
@@ -185,7 +187,15 @@ def register_mutation(
         params = {"node_path": node_path, "confirm": True}
         preview = {"node_path": node_path, "deleted": False}
         return await run_or_preview(
-            dry_run, DeleteNodeResult, preview, bridge, "cmd_delete_node", params
+            dry_run,
+            DeleteNodeResult,
+            preview,
+            bridge,
+            "cmd_delete_node",
+            params,
+            # #477: a delete inside an instanced subtree is not a save — the
+            # node (not the parent) decides.
+            persistence_probe=node_probe(node_path),
         )
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
@@ -292,4 +302,6 @@ def register_mutation(
             bridge,
             "cmd_instance_scene",
             params,
+            # #477: the instance keys on the parent (it does not exist yet).
+            persistence_probe=node_probe(parent_path, probe_parent=True),
         )

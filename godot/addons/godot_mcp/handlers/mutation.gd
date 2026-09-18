@@ -47,6 +47,11 @@ func _cmd_create_node(params: Dictionary) -> Dictionary:
 
 	var node: Node = ClassDB.instantiate(node_type)
 	node.name = str(params.get("name", node_type))
+	# #477 (parent rule): a create under a non-editable instanced child is applied
+	# live but the new node is never saved — the engine skips the parent's subtree
+	# when packing, so the verdict keys on the parent, probed BEFORE the create
+	# (the node does not exist yet).
+	var persistence := _router._persistent_target(parent)
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Create %s" % node.name)
 	ur.add_do_method(parent, "add_child", node)
@@ -54,7 +59,10 @@ func _cmd_create_node(params: Dictionary) -> Dictionary:
 	ur.add_do_reference(node)
 	ur.add_undo_method(parent, "remove_child", node)
 	ur.commit_action()
-	return _router._ok({"node_path": Inspect.relative_path(node, root), "created": true})
+	return _router._ok(_router._with_persistence({
+		"node_path": Inspect.relative_path(node, root),
+		"created": true,
+	}, persistence))
 
 
 
@@ -193,6 +201,10 @@ func _cmd_delete_node(params: Dictionary) -> Dictionary:
 
 	var parent := node.get_parent()
 	var index := node.get_index()  # restore at the same sibling position on undo
+	# #477: deleting an instance-owned node (or an unowned one) is not a save —
+	# the packer writes only owned/local entries, so the node is back on reload.
+	# Probed BEFORE the delete so the verdict names the node that existed.
+	var persistence := _router._persistent_target(node)
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Delete %s" % node.name)
 	ur.add_do_method(parent, "remove_child", node)
@@ -201,7 +213,10 @@ func _cmd_delete_node(params: Dictionary) -> Dictionary:
 	ur.add_undo_method(node, "set_owner", root)
 	ur.add_undo_reference(node)
 	ur.commit_action()
-	return _router._ok({"node_path": str(params.get("node_path")), "deleted": true})
+	return _router._ok(_router._with_persistence({
+		"node_path": str(params.get("node_path")),
+		"deleted": true,
+	}, persistence))
 
 
 

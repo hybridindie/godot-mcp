@@ -59,7 +59,13 @@ def register_navigation(mcp: FastMCP, bridge: Bridge) -> None:
         }
         preview = {"node_path": "", "region_type": region_type, "created": False}
         return await run_or_preview(
-            dry_run, NavigationRegionResult, preview, bridge, "cmd_setup_navigation_region", params
+            dry_run,
+            NavigationRegionResult,
+            preview,
+            bridge,
+            "cmd_setup_navigation_region",
+            params,
+            persistence_probe=node_probe(parent_path, probe_parent=True),
         )
 
     @mcp.tool(meta=MUTATING, tags=NAVIGATION)
@@ -84,7 +90,13 @@ def register_navigation(mcp: FastMCP, bridge: Bridge) -> None:
         }
         preview = {"node_path": "", "agent_type": agent_type, "created": False}
         return await run_or_preview(
-            dry_run, NavigationAgentResult, preview, bridge, "cmd_setup_navigation_agent", params
+            dry_run,
+            NavigationAgentResult,
+            preview,
+            bridge,
+            "cmd_setup_navigation_agent",
+            params,
+            persistence_probe=node_probe(parent_path, probe_parent=True),
         )
 
     @mcp.tool(meta=MUTATING, tags=NAVIGATION, task=True)

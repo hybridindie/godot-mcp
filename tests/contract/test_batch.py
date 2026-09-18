@@ -212,3 +212,48 @@ async def test_batch_undoable_flag_addon_source_pins_gate_order() -> None:
     threshold_line = fn.index("to_apply.size() > 20")
     flag_line = fn.index("undoable = false")
     assert threshold_line < flag_line  # only the bypass branch flips the flag
+
+
+async def test_batch_set_property_per_target_persistence() -> None:
+    """#477: batch targets inside instanced subtrees are individually
+    non-persistent — applied[] entries carry their own verdict, never one
+    aggregate ok hiding a lost target."""
+    server, _ = _build()
+
+    def per_target_responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_batch_set_property":
+            applied = ["Local", "Instanced"]
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "property": cmd.params["property"],
+                    "applied": applied,
+                    "skipped": [],
+                    "count": len(applied),
+                    "undoable": True,
+                    "persistence": [
+                        {"node_path": "Local", "persisted": True},
+                        {
+                            "node_path": "Instanced/Child",
+                            "persisted": False,
+                            "reason": "instanced_child_not_editable",
+                            "hint": "Enable Editable Children on 'Instanced' or exclude it.",
+                        },
+                    ],
+                },
+            )
+        return _responder(cmd)
+
+    conn = FakeAddonConnection(responder=per_target_responder)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    server = create_server(ServerConfig(), bridge=bridge)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "batch"})
+        result = await client.call_tool(
+            "godot_batch_set_property", {"property": "visible", "value": False}
+        )
+    data = result.structured_content
+    entries = data["persistence"]
+    assert len(entries) == 2
+    lost = [e for e in entries if not e["persisted"]]
+    assert len(lost) == 1 and lost[0]["reason"] == "instanced_child_not_editable"
