@@ -185,5 +185,7 @@ func _cmd_capture_game_screenshot(params: Dictionary) -> Dictionary:
 	if _router._debugger.get_pending_frame_request() != request_id:
 		_router._debugger.begin_frame_request(request_id)
 		_router._debugger.send_to_probe("godot_mcp:capture_frame", [{"request_id": request_id}])
-	return _router._ok({"ready": false})
+	# #459: parity with the editor capture — the probe has the request and answers
+	# on a later frame (game not rendering / probe busy are the usual waits).
+	return _router._ok({"ready": false, "reason": "capture_pending"})
 

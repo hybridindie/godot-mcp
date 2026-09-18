@@ -50,7 +50,8 @@ func _cmd_get_recording(_params: Dictionary) -> Dictionary:
 		return _router._ok({"ready": false, "connected": false, "events": []})
 	var payload: Variant = _router._debugger.get_recorded_input()
 	if payload == null:
-		return _router._ok({"ready": false, "connected": true, "events": []})
+		# #459: the stop push has not landed yet — say why the poll is pending.
+		return _router._ok({"ready": false, "connected": true, "events": [], "reason": "recording_pending"})
 	return _router._ok({"ready": true, "connected": true, "events": (payload as Dictionary).get("events", [])})
 
 

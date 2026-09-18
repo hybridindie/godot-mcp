@@ -323,4 +323,7 @@ def register_import_asset(mcp: FastMCP, bridge: Bridge) -> None:
             imported=result.get("imported", False),
             last_modified=result.get("last_modified"),
             type=result.get("type"),
+            # #459/#453: the scan-in-flight state rides the status read.
+            scanning=result.get("scanning", False),
+            reason=result.get("reason"),
         )

@@ -43,7 +43,10 @@ func _cmd_get_property_samples(_params: Dictionary) -> Dictionary:
 		return _router._ok({"ready": false, "connected": false, "samples": []})
 	var payload: Variant = _router._debugger.get_property_samples()
 	if payload == null:
-		return _router._ok({"ready": false, "connected": true, "samples": []})
+		# #459: the monitor is registered but no sample batch has landed yet.
+		return _router._ok({
+			"ready": false, "connected": true, "samples": [], "reason": "capture_pending",
+		})
 	var result: Dictionary = (payload as Dictionary).duplicate()
 	result["connected"] = true
 	return _router._ok(result)
@@ -70,6 +73,7 @@ func _cmd_find_ui_elements(params: Dictionary) -> Dictionary:
 			"visible_only": bool(params.get("visible_only", false)),
 			"request_id": request_id,
 		}])
-	return _router._ok({"ready": false, "elements": []})
+	# #459: the scan is dispatched to the probe and runs over the next frames.
+	return _router._ok({"ready": false, "elements": [], "reason": "scan_in_flight"})
 
 
