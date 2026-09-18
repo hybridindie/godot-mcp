@@ -24,3 +24,9 @@ class ImportStatusResult(BaseModel):
     imported: bool = False
     last_modified: str | None = None
     type: str | None = None
+    # #459/#453: true while the editor's filesystem scan is in flight — a status
+    # read then is provisional (an import just triggered the scan).
+    scanning: bool = False
+    # Stable reason token while pending: ``rescan_in_flight`` when not yet
+    # imported and the scan is running.
+    reason: str | None = None

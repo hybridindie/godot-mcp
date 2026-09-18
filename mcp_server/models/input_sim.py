@@ -28,3 +28,6 @@ class RecordingResult(BaseModel):
     connected: bool = False
     # Captured events in the play_input_sequence format — pass straight to that tool.
     events: list[dict[str, Any]] = Field(default_factory=list)
+    # #459: stable reason token while pending (e.g. recording_pending) — the
+    # poll expiry error relays it.
+    reason: str | None = None

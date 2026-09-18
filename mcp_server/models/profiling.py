@@ -16,3 +16,5 @@ class GamePerformanceResult(BaseModel):
     ready: bool = False
     monitors: dict[str, float] = Field(default_factory=dict)
     hint: str = ""
+    # #459: stable reason token while pending (probe_pending).
+    reason: str | None = None

@@ -60,11 +60,20 @@ func _cmd_get_performance_monitors(_params: Dictionary) -> Dictionary:
 		})
 	_router._debugger.send_to_probe("godot_mcp:get_performance", [])
 	var cached: Variant = _router._debugger.get_performance()
+	if cached == null:
+		# #459: the probe has not answered the first monitor pull yet.
+		return _router._ok({
+			"playing": true,
+			"connected": true,
+			"ready": false,
+			"monitors": {},
+			"reason": "probe_pending",
+		})
 	return _router._ok({
 		"playing": true,
 		"connected": true,
-		"ready": cached != null,
-		"monitors": cached if cached != null else {},
+		"ready": true,
+		"monitors": cached,
 	})
 
 

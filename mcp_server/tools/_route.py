@@ -217,12 +217,23 @@ async def poll_ready(
     elapses (whichever first), returning the last result. Uses an event-loop deadline so
     the wall-clock bound holds even for small timeouts and accounts for round-trip time.
     Always makes at least one attempt.
+
+    #459: a poll that never becomes ready is a structured failure, not a bare
+    ``{ready: false}`` — when the last result carries a ``reason`` token (the
+    addon self-reports why it is pending), the expiry raises a ``TIMEOUT`` ToolError
+    relaying it, so the agent can act on the cause instead of guessing.
     """
     deadline = asyncio.get_event_loop().time() + timeout_ms / 1000
     result = await route(bridge, command, params)
     while not result.get("ready"):
         remaining = deadline - asyncio.get_event_loop().time()
         if remaining <= 0:
+            reason = result.get("reason")
+            if reason:
+                raise ToolError(
+                    f"TIMEOUT: {command} did not become ready within {timeout_ms}ms "
+                    f"(last reason: {reason}). {result.get('hint', '')}".rstrip()
+                )
             break
         await asyncio.sleep(min(DEFAULT_POLL_INTERVAL_SECONDS, remaining))
         result = await route(bridge, command, params)

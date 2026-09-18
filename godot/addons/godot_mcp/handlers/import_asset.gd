@@ -234,4 +234,9 @@ func _cmd_get_import_status(params: Dictionary) -> Dictionary:
 		"imported": imported,
 		"last_modified": last_modified if not last_modified.is_empty() else null,
 		"type": type if not type.is_empty() else null,
+		# #459/#453: while the editor's filesystem scan is in flight (an import just
+		# triggered one) the status is provisional — say so instead of reporting
+		# `imported: false` forever.
+		"scanning": EditorInterface.get_resource_filesystem().is_scanning(),
+		"reason": "rescan_in_flight" if EditorInterface.get_resource_filesystem().is_scanning() and not imported else null,
 	})

@@ -178,3 +178,29 @@ async def test_input_sim_refused_while_game_paused_at_break() -> None:
             assert "PRECONDITION_FAILED" in text, tool
             assert "paused at a debugger break" in text, tool
             assert "continue_execution" in text or "unpause" in text, tool
+
+
+async def test_stop_recording_timeout_relays_pending_reason() -> None:
+    """#459: a poll loop that never becomes ready must not return a bare
+    {ready: false} — the expiry carries a stable reason token."""
+    server, _ = _build()
+
+    def never_ready_responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_get_recording":
+            return ResponseEnvelope.success(
+                cmd.id,
+                {"ready": False, "connected": True, "events": [], "reason": "recording_pending"},
+            )
+        return _responder(cmd)
+
+    conn = FakeAddonConnection(responder=never_ready_responder)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    server = create_server(ServerConfig(), bridge=bridge)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "input"})
+        result = await client.call_tool(
+            "godot_input_stop_recording", {"timeout_ms": 1}, raise_on_error=False
+        )
+    assert result.is_error
+    text = str(result.content)
+    assert "recording_pending" in text, text

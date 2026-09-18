@@ -461,3 +461,36 @@ async def test_get_import_status_wait_ms_polls_until_ready() -> None:
         )
     assert result.structured_content["imported"] is True
     assert status_calls["n"] == 2
+
+
+async def test_import_status_reports_rescan_in_flight() -> None:
+    """#459/#453: a status read while the editor's filesystem scan is running
+    carries the stable ``rescan_in_flight`` token — the read is provisional."""
+    server, _ = _build()
+
+    def scanning_responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_get_import_status":
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "imported": False,
+                    "last_modified": None,
+                    "type": None,
+                    "scanning": True,
+                    "reason": "rescan_in_flight",
+                },
+            )
+        return _responder(cmd)
+
+    conn = FakeAddonConnection(responder=scanning_responder)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    server = create_server(ServerConfig(), bridge=bridge)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "asset_import"})
+        result = await client.call_tool(
+            "godot_asset_import_get_status", {"target_path": "res://a.png"}
+        )
+    data = result.structured_content
+    assert data["scanning"] is True
+    assert data["reason"] == "rescan_in_flight"
+    assert data["imported"] is False

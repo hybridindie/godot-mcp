@@ -26,6 +26,8 @@ class PropertySamplesResult(BaseModel):
     property: str = ""
     samples: list[PropertySample] = Field(default_factory=list)
     error: str = ""
+    # #459: stable reason token while pending (capture_pending).
+    reason: str | None = None
 
 
 class Rect(BaseModel):
@@ -47,3 +49,5 @@ class UiElement(BaseModel):
 class UiElementsResult(BaseModel):
     ready: bool = False
     elements: list[UiElement] = Field(default_factory=list)
+    # #459: stable reason token while pending (scan_in_flight).
+    reason: str | None = None

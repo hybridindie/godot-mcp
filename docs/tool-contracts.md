@@ -1206,6 +1206,24 @@ Unknown names are ignored with a log line; unset keeps the default (`core` +
 `inspection`). This only seeds the server-global enabled set at startup —
 `enable_toolset`/`disable_toolset` work unchanged on top of it.
 
+### Readiness/reason envelope (issue #456, #457, #459)
+
+Poll-based handlers self-report *why* they are pending. While `ready: false`,
+the result carries a stable `reason` token; `poll_ready`-driven tools relay it
+in their `TIMEOUT` expiry error so an agent can act on the cause:
+
+| Token | Handler | Meaning |
+|-------|---------|---------|
+| `recording_pending` | `godot_input_stop_recording` | the stop push hasn't landed from the probe yet |
+| `capture_pending` | `godot_runtime_get_property_samples`, game-frame capture | the monitor/capture request is dispatched; the probe answers on a later frame |
+| `scan_in_flight` | `godot_runtime_find_ui_elements` | the full-Control scan is dispatched and runs over the next frames |
+| `probe_pending` | `godot_profiling_get_performance_monitors` | the probe hasn't answered the first monitor pull |
+| `rescan_in_flight` | `godot_asset_import_get_status` | the editor's filesystem scan is running (an import just triggered it); the status read is provisional and its `scanning` flag is true |
+
+`godot_asset_import_get_status` also reports `scanning: bool` (#453) — the same
+`EditorFileSystem.is_scanning()` read the parse-check gate uses, so agents can
+distinguish "not imported yet" from "the scan hasn't flushed".
+
 ## Resources
 
 - `@mcp.resource("godot://…")` handlers are **read-only** and return JSON strings; no side
