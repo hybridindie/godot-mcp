@@ -61,6 +61,7 @@ These span many files and are the things easiest to get wrong:
 - **Structured errors, never stack traces** — failures return `{ ok: false, error, hint }`. Preconditions return a richer form: `{ ok: false, error: "PRECONDITION_FAILED", hint, required }` (issue #14). Errors must be actionable for an agent with no human in the loop.
 - **Tool safety classes** (issue #14) — every tool is tagged `read_only` | `mutating` | `destructive` | `runtime`. `mutating`/`destructive` tools take `dry_run: bool = False`; `destructive` tools require `confirm=True`. Common preconditions: `require_active_scene`, `require_bridge_connected`, `require_node_exists(path)`. All safety logic lives in the MCP layer, **not** the addon.
 - **UndoRedo for every mutation** (issue #6) — all create/rename/delete/set operations in the addon must register with `EditorUndoRedoManager`.
+- **Honest partial results** (issues #424/#437/#461) — results never read as success when the effect half-failed: batches above the 20-node undo threshold return `undoable: false` + hint; `run_commands` early stops return `aborted_at`/`skipped_count`/hint; parse checks that raced an in-flight filesystem scan return `rescan_pending: true`; timeout kills are distinguished from crashes (`exit_code=None` is not a non-zero exit; `expected_timeout` opt-in); unknown project-setting keys are refused with a did-you-mean hint. Contract tests pin every field.
 - **JSON-safe serialization** — the scene tree and node properties must serialize to JSON-safe types only (no Godot objects). Large trees support a `max_depth` parameter.
 - **Type coercion** (issue #6) — Godot types (`Vector2/3`, `Color`, `Rect2`, `NodePath`) are coerced to/from JSON in a dedicated `type_coerce.gd` helper, not inline.
 - **Read-only vs. mutating split** — read-only context is exposed both as tools (issue #5) and as `godot://` resources (issue #11); mutations only ever go through tools.
@@ -88,9 +89,11 @@ The scaffold (issue #1) is in place: `uv`-managed Python package, the addon unde
 
 Three AI skills ship in [`skills/`](skills/README.md) — installable into any AI client (opencode, Claude) via `scripts/install-skills.sh`:
 
-- `godot-getting-started` — bridge connection, toolset gating, safety classes
-- `godot-playtest-and-debug` — runtime play-test, input simulation, debugging
+- `godot-getting-started` — bridge connection, toolset gating, safety classes, reading honesty fields (`undoable`/`aborted_at`/`rescan_pending`), round-trip economy
+- `godot-playtest-and-debug` — runtime play-test, input simulation, break-state gate, timeout semantics, debugging
 - `godot-expert` — Godot 4.x engine knowledge, 10 sections + 7 reference guides + 11 documented bugs
+
+They are pinned to the live surface by `tests/unit/test_skills_metadata.py` (tool refs resolve, toolset map covers all toolsets, prompts covered, version named) — a surface change without a skills update fails the suite.
 
 ## graphify
 

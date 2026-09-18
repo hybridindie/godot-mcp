@@ -455,16 +455,25 @@ If the bridge is offline: open the `godot/` project in Godot 4.4+ with the addon
 | `godot_scene_edit_save_all_scenes()` | Save all open scenes |
 | `godot_runtime_play_scene()` | Play the scene in the editor |
 | `godot_runtime_run_and_capture()` | Headless run + captured errors/output |
+| `godot_debug_workflow()` | One-call diagnostics: parse + tree + run + bridge (core, always on) |
+| `godot_composite_run_commands()` | N editor commands in one round-trip (stop_on_error reports what was skipped) |
+| `godot_batch_set_property()` | Set one property on many nodes (reports `undoable`; >20 nodes bypass undo) |
+| `godot_project_set_setting()` | Write a project.godot setting (refuses unknown keys with a hint) |
 | `godot_scene_edit_close_scene()` | Close a scene tab (destructive, needs confirm) |
 | `godot_undo()` | Undo the last editor action (always-on core) |
+
+**Round-trip economy:** for a multi-step build (create scene → add nodes → attach script → save), prefer one `godot_composite_run_commands` batch over a sequence of single calls — the editor drains each command in ~one frame, so batching is the main throughput lever. Keep `dry_run` previews on unfamiliar mutations.
 
 ### Gotchas
 
 - **Scene edits need an explicit save** (`godot_scene_edit_save_scene()`); script writes don't — they hit disk immediately
 - Changing `project.godot` on disk requires **Project → Reload Current Project** (or `godot_scene_edit_reload_scene()` for the scene)
 - `godot_runtime_run_and_capture()` runs the **files on disk** — save the scene first
-- Every mutation is undoable in the editor's undo history; `godot_undo()` steps back one action
-- Live inspection/input during play needs the `MCPRuntimeProbe` autoload in the game (see `godot-playtest-and-debug`)
+- Every small mutation is undoable via `godot_undo()` — but **batch sets above 20 nodes bypass undo** for performance: `godot_batch_set_property` reports `undoable: false` with a hint. Read that flag; undo will not revert the batch.
+- `godot_composite_run_commands` with the default `stop_on_error=true` halts at the first failure — read `aborted_at`/`skipped_count`/`hint` in the result; the trailing commands (e.g. a final `save_scene`) did **not** run.
+- A parse check right after a fresh `class_name` write may report "Could not find type" with `rescan_pending: true` — the editor's rescan hadn't flushed yet. Re-check before rewriting correct code.
+- `godot_project_set_setting` validates keys: a typo inside a known engine section is refused with a did-you-mean hint (`application/config/main_scene` → `application/run/main_scene`). Custom sections (e.g. `my_game/…`) are still accepted.
+- Live inspection/input during play needs the `MCPRuntimeProbe` autoload in the game (see `godot-playtest-and-debug`); input is refused while the game is frozen at a debugger break — continue execution first.
 
 ---
 
@@ -524,9 +533,11 @@ func test_player_starts_with_full_health() -> void:
 - [ ] Dynamically spawned entities are children of the scene root, not the autoload
 - [ ] Full-screen overlay `Control` has `mouse_filter = IGNORE` (2)
 - [ ] Custom input actions are in `project.godot` and project was reloaded
-- [ ] All scripts parse clean: `godot --headless --check-only --script <path>` or `godot_scripts_get_parse_errors()`
+- [ ] All scripts parse clean: `godot --headless --check-only --script <path>` or `godot_scripts_get_parse_errors()` (a `rescan_pending: true` result is stale cache — re-check once)
 - [ ] GUT tests pass: `godot_testing_run_tests()` or `godot --headless -s addons/gut/gut_cmdln.gd -gexit`
 - [ ] Scene saved to disk: `godot_scene_edit_save_scene()` after scene edits (scripts flush on write)
+- [ ] If you used `godot_batch_set_property` on >20 nodes: result said `undoable: false` — undo will not revert it
+- [ ] If you used `godot_composite_run_commands`: `aborted_at` absent (or all commands ran) before moving on
 
 ---
 

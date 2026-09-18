@@ -329,6 +329,8 @@ For each prompt below, paste it into your MCP client chat. The LLM will use the 
 **Example response:**
 > Clean exit (code 0). 0 errors, 0 warnings. The game boots successfully.
 
+> Note: a game that never quits on its own reports `timed_out: true` (exit code null) — that is the timeout, not a crash. For such games pass `expected_timeout=True` to `godot_debug_workflow` or read the captured `errors`/`warnings` as the verdict.
+
 ---
 
 ### Prompt 3.3: Set the Main Scene
@@ -449,6 +451,8 @@ For each prompt below, paste it into your MCP client chat. The LLM will use the 
 - `godot_enable_toolset("batch")`
 - `godot_batch_find_nodes_by_type(node_type="Area2D", scene_path="res://scenes/main.tscn")` to identify coins
 - `godot_batch_set_property(scene_path="res://scenes/main.tscn", node_paths=["./Coins/Coin1", "./Coins/Coin2", "./Coins/Coin3"], property="modulate", value={"r": 1, "g": 0, "b": 0, "a": 1})`
+
+The result reports `undoable` — batches above 20 nodes bypass the editor's undo stack for performance and say so (`undoable: false`); smaller ones are fully undoable via `godot_undo`.
 
 ---
 
