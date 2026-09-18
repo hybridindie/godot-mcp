@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from mcp_server.models.persistence import PersistenceReport
+from mcp_server.models.scripts import ParseError
 
 
 class ShaderResult(BaseModel):
@@ -42,3 +43,16 @@ class ShaderParamReadResult(BaseModel):
     name: str
     value: Any = None
     exists: bool = False
+
+
+class ShaderValidateResult(BaseModel):
+    """Outcome of a headless shader compile-check (#423).
+
+    ``ok`` is False when the engine's compile reported errors — exactly what
+    ``SHADER ERROR`` / ``Shader compilation failed`` mean at runtime. ``errors``
+    carries the structured messages (message/source?/line?) the engine printed.
+    """
+
+    shader_path: str
+    ok: bool
+    errors: list[ParseError] = Field(default_factory=list)

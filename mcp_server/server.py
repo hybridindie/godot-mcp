@@ -178,7 +178,7 @@ def create_server(
     register_audio(mcp, bridge)
     register_tilemap(mcp, bridge)
     register_theme_ui(mcp, bridge)
-    register_shader(mcp, bridge)
+    register_shader(mcp, bridge, config, runner)
     register_visual_shader(mcp, bridge)
     register_editor(mcp, bridge)
     resource_uris = register_resources(mcp, bridge)

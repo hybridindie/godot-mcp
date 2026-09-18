@@ -37,3 +37,33 @@ def parse_check_errors(text: str) -> list[ParseError]:
                 break
         errors.append(ParseError(message=message, source=source, line=line_no))
     return errors
+
+
+_SHADER_ERROR_RE = re.compile(r"SHADER ERROR:?\s*(.*)")
+
+
+def parse_shader_errors(text: str) -> list[ParseError]:
+    """Extract structured compile errors from a shader compile-check run (#423).
+
+    Godot prints ``SHADER ERROR: <message>`` (with a source-location line below
+    it) and ``ERROR: Shader compilation failed`` when the code fails the engine's
+    compile; pair the SHADER ERROR lines with their location when present.
+    """
+    lines = text.splitlines()
+    errors: list[ParseError] = []
+    for i, line in enumerate(lines):
+        match = _SHADER_ERROR_RE.search(line)
+        if not match:
+            continue
+        message = match.group(1).strip()
+        source: str | None = None
+        line_no: int | None = None
+        for look in lines[i : i + 3]:
+            found = _CHECK_SOURCE_RE.search(look)
+            if found:
+                source, line_no = found.group(1), int(found.group(2))
+                break
+        errors.append(ParseError(message=message, source=source, line=line_no))
+    if "Shader compilation failed" in text and not errors:
+        errors.append(ParseError(message="Shader compilation failed."))
+    return errors

@@ -128,6 +128,12 @@ def register_scripts(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
     async def get_parse_errors(script_path: str) -> ParseCheckResult:
         """Parse-check ``script_path`` and return structured errors (message + line),
         or an empty list when it parses cleanly. Use after writing/patching a script.
+
+        Scope honesty (#423): this checks GDScript *syntax* — it does NOT catch
+        class-API misuse (a nonexistent member parses clean and fails at runtime).
+        For that, run the project: ``godot_runtime_run_and_capture`` reports the
+        runtime errors (the recommended full-verification pattern); the shader
+        analogue is ``godot_shader_validate``.
         """
         require_godot_binary(runner.binary)
         project_dir = await resolve_project_dir(bridge, config)
