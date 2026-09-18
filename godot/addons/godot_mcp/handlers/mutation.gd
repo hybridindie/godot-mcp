@@ -24,6 +24,7 @@ func register(handlers: Dictionary) -> void:
 	handlers["cmd_delete_node"] = _cmd_delete_node
 	handlers["cmd_rename_node"] = _cmd_rename_node
 	handlers["cmd_save_scene"] = _cmd_save_scene
+	handlers["cmd_set_editable_children"] = _cmd_set_editable_children
 	handlers["cmd_set_node_property"] = _cmd_set_node_property
 
 
@@ -368,3 +369,54 @@ func _cmd_create_scene(params: Dictionary) -> Dictionary:
 	return _router._ok({"scene_path": scene_path, "root_type": root_type, "created": true})
 
 
+
+
+## Toggle Editable Children on the instanced scene at ``node_path`` (#487).
+##
+## Node.set_editable_instance(parent, node, editable) is the API the SceneTreeDock
+## calls for its Editable Children toggle: the flag lives on the PARENT (keyed to
+## the instance node), and the flag itself is saved into the scene state — the
+## persisted verdict keys on the parent (a toggle on an instance nested inside a
+## non-editable instance is lost on save). This is the fix for the persistence
+## verdicts' dead end: the handler reports instanced_child_not_editable, and this
+## tool is the "enable Editable Children on '<instance>'" action the hint names.
+func _cmd_set_editable_children(params: Dictionary) -> Dictionary:
+	var root := EditorInterface.get_edited_scene_root()
+	if root == null:
+		return _router._fail("PRECONDITION_FAILED", "No scene is open.", "active_scene")
+	var found := _router._resolve(params.get("node_path", ""))
+	if not found["ok"]:
+		return found
+	var instance: Node = found["node"]
+	var parent := instance.get_parent()
+	if parent == null or instance == root:
+		return _router._fail(
+			"VALIDATION_ERROR",
+			"'%s' is not an instanced child — Editable Children applies to instanced scene nodes."
+				% root.get_path_to(instance),
+			"node_path",
+		)
+	# Only a node that actually comes from another scene can be marked editable:
+	# set_editable_instance on a local node is a silent no-op, so refuse it with
+	# an actionable hint instead.
+	if instance.owner != root or instance.scene_file_path.is_empty():
+		return _router._fail(
+			"VALIDATION_ERROR",
+			"Node '%s' is not an instanced scene (it is local to the edited scene, or its source path is empty) — there is nothing to mark editable."
+				% root.get_path_to(instance),
+			"node_path",
+		)
+	var editable := bool(params.get("editable", true))
+	var already := root.is_editable_instance(instance)
+	# The persistence verdict keys on the parent: the editable-instance flag is
+	# packed as part of the parent's node entry.
+	var persistence := _router._persistent_target(parent)
+	var ur := EditorInterface.get_editor_undo_redo()
+	ur.create_action("%s Editable Children on %s" % ["Enable" if editable else "Disable", instance.name])
+	ur.add_do_method(parent, "set_editable_instance", instance, editable)
+	ur.add_undo_method(parent, "set_editable_instance", instance, already)
+	ur.commit_action()
+	return _router._ok(_router._with_persistence({
+		"node_path": str(params.get("node_path")),
+		"editable": editable,
+	}, persistence))

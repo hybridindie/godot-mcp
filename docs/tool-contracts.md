@@ -308,10 +308,13 @@ states return an empty model (`is_open=False` / `tree=None` / `selected=None`), 
 | `godot_inspection_get_node_property_list` | `node_path: str` | `NodePropertyList { node_path, type, properties[] }` | `cmd_get_node_property_list` |
 | `godot_inspection_get_node_groups` | `node_path: str` | `NodeGroups { node_path, groups[] }` | `cmd_get_node_groups` |
 
-`SceneNode = { name, type, path, script?, children: [SceneNode] }`. Each node's `path` (#180)
+`SceneNode = { name, type, path, script?, owner?, editable_children?, children: [SceneNode] }`. Each node's `path` (#180)
 is scene-relative (`"."` for the root, e.g. `Player/Weapon` below it) and is accepted verbatim
 by the path-taking tools (`godot_scene_edit_set_node_property`, `godot_scene_edit_create_node` parent, `godot_scene_edit_attach_script`,
 `godot_inspection_get_node_properties`) — clients must not reconstruct paths by walking the tree.
+Instanced nodes (from another scene) carry `owner` — the source scene's `res://` path —
+and `editable_children: true` when Editable Children is on (#487); local nodes carry
+neither key. `lightweight=True` drops `script` *and* the instance metadata.
 `lightweight=True` (#168) drops `script` → `{ name, type, path, children }` for a smaller
 discovery payload (pair with `max_depth`). `godot_inspection_get_node_properties` errors
 with `RESOURCE_NOT_FOUND` (bad path) or `PRECONDITION_FAILED` (no scene open).
@@ -346,6 +349,14 @@ UndoRedo-wrapped `cmd_*` handler and runs preconditions first.
  | `godot_scene_edit_save_scene` | — | `SaveSceneResult { path?, saved }` | `mutating` |
  | `godot_scene_edit_create_scene` | `root_type, scene_path` | `CreateSceneResult { scene_path, root_type, created }` | `mutating` |
  | `godot_scene_edit_instance_scene` | `parent_path, scene_path, name=""` | `InstanceSceneResult { node_path, scene_path, instanced, persisted, reason?, hint? }` | `mutating` |
+ | `godot_scene_edit_set_editable_children` | `node_path, editable=True` | `SetEditableChildrenResult { node_path, editable, persisted, reason?, hint? }` | `mutating` |
+
+`godot_scene_edit_set_editable_children` toggles Editable Children on an instanced
+scene (#487) — the action the persistence verdicts name when they report
+`instanced_child_not_editable` ("Enable Editable Children on '<instance>'"). The
+instance must come from another scene (a local node is refused — the flag would be
+a silent no-op); the flag lives on the node's parent entry in the scene state, so
+the persisted verdict keys on the parent.
 
 `godot_scene_edit_create_scene`'s `root_type` accepts **built-in ClassDB node types only**
 (#429): a custom registered `class_name` script is rejected with `VALIDATION_ERROR: Unknown

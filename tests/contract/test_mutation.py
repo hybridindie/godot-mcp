@@ -89,6 +89,41 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                     "instanced": True,
                 },
             )
+        case "cmd_set_editable_children":  # issue #487
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "node_path": p["node_path"],
+                    "editable": p.get("editable", True),
+                    "persisted": True,
+                },
+            )
+        case "cmd_get_scene_tree":  # #487: instance metadata in the tree
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "tree": {
+                        "name": "Root",
+                        "type": "Node2D",
+                        "path": ".",
+                        "children": [
+                            {
+                                "name": "Relic",
+                                "type": "Node2D",
+                                "path": "Relic",
+                                "owner": "res://relic.tscn",
+                                "children": [],
+                            },
+                            {
+                                "name": "Own",
+                                "type": "Node",
+                                "path": "Own",
+                                "children": [],
+                            },
+                        ],
+                    }
+                },
+            )
     return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected command")
 
 
@@ -410,3 +445,84 @@ async def test_instance_scene_missing_parent_is_error() -> None:
     assert result.is_error
     assert "RESOURCE_NOT_FOUND" in str(result.content)
     assert "cmd_instance_scene" not in _commands(conn)
+
+
+# --- set_editable_children (issue #487) ----------------------------------------
+
+
+async def test_set_editable_children_is_registered_mutating() -> None:
+    server, _ = _build()
+    async with Client(server, mode="legacy") as client:
+        assert "godot_scene_edit_set_editable_children" not in {
+            t.name for t in await client.list_tools()
+        }
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
+        tools = {t.name: t for t in await client.list_tools()}
+        tool = tools["godot_scene_edit_set_editable_children"]
+    assert tool.meta is not None and tool.meta.get("safety_class") == "mutating"
+
+
+async def test_set_editable_children_sends_handler_and_persists() -> None:
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
+        result = await client.call_tool(
+            "godot_scene_edit_set_editable_children",
+            {"node_path": "Relic", "editable": True},
+        )
+    data = result.structured_content
+    assert data["editable"] is True
+    assert data["persisted"] is True
+    sent = [c for c in _commands(conn) if c == "cmd_set_editable_children"]
+    assert sent == ["cmd_set_editable_children"]
+    # The node must be resolved through the *parent* of the named instance — the
+    # addon calls set_editable_instance(parent, node, editable).
+    env = CommandEnvelope.model_validate_json(conn.sent[-1])
+    assert env.params["node_path"] == "Relic"
+    assert env.params["editable"] is True
+
+
+async def test_set_editable_children_dry_run_previews() -> None:
+    server, conn = _build()
+
+    def probe_responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_node_persistence":
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "node_path": cmd.params.get("node_path", ""),
+                    "persisted": False,
+                    "reason": "node_not_owned",
+                    "hint": "No scene open.",
+                },
+            )
+        return _responder(cmd)
+
+    conn._responder = probe_responder
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
+        result = await client.call_tool(
+            "godot_scene_edit_set_editable_children",
+            {"node_path": "Relic", "editable": False, "dry_run": True},
+        )
+    data = result.structured_content
+    assert data["dry_run"] is True
+    assert data["editable"] is False
+    assert data["persisted"] is False
+    assert "cmd_set_editable_children" not in _commands(conn)
+
+
+async def test_scene_tree_exposes_instance_metadata() -> None:
+    """#487: instanced nodes carry `owner` (their source scene) so agents can
+    tell them apart from local nodes; editable instances are marked."""
+    server, _ = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
+        tree = await client.call_tool("godot_inspection_get_scene_tree", {})
+    nodes = tree.structured_content["tree"]["children"]
+    relic = next(n for n in nodes if n["name"] == "Relic")
+    own = next(n for n in nodes if n["name"] == "Own")
+    assert relic.get("owner") == "res://relic.tscn"
+    # Local nodes carry no owner field at all (the default surface stays small).
+    assert "owner" not in own
+    assert "editable_children" not in own

@@ -723,6 +723,29 @@ async def _run() -> list[str]:
     try:
         await _open(bridge, MAIN)
         mismatches = await _apply(bridge, MAIN_OPS)
+        # #487: the toggle is the action the NOT_EDITABLE verdicts name; the
+        # tree metadata marks the instance's children once it is on.
+        toggle = await bridge.send(
+            "cmd_set_editable_children", {"node_path": "Relic", "editable": True}
+        )
+        assert toggle.ok and toggle.result is not None, f"{toggle.error} {toggle.hint}"
+        assert toggle.result["persisted"] is True
+        tree_result = (await bridge.send("cmd_get_scene_tree", {})).result
+        assert tree_result is not None
+        tree = tree_result["tree"]
+        relic = next(n for n in tree["children"] if n["name"] == "Relic")
+        assert any(c.get("owner") == f"res://{PREFIX}inner.tscn" for c in relic["children"]), (
+            "instanced children carry no owner metadata"
+        )
+        cold = next(c for c in relic["children"] if c["name"] == "Cold")
+        assert cold.get("editable_children") is True, (
+            "the editable-children toggle is not reflected in the tree metadata"
+        )
+        # Restore authored state for the reload assertions below.
+        restore = await bridge.send(
+            "cmd_set_editable_children", {"node_path": "Relic", "editable": False}
+        )
+        assert restore.ok
         assert (await bridge.send("cmd_save_scene", {})).ok
         await _open(bridge, DERIVED)
         mismatches += await _apply(bridge, DERIVED_OPS)
