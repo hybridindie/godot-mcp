@@ -19,6 +19,9 @@ const Coerce := preload("./type_coerce.gd")
 ## for a smaller discovery payload — { name, type, path, children } only.
 ## scene_root threads the root down the recursion; it defaults to `node` (the top
 ## call passes the root), so existing 1-3 arg callers keep working.
+## #487: instanced nodes (owner != root) carry `owner` (the instanced scene's path)
+## so agents can tell them apart from local nodes; the parent-side editable marker
+## (`editable_children: true`) rides the node whose instance is editable.
 static func serialize_tree(
 	node: Node, max_depth: int = -1, lightweight: bool = false, scene_root: Node = null
 ) -> Dictionary:
@@ -30,6 +33,22 @@ static func serialize_tree(
 	}
 	if not lightweight:
 		data["script"] = script_path(node)
+		# #487: instance metadata. A node the edited root does not own comes from
+		# another scene; the owner IS that scene's instance (null owner = unowned
+		# editor artifact, reported as null).
+		if node != root:
+			var node_owner := node.owner
+			if node_owner == null:
+				data["owner"] = null
+			elif node_owner != root:
+				var owner_path := root.get_path_to(node_owner)
+				data["owner"] = owner_path
+				if node_owner.scene_file_path.is_empty():
+					data["owner"] = owner_path
+				else:
+					data["owner"] = node_owner.scene_file_path
+				if root.is_editable_instance(node_owner):
+					data["editable_children"] = true
 	var children: Array = []
 	if max_depth != 0:
 		var child_depth: int = (max_depth - 1) if max_depth > 0 else -1

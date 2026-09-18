@@ -31,6 +31,7 @@ from mcp_server.models.mutation import (
     InstanceSceneResult,
     RenameNodeResult,
     SaveSceneResult,
+    SetEditableChildrenResult,
     SetPropertyResult,
 )
 from mcp_server.safety import (
@@ -304,4 +305,35 @@ def register_mutation(
             params,
             # #477: the instance keys on the parent (it does not exist yet).
             persistence_probe=node_probe(parent_path, probe_parent=True),
+        )
+
+    @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
+    @enforce_preconditions
+    async def set_editable_children(
+        node_path: str, editable: bool = True, dry_run: bool = False
+    ) -> SetEditableChildrenResult:
+        """Toggle Editable Children on the instanced scene at ``node_path``.
+
+        The persistence verdicts name this action directly: an edit reported
+        ``instanced_child_not_editable`` says "Enable Editable Children on
+        '<instance>'" — this tool IS that action. The instance must come from
+        another scene; the flag lives on the parent and is saved with the scene,
+        so the verdict keys on the parent.
+
+        IF THIS FAILS with "not an instanced scene":
+          -> node_path is local to the edited scene (not from another .tscn) —
+             Editable Children does not apply; check the tree with get_scene_tree().
+        """
+        await require_node_exists(bridge, node_path)
+        params = {"node_path": node_path, "editable": editable}
+        preview = {"node_path": node_path, "editable": editable}
+        return await run_or_preview(
+            dry_run,
+            SetEditableChildrenResult,
+            preview,
+            bridge,
+            "cmd_set_editable_children",
+            params,
+            # #477: the flag is packed with the node's parent entry.
+            persistence_probe=node_probe(node_path, probe_parent_of=True),
         )

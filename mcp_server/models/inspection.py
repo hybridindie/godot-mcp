@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_serializer
 
 
 class ProjectInfo(BaseModel):
@@ -54,13 +54,38 @@ class SceneNode(BaseModel):
     ``path`` is the scene-relative path (``"."`` for the root, e.g. ``Player/Weapon``
     below it), accepted verbatim by the path-taking tools (#180) — clients never have
     to reconstruct paths by walking the tree.
+
+    #487: instanced nodes (they come from another scene) carry ``owner`` — the
+    source scene's ``res://`` path — so agents can tell them apart from local
+    nodes; ``editable_children: true`` rides the instance whose Editable Children
+    is on. Local nodes carry neither field (the default surface stays small).
     """
 
     name: str
     type: str
     path: str = ""
     script: str | None = None
+    owner: str | None = None
+    editable_children: bool | None = None
     children: list[SceneNode] = Field(default_factory=list)
+
+    @model_serializer(mode="plain")
+    def _serialize(self) -> dict[str, Any]:
+        """Omit ``owner``/``editable_children`` when unset — local nodes carry
+        neither key on the wire (FastMCP builds structured_content via
+        pydantic-core, which only honors this hook)."""
+        data: dict[str, Any] = {
+            "name": self.name,
+            "type": self.type,
+            "path": self.path,
+            "script": self.script,
+        }
+        if self.owner is not None:
+            data["owner"] = self.owner
+        if self.editable_children is not None:
+            data["editable_children"] = self.editable_children
+        data["children"] = self.children
+        return data
 
 
 class SceneTree(BaseModel):

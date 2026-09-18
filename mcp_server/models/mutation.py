@@ -77,3 +77,9 @@ class InstanceSceneResult(PersistenceReport):
     scene_path: str
     instanced: bool
     dry_run: bool = False
+
+
+class SetEditableChildrenResult(PersistenceReport):
+    node_path: str
+    editable: bool
+    dry_run: bool = False

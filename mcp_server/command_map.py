@@ -148,6 +148,7 @@ BARE_TO_COMMAND: dict[str, str] = {
     "scene_edit_rename_node": "cmd_rename_node",
     "scene_edit_save_all_scenes": "cmd_save_all_scenes",
     "scene_edit_save_scene": "cmd_save_scene",
+    "scene_edit_set_editable_children": "cmd_set_editable_children",
     "scene_edit_select_nodes": "cmd_select_nodes",
     "scene_edit_set_node_property": "cmd_set_node_property",
     "scripts_get_for_node": "cmd_get_script_for_node",
