@@ -47,8 +47,13 @@ func _cmd_add_audio_player(params: Dictionary) -> Dictionary:
 			return _router._fail("VALIDATION_ERROR", "'%s' is not an AudioStream." % stream_path)
 		player.set("stream", stream)
 	_router._apply_props(player, params.get("properties", {}))
-	var path := _router._commit_add_child(parent, player, "Add %s" % player.name)
-	return _router._ok({"node_path": path, "player_type": player_type, "created": true})
+	# #477 (parent rule): an audio player under an instanced child is lost on save.
+	var committed := _router._commit_add_child_with_persistence(parent, player, "Add %s" % player.name)
+	return _router._ok(_router._with_persistence({
+		"node_path": committed["path"],
+		"player_type": player_type,
+		"created": true,
+	}, committed["persistence"]))
 
 
 

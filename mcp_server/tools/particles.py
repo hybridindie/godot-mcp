@@ -66,7 +66,13 @@ def register_particles(mcp: FastMCP, bridge: Bridge) -> None:
         }
         preview = {"node_path": "", "particles_type": particles_type, "created": False}
         return await run_or_preview(
-            dry_run, CreateParticlesResult, preview, bridge, "cmd_create_particles", params
+            dry_run,
+            CreateParticlesResult,
+            preview,
+            bridge,
+            "cmd_create_particles",
+            params,
+            persistence_probe=node_probe(parent_path, probe_parent=True),
         )
 
     @mcp.tool(meta=MUTATING, tags=PARTICLES)

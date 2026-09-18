@@ -37,6 +37,9 @@ func _cmd_duplicate_node(params: Dictionary) -> Dictionary:
 		return _router._fail("VALIDATION_ERROR", "Cannot duplicate the scene root.")
 
 	var dup := node.duplicate()
+	# #477 (parent rule): a duplicate under a non-editable instanced parent is
+	# applied live but lost on save — probed BEFORE the duplicate is added.
+	var persistence := _router._persistent_target(parent)
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Duplicate %s" % node.name)
 	# force_readable_name=true so a name collision becomes "Box2", not "@Box@123".
@@ -45,10 +48,10 @@ func _cmd_duplicate_node(params: Dictionary) -> Dictionary:
 	ur.add_do_reference(dup)
 	ur.add_undo_method(parent, "remove_child", dup)
 	ur.commit_action()
-	return _router._ok({
+	return _router._ok(_router._with_persistence({
 		"node_path": Inspect.relative_path(dup, root),
 		"source_path": str(params.get("node_path")),
-	})
+	}, persistence))
 
 
 
@@ -70,6 +73,12 @@ func _cmd_move_node(params: Dictionary) -> Dictionary:
 
 	var old_index := node.get_index()
 	var index := int(params.get("index", -1))
+	# #477: a move is saved iff BOTH the source removal and the destination insert
+	# survive the pack. The destination rule dominates: a node moved INTO a
+	# non-editable instance subtree is never saved (the moved node is lost);
+	# a move OUT of an instanced subtree that the scene owns saves fine. Probed
+	# BEFORE the move so the verdict names the pre-move destination path.
+	var persistence := _router._persistent_target(new_parent)
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Move %s" % node.name)
 	ur.add_do_method(old_parent, "remove_child", node)
@@ -83,7 +92,10 @@ func _cmd_move_node(params: Dictionary) -> Dictionary:
 	ur.add_undo_method(_router, "_own_recursive", node, root)
 	ur.add_undo_method(old_parent, "move_child", node, old_index)
 	ur.commit_action()
-	return _router._ok({"node_path": Inspect.relative_path(node, root), "moved": true})
+	return _router._ok(_router._with_persistence({
+		"node_path": Inspect.relative_path(node, root),
+		"moved": true,
+	}, persistence))
 
 
 

@@ -83,8 +83,13 @@ func _cmd_create_particles(params: Dictionary) -> Dictionary:
 	particles.set("lifetime", maxf(0.01, float(params.get("lifetime", 1.0))))
 	particles.set("process_material", ParticleProcessMaterial.new())
 	_router._apply_props(particles, params.get("properties", {}))
-	var path := _router._commit_add_child(parent, particles, "Add %s" % particles.name)
-	return _router._ok({"node_path": path, "particles_type": particles_type, "created": true})
+	# #477 (parent rule): a particles node under an instanced child is lost on save.
+	var committed := _router._commit_add_child_with_persistence(parent, particles, "Add %s" % particles.name)
+	return _router._ok(_router._with_persistence({
+		"node_path": committed["path"],
+		"particles_type": particles_type,
+		"created": true,
+	}, committed["persistence"]))
 
 
 

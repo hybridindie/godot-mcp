@@ -7,13 +7,13 @@ from pydantic import BaseModel, Field
 from mcp_server.models.persistence import PersistenceReport
 
 
-class DuplicateNodeResult(BaseModel):
+class DuplicateNodeResult(PersistenceReport):
     node_path: str  # the new node's scene-relative path ("" on dry_run)
     source_path: str
     dry_run: bool = False
 
 
-class MoveNodeResult(BaseModel):
+class MoveNodeResult(PersistenceReport):
     node_path: str
     moved: bool
     dry_run: bool = False

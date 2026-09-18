@@ -26,3 +26,18 @@ def persistence_fields(result: dict[str, Any]) -> dict[str, Any]:
     """The persistence fields of an addon result, for tools that build their model by hand
     instead of passing the whole result through."""
     return {key: result[key] for key in ("persisted", "reason", "hint") if key in result}
+
+
+class TargetPersistence(BaseModel):
+    """Per-target verdict inside a multi-target batch (#477).
+
+    ``node_path`` echoes the entry the verdict describes; ``persisted``/``reason``/
+    ``hint`` have the same semantics as :class:`PersistenceReport` for that one
+    target. A batch result must carry one entry per applied target — an aggregate
+    ``ok`` never hides a target the save will drop.
+    """
+
+    node_path: str
+    persisted: bool
+    reason: str | None = None
+    hint: str | None = None

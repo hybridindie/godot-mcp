@@ -193,7 +193,23 @@ func _cmd_node_persistence(params: Dictionary) -> Dictionary:
 					if tileset.has_source(source_id):
 						chain.push_front(tileset.get_source(source_id))
 				break
-	var truth := _router._resource_persistence(node, chain)
+	var truth: Dictionary
+	if params.has("probe_parent_of"):
+		# #477 (duplicate): the copy keys on the PARENT of the named node — the
+		# duplicate lands under the same parent, so the parent rule decides and
+		# the hint names the parent path (same as the real run).
+		var parent := (node as Node).get_parent()
+		truth = (
+			_router._persistent_target(parent)
+			if parent != null
+			else _router._not_persisted("node_not_owned", "The node has no parent, so nothing can be saved.")
+		)
+	elif bool(params.get("probe_parent", false)):
+		# #477: structural probes key on the parent (creates/instances/moves)
+		# — the target does not exist yet, so the parent's persistence decides.
+		truth = _router._persistent_target(node)
+	else:
+		truth = _router._resource_persistence(node, chain)
 	var body := {
 		"node_path": str(params["node_path"]),
 		"persisted": truth["ok"],

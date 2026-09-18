@@ -43,8 +43,13 @@ func _cmd_setup_navigation_region(params: Dictionary) -> Dictionary:
 	else:
 		region.navigation_mesh = NavigationMesh.new()
 	_router._apply_props(region, params.get("properties", {}))
-	var path := _router._commit_add_child(parent, region, "Add %s" % region.name)
-	return _router._ok({"node_path": path, "region_type": region_type, "created": true})
+	# #477 (parent rule): a nav region under an instanced child is lost on save.
+	var committed := _router._commit_add_child_with_persistence(parent, region, "Add %s" % region.name)
+	return _router._ok(_router._with_persistence({
+		"node_path": committed["path"],
+		"region_type": region_type,
+		"created": true,
+	}, committed["persistence"]))
 
 
 
@@ -63,8 +68,13 @@ func _cmd_setup_navigation_agent(params: Dictionary) -> Dictionary:
 	var agent: Node = agent_inst["obj"]
 	agent.name = str(params.get("name", agent_type))
 	_router._apply_props(agent, params.get("properties", {}))
-	var path := _router._commit_add_child(parent, agent, "Add %s" % agent.name)
-	return _router._ok({"node_path": path, "agent_type": agent_type, "created": true})
+	# #477 (parent rule): a nav agent under an instanced child is lost on save.
+	var committed := _router._commit_add_child_with_persistence(parent, agent, "Add %s" % agent.name)
+	return _router._ok(_router._with_persistence({
+		"node_path": committed["path"],
+		"agent_type": agent_type,
+		"created": true,
+	}, committed["persistence"]))
 
 
 

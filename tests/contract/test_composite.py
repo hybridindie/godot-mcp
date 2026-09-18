@@ -23,6 +23,10 @@ pytestmark = pytest.mark.asyncio
 def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
     p = cmd.params
     match cmd.command:
+        case "cmd_node_persistence":  # #477 persistence probe (dry-run previews)
+            return ResponseEnvelope.success(
+                cmd.id, {"node_path": p.get("node_path", ""), "persisted": True}
+            )
         case "cmd_get_active_scene":
             return ResponseEnvelope.success(cmd.id, {"is_open": True, "path": "res://m.tscn"})
         case "cmd_node_exists":  # require_node_exists precondition (issue #365)
@@ -170,3 +174,47 @@ async def test_apply_node_edits_routes() -> None:
     assert result.structured_content["count"] == 2
     assert result.structured_content["edited"] == ["A", "B"]
     assert "cmd_apply_node_edits" in _commands(conn)
+
+
+async def test_apply_node_edits_per_target_persistence() -> None:
+    """#477: apply_node_edits must report per-entry persistence verdicts in
+    edited[] — one aggregate ok must never hide a target lost on save."""
+    server, _ = _build()
+
+    def per_entry_responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_apply_node_edits":
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "edited": ["Local", "Instanced/Child"],
+                    "skipped": [],
+                    "count": 2,
+                    "saved": False,
+                    "persistence": [
+                        {"node_path": "Local", "persisted": True},
+                        {
+                            "node_path": "Instanced/Child",
+                            "persisted": False,
+                            "reason": "instanced_child_not_editable",
+                            "hint": "Enable Editable Children on 'Instanced' first.",
+                        },
+                    ],
+                },
+            )
+        return _responder(cmd)
+
+    conn = FakeAddonConnection(responder=per_entry_responder)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    server = create_server(ServerConfig(), bridge=bridge)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "composite"})
+        result = await client.call_tool(
+            "godot_composite_apply_node_edits",
+            {"edits": [{"node_path": "Local", "properties": {"visible": False}}]},
+        )
+    data = result.structured_content
+    entries = data["persistence"]
+    lost = [e for e in entries if not e["persisted"]]
+    assert len(lost) == 1
+    assert lost[0]["node_path"] == "Instanced/Child"
+    assert lost[0]["reason"] == "instanced_child_not_editable"

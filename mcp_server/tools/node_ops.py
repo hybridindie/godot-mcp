@@ -23,7 +23,7 @@ from mcp_server.models.node_ops import (
 )
 from mcp_server.models.persistence import persistence_fields as _persistence
 from mcp_server.safety import MUTATING, READ_ONLY, enforce_preconditions, require_node_exists
-from mcp_server.tools._persistence import node_probe
+from mcp_server.tools._persistence import node_probe, parent_of_probe
 from mcp_server.tools._route import route, run_or_preview
 
 SCENE_EDIT = {SCENE_EDIT_TAG}
@@ -42,7 +42,14 @@ def register_node_ops(mcp: FastMCP, bridge: Bridge) -> None:
         preview = {"node_path": "", "source_path": node_path}
         params = {"node_path": node_path}
         return await run_or_preview(
-            dry_run, DuplicateNodeResult, preview, bridge, "cmd_duplicate_node", params
+            dry_run,
+            DuplicateNodeResult,
+            preview,
+            bridge,
+            "cmd_duplicate_node",
+            params,
+            # #477: the duplicate keys on its (existing) parent — the parent rule.
+            persistence_probe=parent_of_probe(node_path),
         )
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
@@ -58,7 +65,14 @@ def register_node_ops(mcp: FastMCP, bridge: Bridge) -> None:
         params = {"node_path": node_path, "new_parent_path": new_parent_path, "index": index}
         preview = {"node_path": node_path, "moved": False}
         return await run_or_preview(
-            dry_run, MoveNodeResult, preview, bridge, "cmd_move_node", params
+            dry_run,
+            MoveNodeResult,
+            preview,
+            bridge,
+            "cmd_move_node",
+            params,
+            # #477 (destination rule): the move keys on the destination parent.
+            persistence_probe=node_probe(new_parent_path, probe_parent=True),
         )
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)

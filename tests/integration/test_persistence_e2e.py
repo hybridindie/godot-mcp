@@ -19,7 +19,7 @@ import pytest
 
 from mcp_server.bridge import Bridge
 from mcp_server.config import BridgeConfig
-from mcp_server.tools._persistence import animation_probe, node_probe
+from mcp_server.tools._persistence import animation_probe, node_probe, parent_of_probe
 from tests.integration._godot import (
     GODOT_BIN,
     GODOT_PROJECT,
@@ -441,6 +441,52 @@ MAIN_OPS: list[Op] = [
         SETUP,
     ),
     ("cmd_add_state_machine_state", {"tree_path": "OwnTree", "state_name": "Probe"}, None),
+    # --- #477: structural edits carry persistence truth ----------------------
+    # T2 (editable instance): a create under Relic2's (editable) child saves.
+    ("cmd_create_node", {"parent_path": "Relic2/Cold", "node_type": "Node", "name": "Extra"}, None),
+    # duplicate under a non-editable instance: the copy is lost on save.
+    # (Runs BEFORE the delete below so Extra2 still exists.)
+    (
+        "cmd_duplicate_node",
+        {"node_path": "Relic/Cold/Extra2"},
+        NOT_EDITABLE,
+    ),
+    # delete under a non-editable instance: applied live, restored by the
+    # instance on reload (the node is instance-owned).
+    ("cmd_delete_node", {"node_path": "Relic/Cold/Extra2", "confirm": True}, NOT_EDITABLE),
+    # move INTO a non-editable instance: the moved node is lost. Uses a fresh
+    # node so the pre-existing reload assertions are untouched.
+    ("cmd_create_node", {"parent_path": ".", "node_type": "Node", "name": "MoveMe"}, None),
+    ("cmd_move_node", {"node_path": "MoveMe", "new_parent_path": "Relic/Cold"}, NOT_EDITABLE),
+    # instance_scene under a non-editable instance: the whole instance is lost.
+    (
+        "cmd_instance_scene",
+        {"parent_path": "Relic/Cold", "scene_path": f"res://{PREFIX}inner.tscn"},
+        NOT_EDITABLE,
+    ),
+    # batch_set_property per-target verdicts: Relic/Cold targets are lost,
+    # scene-owned targets persist — in the SAME batch. (Own was moved into
+    # Relic/Cold above, so use Relic2/Cold/Extra as the persisted pairing.)
+    (
+        "cmd_batch_set_property",
+        {
+            "node_paths": ["Relic/Cold", "Relic2/Cold/Extra"],
+            "property": "process_mode",
+            "value": 1,
+        },
+        SETUP,
+    ),
+    # apply_node_edits per-entry verdicts, same pairing.
+    (
+        "cmd_apply_node_edits",
+        {
+            "edits": [
+                {"node_path": "Relic/Cold", "properties": {"visible": True}},
+                {"node_path": "Relic2/Cold/Extra", "properties": {"visible": True}},
+            ]
+        },
+        SETUP,
+    ),
 ]
 
 DERIVED_OPS: list[Op] = [
@@ -518,6 +564,9 @@ EDITABLE_SAVED = {
     "navigation_layers": 4,
     "sparks_amount": 32,
     "sparks_material": True,
+    # #477: the T2 create lands one node under Relic2/Cold — the editable
+    # instance saves it, so the saved state has one more child than authored.
+    "cold_children": 1,
     "cell_2_2": 0,
     "cell_4_4": 0,
     "tiles2_tile": True,
@@ -568,6 +617,21 @@ def _probe_for(command: str, params: dict[str, Any]) -> dict[str, Any] | None:
     if command == "cmd_remove_from_group":
         return {**node_probe(node_path), "group": params["group"]}
     if command in {
+        "cmd_create_node",
+        "cmd_create_animation_tree",
+        "cmd_instance_scene",
+        "cmd_move_node",
+        # #477 (parent rule): these key on the parent/destination, not the target.
+    }:
+        parent = params.get("parent_path", params.get("new_parent_path", ""))
+        return node_probe(parent, probe_parent=True)
+    if command == "cmd_delete_node":
+        # #477: delete keys on the node itself.
+        return node_probe(node_path)
+    if command == "cmd_duplicate_node":
+        # #477: the duplicate lands under the node's parent — parent rule.
+        return parent_of_probe(node_path)
+    if command in {
         "cmd_set_node_property",
         "cmd_attach_script",
         "cmd_rename_node",
@@ -610,6 +674,28 @@ async def _apply(bridge: Bridge, ops: list[Op]) -> list[str]:
             continue
         result = response.result
         if reason == SETUP:
+            # #477: multi-target batch ops stamp per-target verdicts — assert
+            # the pairing (Relic/Cold lost, Own persisted) instead of skipping.
+            per_target = result.get("persistence")
+            if command in {"cmd_batch_set_property", "cmd_apply_node_edits"}:
+                expected = {
+                    "Relic/Cold": (False, NOT_EDITABLE),
+                    "Relic2/Cold/Extra": (True, None),
+                }
+                for entry in per_target or []:
+                    path = entry.get("node_path", "")
+                    if path in expected:
+                        want_persisted, want_reason = expected[path]
+                        if entry.get("persisted") is not want_persisted:
+                            mismatches.append(
+                                f"{command} {params}: per-target {path} persisted "
+                                f"{entry.get('persisted')} != {want_persisted}"
+                            )
+                        if want_persisted is False and entry.get("reason") != want_reason:
+                            mismatches.append(
+                                f"{command} {params}: per-target {path} reason "
+                                f"{entry.get('reason')} != {want_reason}"
+                            )
             continue
         if preview_result is not None:
             for key in ("persisted", "reason", "hint"):

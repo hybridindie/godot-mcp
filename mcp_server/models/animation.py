@@ -59,7 +59,7 @@ class KeyframeResult(PersistenceReport):
     dry_run: bool = False
 
 
-class AnimationTreeResult(BaseModel):
+class AnimationTreeResult(PersistenceReport):
     node_path: str
     root_type: str
     dry_run: bool = False

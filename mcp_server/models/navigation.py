@@ -7,14 +7,14 @@ from pydantic import BaseModel
 from mcp_server.models.persistence import PersistenceReport
 
 
-class NavigationRegionResult(BaseModel):
+class NavigationRegionResult(PersistenceReport):
     node_path: str
     region_type: str
     created: bool = False
     dry_run: bool = False
 
 
-class NavigationAgentResult(BaseModel):
+class NavigationAgentResult(PersistenceReport):
     node_path: str
     agent_type: str
     created: bool = False

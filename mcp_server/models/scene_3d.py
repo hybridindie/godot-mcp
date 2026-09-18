@@ -7,28 +7,28 @@ from pydantic import BaseModel, Field
 from mcp_server.models.persistence import PersistenceReport
 
 
-class MeshInstanceResult(BaseModel):
+class MeshInstanceResult(PersistenceReport):
     node_path: str
     mesh_type: str
     created: bool = False
     dry_run: bool = False
 
 
-class CameraResult(BaseModel):
+class CameraResult(PersistenceReport):
     node_path: str
     current: bool = False
     created: bool = False
     dry_run: bool = False
 
 
-class LightResult(BaseModel):
+class LightResult(PersistenceReport):
     node_path: str
     light_type: str
     created: bool = False
     dry_run: bool = False
 
 
-class EnvironmentResult(BaseModel):
+class EnvironmentResult(PersistenceReport):
     node_path: str
     created: bool = False
     dry_run: bool = False

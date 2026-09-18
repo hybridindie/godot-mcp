@@ -155,6 +155,8 @@ def register_animation(mcp: FastMCP, bridge: Bridge) -> None:
             bridge,
             "cmd_create_animation_tree",
             params,
+            # #477: the create keys on the parent (the tree does not exist yet).
+            persistence_probe=node_probe(parent_path, probe_parent=True),
         )
 
     @mcp.tool(meta=MUTATING, tags=ANIMATION)

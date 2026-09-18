@@ -38,8 +38,12 @@ func _cmd_add_mesh_instance(params: Dictionary) -> Dictionary:
 	var instance := MeshInstance3D.new()
 	instance.name = str(params.get("name", "MeshInstance3D"))
 	instance.mesh = mesh
-	var path := _router._commit_add_child(parent, instance, "Add %s" % instance.name)
-	return _router._ok({"node_path": path, "mesh_type": mesh_type, "created": true})
+	var committed := _router._commit_add_child_with_persistence(parent, instance, "Add %s" % instance.name)
+	return _router._ok(_router._with_persistence({
+		"node_path": committed["path"],
+		"mesh_type": mesh_type,
+		"created": true,
+	}, committed["persistence"]))
 
 
 
@@ -53,8 +57,12 @@ func _cmd_setup_camera(params: Dictionary) -> Dictionary:
 	_router._apply_props(camera, params.get("properties", {}))
 	var make_current := bool(params.get("make_current", true))
 	camera.current = make_current
-	var path := _router._commit_add_child(parent, camera, "Add %s" % camera.name)
-	return _router._ok({"node_path": path, "current": make_current, "created": true})
+	var committed := _router._commit_add_child_with_persistence(parent, camera, "Add %s" % camera.name)
+	return _router._ok(_router._with_persistence({
+		"node_path": committed["path"],
+		"current": make_current,
+		"created": true,
+	}, committed["persistence"]))
 
 
 
@@ -70,8 +78,12 @@ func _cmd_setup_lighting(params: Dictionary) -> Dictionary:
 	var light: Light3D = inst["obj"]
 	light.name = str(params.get("name", light_type))
 	_router._apply_props(light, params.get("properties", {}))
-	var path := _router._commit_add_child(parent, light, "Add %s" % light.name)
-	return _router._ok({"node_path": path, "light_type": light_type, "created": true})
+	var committed := _router._commit_add_child_with_persistence(parent, light, "Add %s" % light.name)
+	return _router._ok(_router._with_persistence({
+		"node_path": committed["path"],
+		"light_type": light_type,
+		"created": true,
+	}, committed["persistence"]))
 
 
 
@@ -85,8 +97,11 @@ func _cmd_setup_environment(params: Dictionary) -> Dictionary:
 	var environment := Environment.new()
 	_router._apply_props(environment, params.get("properties", {}))
 	world_env.environment = environment
-	var path := _router._commit_add_child(parent, world_env, "Add %s" % world_env.name)
-	return _router._ok({"node_path": path, "created": true})
+	var committed := _router._commit_add_child_with_persistence(parent, world_env, "Add %s" % world_env.name)
+	return _router._ok(_router._with_persistence({
+		"node_path": committed["path"],
+		"created": true,
+	}, committed["persistence"]))
 
 
 

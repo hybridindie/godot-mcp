@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from mcp_server.models.persistence import PersistenceReport
 
 
-class CreateParticlesResult(BaseModel):
+class CreateParticlesResult(PersistenceReport):
     node_path: str
     particles_type: str
     created: bool = False
