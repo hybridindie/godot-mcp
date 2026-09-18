@@ -14,6 +14,7 @@ from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import SHADER_TAG
+from mcp_server.config import ServerConfig
 from mcp_server.defaults import (
     DEFAULT_SHADER_CODE,
 )
@@ -23,8 +24,17 @@ from mcp_server.models.shader import (
     ShaderParamResult,
     ShaderReadResult,
     ShaderResult,
+    ShaderValidateResult,
 )
-from mcp_server.safety import MUTATING, READ_ONLY, enforce_preconditions, require_node_exists
+from mcp_server.runtime import Runner, resolve_project_dir
+from mcp_server.safety import (
+    MUTATING,
+    READ_ONLY,
+    enforce_preconditions,
+    require_godot_binary,
+    require_node_exists,
+)
+from mcp_server.scripts_parse import parse_shader_errors
 from mcp_server.tools._route import route, run_or_preview
 
 SHADER = {SHADER_TAG}
@@ -45,7 +55,9 @@ def set_param_probe(node_path: str) -> dict[str, Any]:
     return {"node_path": node_path, "resource_properties": MATERIAL_PROPERTIES}
 
 
-def register_shader(mcp: FastMCP, bridge: Bridge) -> None:
+def register_shader(
+    mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner: Runner
+) -> None:
     """Register the shader tools."""
 
     @mcp.tool(meta=MUTATING, tags=SHADER)
@@ -151,3 +163,21 @@ def register_shader(mcp: FastMCP, bridge: Bridge) -> None:
         """
         params = {"shader_path": shader_path}
         return ShaderReadResult(**await route(bridge, "cmd_read_shader", params))
+
+    @mcp.tool(meta=READ_ONLY, tags=SHADER)
+    @enforce_preconditions
+    async def validate_shader(shader_path: str) -> ShaderValidateResult:
+        """Compile-check the ``.gdshader`` at ``shader_path`` and return structured
+        errors (message + source/line when the engine prints them).
+
+        Runs the shader through a real headless engine compile (no user code runs —
+        a throwaway runner sets the code on a scratch Shader, which triggers the
+        engine's compile). ``read_shader`` byte-equality and ``get_parse_errors``
+        cannot catch this class of failure: an invalid uniform hint or a bad
+        ``render_mode`` parses fine and fails hard at runtime.
+        """
+        require_godot_binary(runner.binary)
+        project_dir = await resolve_project_dir(bridge, config)
+        output = await runner.check_shader(project_dir, shader_path, timeout=30.0)
+        errors = parse_shader_errors(output.stdout + "\n" + output.stderr)
+        return ShaderValidateResult(shader_path=shader_path, ok=not errors, errors=errors)

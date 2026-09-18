@@ -86,6 +86,10 @@ class Runner(Protocol):
         self, project_dir: str, script_path: str, timeout: float
     ) -> RunOutput: ...
 
+    async def check_shader(
+        self, project_dir: str, shader_path: str, timeout: float
+    ) -> RunOutput: ...
+
     async def export(
         self, project_dir: str, preset: str, output_path: str, debug: bool, timeout: float
     ) -> RunOutput: ...
@@ -122,6 +126,43 @@ class GodotRunner:
             script_path,
         ]
         return await self._exec(command, timeout)
+
+    async def check_shader(self, project_dir: str, shader_path: str, timeout: float) -> RunOutput:
+        """Compile-check a single ``.gdshader`` (#423).
+
+        There is no ``--check-only`` for shaders, so this writes a throwaway
+        runner script next to the project (deleted after the run) whose ``_init``
+        reads the shader file and sets the code on a scratch ``Shader`` — that
+        setter triggers the engine's compile and surfaces ``SHADER ERROR`` /
+        ``ERROR: Shader compilation failed`` lines on stderr, which
+        ``parse_shader_errors`` structures. No user code runs: the runner touches
+        only the shader resource.
+        """
+        runner = Path(project_dir) / f".mcp_shader_check_{abs(hash(shader_path))}.gd"
+        runner.write_text(
+            "extends SceneTree\n"
+            "func _init() -> void:\n"
+            f"\tvar shader := Shader.new()\n"
+            f"\tshader.code = FileAccess.get_file_as_string(\"{shader_path}\")\n"
+            "\tvar material := ShaderMaterial.new()\n"
+            "\tmaterial.shader = shader\n"
+            "\tquit()\n",
+            encoding="utf-8",
+        )
+        try:
+            command = [
+                self.binary,
+                "--headless",
+                "--path",
+                project_dir,
+                "--script",
+                runner.name,
+            ]
+            return await self._exec(command, timeout)
+        finally:
+            runner.unlink(missing_ok=True)
+            # Godot 4.4+ emits a .uid sidecar for every script it scans.
+            Path(str(runner) + ".uid").unlink(missing_ok=True)
 
     async def export(
         self, project_dir: str, preset: str, output_path: str, debug: bool, timeout: float

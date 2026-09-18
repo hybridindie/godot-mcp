@@ -57,6 +57,9 @@ class _FakeRunner:
     async def run(self, project_dir: str, scene: str | None, timeout: float) -> RunOutput:
         return RunOutput(command=["fake"])
 
+    async def check_shader(self, project_dir: str, shader_path: str, timeout: float) -> RunOutput:
+        return RunOutput(command=["fake"])
+
     async def check_script(self, project_dir: str, script_path: str, timeout: float) -> RunOutput:
         return self._check
 

@@ -534,6 +534,7 @@ func test_player_starts_with_full_health() -> void:
 - [ ] Full-screen overlay `Control` has `mouse_filter = IGNORE` (2)
 - [ ] Custom input actions are in `project.godot` and project was reloaded
 - [ ] All scripts parse clean: `godot --headless --check-only --script <path>` or `godot_scripts_get_parse_errors()` (a `rescan_pending: true` result is stale cache — re-check once)
+- [ ] Shaders compile: `godot_shader_validate(shader_path=...)` — `get_parse_errors`/`read_shader` cannot catch an invalid uniform hint or render_mode; scripts need `godot_runtime_run_and_capture` to catch API misuse (#423)
 - [ ] GUT tests pass: `godot_testing_run_tests()` or `godot --headless -s addons/gut/gut_cmdln.gd -gexit`
 - [ ] Scene saved to disk: `godot_scene_edit_save_scene()` after scene edits (scripts flush on write)
 - [ ] If you used `godot_batch_set_property` on >20 nodes: result said `undoable: false` — undo will not revert it

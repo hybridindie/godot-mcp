@@ -10,6 +10,7 @@ from fastmcp import Client, FastMCP
 from mcp_server.bridge import Bridge
 from mcp_server.config import ServerConfig
 from mcp_server.models.envelope import CommandEnvelope, ResponseEnvelope
+from mcp_server.runtime import RunOutput
 from mcp_server.server import create_server
 from tests.fakes import FakeAddonConnection, connector_for
 
@@ -487,3 +488,74 @@ async def test_set_param_persistence_truth_still_carries_on_success() -> None:
     assert sc["value"] == 0.5
     assert sc["persisted"] is False
     assert sc["reason"] == "instanced_child_not_editable"
+
+
+# --- shader_validate (issue #423) -----------------------------------------------
+
+
+class _FakeShaderRunner:
+    binary: str | None = "fake-godot"
+
+    def __init__(self, output: RunOutput) -> None:
+        self._output = output
+        self.calls: list[tuple[str, str]] = []
+
+    async def run(self, project_dir: str, scene: str | None, timeout: float) -> RunOutput:
+        return RunOutput(command=["fake"])
+
+    async def check_script(self, project_dir: str, script_path: str, timeout: float) -> RunOutput:
+        return RunOutput(command=["fake"])
+
+    async def check_shader(self, project_dir: str, shader_path: str, timeout: float) -> RunOutput:
+        self.calls.append((project_dir, shader_path))
+        return self._output
+
+    async def export(
+        self, project_dir: str, preset: str, output_path: str, debug: bool, timeout: float
+    ) -> RunOutput:
+        return RunOutput(command=["fake"])
+
+    async def run_tests(self, project_dir: str, test_dir: str, timeout: float) -> RunOutput:
+        return RunOutput(command=["fake"])
+
+
+def _build_shader(output: RunOutput) -> tuple[FastMCP, FakeAddonConnection]:
+    conn = FakeAddonConnection(responder=_responder)
+    config = ServerConfig(godot_project_dir="/tmp/proj")
+    bridge = Bridge(config.bridge, connector=connector_for(conn))
+    runner = _FakeShaderRunner(output)
+    return create_server(config, bridge=bridge, runner=runner), conn
+
+
+async def test_shader_validate_reports_compile_errors() -> None:
+    """#423: a shader that fails the engine's compile returns ok=False with the
+    structured SHADER ERROR lines — byte-equality reads alone give false
+    confidence."""
+    bad = RunOutput(
+        command=["fake"],
+        stderr=(
+            "SHADER ERROR: Expected valid type hint after ':'.\n"
+            "ERROR: Shader compilation failed."
+        ),
+    )
+    server, _ = _build_shader(bad)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "shader"})
+        result = await client.call_tool(
+            "godot_shader_validate", {"shader_path": "res://dissolve.gdshader"}
+        )
+    data = result.structured_content
+    assert data["ok"] is False
+    assert "type hint" in data["errors"][0]["message"]
+
+
+async def test_shader_validate_ok_on_clean_shader() -> None:
+    clean = RunOutput(command=["fake"], stderr="")
+    server, _ = _build_shader(clean)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "shader"})
+        result = await client.call_tool(
+            "godot_shader_validate", {"shader_path": "res://clean.gdshader"}
+        )
+    data = result.structured_content
+    assert data["ok"] is True and data["errors"] == []

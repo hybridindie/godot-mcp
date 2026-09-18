@@ -752,9 +752,17 @@ Author shaders — create/read `.gdshader` files, assign a ShaderMaterial, set u
 |------|--------|---------|
 | `godot_shader_create` | `shader_path, code=<canvas_item default>` | `ShaderResult { shader_path, created }` |
 | `godot_shader_read` | `shader_path` | `ShaderReadResult { shader_path, code }` (read_only) |
+| `godot_shader_validate` | `shader_path` | `ShaderValidateResult { shader_path, ok, errors: [ParseError] }` (read_only) |
 | `godot_shader_assign_material` | `node_path, shader_path` | `ShaderMaterialResult { node_path, shader_path, material_property, assigned, persisted, reason?, hint? }` |
 | `godot_shader_set_param` | `node_path, name, value, param_type?` | `ShaderParamResult { node_path, name, value, set, persisted, reason?, hint? }` |
 | `godot_shader_get_param` | `node_path, name` | `ShaderParamReadResult { node_path, name, value, exists }` (`read_only`) |
+
+`godot_shader_validate` compile-checks the shader through a real headless engine compile
+(#423): setting the code on a scratch `Shader` triggers the engine's compile, and the
+`SHADER ERROR` / `Shader compilation failed` lines are structured into `errors`. This catches
+what `get_parse_errors` (GDScript syntax only) and `read_shader` byte-equality cannot — an
+invalid uniform type hint or `render_mode` parses fine and fails hard at runtime. No user
+code runs (the throwaway runner touches only the shader resource).
 
 `godot_shader_create` writes a `res://*.gdshader` file (undo restores the prior content or
 removes it). `godot_shader_assign_material` wraps the shader in a ShaderMaterial and assigns it
