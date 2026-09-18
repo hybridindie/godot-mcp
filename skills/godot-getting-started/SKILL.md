@@ -5,7 +5,7 @@ description: Connect to and drive a Godot editor through the godot-mcp server. U
 
 # godot: getting started
 
-godot-mcp exposes the Godot editor (inspection, scene edits, scripts, runtime) over MCP. This skill documents the **2026.09.17** surface — 180 tools, 29 categories. Tools are named `godot_<toolset>_<action>`. Read this once at the start of a Godot session — it prevents the three most common failures: a version mismatch, missing tools, and unconfirmed destructive edits.
+godot-mcp exposes the Godot editor (inspection, scene edits, scripts, runtime) over MCP. This skill documents the **2026.09.17** surface — 181 tools, 29 categories. Tools are named `godot_<toolset>_<action>`. Read this once at the start of a Godot session — it prevents the three most common failures: a version mismatch, missing tools, and unconfirmed destructive edits.
 
 ## 1. Confirm the bridge and the version
 
