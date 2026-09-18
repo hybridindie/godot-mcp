@@ -173,3 +173,42 @@ async def test_remove_audio_bus_effect_requires_confirm() -> None:
     assert ok.structured_content["removed"] is True
     assert ok.structured_content["effect_index"] == 0
     assert "cmd_remove_audio_bus_effect" in _commands(conn)
+
+
+async def test_get_bus_layout_echoes_effect_properties() -> None:
+    """#427: read/write parity — a layout read echoes the per-effect property
+    values an add_bus_effect call set, so a verify pass needs no disk read."""
+    server, _ = _build()
+
+    def echo_responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_get_audio_bus_layout":
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "buses": [
+                        {
+                            "index": 0,
+                            "name": "Master",
+                            "volume_db": 0.0,
+                            "effects": [
+                                {
+                                    "index": 0,
+                                    "type": "AudioEffectReverb",
+                                    "enabled": True,
+                                    "properties": {"room_size": 0.85, "wet": 0.4},
+                                }
+                            ],
+                        }
+                    ]
+                },
+            )
+        return _responder(cmd)
+
+    conn = FakeAddonConnection(responder=echo_responder)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    server = create_server(ServerConfig(), bridge=bridge)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "audio"})
+        layout = await client.call_tool("godot_audio_get_bus_layout", {})
+    effect = layout.structured_content["buses"][0]["effects"][0]
+    assert effect["properties"] == {"room_size": 0.85, "wet": 0.4}

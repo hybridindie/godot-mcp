@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from mcp_server.models.persistence import PersistenceReport
@@ -18,6 +20,9 @@ class AudioBusEffectInfo(BaseModel):
     index: int
     type: str
     enabled: bool = True
+    # #427: the effect's exported property values — read/write parity with
+    # add_audio_bus_effect's `properties` arg, so a verify pass needs no disk read.
+    properties: dict[str, Any] = Field(default_factory=dict)
 
 
 class AudioBusInfo(BaseModel):
