@@ -197,7 +197,11 @@ def register_import_asset(mcp: FastMCP, bridge: Bridge) -> None:
         ``options`` (optional dict):
         - ``overwrite`` (bool, default ``False``)
         - ``import_settings`` (dict, type-specific — e.g.
-          ``{"type": "Texture2D", "compress": "lossy"}``)
+          ``{"type": "Texture2D", "compress": "lossy"}``). For a ``.wav``
+          (AudioStreamWAV): ``{"loop_mode": 1, "loop_begin": 0, "loop_end": N}``
+          (#418) — looping music/ambience through the MCP surface; the loop
+          config lands in the ``.import`` sidecar and the artifact is reimported
+          (``loop_applied`` in the result reports whether it was applied).
 
         ``wait_for_scan`` (default ``False``): after copying, poll the import
         status until the editor's async scan has produced the ``.import``
@@ -243,6 +247,8 @@ def register_import_asset(mcp: FastMCP, bridge: Bridge) -> None:
             detected_type=result.get("detected_type") or detected_type,
             dry_run=False,
             scan_complete=scan_complete,
+            # #418: the .wav loop config landed in the .import sidecar + reimport.
+            loop_applied=result.get("loop_applied", False),
         )
 
     @mcp.tool(meta=MUTATING, tags=ASSET_IMPORT)

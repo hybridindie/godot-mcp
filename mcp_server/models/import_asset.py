@@ -11,6 +11,9 @@ class ImportAssetResult(BaseModel):
     detected_type: str | None = None
     dry_run: bool = False
     scan_complete: bool = False
+    # #418: True when the imported .wav's loop config (import_settings.loop_mode /
+    # loop_begin / loop_end) was patched into the .import sidecar and reimported.
+    loop_applied: bool = False
 
 
 class CreateMaterialResult(BaseModel):

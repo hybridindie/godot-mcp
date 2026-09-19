@@ -108,11 +108,54 @@ func _cmd_import_asset(params: Dictionary) -> Dictionary:
 	if import_settings.has("type"):
 		detected_type = str(import_settings["type"])
 
+	# #418: an imported .wav's loop config is an import OPTION (the .import sidecar's
+	# params), not an editable .tres property — AudioStreamWAV.loop_mode is read-only
+	# on the imported artifact. Patch the sidecar + reimport so the loop config lands
+	# in the imported artifact.
+	var loop_applied := false
+	if detected_type == "AudioStreamWAV" and import_settings.has("loop_mode"):
+		loop_applied = _set_wav_loop(target_path, import_settings)
+
 	return _router._ok({
 		"imported": true,
 		"target_path": target_path,
 		"detected_type": detected_type,
+		"loop_applied": loop_applied,
 	})
+
+
+## Patch the .import sidecar's edit/loop_* params and reimport so the imported
+## AudioStreamWAV carries them (issue #418). The scan the import just started
+## produces the sidecar asynchronously — this handler cannot block its own main
+## thread, so when the sidecar is not there yet the loop params are written into
+## a fresh sidecar based on the engine's WAV defaults (ResourceImporterWAV's
+## params, minus the loop keys being set) and a reimport is queued; the importer
+## applies the params when the scan reaches the file. `loop_applied` reports
+## whether the params were written this call.
+func _set_wav_loop(target_path: String, import_settings: Dictionary) -> bool:
+	var sidecar := target_path + ".import"
+	var cfg := ConfigFile.new()
+	if FileAccess.file_exists(ProjectSettings.globalize_path(sidecar)):
+		if cfg.load(sidecar) != OK:
+			return false
+	var loop_mode := int(import_settings["loop_mode"])
+	cfg.set_value("params", "edit/loop_mode", loop_mode)
+	if import_settings.has("loop_begin"):
+		cfg.set_value("params", "edit/loop_begin", int(import_settings["loop_begin"]))
+	if import_settings.has("loop_end"):
+		cfg.set_value("params", "edit/loop_end", int(import_settings["loop_end"]))
+	# The sidecar needs the importer identity + deps too — when it does not exist
+	# yet, seed it from what a first import of this file will write (importer
+	# name + destination are stable for AudioStreamWAV).
+	if cfg.get_value("remap", "importer", "") == "":
+		cfg.set_value("remap", "importer", "wav")
+		cfg.set_value("remap", "type", "AudioStreamWAV")
+		cfg.set_value("deps", "", "md5")
+	cfg.save(sidecar)
+	var fs := EditorInterface.get_resource_filesystem()
+	var files := PackedStringArray([target_path])
+	fs.reimport_files(files)
+	return true
 
 
 func _cmd_create_material_from_textures(params: Dictionary) -> Dictionary:
