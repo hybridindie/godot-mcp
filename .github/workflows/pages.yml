@@ -33,9 +33,11 @@ jobs:
       - run: uv python install 3.12
 
       - name: Install docs toolchain
-        # mkdocs-material + the plugins the site config uses; pinned so a
-        # Material release can't drift the rendering out from under the site.
-        run: uv tool install --with mkdocs --with mkdocs-exclude "mkdocs-material>=9.5,<9.8"
+        # mkdocs is the tool (it provides the mkdocs executable); Material and
+        # the plugins ride as `--with` deps (mkdocs-material itself provides no
+        # executables, so `uv tool install mkdocs-material` fails after resolving).
+        # Pinned so a Material release can't drift the rendering out from under the site.
+        run: uv tool install --with "mkdocs-material>=9.5,<9.8" --with mkdocs-exclude mkdocs
 
       - name: Build site (strict)
         run: ~/.local/bin/mkdocs build --strict --site-dir site
