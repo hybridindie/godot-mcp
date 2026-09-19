@@ -21,6 +21,13 @@ class ReloadSceneResult(BaseModel):
     dry_run: bool = False
 
 
+class RescanFilesystemResult(BaseModel):
+    scanned: bool
+    # #486: the scan is asynchronous — true while EditorFileSystem is still
+    # scanning (the #459/#453 read-side keys on the same state).
+    scanning: bool = False
+
+
 class SaveAllScenesResult(BaseModel):
     saved: bool
     count: int = 0

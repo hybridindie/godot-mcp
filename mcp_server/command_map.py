@@ -144,6 +144,7 @@ BARE_TO_COMMAND: dict[str, str] = {
     "scene_edit_move_node": "cmd_move_node",
     "scene_edit_open_scene": "cmd_open_scene",
     "scene_edit_reload_scene": "cmd_reload_scene",
+    "scene_edit_rescan_filesystem": "cmd_rescan_filesystem",
     "scene_edit_remove_from_group": "cmd_remove_from_group",
     "scene_edit_rename_node": "cmd_rename_node",
     "scene_edit_save_all_scenes": "cmd_save_all_scenes",
