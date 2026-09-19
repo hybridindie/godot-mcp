@@ -1,0 +1,16 @@
+{
+  "name": "godot-mcp-docs",
+  "private": true,
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build && node llms-gen.mjs",
+    "preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.3"
+  },
+  "dependencies": {
+    "mermaid": "^11.17.2",
+    "vitepress-plugin-mermaid": "^2.0.17"
+  }
+}
