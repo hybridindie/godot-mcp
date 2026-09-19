@@ -80,6 +80,8 @@ const SECTIONS = [
       'reference-value-shapes.md',
       'reference-errors.md',
       'reference-env-vars.md',
+      'reference-prompts.md',
+      'reference-consumers.md',
     ],
   },
   {
@@ -89,6 +91,7 @@ const SECTIONS = [
       'guides-build-scene.md',
       'guides-playtest-debug.md',
       'guides-verify.md',
+      'guides-ship.md',
     ],
   },
   { name: 'Optional', sources: ['changelog.md'], optional: true },
