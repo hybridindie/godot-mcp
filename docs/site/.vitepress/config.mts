@@ -18,7 +18,23 @@ export default withMermaid(defineConfig({
   },
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: BASE + 'logo.svg' }],
+    // llmstxt.org v2 discovery: the index describing this site, and the
+    // markdown variant of the rendered page (injected per-page via
+    // transformHead below — page.html.md is the spec's page.html.md form).
   ],
+  transformHead: ({ pageData }) => {
+    const base = BASE.replace(/\/$/, '')
+    const describedby = base + '/llms.txt'
+    // Per-page markdown variant URL (spec v2 page.html.md form), matching the
+    // file llms-gen.mjs writes: 'architecture/bridge.md' ->
+    // 'architecture/bridge.html.md'; 'index.md' -> 'index.html.md'.
+    const rel = (pageData.relativePath ?? 'index.md').replace(/\.md$/, '')
+    const variant = base + '/' + rel + '.html.md'
+    return [
+      ['link', { rel: 'describedby', type: 'text/markdown', href: describedby }],
+      ['link', { rel: 'alternate', type: 'text/markdown', href: variant }],
+    ]
+  },
   mermaid: {
     // plugin auto-switches to theme 'dark' when VitePress dark mode is active
     securityLevel: 'loose',
