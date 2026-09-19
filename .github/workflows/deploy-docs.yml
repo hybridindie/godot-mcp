@@ -1,0 +1,58 @@
+name: Deploy docs to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/site/**'
+      - 'README.md'
+      - 'AGENTS.md'
+      - '.github/workflows/deploy-docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: docs/site/package-lock.json
+
+      - name: Install deps
+        working-directory: docs/site
+        run: npm install
+
+      - name: Build VitePress site (+ llms.txt / llms-full.txt)
+        working-directory: docs/site
+        run: npm run build
+
+      # The workflow builds on `main` and deploys as a gh-pages artifact —
+      # no orphan branch to maintain by hand (same shape as wiki-fabric's deploy).
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/site/dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

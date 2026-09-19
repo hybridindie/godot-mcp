@@ -1,5 +1,7 @@
 <p align="center">
-  <img src="godot/addons/godot_mcp/icon.png" width="128" alt="Godot MCP icon" />
+  <a href="https://hybridindie.github.io/godot-mcp/">
+    <img src="docs/assets/social-banner.svg" alt="godot-mcp — drive a live Godot editor from an AI agent over MCP" width="100%">
+  </a>
 </p>
 
 <h1 align="center">godot-mcp</h1>
@@ -26,6 +28,8 @@
 
 ## Table of Contents
 
+- **[Documentation site](https://hybridindie.github.io/godot-mcp/)** — architecture, reasoning, and the full tool reference
+  - For LLM agents: [`llms.txt`](https://hybridindie.github.io/godot-mcp/llms.txt) · [`llms-full.txt`](https://hybridindie.github.io/godot-mcp/llms-full.txt)
 - [What is this?](#what-is-this)
 - [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
