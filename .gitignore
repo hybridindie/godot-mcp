@@ -28,7 +28,6 @@ graphify-out/
 .forge/
 
 # mkdocs site output
-site/
 
 # docs site (VitePress)
 docs/site/node_modules/
