@@ -494,3 +494,40 @@ async def test_import_status_reports_rescan_in_flight() -> None:
     assert data["scanning"] is True
     assert data["reason"] == "rescan_in_flight"
     assert data["imported"] is False
+
+
+async def test_import_wav_loop_mode_applied() -> None:
+    """#418: a .wav import with loop settings patches the .import sidecar and
+    reimports — the result reports loop_applied."""
+    def wav_responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_import_asset":
+            settings = cmd.params.get("import_settings", {})
+            applied = cmd.params["target_path"].endswith(".wav") and "loop_mode" in settings
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "imported": True,
+                    "target_path": cmd.params["target_path"],
+                    "detected_type": "AudioStreamWAV",
+                    "loop_applied": applied,
+                },
+            )
+        return _responder(cmd)
+
+    server, conn = _build_with(wav_responder)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "asset_import"})
+        result = await client.call_tool(
+            "godot_asset_import_asset",
+            {
+                "source": "res://music.wav",
+                "target_path": "res://audio/music.wav",
+                "options": {"import_settings": {"loop_mode": 1, "loop_begin": 0}},
+            },
+        )
+    data = result.structured_content
+    assert data["loop_applied"] is True
+    sent = CommandEnvelope.model_validate_json(conn.sent[-1])
+    settings = sent.params["import_settings"]
+    assert settings["loop_mode"] == 1
+    assert settings["loop_begin"] == 0
