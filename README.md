@@ -11,9 +11,12 @@
 <p align="center">
   <a href="https://pypi.org/project/godot-editor-mcp/"><img src="https://img.shields.io/badge/PyPI-godot--editor--mcp-4a9eff.svg" alt="PyPI" /></a>
   <a href="https://github.com/hybridindie/godot-mcp/pkgs/container/godot-mcp"><img src="https://img.shields.io/badge/Docker-ghcr.io-2496ed.svg" alt="Docker" /></a>
+  <a href="https://hybridindie.github.io/godot-mcp/"><img src="https://img.shields.io/badge/docs-github%20pages-8A2BE2" alt="Documentation" /></a>
   <a href="https://github.com/hybridindie/godot-mcp/releases"><img src="https://img.shields.io/badge/version-2026.09.19-brightgreen.svg" alt="Version" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" /></a>
 </p>
+
+> **Documentation:** [hybridindie.github.io/godot-mcp](https://hybridindie.github.io/godot-mcp/) — architecture, reasoning, setup, and the full tool surface. For LLM agents: [`llms.txt`](https://hybridindie.github.io/godot-mcp/llms.txt) (index) and [`llms-full.txt`](https://hybridindie.github.io/godot-mcp/llms-full.txt) (the whole site as one markdown document).
 
 > **Status:** feature-complete across the planned ecosystem. **184 tools** across **29 categories** — always-on `core` plus 28 toggleable toolsets, of which only `inspection` is enabled by default (the other 27 are gated off). Every capability is documented, tested, and ready for agent use.
 >

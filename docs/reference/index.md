@@ -15,3 +15,10 @@ in the repo — it is the source of truth; these pages are the readable map.
 - [Errors & recovery](errors.md) — the error-code enum + the recovery table
 - [Env vars](env-vars.md) — every configuration knob
 - [Changelog](../changelog.md) — what shipped in each release
+
+!!! note "For LLM agents"
+    The site serves [`llms.txt`](https://hybridindie.github.io/godot-mcp/llms.txt)
+    (page index) and
+    [`llms-full.txt`](https://hybridindie.github.io/godot-mcp/llms-full.txt)
+    (everything as one markdown document) — point agents at those instead of
+    crawling HTML.

@@ -17,6 +17,11 @@ the counts here.
 
 Install them once and your agent has the right guidance at the right time.
 
+The companion **documentation site** is at https://hybridindie.github.io/godot-mcp/ — for
+LLM agents, [`llms.txt`](https://hybridindie.github.io/godot-mcp/llms.txt) and
+[`llms-full.txt`](https://hybridindie.github.io/godot-mcp/llms-full.txt) serve the same
+docs in agent-friendly markdown.
+
 ---
 
 ## Install

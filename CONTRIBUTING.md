@@ -34,6 +34,26 @@ uv run mypy                         # type check
 uv run godot-editor-mcp             # start the MCP server (stdio)
 ```
 
+## Documentation site
+
+The docs site (https://hybridindie.github.io/godot-mcp/) builds from `docs/` +
+`mkdocs.yml` via `.github/workflows/pages.yml` on every push to `main`.
+
+```bash
+uv tool install --with "mkdocs-material>=9.5,<9.8" --with mkdocs-exclude \
+  --with mkdocs-llmstxt mkdocs
+mkdocs serve                        # live-reload preview at localhost:8000
+mkdocs build --strict               # the CI gate — must exit zero
+```
+
+`--strict` is blocking: a broken link or bad config fails the build. The
+build also generates **`llms.txt`** (agent-facing page index) and
+**`llms-full.txt`** (the whole site as one markdown document) via the
+`mkdocs-llmstxt` plugin — the LLM entry points for the site. Toolset/tool
+counts in prose pages (`reference/toolsets.md` et al.) were generated from
+the live registry — regenerate via the snippet in the PR that added them if
+the surface changes.
+
 ## Workflow
 
 Follow the issue-driven pipeline (see `.opencode/rules/workflow.md`):
