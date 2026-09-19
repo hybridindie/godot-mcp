@@ -1,0 +1,56 @@
+name: docs (github pages)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment; skip runs between the pushes that just
+# started — don't cancel in-progress ones (a partial deploy is worse than a wait).
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v8.3.1
+        with:
+          enable-cache: true
+
+      - run: uv python install 3.12
+
+      - name: Install docs toolchain
+        # mkdocs-material + the plugins the site config uses; pinned so a
+        # Material release can't drift the rendering out from under the site.
+        run: uv tool install --with mkdocs --with mkdocs-exclude "mkdocs-material>=9.5,<9.8"
+
+      - name: Build site (strict)
+        run: ~/.local/bin/mkdocs build --strict --site-dir site
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

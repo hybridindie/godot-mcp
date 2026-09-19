@@ -26,3 +26,6 @@ graphify-out/
 
 # forge codebase-index artifacts (regenerable)
 .forge/
+
+# mkdocs site output
+site/

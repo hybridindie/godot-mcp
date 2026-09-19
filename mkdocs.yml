@@ -1,0 +1,118 @@
+site_name: godot-mcp
+site_description: >-
+  Bridge an AI agent and a live Godot editor over MCP — inspect, mutate, run,
+  verify. Architecture, reasoning, and the full tool surface.
+site_url: https://hybridindie.github.io/godot-mcp/
+repo_url: https://github.com/hybridindie/godot-mcp
+repo_name: hybridindie/godot-mcp
+edit_uri: edit/main/docs/
+
+copyright: Copyright &copy; hybridindie — MIT licensed
+
+theme:
+  name: material
+  features:
+    - content.code.copy
+    - content.tabs.link
+    - navigation.footer
+    - navigation.indexes
+    - navigation.instant
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - search.highlight
+    - toc.follow
+  palette:
+    # Palette toggle on light/dark preference
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
+  logo: assets/logo.svg
+  favicon: assets/favicon.svg
+
+extra:
+  version:
+    provider: mike
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/hybridindie/godot-mcp
+  generator: false
+
+exclude_docs: |
+  architecture.md
+  architecture-diagram.md
+  debugger_feasibility.md
+  harness-performance.md
+  mcp-2026-07-28-migration.md
+  tool-contracts.md
+  tutorial.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home:
+      - index.md
+      - what-why.md
+      - concepts.md
+  - Architecture:
+      - architecture/index.md
+      - architecture/bridge.md
+      - architecture/envelope.md
+      - architecture/gating.md
+      - architecture/safety.md
+      - architecture/persistence.md
+      - architecture/readiness.md
+  - Getting started:
+      - getting-started/index.md
+      - getting-started/install.md
+      - getting-started/addon.md
+      - getting-started/clients.md
+      - getting-started/first-session.md
+      - getting-started/openwebui.md
+  - Reference:
+      - reference/index.md
+      - reference/toolsets.md
+      - reference/safety-classes.md
+      - reference/value-shapes.md
+      - reference/errors.md
+      - reference/env-vars.md
+  - Guides:
+      - guides/index.md
+      - guides/build-scene.md
+      - guides/playtest-debug.md
+      - guides/verify.md
+  - Changelog: changelog.md
