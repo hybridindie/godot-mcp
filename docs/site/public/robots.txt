@@ -1,0 +1,7 @@
+# godot-mcp docs — https://hybridindie.github.io/godot-mcp/
+User-agent: *
+Allow: /
+
+# LLM-readable overview covering everything under this path (llmstxt.org v2):
+# /llms.txt is the curated index; each page serves a markdown variant at
+# <page>.html.md; /llms-full.txt is the whole site as one markdown document.
