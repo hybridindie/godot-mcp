@@ -1,0 +1,3 @@
+# Docs-site toolchain (pinned; installed by .github/workflows/pages.yml)
+mkdocs-material>=9.5,<9.8
+mkdocs-exclude>=1.0.2
