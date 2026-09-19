@@ -21,6 +21,7 @@ func register(handlers: Dictionary) -> void:
 	handlers["cmd_list_open_scenes"] = _cmd_list_open_scenes
 	handlers["cmd_open_scene"] = _cmd_open_scene
 	handlers["cmd_reload_scene"] = _cmd_reload_scene
+	handlers["cmd_rescan_filesystem"] = _cmd_rescan_filesystem
 	handlers["cmd_save_all_scenes"] = _cmd_save_all_scenes
 	handlers["cmd_select_nodes"] = _cmd_select_nodes
 
@@ -185,3 +186,16 @@ func _cmd_instance_scene(params: Dictionary) -> Dictionary:
 	}, persistence))
 
 
+
+
+## Trigger EditorFileSystem.scan() so external file edits (made by non-editor
+## tools: other agents, scripts, git operations) are picked up (issue #486).
+## Non-destructive: a scan reads the disk and refreshes the editor's view — it
+## discards no editor state (unlike reload_scene, which discards unsaved changes
+## and is confirm-gated). The scan is asynchronous: `scanning` in the response
+## reports whether it is still in flight; the #459/#453 read-side (`scanning`
+## on cmd_get_import_status, the parse-check gate) keys on the same state.
+func _cmd_rescan_filesystem(_params: Dictionary) -> Dictionary:
+	var fs := EditorInterface.get_resource_filesystem()
+	fs.scan()
+	return _router._ok({"scanned": true, "scanning": fs.is_scanning()})

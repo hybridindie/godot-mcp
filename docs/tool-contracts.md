@@ -404,6 +404,7 @@ the editor's undo. The `mutating` tools also accept `dry_run: bool = False` and 
   | `godot_scene_edit_open_scene` | `scene_path` | `OpenSceneResult { scene_path, opened, already_open }` | `mutating` |
   | `godot_scene_edit_close_scene` | `scene_path="", confirm=False` | `CloseSceneResult { scene_path, closed }` | **`destructive`** |
   | `godot_scene_edit_reload_scene` | `scene_path, confirm=False` | `ReloadSceneResult { scene_path, reloaded }` | **`destructive`** |
+  | `godot_scene_edit_rescan_filesystem` | — | `RescanFilesystemResult { scanned, scanning }` | `read_only` |
   | `godot_scene_edit_save_all_scenes` | — | `SaveAllScenesResult { saved, count }` | `mutating` |
   | `godot_scene_edit_list_open_scenes` | — | `ListOpenScenesResult { scenes[{path}] }` | `read_only` |
   | `godot_scene_edit_select_nodes` | `node_paths: str[]` | `SelectNodesResult { scene_path, selected[], count }` | `mutating` |
@@ -416,6 +417,12 @@ the editor's undo. The `mutating` tools also accept `dry_run: bool = False` and 
   the scene to already be open. `godot_scene_edit_select_nodes` replaces the current editor
   selection with the resolved nodes. All accept `dry_run: bool = False` (the
   destructive tools also accept `confirm`).
+
+  `godot_scene_edit_rescan_filesystem` triggers `EditorFileSystem.scan()` so external file
+  edits (made by other tools/agents/git) are picked up (#486). Non-destructive — the scan
+  discards no editor state (unlike `reload_scene`, which discards unsaved changes and stays
+  confirm-gated). The scan is asynchronous: `scanning` reports whether it is still in flight
+  (the #459/#453 read-side keys on the same state).
 
  #### Scripts (issue #10) — category: `scripts` (gated off by default)
 

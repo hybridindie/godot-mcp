@@ -291,3 +291,43 @@ async def test_close_scene_requires_active_scene() -> None:
     assert result.is_error
     assert "active_scene" in str(result.content)
     assert "cmd_close_scene" not in _commands(conn)
+
+
+# --- rescan_filesystem (issue #486) ---------------------------------------------
+
+
+async def test_rescan_filesystem_is_registered_read_only() -> None:
+    """#486: a non-destructive rescan tool exists in the scene_edit toolset."""
+    server, _ = _build()
+    async with Client(server, mode="legacy") as client:
+        assert "godot_scene_edit_rescan_filesystem" not in {
+            t.name for t in await client.list_tools()
+        }
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
+        tools = {t.name: t for t in await client.list_tools()}
+        tool = tools["godot_scene_edit_rescan_filesystem"]
+    # Non-destructive: a scan never discards editor state (it reads the disk).
+    assert tool.meta is not None and tool.meta.get("safety_class") == "read_only"
+
+
+async def test_rescan_filesystem_reports_scanning_and_no_confirm() -> None:
+    """#486: the rescan sends cmd_rescan_filesystem (no confirm needed), the
+    response carries the scan state + is_scanning so the agent knows whether
+    the async scan is still in flight."""
+    server, conn = _build()
+
+    def rescan_responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_rescan_filesystem":
+            return ResponseEnvelope.success(
+                cmd.id, {"scanned": True, "scanning": False}
+            )
+        return _responder(cmd)
+
+    conn._responder = rescan_responder
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
+        result = await client.call_tool("godot_scene_edit_rescan_filesystem", {})
+    data = result.structured_content
+    assert data["scanned"] is True
+    assert data["scanning"] is False
+    assert "cmd_rescan_filesystem" in _commands(conn)
