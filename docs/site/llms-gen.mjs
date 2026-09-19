@@ -58,12 +58,14 @@ const SECTIONS = {
   Changelog: ['changelog.md'],
 }
 
-// Source path -> the site URL VitePress rendered it at (for the index links).
-// 'index.md' -> site root; 'subdir/index.md' -> 'subdir/'; 'flat.md' -> 'flat/'.
+// Source path -> the site URL VitePress actually serves. VitePress's default
+// (cleanUrls not enabled) renders foo.md -> foo.html and subdir/index.md ->
+// subdir/ — trailing-slash URLs 404, so the index must use the .html form.
 function htmlPath(srcRel) {
   const noExt = srcRel.replace(/\.md$/, '')
-  const noIndex = noExt.replace(/(^|\/)index$/, '$1')
-  return SITE_URL + noIndex + (noIndex && !noIndex.endsWith('/') ? '/' : '')
+  if (noExt === 'index') return SITE_URL
+  if (noExt.endsWith('/index')) return SITE_URL + noExt.slice(0, -'/index'.length) + '/'
+  return SITE_URL + noExt + '.html'
 }
 
 const indexLines = [`# ${TITLE}`, '', `> ${DESC}`, '']
