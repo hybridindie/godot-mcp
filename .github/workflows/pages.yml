@@ -37,7 +37,7 @@ jobs:
         # the plugins ride as `--with` deps (mkdocs-material itself provides no
         # executables, so `uv tool install mkdocs-material` fails after resolving).
         # Pinned so a Material release can't drift the rendering out from under the site.
-        run: uv tool install --with "mkdocs-material>=9.5,<9.8" --with mkdocs-exclude mkdocs
+        run: uv tool install --with "mkdocs-material>=9.5,<9.8" --with mkdocs-exclude --with mkdocs-llmstxt mkdocs
 
       - name: Build site (strict)
         run: ~/.local/bin/mkdocs build --strict --site-dir site

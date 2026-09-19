@@ -43,7 +43,53 @@ theme:
   logo: assets/logo.svg
   favicon: assets/favicon.svg
 
-extra:
+plugins:
+  - search
+  - llmstxt:
+      # /llms.txt — the LLM-facing index of the site (llmstxt.org convention):
+      # markdown sources of every page + one /llms-full.txt with everything
+      # concatenated, so agents can read the docs without crawling HTML.
+      full_output: llms-full.txt
+      markdown_description: >-
+        godot-mcp — bridge an AI agent and a live Godot editor over MCP.
+        Inspect, mutate, run, and verify a real project. 184 tools across 29
+        gated toolsets; the server owns safety, the addon owns Godot.
+      sections:
+        Home:
+          - index.md
+          - what-why.md
+          - concepts.md
+        Architecture:
+          - architecture/index.md
+          - architecture/bridge.md
+          - architecture/envelope.md
+          - architecture/gating.md
+          - architecture/safety.md
+          - architecture/persistence.md
+          - architecture/readiness.md
+        Getting started:
+          - getting-started/index.md
+          - getting-started/install.md
+          - getting-started/addon.md
+          - getting-started/clients.md
+          - getting-started/first-session.md
+          - getting-started/openwebui.md
+        Reference:
+          - reference/index.md
+          - reference/toolsets.md
+          - reference/safety-classes.md
+          - reference/value-shapes.md
+          - reference/errors.md
+          - reference/env-vars.md
+        Guides:
+          - guides/index.md
+          - guides/build-scene.md
+          - guides/playtest-debug.md
+          - guides/verify.md
+        Changelog:
+          - changelog.md
+
+markdown_extensions:
   version:
     provider: mike
   social:
