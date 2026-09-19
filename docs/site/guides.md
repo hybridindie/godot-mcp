@@ -14,3 +14,5 @@ Task-oriented walks that compose the reference pages:
 - [Play-test & debug](guides-playtest-debug.md) — the live loop: play, inspect, simulate input, assert, break/step.
 - [Verify your work](guides-verify.md) — the verification stack: parse checks, runtime capture, shader validation, and what each one actually covers.
 - [Remote access](getting-started-openwebui.md) — OpenWebUI / HTTP / Docker setups (also listed under Getting started).
+- [Ship: export, tests & CI](guides-ship.md) — headless export, test suites, and the CI-shaped verification loop.
+
