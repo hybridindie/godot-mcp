@@ -47,9 +47,9 @@ export default withMermaid(defineConfig({
     siteTitle: 'godot-mcp',
     nav: [
       { text: 'Guide', link: '/what-why' },
-      { text: 'Getting Started', link: '/getting-started/install' },
+      { text: 'Getting Started', link: '/getting-started-install' },
       { text: 'Architecture', link: '/architecture/bridge' },
-      { text: 'Reference', link: '/reference/toolsets' },
+      { text: 'Reference', link: '/reference-toolsets' },
       {
         text: 'LLM',
         items: [
@@ -68,16 +68,16 @@ export default withMermaid(defineConfig({
         items: [
           { text: 'What & why', link: '/what-why' },
           { text: 'Core concepts', link: '/concepts' },
-          { text: 'First session', link: '/getting-started/first-session' }
+          { text: 'First session', link: '/getting-started-first-session' }
         ]
       },
       {
         text: 'Getting Started',
         items: [
-          { text: 'Install the MCP server', link: '/getting-started/install' },
-          { text: 'Install the Godot addon', link: '/getting-started/addon' },
-          { text: 'Configure your client', link: '/getting-started/clients' },
-          { text: 'Remote access & OpenWebUI', link: '/getting-started/openwebui' }
+          { text: 'Install the MCP server', link: '/getting-started-install' },
+          { text: 'Install the Godot addon', link: '/getting-started-addon' },
+          { text: 'Configure your client', link: '/getting-started-clients' },
+          { text: 'Remote access & OpenWebUI', link: '/getting-started-openwebui' }
         ]
       },
       {
@@ -95,22 +95,22 @@ export default withMermaid(defineConfig({
       {
         text: 'Reference',
         items: [
-          { text: 'Toolsets & tools', link: '/reference/toolsets' },
-          { text: 'Safety classes', link: '/reference/safety-classes' },
-          { text: 'Value shapes', link: '/reference/value-shapes' },
-          { text: 'Errors & recovery', link: '/reference/errors' },
+          { text: 'Toolsets & tools', link: '/reference-toolsets' },
+          { text: 'Safety classes', link: '/reference-safety-classes' },
+          { text: 'Value shapes', link: '/reference-value-shapes' },
+          { text: 'Errors & recovery', link: '/reference-errors' },
           { text: 'Prompts & resources', link: '/reference-prompts' },
           { text: 'Consumer integration', link: '/reference-consumers' },
-          { text: 'Environment variables', link: '/reference/env-vars' },
+          { text: 'Environment variables', link: '/reference-env-vars' },
           { text: 'Changelog', link: '/changelog' }
         ]
       },
       {
         text: 'Guides',
         items: [
-          { text: 'Build a scene', link: '/guides/build-scene' },
-          { text: 'Play-test & debug', link: '/guides/playtest-debug' },
-          { text: 'Verify your work', link: '/guides/verify' },
+          { text: 'Build a scene', link: '/guides-build-scene' },
+          { text: 'Play-test & debug', link: '/guides-playtest-debug' },
+          { text: 'Verify your work', link: '/guides-verify' },
           { text: 'Ship: export, tests & CI', link: '/guides-ship' }
         ]
       }
