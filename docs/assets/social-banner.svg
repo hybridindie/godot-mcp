@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1a1033"/>
+      <stop offset="1" stop-color="#2d1b4e"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <g transform="translate(90, 120)">
+    <path fill="#7e57c2" d="M21.82 13.5 14.5 21.5a1.5 1.5 0 0 1-2.12.06L4.5 14.5 2 5l9.5 2.5 7 7a1.5 1.5 0 0 1 0 2.12Z" transform="scale(9)"/>
+    <circle cx="67" cy="67" r="13" fill="#fff"/>
+  </g>
+  <text x="90" y="390" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="110" font-weight="700" fill="#ffffff">godot-mcp</text>
+  <text x="90" y="460" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="36" fill="#b39ddb">Drive a live Godot editor from an AI agent — over MCP</text>
+  <text x="90" y="530" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="28" fill="#7986cb">docs: hybridindie.github.io/godot-mcp</text>
+</svg>
