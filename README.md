@@ -11,13 +11,13 @@
 <p align="center">
   <a href="https://pypi.org/project/godot-editor-mcp/"><img src="https://img.shields.io/badge/PyPI-godot--editor--mcp-4a9eff.svg" alt="PyPI" /></a>
   <a href="https://github.com/hybridindie/godot-mcp/pkgs/container/godot-mcp"><img src="https://img.shields.io/badge/Docker-ghcr.io-2496ed.svg" alt="Docker" /></a>
-  <a href="https://github.com/hybridindie/godot-mcp/releases"><img src="https://img.shields.io/badge/version-2026.09.17-brightgreen.svg" alt="Version" /></a>
+  <a href="https://github.com/hybridindie/godot-mcp/releases"><img src="https://img.shields.io/badge/version-2026.09.19-brightgreen.svg" alt="Version" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" /></a>
 </p>
 
-> **Status:** feature-complete across the planned ecosystem. **181 tools** across **29 categories** — always-on `core` plus 28 toggleable toolsets, of which only `inspection` is enabled by default (the other 27 are gated off). Every capability is documented, tested, and ready for agent use.
+> **Status:** feature-complete across the planned ecosystem. **184 tools** across **29 categories** — always-on `core` plus 28 toggleable toolsets, of which only `inspection` is enabled by default (the other 27 are gated off). Every capability is documented, tested, and ready for agent use.
 >
-> **Package:** `godot-editor-mcp` on [PyPI](https://pypi.org/project/godot-editor-mcp/) · **Docker:** `ghcr.io/hybridindie/godot-mcp` · **Version:** `2026.09.17`
+> **Package:** `godot-editor-mcp` on [PyPI](https://pypi.org/project/godot-editor-mcp/) · **Docker:** `ghcr.io/hybridindie/godot-mcp` · **Version:** `2026.09.19`
 
 ---
 
@@ -326,7 +326,7 @@ phone over VPN, with the server and editor on a different machine than the LLM.
 
 ### Toolsets and the Gated Surface
 
-With 181 tools, showing everything at once would overwhelm an agent's context window and degrade tool selection. So tools are **grouped into toolsets** and most are **gated off by default**.
+With 184 tools, showing everything at once would overwhelm an agent's context window and degrade tool selection. So tools are **grouped into toolsets** and most are **gated off by default**.
 
 **Always exposed:**
 - `core` — diagnostics, toolset management, safety introspection
@@ -544,7 +544,7 @@ Some tools inspect or drive a **running** game (not the editor). This requires t
 
 ## All Toolsets
 
-The full surface is 181 tools across 29 categories (`core` + 28 toggleable toolsets). Below is a summary; the authoritative per-tool spec is in [`docs/tool-contracts.md`](docs/tool-contracts.md).
+The full surface is 184 tools across 29 categories (`core` + 28 toggleable toolsets). Below is a summary; the authoritative per-tool spec is in [`docs/tool-contracts.md`](docs/tool-contracts.md).
 
 ### Core (always on)
 - `godot_health_check` — server version + bridge state
