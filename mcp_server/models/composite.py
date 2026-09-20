@@ -31,6 +31,7 @@ class BatchCreateNodesResult(BaseModel):
     created: list[str] = Field(default_factory=list)
     count: int = 0
     saved: bool = False
+    dry_run: bool = False
     # #523: the shared UndoRedo threshold — above it the create bypasses the
     # undo stack for perf and `hint` explains what that means (honest batch).
     undoable: bool = True

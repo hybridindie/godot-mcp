@@ -124,3 +124,32 @@ def test_docs_name_the_shared_threshold() -> None:
         "ApplyNodeEditsResult { edited[], skipped[], count, saved, undoable, "
         "hint?, persistence[] }" in src
     )
+
+def test_composite_dry_run_defense_in_addon() -> None:
+    """The addon's composite handlers refuse to mutate when a raw envelope
+    carries dry_run: true (PR #545 review): the MCP layer normally enforces
+    preview semantics server-side (run_or_preview never sends the command),
+    but the addon must not mutate either — same defense batch_set_property has."""
+    composite_src = COMPOSITE_GD.read_text()
+    for fn in ("_cmd_batch_create_nodes", "_cmd_apply_node_edits"):
+        body = _fn(composite_src, fn)
+        assert 'bool(params.get("dry_run", false))' in body, (
+            f"{fn}: missing the addon-side dry_run guard (defense-in-depth)"
+        )
+        # The guard must return a preview-shaped result, not fall through:
+        guard_block = body[body.index('bool(params.get("dry_run", false))') :]
+        assert '"dry_run": true' in guard_block, (
+            f"{fn}: the dry_run guard must stamp dry_run: true in its preview"
+        )
+
+
+def test_batch_create_result_model_carries_dry_run() -> None:
+    """docs say every result model carries dry_run — the model must not drop it
+    (PR #545 review: BatchCreateNodesResult lost the field)."""
+    from mcp_server.models.composite import ApplyNodeEditsResult, BatchCreateNodesResult
+
+    for model in (BatchCreateNodesResult, ApplyNodeEditsResult):
+        assert "dry_run" in model.model_fields
+        assert model.model_fields["dry_run"].default is False
+        assert "undoable" in model.model_fields
+        assert "hint" in model.model_fields

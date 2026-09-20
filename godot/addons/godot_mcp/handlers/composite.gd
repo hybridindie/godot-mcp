@@ -157,6 +157,22 @@ func _cmd_batch_create_nodes(params: Dictionary) -> Dictionary:
 	# parent are all lost on save — one verdict covers them (they share the
 	# parent); a per-node verdict would repeat the same token.
 	var persistence := _router._persistent_target(parent)
+	# Dry-run defense-in-depth (PR #545 review): the MCP layer enforces preview
+	# semantics (run_or_preview never sends this command with dry_run set), but
+	# a raw envelope carrying dry_run: true must not mutate the tree either —
+	# the batch_set_property handler honors the flag the same way.
+	if bool(params.get("dry_run", false)):
+		var planned: Array = []
+		for node in nodes:
+			planned.append(Inspect.relative_path(node, root))
+		return _router._ok({
+			"created": [],
+			"count": planned.size(),
+			"saved": false,
+			"dry_run": true,
+			"undoable": _router._undoable_for_count(names.size()),
+			"hint": "" if _router._undoable_for_count(names.size()) else _router._undo_threshold_hint(names.size()),
+		})
 	var undo_redo := EditorInterface.get_editor_undo_redo()
 	# #523: batch creates share the UndoRedo threshold — the decision + hint
 	# live on the router (one site), same honesty shape as batch_set_property.
@@ -233,6 +249,21 @@ func _cmd_apply_node_edits(params: Dictionary) -> Dictionary:
 				entry["reason"] = str(verdict.get("reason", ""))
 				entry["hint"] = str(verdict.get("hint", ""))
 			persistence.append(entry)
+
+	# Dry-run defense-in-depth (PR #545 review): the MCP layer enforces preview
+	# semantics (run_or_preview never sends this command with dry_run set), but
+	# a raw envelope carrying dry_run: true must not mutate the tree either.
+	if bool(params.get("dry_run", false)):
+		return _router._ok({
+			"edited": [],
+			"skipped": skipped,
+			"count": 0,
+			"saved": false,
+			"dry_run": true,
+			"undoable": _router._undoable_for_count(to_apply.size()),
+			"hint": "" if _router._undoable_for_count(to_apply.size()) else _router._undo_threshold_hint(to_apply.size(), "applies"),
+			"persistence": persistence,
+		})
 
 	if not to_apply.is_empty():
 		# #523: per-node property edits share the UndoRedo threshold — the

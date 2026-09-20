@@ -156,7 +156,7 @@ def register_composite(mcp: FastMCP, bridge: Bridge) -> None:
             "properties": properties or {},
             "save": save,
         }
-        preview = {"created": [], "count": 0, "saved": False}
+        preview = {"created": [], "count": 0, "saved": False, "undoable": True, "hint": ""}
         return await run_or_preview(
             dry_run,
             BatchCreateNodesResult,
@@ -180,7 +180,14 @@ def register_composite(mcp: FastMCP, bridge: Bridge) -> None:
         """
         await require_active_scene(bridge)
         params: dict[str, Any] = {"edits": edits, "save": save}
-        preview = {"edited": [], "skipped": [], "count": 0, "saved": False}
+        preview = {
+            "edited": [],
+            "skipped": [],
+            "count": 0,
+            "saved": False,
+            "undoable": True,
+            "hint": "",
+        }
         return await run_or_preview(
             dry_run,
             ApplyNodeEditsResult,
