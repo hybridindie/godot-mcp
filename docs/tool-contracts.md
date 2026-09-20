@@ -1168,10 +1168,14 @@ structured `ToolError`.
 
 | Tool | Params | Returns | Notes |
 |------|--------|---------|-------|
-| `godot_get_server_info` | — | `ServerDiagnostics { server, version, contract_version, min_compatible_contract, transport, toolsets[], prompts[], resources[], bridge{}, active_scene?, common_errors[], next_steps[] }` | capability snapshot — call first |
+| `godot_get_server_info` | — | `ServerDiagnostics { server, version, contract_version, min_compatible_contract, transport, toolsets[], prompts[], resources[], bridge{connected, url, godot_version?, project_name?, project_path?, addon_version?, addon_commands?}, active_scene?, addon_drift_warning?, common_errors[], next_steps[] }` | capability snapshot — call first |
 | `godot_debug_workflow` | `scene="", timeout_seconds=5.0, expected_timeout=False` | `DebugWorkflowResult { bridge{}, scene_tree?, run?, parse{ok, errors[], skipped_reason}, findings[], suggestions[] }` | one-call comprehensive check; `expected_timeout=True` suppresses the timeout/NON-ZERO-EXIT findings for games that never self-quit (#490) |
 
 `godot_get_server_info` returns the full server surface so an agent can discover everything in one call: toolset summaries with counts, registered prompt names, resource URIs, bridge state, active scene, common errors with fixes, and suggested next steps.
+
+#### Server↔addon handshake (issue #530, fixes #521)
+
+On the first exchange with a connected editor the server fetches the addon's self-description — `cmd_get_addon_info` → `{ addon_version (from plugin.cfg), godot_version, commands: [all registered cmd_* names] }` — caches it per peer, and (a) surfaces it in `godot_get_server_info.bridge` as `addon_version` + `addon_commands`, and (b) pushes its own package version back via `cmd_server_hello` `{version}` so the **editor dock** labels the connection `godot-mcp <calVer> / Godot <x.y.z>` (the #521 fix; previously the label could never appear). A pre-handshake addon (older release) leaves both fields `None` — a graceful degrade, not an error. When the addon's command set is missing commands the server's tool surface routes to, the snapshot carries an `addon_drift_warning` naming the missing sample with an update hint, replacing opaque per-command `Unknown command` errors as the drift signal.
 
 `godot_debug_workflow` aggregates multiple read-only checks — parse errors across all `.gd` files, active scene tree, headless run capture, and bridge state — into a unified report with actionable findings and suggestions.
 

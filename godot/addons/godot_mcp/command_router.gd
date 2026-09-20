@@ -48,6 +48,9 @@ const MCPVisualShaderHandlers := preload("./handlers/visual_shader.gd")
 const MCPProjectScaffoldHandlers := preload("./handlers/project_scaffold.gd")
 
 var _handlers: Dictionary = {}
+## The server's package version, learned from cmd_server_hello (issue #521) and
+## surfaced here so the plugin entry can label the dock "godot-mcp <ver> / Godot".
+var server_version := ""
 # The EditorDebuggerPlugin that captures a played game's godot_mcp channel (issue #66).
 # Set by the plugin entry; null in headless/unit contexts where there is no editor.
 var _debugger: Object = null
@@ -138,6 +141,15 @@ func _init() -> void:
 	# tool drops the cmd_ prefix); see docs/architecture.md.
 	_handlers["cmd_ping"] = _cmd_ping
 	_handlers["cmd_get_project_info"] = _cmd_get_project_info
+	# Server↔addon handshake (issue #530): addon version + Godot version + the
+	# registered command list, consumed by the server's lazy handshake/cache and
+	# surfaced in godot_get_server_info (fixes #521's never-assigned dock label).
+	_handlers["cmd_get_addon_info"] = _cmd_get_addon_info
+	# The server's half of the handshake (issue #521): it pushes its package
+	# version right after fetching cmd_get_addon_info, so the dock can label the
+	# connection "godot-mcp <calVer> / Godot <x.y.z>". Fire-and-forget from the
+	# server (the response is ignored there); the addon stores + reflects it.
+	_handlers["cmd_server_hello"] = _cmd_server_hello
 	# Core: pop the current scene's undo history N steps (S4). Lives on the router
 	# (not a domain handler) because it drives EditorUndoRedoManager directly.
 	_handlers["cmd_undo"] = _cmd_undo
@@ -341,6 +353,34 @@ func _cmd_get_project_info(_params: Dictionary) -> Dictionary:
 		"autoloads": _autoloads(),
 		"input_actions": _input_actions(),
 	})
+
+
+## Self-description for the server↔addon handshake (issue #530, fixes #521):
+## the addon's version (read live from plugin.cfg), the Godot version it runs
+## inside, and the full set of registered cmd_* handler names. The server calls
+## this lazily on its first exchange with the addon, caches the result, and
+## surfaces it in godot_get_server_info — so a server↔addon version drift shows
+## up as a visible mismatch in the capability snapshot instead of opaque
+## per-command "Unknown command" errors.
+func _cmd_get_addon_info(_params: Dictionary) -> Dictionary:
+	var addon_version := ""
+	var cfg := ConfigFile.new()
+	if cfg.load("res://addons/godot_mcp/plugin.cfg") == OK:
+		addon_version = str(cfg.get_value("plugin", "version", ""))
+	return _ok({
+		"addon_version": addon_version,
+		"godot_version": Engine.get_version_info().get("string", ""),
+		"commands": _handlers.keys(),
+	})
+
+
+## The server's half of the handshake (issue #521): store its package version
+## so the plugin entry can label the dock "godot-mcp <ver> / Godot <x.y.z>".
+## The server sends this fire-and-forget right after cmd_get_addon_info; the
+## response envelope is ignored there (the addon needs no reply).
+func _cmd_server_hello(params: Dictionary) -> Dictionary:
+	server_version = str(params.get("version", ""))
+	return _ok({"received": true})
 
 
 # -- file system helpers (shared by scripts, shaders, resources) --------------

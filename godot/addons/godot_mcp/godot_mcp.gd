@@ -31,6 +31,7 @@ var _dock: MCPStatusDock
 var _dock_button: Button
 var _bridge: MCPBridge
 var _debugger: MCPDebugger
+var _router: MCPCommandRouter
 var _selection: EditorSelection
 var _refresh_timer: Timer
 var _server_version := ""
@@ -53,6 +54,7 @@ func _enter_tree() -> void:
 	add_debugger_plugin(_debugger)
 	var router := MCPCommandRouter.new()
 	router.set_debugger(_debugger)
+	_router = router  # kept for the cmd_server_hello version label (#521)
 
 	# Start the WebSocket bridge and reflect its state in the dock.
 	_bridge = MCPBridge.new(router)
@@ -95,6 +97,7 @@ func _exit_tree() -> void:
 		_bridge.dispose()
 		_bridge.queue_free()
 		_bridge = null
+	_router = null
 
 	if _debugger != null:
 		# dispose() drops the plugin's own references before it is unregistered.
@@ -158,6 +161,13 @@ func _on_refresh_timer() -> void:
 		var status := _bridge.get_status()
 		_dock.set_connection_status(status as MCPStatusDock.ConnectionStatus)
 		_update_button_icon(status)
+	# Issue #521: the server pushes its version via cmd_server_hello after the
+	# handshake; the router stores it in server_version. Reflect it on the next
+	# tick so the dock label goes from "Godot x.y.z" to
+	# "godot-mcp <calver> / Godot x.y.z" without a dedicated signal path.
+	if _router != null and _router.server_version != _server_version:
+		_server_version = _router.server_version
+		_dock.set_server_version(_server_version_label())
 
 
 ## Set the bottom-bar button icon to a colored dot reflecting connection status.
@@ -203,15 +213,14 @@ func _bridge_url() -> String:
 
 ## Server version label: "godot-mcp <version> / Godot <version>".
 func _server_version_label() -> String:
-	# The Python package version is sent by the server on connection; the addon
-	# doesn't know it directly, but it knows the Godot version.
+	# The Python package version arrives via cmd_server_hello (issue #521),
+	# sent by the server right after the cmd_get_addon_info handshake; the
+	# router stores it in server_version. Until it lands, show Godot only.
 	var gv := Engine.get_version_info()
 	var godot_ver := "Godot %d.%d.%s" % [int(gv.get("major", 0)), int(gv.get("minor", 0)), str(gv.get("patch", ""))]
-	# The server version is populated when the bridge connects (via cmd_get_project_info).
-	# Until then, show the Godot version only.
 	if _server_version.is_empty():
 		return godot_ver
-	return "%s / %s" % [_server_version, godot_ver]
+	return "godot-mcp %s / %s" % [_server_version, godot_ver]
 
 
 ## Handle command completion: update the dock's command statistics with

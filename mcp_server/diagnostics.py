@@ -38,6 +38,13 @@ class BridgeDiagnostics(BaseModel):
     godot_version: str | None = None
     project_name: str | None = None
     project_path: str | None = None
+    # Server↔addon handshake (issue #530, fixes #521): the connected addon's
+    # self-description from cmd_get_addon_info, lazily fetched + cached by
+    # Bridge.addon_info(). None when the addon predates the handshake or the
+    # query failed — surfaced as None, not an error, so older addons degrade
+    # gracefully.
+    addon_version: str | None = None
+    addon_commands: list[str] | None = None
 
 
 class ServerDiagnostics(BaseModel):
@@ -61,6 +68,9 @@ class ServerDiagnostics(BaseModel):
     resources: list[str]
     bridge: BridgeDiagnostics
     active_scene: str | None = None
+    # Server↔addon drift (issue #530): a hint naming the bridge commands the
+    # connected addon does not register (None when in sync or handshake absent).
+    addon_drift_warning: str | None = None
     common_errors: list[dict[str, str]]
     next_steps: list[str]
 
@@ -100,7 +110,13 @@ async def _list_resources(mcp: FastMCP) -> list[str]:
 
 
 async def _fetch_bridge_diagnostics(bridge: Bridge) -> BridgeDiagnostics:
-    """Snapshot the bridge state and, if connected, query Godot for version/project."""
+    """Snapshot the bridge state and, if connected, query Godot for version/project.
+
+    Also pulls the addon handshake (issue #530) — the addon's version + live
+    command list — so the snapshot exposes the connected editor's identity and
+    makes a server↔addon drift visible (missing addon fields = pre-handshake
+    addon, which the client should read as "old addon, update it").
+    """
     url_str = bridge.url
     if not bridge.connected:
         return BridgeDiagnostics(
@@ -109,23 +125,25 @@ async def _fetch_bridge_diagnostics(bridge: Bridge) -> BridgeDiagnostics:
             godot_version=None,
             project_name=None,
             project_path=None,
+            addon_version=None,
+            addon_commands=None,
         )
     response = await bridge.send("cmd_get_project_info", timeout=3.0)
     if response.ok and response.result:
         result = response.result
-        return BridgeDiagnostics(
-            connected=True,
-            url=url_str,
-            godot_version=result.get("godot_version"),
-            project_name=result.get("name"),
-            project_path=result.get("project_path"),
-        )
+    else:
+        result = {}
+    # The handshake is best-effort: an unreachable/older addon leaves the fields
+    # None (Bridge.addon_info caches, so this costs one round-trip per peer).
+    addon_info = await bridge.addon_info() or {}
     return BridgeDiagnostics(
         connected=True,
         url=url_str,
-        godot_version=None,
-        project_name=None,
-        project_path=None,
+        godot_version=result.get("godot_version"),
+        project_name=result.get("name"),
+        project_path=result.get("project_path"),
+        addon_version=addon_info.get("addon_version"),
+        addon_commands=addon_info.get("commands"),
     )
 
 
@@ -139,6 +157,32 @@ async def _fetch_active_scene(bridge: Bridge) -> str | None:
         if result.get("is_open"):
             return result.get("path")
     return None
+
+
+def _addon_drift_warning(
+    addon_commands: list[str] | None, bridge_commands: set[str]
+) -> str | None:
+    """A hint when the connected addon lacks bridge commands the server routes to.
+
+    Issue #530: without the handshake, a server↔addon version mismatch surfaced
+    as opaque per-command ``Unknown command`` VALIDATION_ERRORs. Here it becomes
+    a visible, self-diagnosing line in the capability snapshot. Only
+    single-bridge-command tools are compared (orchestrators run Python-side
+    logic and legitimately span several commands).
+    """
+    if not addon_commands:
+        return None
+    missing = sorted(bridge_commands - set(addon_commands))
+    if not missing:
+        return None
+    sample = ", ".join(missing[:5]) + (f" (+{len(missing) - 5} more)" if len(missing) > 5 else "")
+    return (
+        f"SERVER↔ADDON DRIFT: the connected addon does not register {len(missing)} "
+        f"command(s) the server exposes ({sample}). The addon is likely older than "
+        "the server (or vice versa). Update both sides to the same release: "
+        "pip-install the matching godot-mcp and copy godot/addons/godot_mcp/ "
+        "from the same version."
+    )
 
 
 COMMON_ERRORS: list[dict[str, str]] = [
@@ -201,6 +245,20 @@ async def _build_toolset_summaries(mcp: FastMCP, manager: ToolsetManager) -> lis
     return summaries
 
 
+def _bridge_command_set() -> set[str]:
+    """The bridge commands the server's tool surface routes to (#530 drift check).
+
+    ``BARE_TO_COMMAND.values()`` is derived from the same registry data the tool
+    surface is registered with (cross-checked by tests/unit/test_command_map.py),
+    so it is the authoritative set of single-bridge-command tools. Orchestrators
+    (run_tests, export_project, ...) legitimately span several commands and are
+    excluded.
+    """
+    from mcp_server.command_map import BARE_TO_COMMAND
+
+    return set(BARE_TO_COMMAND.values())
+
+
 def _next_steps(bridge_connected: bool, active_scene: str | None) -> list[str]:
     """Suggest what the agent should do based on current state."""
     steps: list[str] = []
@@ -244,6 +302,9 @@ def register_diagnostics(
         """
         bridge_diag = await _fetch_bridge_diagnostics(bridge)
         active_scene = await _fetch_active_scene(bridge)
+        drift = _addon_drift_warning(
+            bridge_diag.addon_commands, _bridge_command_set()
+        )
         return ServerDiagnostics(
             server="godot-mcp",
             version=__version__,
@@ -255,6 +316,7 @@ def register_diagnostics(
             resources=await _list_resources(mcp),
             bridge=bridge_diag,
             active_scene=active_scene,
+            addon_drift_warning=drift,
             common_errors=COMMON_ERRORS,
             next_steps=_next_steps(bridge_diag.connected, active_scene),
         )

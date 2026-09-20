@@ -38,6 +38,9 @@ def _default_base_responder(
                 "input_actions": [],
             },
         )
+    if command.command == "cmd_server_hello":
+        # The #530/#521 handshake push; the server ignores this response.
+        return ResponseEnvelope.success(command.id, {"received": True})
     return None
 
 

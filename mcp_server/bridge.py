@@ -27,6 +27,7 @@ from contextlib import suppress
 from typing import Any, Protocol
 from urllib.parse import urlparse
 
+from mcp_server import __version__
 from mcp_server.config import BridgeConfig
 from mcp_server.models.envelope import CommandEnvelope, ErrorCode, ResponseEnvelope
 
@@ -102,6 +103,10 @@ class Bridge:
         # Serialises peer adoption so two near-simultaneous editor connections can't
         # race to swap _conn/_reader and leave two readers resolving futures (#276 review).
         self._attach_lock = asyncio.Lock()
+        # Server↔addon handshake cache (issue #530): the addon's self-description
+        # from cmd_get_addon_info, fetched lazily on first use and reset whenever
+        # the peer changes (a new editor = a new handshake). Dict or None.
+        self._addon_info: dict[str, Any] | None = None
 
     @property
     def connected(self) -> bool:
@@ -110,6 +115,30 @@ class Bridge:
     @property
     def url(self) -> str:
         return self._config.url
+
+    async def addon_info(self) -> dict[str, Any] | None:
+        """The connected addon's self-description (issue #530), or None.
+
+        Lazily calls ``cmd_get_addon_info`` once per peer and caches the result:
+        ``{ addon_version, godot_version, commands: [cmd_*] }``. Returns None when
+        the addon is unreachable or predates the handshake (older addon), so
+        callers degrade gracefully instead of failing.
+
+        On the first successful handshake, pushes the server's package version
+        back to the addon via ``cmd_server_hello`` (issue #521) — fire-and-forget,
+        so the addon's dock can label the connection with both versions.
+        """
+        if self._conn is None:
+            return None
+        if self._addon_info is None:
+            response = await self.send("cmd_get_addon_info", timeout=5.0)
+            if response.ok and isinstance(response.result, dict):
+                self._addon_info = response.result
+                # Best-effort push (issue #521): an old addon that lacks
+                # cmd_server_hello answers "Unknown command" — ignored here,
+                # the dock just keeps showing the Godot version only.
+                await self.send("cmd_server_hello", {"version": __version__}, timeout=5.0)
+        return self._addon_info
 
     async def serve(self) -> None:
         """Start listening for the addon to connect (it is the client now). Idempotent.
@@ -159,9 +188,11 @@ class Bridge:
                         await old_reader
                 self._fail_pending("BRIDGE_DISCONNECTED", "Replaced by a new editor connection.")
                 await old.close()
-            self._conn = conn
-            self._reader = asyncio.create_task(self._read_loop(conn))
-            logger.debug("bridge peer connected")
+            # A new peer is a new addon: the cached handshake no longer describes it.
+            self._addon_info = None
+        self._conn = conn
+        self._reader = asyncio.create_task(self._read_loop(conn))
+        logger.debug("bridge peer connected")
 
     async def close(self) -> None:
         """Stop listening, drop the peer, and fail any in-flight requests.
@@ -183,6 +214,7 @@ class Bridge:
                 await self._server.wait_closed()
             self._server = None
         self._fail_pending("BRIDGE_DISCONNECTED", "Bridge closed.")
+        self._addon_info = None
 
     async def send(
         self,
