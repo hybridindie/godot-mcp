@@ -70,4 +70,8 @@ legitimately run until killed.
 
 The full verification loop runs headless (no editor): `run_and_capture` +
 `run_tests` (GUT) + `export_project` are the CI-shaped tools; the live-editor
-e2e suite exercises the rest on a real Godot binary.
+e2e suite exercises the rest on a real Godot binary. The addon's own logic is
+pinned the same way: headless `SceneTree` exercisers under `godot/tests/`
+(the router envelope, `run_commands` batching, and the full `type_coerce`
+shape table) run via pytest in `tests/integration/test_addon_*.py` whenever a
+Godot binary is present — see issue #524 for the harness pattern.

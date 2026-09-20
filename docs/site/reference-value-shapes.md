@@ -57,4 +57,11 @@ trees support `max_depth`).
 - Full per-property table: `docs/tool-contracts.md` § value-shapes
 
 The type-coercion logic is deliberately single-sourced: a copy-pasted coercion
+layer would drift from this table within weeks. It is pinned by a headless
+behavior test (`godot/tests/type_coerce_smoke.gd`, wired into pytest via
+`tests/integration/test_addon_read_smokes.py`) that round-trips every shape in
+this document against the real Godot runtime — see `docs/architecture.md`
+(testing the addon) for the runner pattern.
+
+The type-coercion logic is deliberately single-sourced: a copy-pasted coercion
 in one handler is a drift bug the addon rules call out as blocking.

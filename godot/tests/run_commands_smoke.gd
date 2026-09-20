@@ -64,6 +64,50 @@ func _initialize() -> void:
 	else:
 		failures.append("bad results size wrong: %d" % br.size())
 
+	# #461 honest partial completion: with stop_on_error (default), a failing
+	# sub-command halts the batch and the response names aborted_at +
+	# skipped_count + a hint — regardless of per-command ok:false passthrough.
+	var abort: Dictionary = router.handle({
+		"id": "4",
+		"command": "cmd_run_commands",
+		"params": {"commands": [
+			{"command": "cmd_ping", "params": {}},
+			{"command": "cmd_no_such_command", "params": {}},
+			{"command": "cmd_ping", "params": {}},
+			{"command": "cmd_ping", "params": {}},
+		]},
+	})
+	var ab_r: Dictionary = abort.get("result", {})
+	_eq(failures, "abort.ok_outer", abort.get("ok"), true)  # the batch ran
+	_eq(failures, "abort.ok_all", ab_r.get("ok_all"), false)
+	var ab_results: Array = ab_r.get("results", [])
+	_eq(failures, "abort.halted_size", ab_results.size(), 2)
+	_eq(failures, "abort.aborted_at", ab_r.get("aborted_at"), 1)
+	_eq(failures, "abort.skipped_count", ab_r.get("skipped_count"), 2)
+	if not str(ab_r.get("hint", "")).contains("stop_on_error=false"):
+		failures.append("abort.hint: should name the recovery flag: %s" % str(ab_r.get("hint")))
+	# With stop_on_error=false, all four run and no abort fields appear.
+	var no_abort: Dictionary = router.handle({
+		"id": "5",
+		"command": "cmd_run_commands",
+		"params": {"commands": [
+			{"command": "cmd_no_such_command", "params": {}},
+			{"command": "cmd_ping", "params": {}},
+		], "stop_on_error": false},
+	})
+	var na_r: Dictionary = no_abort.get("result", {})
+	_eq(failures, "no_abort.ok_all", na_r.get("ok_all"), false)
+	_eq(failures, "no_abort.count", na_r.get("count"), 2)
+	_eq(failures, "no_abort.no_aborted_at", na_r.has("aborted_at"), false)
+
+	# A non-array 'commands' is a structured error.
+	var bad_array: Dictionary = router.handle({
+		"id": "6",
+		"command": "cmd_run_commands",
+		"params": {"commands": "nope"},
+	})
+	_eq(failures, "bad_array.err", bad_array.get("error"), "VALIDATION_ERROR")
+
 	if failures.is_empty():
 		print("RUN_COMMANDS_TEST_OK")
 		quit(0)
