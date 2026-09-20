@@ -203,6 +203,18 @@ property samples, find-UI, input injection, performance monitors).
 - Without the probe autoload, runtime tools return `connected: false` (with a hint) or a
   `PRECONDITION_FAILED` (`required: play_session` / `runtime_probe`) — never a hang.
 
+**Runtime guards (issue #527).** The precondition guards the runtime handlers share —
+`require_play_session`, `require_debug_session`, `require_live_probe`, and the #443
+`require_unpaused_live_probe` break gate — are consolidated in
+`godot/addons/godot_mcp/mcp_guards.gd` (`MCPGuards`). One implementation means the #454
+probe-never-connected diagnostic (the "max client limits reached" recovery hint after
+play/stop cycles) ships from **every** gated handler, not just `get_game_scene_tree`
+(which intentionally keeps a *soft* `connected: false` result — a read-only poll reports
+state instead of refusing — while consuming the hint text from the guard module). The
+router keeps delegating `_require_*` wrappers so handler call sites read unchanged. The
+guards take an injectable play-session oracle (`set_play_session_oracle`) so the headless
+smoke (`godot/tests/guards_smoke.gd`) can drive both branches deterministically.
+
 ## Health check
 
 `ping` → `pong` is the canonical liveness probe and the first contract test (issue #3).
