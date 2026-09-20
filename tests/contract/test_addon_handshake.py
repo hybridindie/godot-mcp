@@ -273,3 +273,33 @@ async def test_get_server_info_reports_drift_when_addon_is_old() -> None:
     assert warning is not None
     assert "SERVER↔ADDON DRIFT" in warning
     await bridge.close()
+
+
+async def test_addon_info_concurrent_callers_send_exactly_one_handshake() -> None:
+    """N concurrent first calls → one handshake + one server_hello (Qodo fix).
+
+    Two coroutines awaiting the lazily-fetched handshake must not both send;
+    the loser waits on _addon_info_lock and finds the cache populated.
+    """
+    from mcp_server.bridge import Bridge
+    from mcp_server.config import BridgeConfig
+
+    calls: list[str] = []
+
+    def counting_responder(command: CommandEnvelope) -> ResponseEnvelope | None:
+        if command.command == "cmd_get_addon_info":
+            calls.append(command.command)
+            return _addon_responder(command)
+        from tests.fakes import ping_responder
+
+        return ping_responder(command)
+
+    conn = FakeAddonConnection(counting_responder)
+    bridge = Bridge(BridgeConfig(), connector=connector_for(conn))
+    await bridge.connect()
+
+    one, two = await asyncio.gather(bridge.addon_info(), bridge.addon_info())
+    assert one == two
+    assert one is not None
+    assert len(calls) == 1, f"handshake sent {len(calls)}x under concurrency"
+    await bridge.close()

@@ -107,6 +107,10 @@ class Bridge:
         # from cmd_get_addon_info, fetched lazily on first use and reset whenever
         # the peer changes (a new editor = a new handshake). Dict or None.
         self._addon_info: dict[str, Any] | None = None
+        # Serialises the lazy handshake so two concurrent addon_info() callers
+        # can't both see an empty cache and both send the handshake (Qodo
+        # review on PR #543: duplicate cmd_server_hello pushes otherwise).
+        self._addon_info_lock = asyncio.Lock()
 
     @property
     def connected(self) -> bool:
@@ -127,17 +131,27 @@ class Bridge:
         On the first successful handshake, pushes the server's package version
         back to the addon via ``cmd_server_hello`` (issue #521) — fire-and-forget,
         so the addon's dock can label the connection with both versions.
+
+        Serialised by ``_addon_info_lock`` so concurrent callers see exactly one
+        handshake per peer (the lock is only taken while the cache is empty —
+        steady-state reads are lock-free).
         """
         if self._conn is None:
             return None
         if self._addon_info is None:
-            response = await self.send("cmd_get_addon_info", timeout=5.0)
-            if response.ok and isinstance(response.result, dict):
-                self._addon_info = response.result
-                # Best-effort push (issue #521): an old addon that lacks
-                # cmd_server_hello answers "Unknown command" — ignored here,
-                # the dock just keeps showing the Godot version only.
-                await self.send("cmd_server_hello", {"version": __version__}, timeout=5.0)
+            async with self._addon_info_lock:
+                # Double-check inside the lock: the first caller through may
+                # have completed the handshake while we awaited the lock.
+                if self._addon_info is None:
+                    response = await self.send("cmd_get_addon_info", timeout=5.0)
+                    if response.ok and isinstance(response.result, dict):
+                        self._addon_info = response.result
+                        # Best-effort push (issue #521): an old addon that lacks
+                        # cmd_server_hello answers "Unknown command" — ignored
+                        # here, the dock just keeps showing the Godot version.
+                        await self.send(
+                            "cmd_server_hello", {"version": __version__}, timeout=5.0
+                        )
         return self._addon_info
 
     async def serve(self) -> None:
