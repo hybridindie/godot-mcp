@@ -55,13 +55,6 @@ const HANDLERS: Array = [
 	preload("./handlers/visual_shader.gd"),
 ]
 
-## The shared UndoRedo 20-node threshold (issue #523, extends #461): batches of
-## property applies / node creates / node edits above this size bypass
-## EditorUndoRedoManager for perf and MUST report `undoable: false` + a hint —
-## the agent otherwise believes undo covers the whole batch. One const owns the
-## value so a future retune updates the hint too (it interpolates this).
-const MCP_UNDO_THRESHOLD := 20
-
 var _handlers: Dictionary = {}
 ## The RefCounted handler instances (one per HANDLERS entry) — promoted to a
 ## member so they survive beyond _init(); dispose() clears it.

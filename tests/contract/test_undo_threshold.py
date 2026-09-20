@@ -7,7 +7,8 @@ while ``composite.gd``'s ``batch_create_nodes`` / ``apply_node_edits`` have
 **no threshold at all**: a 500-node batch create opens one giant UndoRedo
 action and reports nothing about undo coverage.
 
-Fix contract: one shared const (``MCP_UNDO_THRESHOLD`` in the addon, declared
+Fix contract: one shared const (``UNDO_THRESHOLD`` in ``mcp_helpers.gd`` since
+#522 — the router's helpers module — declared
 once), used by all three batch-apply paths; the composite tools return the
 same ``undoable`` + ``hint`` honesty fields ``batch_set_property`` does, so a
 consumer reads one shape. Source-scanned per the established pattern (the
@@ -166,3 +167,22 @@ def test_batch_create_result_model_carries_dry_run() -> None:
         assert model.model_fields["dry_run"].default is False
         assert "undoable" in model.model_fields
         assert "hint" in model.model_fields
+
+
+def test_dead_threshold_const_never_returns_to_the_router() -> None:
+    """PR #546 review: the router's copy of the const became dead code when the
+    threshold moved to mcp_helpers.gd — it was removed, and this pin keeps it
+    from silently returning (two consts = a retune updates one, drifts the
+    other)."""
+    router_src = ROUTER_GD.read_text()
+    # Strip the legitimate delegate references before asserting no const remains.
+    no_delegates = (
+        router_src.replace("_undoable_for_count", "")
+        .replace("_undo_threshold_hint", "")
+        .replace("undo_threshold_hint", "")
+    )
+    assert "UNDO_THRESHOLD" not in no_delegates, (
+        "command_router.gd must not re-declare the threshold const — "
+        "mcp_helpers.gd owns it (the router's one-line delegates reference the "
+        "helpers, never a local const)"
+    )

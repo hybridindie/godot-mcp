@@ -187,8 +187,13 @@ func resolve_node(raw_path: Variant, fail: Callable) -> Dictionary:
 ## an editable instance, and a skipped node's subtree is never visited — so every node
 ## on the path up to the root must qualify. Returns {ok: true} or {ok: false, reason, hint}.
 func persistent_target(node: Node) -> Dictionary:
+	# A null node is never persisted regardless of scene state — checked before
+	# the editor access so the guard holds even where the editor is absent
+	# (headless tests; the editor hard-errors on get_edited_scene_root there).
+	if node == null:
+		return _not_persisted("node_not_owned", "No scene is open, so nothing can be saved.")
 	var root := EditorInterface.get_edited_scene_root()
-	if root == null or node == null:
+	if root == null:
 		return _not_persisted("node_not_owned", "No scene is open, so nothing can be saved.")
 	var current := node
 	while current != root:

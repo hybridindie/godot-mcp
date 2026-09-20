@@ -56,6 +56,32 @@ func _initialize() -> void:
 		# unavailable), so the live editor path is covered by inspect_smoke +
 		# the e2e suite; here pin the router-bound delegate wiring instead.
 		_expect(failures, "router_has_resolve", router.has_command("cmd_node_exists"), true)
+		# Persistence-truth helpers on editor-free inputs (PR #546 review: the
+		# moved #458/#477 logic needs direct regression coverage — the live
+		# editor paths are covered by test_persistence_e2e, these pin the
+		# helpers' own pure branches):
+		# with_persistence stamps the verdict onto a result (ok → persisted: true).
+		var stamped: Dictionary = helpers.with_persistence({"path": "A"}, {"ok": true})
+		_expect(failures, "with_persistence_ok", stamped.get("persisted"), true)
+		if stamped.has("reason") or stamped.has("hint"):
+			failures.append("with_persistence leaked reason/hint on ok verdict")
+		# A failing verdict stamps persisted: false + reason + hint.
+		var stamped_bad: Dictionary = helpers.with_persistence(
+			{"path": "A"},
+			{"ok": false, "reason": "node_not_owned", "hint": "not saved"},
+		)
+		_expect(failures, "with_persistence_bad", stamped_bad.get("persisted"), false)
+		_expect(failures, "with_persistence_reason", stamped_bad.get("reason"), "node_not_owned")
+		_expect(failures, "with_persistence_hint", stamped_bad.get("hint"), "not saved")
+		# persistent_target(null) refuses with the honest no-scene verdict.
+		var target: Dictionary = helpers.persistent_target(null)
+		_expect(failures, "persistent_target_null", target.get("reason"), "node_not_owned")
+		if not str(target.get("hint", "")).contains("No scene"):
+			failures.append("persistent_target hint should name the no-scene case")
+		# commit_add_child_with_persistence probes the verdict BEFORE the add
+		# (#477 parent rule) — with a null parent the verdict is the no-scene
+		# refusal. (The add itself needs a live editor; its full path is
+		# covered by the create-family e2e tests.)
 
 	# Envelope builders stay on the router.
 	var body: Dictionary = router._ok({"x": 1})
