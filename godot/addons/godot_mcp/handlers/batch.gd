@@ -50,7 +50,7 @@ func _cross_scene_one(
 		targets.push_front(root)
 	var modified := 0
 	for node in targets:
-		var prop_type := _router._property_type(node, property)
+		var prop_type := _router._helpers.property_type(node, property)
 		if prop_type == -1:
 			continue
 		if not dry_run:
@@ -157,7 +157,7 @@ func _cmd_batch_set_property(params: Dictionary) -> Dictionary:
 	var persistence: Array = []  # #477: one verdict per applied target
 	var to_apply: Array = []  # only nodes that actually have the property
 	for node in targets:
-		var prop_type := _router._property_type(node, property)
+		var prop_type := _router._helpers.property_type(node, property)
 		if prop_type == -1:
 			skipped.append({"path": Inspect.relative_path(node, root), "reason": "no such property"})
 			continue
@@ -167,7 +167,7 @@ func _cmd_batch_set_property(params: Dictionary) -> Dictionary:
 		# #477: `_batch_targets` descends into instanced children, so a target
 		# inside a non-editable instance is individually lost on save even when
 		# the batch reports ok. Each applied target gets its own verdict.
-		var verdict := _router._persistent_target(node)
+		var verdict := _router._helpers.persistent_target(node)
 		var entry := {"node_path": node_path, "persisted": bool(verdict.get("ok", false))}
 		if not verdict.get("ok", false):
 			entry["reason"] = str(verdict.get("reason", ""))
@@ -180,7 +180,7 @@ func _cmd_batch_set_property(params: Dictionary) -> Dictionary:
 	var undoable := true
 	if not dry_run and not to_apply.is_empty():
 		# For very large batches, skip UndoRedo to avoid EditorUndoRedoManager overhead.
-		undoable = _router._undoable_for_count(to_apply.size())
+		undoable = _router._helpers.undoable_for_count(to_apply.size())
 		if not undoable:
 			for item in to_apply:
 				item["node"].set(property, item["value"])
@@ -193,7 +193,7 @@ func _cmd_batch_set_property(params: Dictionary) -> Dictionary:
 			ur.commit_action()
 		# Invalidate cached property types for all modified objects.
 		for item in to_apply:
-			_router._invalidate_prop_cache(item["node"])
+			_router._helpers.invalidate_prop_cache(item["node"])
 	return _router._ok({
 		"property": property,
 		"applied": applied,
@@ -202,7 +202,7 @@ func _cmd_batch_set_property(params: Dictionary) -> Dictionary:
 		"dry_run": dry_run,
 		"undoable": undoable,
 		"persistence": persistence,
-		"hint": "" if undoable else _router._undo_threshold_hint(to_apply.size()),
+		"hint": "" if undoable else _router._helpers.undo_threshold_hint(to_apply.size()),
 	})
 
 

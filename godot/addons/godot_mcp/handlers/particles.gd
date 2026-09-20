@@ -82,10 +82,10 @@ func _cmd_create_particles(params: Dictionary) -> Dictionary:
 	particles.set("amount", maxi(1, int(params.get("amount", 8))))
 	particles.set("lifetime", maxf(0.01, float(params.get("lifetime", 1.0))))
 	particles.set("process_material", ParticleProcessMaterial.new())
-	_router._apply_props(particles, params.get("properties", {}))
+	_router._helpers.apply_props(particles, params.get("properties", {}))
 	# #477 (parent rule): a particles node under an instanced child is lost on save.
-	var committed := _router._commit_add_child_with_persistence(parent, particles, "Add %s" % particles.name)
-	return _router._ok(_router._with_persistence({
+	var committed := _router._helpers.commit_add_child_with_persistence(parent, particles, "Add %s" % particles.name)
+	return _router._ok(_router._helpers.with_persistence({
 		"node_path": committed["path"],
 		"particles_type": particles_type,
 		"created": true,
@@ -103,14 +103,14 @@ func _cmd_set_particle_material(params: Dictionary) -> Dictionary:
 	ur.create_action("Configure particle material")
 	var material := _stage_process_material(node, ur)
 	for key in properties:
-		var pt := _router._property_type(material, str(key))
+		var pt := _router._helpers.property_type(material, str(key))
 		if pt != -1:
 			ur.add_do_property(material, str(key), Coerce.from_json(properties[key], pt))
 			ur.add_undo_property(material, str(key), material.get(str(key)))
 	ur.commit_action()
 	# A material staged just now has no path yet, so the node rule decides; an existing one
 	# saves wherever it lives.
-	return _router._ok(_router._with_persistence({"node_path": str(params.get("node_path")), "properties": _applied_props(material, properties)}, _router._resource_persistence(node, [material])))
+	return _router._ok(_router._helpers.with_persistence({"node_path": str(params.get("node_path")), "properties": _applied_props(material, properties)}, _router._helpers.resource_persistence(node, [material])))
 
 
 
@@ -130,7 +130,7 @@ func _cmd_set_particle_color_gradient(params: Dictionary) -> Dictionary:
 	ur.add_do_reference(texture)
 	ur.add_undo_property(material, "color_ramp", material.color_ramp)
 	ur.commit_action()
-	return _router._ok(_router._with_persistence({"node_path": str(params.get("node_path")), "stops": (raw_colors as Array).size()}, _router._resource_persistence(node, [material])))
+	return _router._ok(_router._helpers.with_persistence({"node_path": str(params.get("node_path")), "stops": (raw_colors as Array).size()}, _router._helpers.resource_persistence(node, [material])))
 
 
 
@@ -147,7 +147,7 @@ func _cmd_apply_particle_preset(params: Dictionary) -> Dictionary:
 	var mat_props: Dictionary = preset.get("material", {})
 	var grad_colors: Array = preset.get("gradient", [])
 	var material := ParticleProcessMaterial.new()
-	_router._apply_props(material, mat_props)
+	_router._helpers.apply_props(material, mat_props)
 	if not grad_colors.is_empty():
 		material.color_ramp = _build_gradient_texture(grad_colors, null)
 	var ur := EditorInterface.get_editor_undo_redo()
@@ -156,12 +156,12 @@ func _cmd_apply_particle_preset(params: Dictionary) -> Dictionary:
 	ur.add_do_reference(material)
 	ur.add_undo_property(node, "process_material", node.process_material)
 	for key in node_props:
-		var pt := _router._property_type(node, str(key))
+		var pt := _router._helpers.property_type(node, str(key))
 		if pt != -1:
 			ur.add_do_property(node, str(key), Coerce.from_json(node_props[key], pt))
 			ur.add_undo_property(node, str(key), node.get(str(key)))
 	ur.commit_action()
-	return _router._ok(_router._with_persistence({"node_path": str(params.get("node_path")), "preset": preset_name}, _router._persistent_target(node)))
+	return _router._ok(_router._helpers.with_persistence({"node_path": str(params.get("node_path")), "preset": preset_name}, _router._helpers.persistent_target(node)))
 
 
 ## Read a particle node's ProcessMaterial — props + color ramp (issue #219 P4). The
@@ -221,7 +221,7 @@ func _build_gradient_texture(raw_colors: Array, raw_offsets: Variant) -> Gradien
 func _applied_props(obj: Object, props: Dictionary) -> Dictionary:
 	var applied: Dictionary = {}
 	for key in props:
-		if _router._property_type(obj, str(key)) != -1:
+		if _router._helpers.property_type(obj, str(key)) != -1:
 			applied[str(key)] = Coerce.to_json(obj.get(str(key)))
 	return applied
 

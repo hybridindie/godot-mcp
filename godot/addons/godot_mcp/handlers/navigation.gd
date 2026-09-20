@@ -42,10 +42,10 @@ func _cmd_setup_navigation_region(params: Dictionary) -> Dictionary:
 		region.navigation_polygon = NavigationPolygon.new()
 	else:
 		region.navigation_mesh = NavigationMesh.new()
-	_router._apply_props(region, params.get("properties", {}))
+	_router._helpers.apply_props(region, params.get("properties", {}))
 	# #477 (parent rule): a nav region under an instanced child is lost on save.
-	var committed := _router._commit_add_child_with_persistence(parent, region, "Add %s" % region.name)
-	return _router._ok(_router._with_persistence({
+	var committed := _router._helpers.commit_add_child_with_persistence(parent, region, "Add %s" % region.name)
+	return _router._ok(_router._helpers.with_persistence({
 		"node_path": committed["path"],
 		"region_type": region_type,
 		"created": true,
@@ -67,10 +67,10 @@ func _cmd_setup_navigation_agent(params: Dictionary) -> Dictionary:
 		return agent_inst
 	var agent: Node = agent_inst["obj"]
 	agent.name = str(params.get("name", agent_type))
-	_router._apply_props(agent, params.get("properties", {}))
+	_router._helpers.apply_props(agent, params.get("properties", {}))
 	# #477 (parent rule): a nav agent under an instanced child is lost on save.
-	var committed := _router._commit_add_child_with_persistence(parent, agent, "Add %s" % agent.name)
-	return _router._ok(_router._with_persistence({
+	var committed := _router._helpers.commit_add_child_with_persistence(parent, agent, "Add %s" % agent.name)
+	return _router._ok(_router._helpers.with_persistence({
 		"node_path": committed["path"],
 		"agent_type": agent_type,
 		"created": true,
@@ -133,12 +133,12 @@ func _cmd_bake_navigation_mesh(params: Dictionary) -> Dictionary:
 			"polygon_count",
 		)
 	# The bake assigns a fresh duplicate to the region, so it saves like any node property.
-	return _router._ok(_router._with_persistence({
+	return _router._ok(_router._helpers.with_persistence({
 		"node_path": str(params.get("node_path")),
 		"baked": true,
 		"polygon_count": polygon_count,
 		"vertex_count": vertex_count,
-	}, _router._persistent_target(region)))
+	}, _router._helpers.persistent_target(region)))
 
 
 
@@ -195,16 +195,16 @@ func _cmd_set_navigation_layers(params: Dictionary) -> Dictionary:
 	if not found["ok"]:
 		return found
 	var node: Node = found["node"]
-	if _router._property_type(node, "navigation_layers") == -1:
+	if _router._helpers.property_type(node, "navigation_layers") == -1:
 		return _router._fail("VALIDATION_ERROR", "Node has no 'navigation_layers' property.")
-	if not _router._valid_bits(params.get("layers")):
+	if not _router._helpers.valid_bits(params.get("layers")):
 		return _router._fail("VALIDATION_ERROR", "'layers' must be an array of bit indices in [1, 32].")
-	var mask: int = _router._bitmask(params["layers"])
+	var mask: int = _router._helpers.bitmask(params["layers"])
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Set navigation layers on %s" % node.name)
 	ur.add_do_property(node, "navigation_layers", mask)
 	ur.add_undo_property(node, "navigation_layers", node.navigation_layers)
 	ur.commit_action()
-	return _router._ok(_router._with_persistence({"node_path": str(params.get("node_path")), "navigation_layers": mask}, _router._persistent_target(node)))
+	return _router._ok(_router._helpers.with_persistence({"node_path": str(params.get("node_path")), "navigation_layers": mask}, _router._helpers.persistent_target(node)))
 
 

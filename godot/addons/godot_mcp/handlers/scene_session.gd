@@ -171,7 +171,7 @@ func _cmd_instance_scene(params: Dictionary) -> Dictionary:
 		instance.name = custom_name
 	# #477 (parent rule): instancing under a non-editable instanced child applies
 	# live but the whole new instance is lost on save.
-	var persistence := _router._persistent_target(parent)
+	var persistence := _router._helpers.persistent_target(parent)
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Instance %s" % scene_path.get_file())
 	ur.add_do_method(parent, "add_child", instance)
@@ -179,7 +179,7 @@ func _cmd_instance_scene(params: Dictionary) -> Dictionary:
 	ur.add_do_reference(instance)
 	ur.add_undo_method(parent, "remove_child", instance)
 	ur.commit_action()
-	return _router._ok(_router._with_persistence({
+	return _router._ok(_router._helpers.with_persistence({
 		"node_path": Inspect.relative_path(instance, root),
 		"scene_path": scene_path,
 		"instanced": true,

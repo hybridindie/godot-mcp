@@ -34,7 +34,7 @@ func _cmd_get_active_scene(_params: Dictionary) -> Dictionary:
 	var root: Node = EditorInterface.get_edited_scene_root()
 	if root == null:
 		return _router._ok({"is_open": false, "path": null, "name": null})
-	return _router._ok({"is_open": true, "path": root.scene_file_path, "name": _router._scene_name(root)})
+	return _router._ok({"is_open": true, "path": root.scene_file_path, "name": _router._helpers.scene_name(root)})
 
 
 ## List every res://*.tscn in the project + which is main / open / active (#304), so an
@@ -156,9 +156,9 @@ func _cmd_node_persistence(params: Dictionary) -> Dictionary:
 		if not (group is String) or str(group).is_empty():
 			return _router._fail("VALIDATION_ERROR", "'group' must be a non-empty string.")
 		return _router._ok(
-			_router._with_persistence(
+			_router._helpers.with_persistence(
 				{"node_path": str(params["node_path"])},
-				_router._group_removal_persistence(node, str(group)),
+				_router._helpers.group_removal_persistence(node, str(group)),
 			)
 		)
 	var chain := []
@@ -200,16 +200,16 @@ func _cmd_node_persistence(params: Dictionary) -> Dictionary:
 		# the hint names the parent path (same as the real run).
 		var parent := (node as Node).get_parent()
 		truth = (
-			_router._persistent_target(parent)
+			_router._helpers.persistent_target(parent)
 			if parent != null
 			else _router._not_persisted("node_not_owned", "The node has no parent, so nothing can be saved.")
 		)
 	elif bool(params.get("probe_parent", false)):
 		# #477: structural probes key on the parent (creates/instances/moves)
 		# — the target does not exist yet, so the parent's persistence decides.
-		truth = _router._persistent_target(node)
+		truth = _router._helpers.persistent_target(node)
 	else:
-		truth = _router._resource_persistence(node, chain)
+		truth = _router._helpers.resource_persistence(node, chain)
 	var body := {
 		"node_path": str(params["node_path"]),
 		"persisted": truth["ok"],

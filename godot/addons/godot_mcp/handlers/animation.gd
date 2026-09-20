@@ -78,11 +78,11 @@ func _cmd_create_animation(params: Dictionary) -> Dictionary:
 	# (cmd_node_persistence with `animation`) resolves, so preview and real run
 	# name the same resource class in their hints (#481).
 	var persistence: Dictionary = (
-		_router._persistent_target(player)
+		_router._helpers.persistent_target(player)
 		if created_lib
-		else _router._resource_persistence(player, [animation, library])
+		else _router._helpers.resource_persistence(player, [animation, library])
 	)
-	return _router._ok(_router._with_persistence({"player_path": str(params.get("node_path")), "animation": anim_name, "length": animation.length}, persistence))
+	return _router._ok(_router._helpers.with_persistence({"player_path": str(params.get("node_path")), "animation": anim_name, "length": animation.length}, persistence))
 
 
 
@@ -105,7 +105,7 @@ func _cmd_add_animation_track(params: Dictionary) -> Dictionary:
 	ur.add_do_method(animation, "track_set_path", index, NodePath(track_path))
 	ur.add_undo_method(animation, "remove_track", index)
 	ur.commit_action()
-	return _router._ok(_router._with_persistence({"animation": str(params.get("animation")), "track": index, "track_path": track_path}, _router._resource_persistence(found["player"], [animation, found["library"]])))
+	return _router._ok(_router._helpers.with_persistence({"animation": str(params.get("animation")), "track": index, "track_path": track_path}, _router._helpers.resource_persistence(found["player"], [animation, found["library"]])))
 
 
 
@@ -129,7 +129,7 @@ func _cmd_insert_keyframe(params: Dictionary) -> Dictionary:
 	ur.add_do_method(animation, "track_insert_key", track, time, value, easing)
 	ur.add_undo_method(animation, "track_remove_key_at_time", track, time)
 	ur.commit_action()
-	return _router._ok(_router._with_persistence({"animation": str(params.get("animation")), "track": track, "time": time}, _router._resource_persistence(found["player"], [animation, found["library"]])))
+	return _router._ok(_router._helpers.with_persistence({"animation": str(params.get("animation")), "track": track, "time": time}, _router._helpers.resource_persistence(found["player"], [animation, found["library"]])))
 
 
 
@@ -154,7 +154,7 @@ func _cmd_create_animation_tree(params: Dictionary) -> Dictionary:
 	if params.get("anim_player") != null:
 		tree.anim_player = NodePath(str(params["anim_player"]))
 	# #477 (parent rule): an AnimationTree under an instanced child is lost on save.
-	var persistence := _router._persistent_target(parent)
+	var persistence := _router._helpers.persistent_target(parent)
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Create AnimationTree %s" % tree.name)
 	ur.add_do_method(parent, "add_child", tree)
@@ -162,7 +162,7 @@ func _cmd_create_animation_tree(params: Dictionary) -> Dictionary:
 	ur.add_do_reference(tree)
 	ur.add_undo_method(parent, "remove_child", tree)
 	ur.commit_action()
-	return _router._ok(_router._with_persistence({
+	return _router._ok(_router._helpers.with_persistence({
 		"node_path": Inspect.relative_path(tree, root),
 		"root_type": root_type,
 	}, persistence))
@@ -189,7 +189,7 @@ func _cmd_add_state_machine_state(params: Dictionary) -> Dictionary:
 	ur.add_do_reference(state)
 	ur.add_undo_method(state_machine, "remove_node", state_name)
 	ur.commit_action()
-	return _router._ok(_router._with_persistence({"tree_path": str(params.get("tree_path")), "state": state_name}, _router._resource_persistence(tree, [state_machine])))
+	return _router._ok(_router._helpers.with_persistence({"tree_path": str(params.get("tree_path")), "state": state_name}, _router._helpers.resource_persistence(tree, [state_machine])))
 
 
 
@@ -218,7 +218,7 @@ func _cmd_set_blend_tree_node(params: Dictionary) -> Dictionary:
 	ur.add_do_reference(anim_node_obj)
 	ur.add_undo_method(blend_tree, "remove_node", node_name)
 	ur.commit_action()
-	return _router._ok(_router._with_persistence({"tree_path": str(params.get("tree_path")), "node": node_name, "node_type": node_type}, _router._resource_persistence(tree, [blend_tree])))
+	return _router._ok(_router._helpers.with_persistence({"tree_path": str(params.get("tree_path")), "node": node_name, "node_type": node_type}, _router._helpers.resource_persistence(tree, [blend_tree])))
 
 
 func _resolve_player_animation(params: Dictionary) -> Dictionary:

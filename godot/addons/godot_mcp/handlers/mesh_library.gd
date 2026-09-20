@@ -50,8 +50,8 @@ func _cmd_create_mesh_library(params: Dictionary) -> Dictionary:
 		if prev != null:  # keep the prior MeshLibrary alive for undo
 			ur.add_undo_reference(prev)
 		ur.commit_action()
-		persistence = _router._persistent_target(node)
-	return _router._ok(_router._with_persistence({
+		persistence = _router._helpers.persistent_target(node)
+	return _router._ok(_router._helpers.with_persistence({
 		"node_path": node_path,
 		"library_path": save_path,
 		"created": true,
@@ -94,8 +94,8 @@ func _cmd_add_mesh_library_item(params: Dictionary) -> Dictionary:
 		if not saved["ok"]:
 			return saved
 	# A file-backed library was just saved; one the GridMap holds saves wherever it lives.
-	var persistence: Dictionary = _router._resource_persistence(resolved["node"], [library]) if resolved["backing"] == "node" else {"ok": true}
-	return _router._ok(_router._with_persistence({
+	var persistence: Dictionary = _router._helpers.resource_persistence(resolved["node"], [library]) if resolved["backing"] == "node" else {"ok": true}
+	return _router._ok(_router._helpers.with_persistence({
 		"node_path": str(params.get("node_path", "")),
 		"library_path": str(params.get("library_path", "")),
 		"item_id": item_id,
@@ -151,7 +151,7 @@ func _resolve_mesh(params: Dictionary) -> Dictionary:
 			if not (obj is RefCounted):
 				obj.free()
 			return _router._fail("VALIDATION_ERROR", "'%s' is not a Mesh." % mesh_type)
-		_router._apply_props(obj, params.get("properties", {}))
+		_router._helpers.apply_props(obj, params.get("properties", {}))
 		return {"ok": true, "mesh": obj}
 	return _router._fail("VALIDATION_ERROR", "Provide 'mesh_type' (a primitive like BoxMesh) or 'mesh_path' (a Mesh resource).")
 

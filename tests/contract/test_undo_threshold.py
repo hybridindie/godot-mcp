@@ -7,7 +7,8 @@ while ``composite.gd``'s ``batch_create_nodes`` / ``apply_node_edits`` have
 **no threshold at all**: a 500-node batch create opens one giant UndoRedo
 action and reports nothing about undo coverage.
 
-Fix contract: one shared const (``MCP_UNDO_THRESHOLD`` in the addon, declared
+Fix contract: one shared const (``UNDO_THRESHOLD`` in ``mcp_helpers.gd`` since
+#522 — the router's helpers module — declared
 once), used by all three batch-apply paths; the composite tools return the
 same ``undoable`` + ``hint`` honesty fields ``batch_set_property`` does, so a
 consumer reads one shape. Source-scanned per the established pattern (the
@@ -36,17 +37,22 @@ def _fn(source: str, func: str) -> str:
 
 def test_threshold_is_a_single_shared_const() -> None:
     """One const + one decision site own the threshold; no literal 20 survives
-    in the handlers."""
+    in the handlers. Since #522 the decision lives in mcp_helpers.gd (the
+    router's helpers module); the router delegates for call-site stability."""
+    helpers_src = (ADDON_DIR / "mcp_helpers.gd").read_text()
+    assert "const UNDO_THRESHOLD := 20" in helpers_src, (
+        "mcp_helpers.gd must declare the shared UndoRedo threshold const"
+    )
+    assert "func undoable_for_count" in helpers_src, (
+        "mcp_helpers.gd must host the one decision site (undoable_for_count)"
+    )
+    assert "func undo_threshold_hint" in helpers_src, (
+        "mcp_helpers.gd must host the single-sourced hint (undo_threshold_hint)"
+    )
     router_src = ROUTER_GD.read_text()
-    assert "const MCP_UNDO_THRESHOLD := 20" in router_src, (
-        "command_router.gd must declare the shared UndoRedo threshold const"
-    )
-    assert "func _undoable_for_count" in router_src, (
-        "command_router.gd must host the one decision site (_undoable_for_count)"
-    )
-    assert "func _undo_threshold_hint" in router_src, (
-        "command_router.gd must host the single-sourced hint (_undo_threshold_hint)"
-    )
+    # The router delegates (one-line), so handler call sites read unchanged.
+    assert "return _helpers.undoable_for_count(count)" in router_src
+    assert "return _helpers.undo_threshold_hint(count, noun)" in router_src
     batch_src = BATCH_GD.read_text()
     composite_src = COMPOSITE_GD.read_text()
     batch_fn = _fn(batch_src, "_cmd_batch_set_property")
@@ -60,9 +66,16 @@ def test_threshold_is_a_single_shared_const() -> None:
         "batch.gd: hint hardcodes the threshold — interpolate the const"
     )
     # All three call sites go through the shared decision, never re-derive it:
-    for name, src in (("batch.gd", batch_src), ("composite.gd", composite_src)):
-        assert "_undoable_for_count" in src, f"{name}: must use _undoable_for_count"
-        assert "_undo_threshold_hint" in src, f"{name}: must use _undo_threshold_hint"
+    for name, src in (
+        ("batch.gd", batch_src),
+        ("composite.gd", composite_src),
+    ):
+        assert "_helpers.undoable_for_count" in src, (
+            f"{name}: must use _helpers.undoable_for_count"
+        )
+        assert "_helpers.undo_threshold_hint" in src, (
+            f"{name}: must use _helpers.undo_threshold_hint"
+        )
 
 
 def test_composite_batch_creates_return_undoable_fields() -> None:
@@ -75,22 +88,23 @@ def test_composite_batch_creates_return_undoable_fields() -> None:
         assert '"undoable"' in body, (
             f"{fn} must report the undoable honesty field (issue #523)"
         )
-        assert "_undoable_for_count" in body, f"{fn} must be threshold-aware"
-        assert "_undo_threshold_hint" in body, (
+        assert "_helpers.undoable_for_count" in body, f"{fn} must be threshold-aware"
+        assert "_helpers.undo_threshold_hint" in body, (
             f"{fn}: the non-undoable case must carry the recovery hint"
         )
 
 
 def test_threshold_hint_interpolates_the_const() -> None:
-    """The hint text is single-sourced on the router and names the threshold
-    from the const — a future retune updates one place, hints included."""
-    router_src = ROUTER_GD.read_text()
-    hint_fn = _fn(router_src, "_undo_threshold_hint")
+    """The hint text is single-sourced (mcp_helpers.gd since #522) and names
+    the threshold from the const — a future retune updates one place, hints
+    included."""
+    helpers_src = (ADDON_DIR / "mcp_helpers.gd").read_text()
+    hint_fn = _fn(helpers_src, "undo_threshold_hint")
     # The wording contract lives in ONE place and interpolates the const:
-    assert "exceeds" in hint_fn, "the #461 hint wording must live on the router"
+    assert "exceeds" in hint_fn, "the #461 hint wording must be single-sourced"
     assert "%d-node UndoRedo threshold" in hint_fn
     assert "Undo will not revert" in hint_fn
-    assert "MCP_UNDO_THRESHOLD" in hint_fn, (
+    assert "UNDO_THRESHOLD" in hint_fn, (
         "the hint must interpolate the const, not a literal"
     )
     # No hardcoded "20-node" phrasing survives in any handler.
@@ -153,3 +167,22 @@ def test_batch_create_result_model_carries_dry_run() -> None:
         assert model.model_fields["dry_run"].default is False
         assert "undoable" in model.model_fields
         assert "hint" in model.model_fields
+
+
+def test_dead_threshold_const_never_returns_to_the_router() -> None:
+    """PR #546 review: the router's copy of the const became dead code when the
+    threshold moved to mcp_helpers.gd — it was removed, and this pin keeps it
+    from silently returning (two consts = a retune updates one, drifts the
+    other)."""
+    router_src = ROUTER_GD.read_text()
+    # Strip the legitimate delegate references before asserting no const remains.
+    no_delegates = (
+        router_src.replace("_undoable_for_count", "")
+        .replace("_undo_threshold_hint", "")
+        .replace("undo_threshold_hint", "")
+    )
+    assert "UNDO_THRESHOLD" not in no_delegates, (
+        "command_router.gd must not re-declare the threshold const — "
+        "mcp_helpers.gd owns it (the router's one-line delegates reference the "
+        "helpers, never a local const)"
+    )

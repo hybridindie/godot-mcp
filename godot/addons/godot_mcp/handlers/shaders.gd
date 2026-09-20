@@ -71,7 +71,7 @@ func _cmd_assign_shader_material(params: Dictionary) -> Dictionary:
 	var shader: Resource = ResourceLoader.load(shader_path)
 	if not (shader is Shader):
 		return _router._fail("VALIDATION_ERROR", "'%s' is not a Shader." % shader_path)
-	var persistence := _router._persistent_target(node)
+	var persistence := _router._helpers.persistent_target(node)
 	var material := ShaderMaterial.new()
 	material.shader = shader
 	var prev: Variant = node.get(prop)
@@ -83,7 +83,7 @@ func _cmd_assign_shader_material(params: Dictionary) -> Dictionary:
 	if prev is Resource:  # keep the prior material alive for undo
 		ur.add_undo_reference(prev)
 	ur.commit_action()
-	return _router._ok(_router._with_persistence({
+	return _router._ok(_router._helpers.with_persistence({
 		"node_path": str(params.get("node_path")),
 		"shader_path": shader_path,
 		"material_property": prop,
@@ -125,7 +125,7 @@ func _cmd_set_shader_param(params: Dictionary) -> Dictionary:
 			"Uniform '%s' is not declared on the material's shader (declared: %s). Declare the uniform on the shader first; nothing was set." % [name, expected],
 			"param",
 		)
-	var persistence := _router._resource_persistence(node, [material])
+	var persistence := _router._helpers.resource_persistence(node, [material])
 	var prev: Variant = material.get_shader_parameter(name)
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Set shader param %s" % name)
@@ -136,7 +136,7 @@ func _cmd_set_shader_param(params: Dictionary) -> Dictionary:
 	# requested one (the #414 pattern). Undeclared names are refused above, so a
 	# non-null request always lands in the cache here.
 	var landed: Variant = material.get_shader_parameter(name)
-	return _router._ok(_router._with_persistence({
+	return _router._ok(_router._helpers.with_persistence({
 		"node_path": str(params.get("node_path")),
 		"name": name,
 		"value": Coerce.to_json(landed),
