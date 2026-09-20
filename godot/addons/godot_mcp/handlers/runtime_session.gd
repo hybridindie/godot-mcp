@@ -13,20 +13,9 @@ func _init(router: MCPCommandRouter) -> void:
 	_router = router
 
 
-## Live-probe guard + the #443 break gate: injected input while the game is
-## frozen at a debugger break can never be processed, so it must be refused
-## (an acked-but-frozen sent-true reads as a gameplay bug — the #411 trap for
-## the input domain). continue_execution or unpause clears the refusal.
-func _require_unpaused_live_probe() -> Dictionary:
-	var guard := _router._require_live_probe()
-	if not guard["ok"]:
-		return guard
-	var debugger := _router._debugger as MCPDebugger
-	var session := debugger.get_session(debugger.get_session_id())
-	if session != null and session.is_breaked():
-		var hint := "The game is paused at a debugger break; injected input is frozen alongside the game. Call continue_execution or unpause before injecting input."
-		return _router._fail("PRECONDITION_FAILED", hint, "game_not_breaked")
-	return {"ok": true}
+## #527: the guards (live-probe + #443 break gate) live in mcp_guards.gd now —
+## one implementation shared by every gated handler; the #454 probe-never-connected
+## diagnostic ships from the shared guard, not an inline copy here.
 
 
 func register(handlers: Dictionary) -> void:
@@ -86,31 +75,32 @@ func _cmd_is_playing(_params: Dictionary) -> Dictionary:
 
 
 func _cmd_get_game_scene_tree(_params: Dictionary) -> Dictionary:
-	if not EditorInterface.is_playing_scene():
+	# #527: the play-session guard lives in mcp_guards.gd. Note this handler
+	# intentionally reports a playing-but-probe-not-connected SOFT result
+	# ({playing, connected: false, tree: null, probe_never_connected}) instead
+	# of the shared guard's PRECONDITION_FAILED — a read-only poll tool should
+	# report state, not refuse. The hint text itself is single-sourced in the
+	# guard module (the #454 diagnostic), so both paths stay in sync.
+	if not _router._guards.require_play_session()["ok"]:
 		return _router._fail("PRECONDITION_FAILED", "No play session. Run play_scene first.", "play_session")
 	if _router._debugger == null:
 		return _router._fail("INTERNAL_ERROR", "Debugger plugin is unavailable.")
-	if not _router._debugger.is_connected_to_probe():
-		# Playing, but the probe hasn't announced itself — usually means the consuming
-		# project hasn't added the godot_mcp runtime probe autoload yet. #454: after
-		# several play/stop cycles the engine's debugger session caps (or its DAP/LSP
-		# client caps, which log "max client limits reached") can leave the new game
-		# silently unattached — name that so it's diagnosable from the addon.
-		return _router._ok({
-			"playing": true,
-			"connected": false,
-			"tree": null,
-			"hint": "Add the godot_mcp runtime probe (addons/godot_mcp/mcp_runtime_probe.gd) as an autoload in the game to enable live inspection. If the autoload IS registered and repeated play/stop cycles precede this, the engine may have exhausted its debugger session/client caps (editor log: \"max client limits reached\") — restart the editor to recover.",
-			"probe_never_connected": true,
-		})
-	var tree: Variant = _router._debugger.get_cached_scene_tree()
-	_router._debugger.request_scene_tree()  # refresh the cache for the next call
-	return _router._ok({"playing": true, "connected": true, "tree": tree})
+	if _router._debugger.is_connected_to_probe():
+		var tree: Variant = _router._debugger.get_cached_scene_tree()
+		_router._debugger.request_scene_tree()  # refresh the cache for the next call
+		return _router._ok({"playing": true, "connected": true, "tree": tree})
+	return _router._ok({
+		"playing": true,
+		"connected": false,
+		"tree": null,
+		"hint": _router._guards.probe_never_connected_hint(),
+		"probe_never_connected": true,
+	})
 
 
 
 func _cmd_simulate_key(params: Dictionary) -> Dictionary:
-	var guard := _require_unpaused_live_probe()
+	var guard := _router._guards.require_unpaused_live_probe()
 	if not guard["ok"]:
 		return guard
 	if str(params.get("key", "")).is_empty():
@@ -120,7 +110,7 @@ func _cmd_simulate_key(params: Dictionary) -> Dictionary:
 
 
 func _cmd_simulate_mouse(params: Dictionary) -> Dictionary:
-	var guard := _require_unpaused_live_probe()
+	var guard := _router._guards.require_unpaused_live_probe()
 	if not guard["ok"]:
 		return guard
 	var button := str(params.get("button", ""))
@@ -131,7 +121,7 @@ func _cmd_simulate_mouse(params: Dictionary) -> Dictionary:
 
 
 func _cmd_simulate_action(params: Dictionary) -> Dictionary:
-	var guard := _require_unpaused_live_probe()
+	var guard := _router._guards.require_unpaused_live_probe()
 	if not guard["ok"]:
 		return guard
 	if str(params.get("action", "")).is_empty():
@@ -142,7 +132,7 @@ func _cmd_simulate_action(params: Dictionary) -> Dictionary:
 
 
 func _cmd_play_input_sequence(params: Dictionary) -> Dictionary:
-	var guard := _require_unpaused_live_probe()
+	var guard := _router._guards.require_unpaused_live_probe()
 	if not guard["ok"]:
 		return guard
 	var events: Variant = params.get("events")

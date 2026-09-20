@@ -86,6 +86,9 @@ var _debugger_handlers: MCPDebuggerHandlers = null
 var _import_asset: MCPImportAssetHandlers = null
 var _visual_shader: MCPVisualShaderHandlers = null
 var _project_scaffold: MCPProjectScaffoldHandlers = null
+## The consolidated runtime guards (#527) — created in _init alongside handlers.
+const MCPGuards := preload("./mcp_guards.gd")
+var _guards: MCPGuards = null
 
 
 ## Inject the MCPDebugger so runtime-inspection handlers can read cached live state.
@@ -134,6 +137,7 @@ func dispose() -> void:
 	_import_asset = null
 	_visual_shader = null
 	_project_scaffold = null
+	_guards = null
 
 
 func _init() -> void:
@@ -220,6 +224,7 @@ func _init() -> void:
 	_visual_shader.register(_handlers)
 	_project_scaffold = MCPProjectScaffoldHandlers.new(self)
 	_project_scaffold.register(_handlers)
+	_guards = MCPGuards.new(self)
 
 
 ## Dispatch one envelope ({ id, command, params }) and return a response envelope.
@@ -257,9 +262,6 @@ func _cmd_ping(_params: Dictionary) -> Dictionary:
 ## Undo the last `count` editor actions on the current scene's history (S4).
 ## Succeeds with `undone == 0` on an empty history (an empty-history undo is a
 ## no-op, not an error — the caller/reversibility ledger decides what that means).
-## The undo-trigger path (get_object_history_id / get_history_undo_redo /
-## GLOBAL_HISTORY) is the assumed form pending the Task-1 live spike; swap in
-## whatever that confirms if it differs.
 func _cmd_undo(params: Dictionary) -> Dictionary:
 	var count: int = int(params.get("count", 1))
 	if count < 1:
@@ -499,22 +501,15 @@ func _invalid_input_event(event: Variant) -> String:
 
 ## Guard for input injection: a play session must be live with its probe connected.
 ## Guard for breakpoint operations: a play session must be live with a valid debug session.
+## #527: both consolidated into mcp_guards.gd (one implementation; the #454
+## probe-never-connected diagnostic ships from every gated handler). The router
+## keeps delegating wrappers so existing call sites read unchanged.
 func _require_debug_session() -> Dictionary:
-	if not EditorInterface.is_playing_scene():
-		return _fail("PRECONDITION_FAILED", "No play session. Run play_scene first.", "play_session")
-	if _debugger == null:
-		return _fail("INTERNAL_ERROR", "Debugger plugin is unavailable.")
-	if _debugger.get_session_id() < 0:
-		return _fail("PRECONDITION_FAILED", "No active debug session. The game may not have connected to the editor debugger yet.", "play_session")
-	return {"ok": true}
+	return _guards.require_debug_session()
 
 
 func _require_live_probe() -> Dictionary:
-	if not EditorInterface.is_playing_scene():
-		return _fail("PRECONDITION_FAILED", "No play session. Run play_scene first.", "play_session")
-	if _debugger == null or not _debugger.is_connected_to_probe():
-		return _fail("PRECONDITION_FAILED", "The godot_mcp runtime probe is not connected; add it as an autoload in the game.", "runtime_probe")
-	return {"ok": true}
+	return _guards.require_live_probe()
 
 
 # -- instantiation helpers (shared by domain handlers) ------------------------
