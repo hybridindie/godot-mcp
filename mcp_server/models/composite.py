@@ -32,6 +32,10 @@ class BatchCreateNodesResult(BaseModel):
     count: int = 0
     saved: bool = False
     dry_run: bool = False
+    # #523: the shared UndoRedo threshold — above it the create bypasses the
+    # undo stack for perf and `hint` explains what that means (honest batch).
+    undoable: bool = True
+    hint: str = ""
 
 
 class ApplyNodeEditsResult(BaseModel):
@@ -41,6 +45,9 @@ class ApplyNodeEditsResult(BaseModel):
     skipped: list[dict[str, Any]] = Field(default_factory=list)
     count: int = 0
     saved: bool = False
+    # #523: the shared UndoRedo threshold honesty shape (same as batch_set_property).
+    undoable: bool = True
+    hint: str = ""
     dry_run: bool = False
     # #477: per-entry verdict for every edited node — an entry inside a
     # non-editable instance applies live but is lost on save.

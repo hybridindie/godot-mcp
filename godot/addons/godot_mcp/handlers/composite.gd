@@ -153,18 +153,42 @@ func _cmd_batch_create_nodes(params: Dictionary) -> Dictionary:
 			return built
 		nodes.append(built["node"])
 
-	var undo_redo := EditorInterface.get_editor_undo_redo()
 	# #477 (parent rule): batch-created nodes under a non-editable instanced
 	# parent are all lost on save — one verdict covers them (they share the
 	# parent); a per-node verdict would repeat the same token.
 	var persistence := _router._persistent_target(parent)
-	undo_redo.create_action("Batch create %d %s" % [nodes.size(), node_type])
-	for node in nodes:
-		undo_redo.add_do_method(parent, "add_child", node)
-		undo_redo.add_do_method(node, "set_owner", root)
-		undo_redo.add_do_reference(node)
-		undo_redo.add_undo_method(parent, "remove_child", node)
-	undo_redo.commit_action()
+	# Dry-run defense-in-depth (PR #545 review): the MCP layer enforces preview
+	# semantics (run_or_preview never sends this command with dry_run set), but
+	# a raw envelope carrying dry_run: true must not mutate the tree either —
+	# the batch_set_property handler honors the flag the same way.
+	if bool(params.get("dry_run", false)):
+		var planned: Array = []
+		for node in nodes:
+			planned.append(Inspect.relative_path(node, root))
+		return _router._ok({
+			"created": [],
+			"count": planned.size(),
+			"saved": false,
+			"dry_run": true,
+			"undoable": _router._undoable_for_count(names.size()),
+			"hint": "" if _router._undoable_for_count(names.size()) else _router._undo_threshold_hint(names.size()),
+		})
+	var undo_redo := EditorInterface.get_editor_undo_redo()
+	# #523: batch creates share the UndoRedo threshold — the decision + hint
+	# live on the router (one site), same honesty shape as batch_set_property.
+	var undoable := _router._undoable_for_count(names.size())
+	if not undoable:
+		for node in nodes:
+			parent.add_child(node)
+			node.set_owner(root)
+	else:
+		undo_redo.create_action("Batch create %d %s" % [nodes.size(), node_type])
+		for node in nodes:
+			undo_redo.add_do_method(parent, "add_child", node)
+			undo_redo.add_do_method(node, "set_owner", root)
+			undo_redo.add_do_reference(node)
+			undo_redo.add_undo_method(parent, "remove_child", node)
+		undo_redo.commit_action()
 
 	var created: Array = []
 	for node in nodes:
@@ -173,6 +197,8 @@ func _cmd_batch_create_nodes(params: Dictionary) -> Dictionary:
 		"created": created,
 		"count": created.size(),
 		"saved": _maybe_save(params),
+		"undoable": undoable,
+		"hint": "" if undoable else _router._undo_threshold_hint(names.size()),
 	}, persistence))
 
 
@@ -224,13 +250,36 @@ func _cmd_apply_node_edits(params: Dictionary) -> Dictionary:
 				entry["hint"] = str(verdict.get("hint", ""))
 			persistence.append(entry)
 
+	# Dry-run defense-in-depth (PR #545 review): the MCP layer enforces preview
+	# semantics (run_or_preview never sends this command with dry_run set), but
+	# a raw envelope carrying dry_run: true must not mutate the tree either.
+	if bool(params.get("dry_run", false)):
+		return _router._ok({
+			"edited": [],
+			"skipped": skipped,
+			"count": 0,
+			"saved": false,
+			"dry_run": true,
+			"undoable": _router._undoable_for_count(to_apply.size()),
+			"hint": "" if _router._undoable_for_count(to_apply.size()) else _router._undo_threshold_hint(to_apply.size(), "applies"),
+			"persistence": persistence,
+		})
+
 	if not to_apply.is_empty():
-		var undo_redo := EditorInterface.get_editor_undo_redo()
-		undo_redo.create_action("Apply %d node edits" % to_apply.size())
-		for item in to_apply:
-			undo_redo.add_do_property(item["node"], item["property"], item["value"])
-			undo_redo.add_undo_property(item["node"], item["property"], item["old"])
-		undo_redo.commit_action()
+		# #523: per-node property edits share the UndoRedo threshold — the
+		# decision + hint live on the router (one site), same honesty shape as
+		# batch_set_property.
+		var undoable := _router._undoable_for_count(to_apply.size())
+		if not undoable:
+			for item in to_apply:
+				item["node"].set(item["property"], item["value"])
+		else:
+			var undo_redo := EditorInterface.get_editor_undo_redo()
+			undo_redo.create_action("Apply %d node edits" % to_apply.size())
+			for item in to_apply:
+				undo_redo.add_do_property(item["node"], item["property"], item["value"])
+				undo_redo.add_undo_property(item["node"], item["property"], item["old"])
+			undo_redo.commit_action()
 		for item in to_apply:
 			_router._invalidate_prop_cache(item["node"])
 
@@ -239,5 +288,7 @@ func _cmd_apply_node_edits(params: Dictionary) -> Dictionary:
 		"skipped": skipped,
 		"count": edited_paths.size(),
 		"saved": _maybe_save(params),
+		"undoable": _router._undoable_for_count(to_apply.size()),
+		"hint": "" if _router._undoable_for_count(to_apply.size()) else _router._undo_threshold_hint(to_apply.size(), "applies"),
 		"persistence": persistence,
 	})
