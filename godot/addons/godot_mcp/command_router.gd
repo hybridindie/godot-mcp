@@ -262,9 +262,6 @@ func _cmd_ping(_params: Dictionary) -> Dictionary:
 ## Undo the last `count` editor actions on the current scene's history (S4).
 ## Succeeds with `undone == 0` on an empty history (an empty-history undo is a
 ## no-op, not an error — the caller/reversibility ledger decides what that means).
-## The undo-trigger path (get_object_history_id / get_history_undo_redo /
-## GLOBAL_HISTORY) is the assumed form pending the Task-1 live spike; swap in
-## whatever that confirms if it differs.
 func _cmd_undo(params: Dictionary) -> Dictionary:
 	var count: int = int(params.get("count", 1))
 	if count < 1:
