@@ -6,7 +6,8 @@ extends SceneTree
 ## Exercises the pure-logic coercion layer — every JSON shape in
 ## docs/site/reference-value-shapes.md, both directions, string-form parsing,
 ## and the error paths of object_from_json — with no editor and no networking,
-## deterministically. Wired into pytest by tests/integration/test_addon_type_coerce.py.
+## deterministically. Wired into pytest via
+## tests/integration/test_addon_read_smokes.py (issue #524).
 
 const Coerce := preload("res://addons/godot_mcp/type_coerce.gd")
 
@@ -14,9 +15,7 @@ var _failures: Array[String] = []
 
 
 func _check(name: String, actual: Variant, expected: Variant) -> void:
-	var same: bool = typeof(actual) == typeof(expected) and actual == expected \
-		if typeof(expected) in [TYPE_BOOL, TYPE_INT, TYPE_FLOAT, TYPE_STRING, TYPE_NIL, TYPE_ARRAY, TYPE_DICTIONARY] \
-		else actual == expected
+	# Deep, float-tolerant equality handles every JSON-safe shape uniformly.
 	if not _json_equal(actual, expected):
 		_failures.append("%s: expected %s, got %s" % [name, str(expected), str(actual)])
 
