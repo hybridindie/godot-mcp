@@ -174,14 +174,14 @@ func _cmd_batch_set_property(params: Dictionary) -> Dictionary:
 			entry["hint"] = str(verdict.get("hint", ""))
 		persistence.append(entry)
 	# Only open an UndoRedo action when at least one set is scheduled (no no-op steps).
-	# #461: batches above the UndoRedo threshold bypass the undo stack for perf —
-	# the response must say so, or the agent believes undo covers the whole batch.
+	# #461/#523: batches above the shared UndoRedo threshold bypass the undo
+	# stack for perf — the response must say so, or the agent believes undo
+	# covers the whole batch. The decision + hint live on the router (one site).
 	var undoable := true
-	var undo_threshold := 20
 	if not dry_run and not to_apply.is_empty():
 		# For very large batches, skip UndoRedo to avoid EditorUndoRedoManager overhead.
-		if to_apply.size() > 20:
-			undoable = false
+		undoable = _router._undoable_for_count(to_apply.size())
+		if not undoable:
 			for item in to_apply:
 				item["node"].set(property, item["value"])
 		else:
@@ -202,9 +202,7 @@ func _cmd_batch_set_property(params: Dictionary) -> Dictionary:
 		"dry_run": dry_run,
 		"undoable": undoable,
 		"persistence": persistence,
-		"hint": "" if undoable else (
-			"%d nodes exceeds the 20-node UndoRedo threshold: this batch was applied directly without undo support. Undo will not revert it." % to_apply.size()
-		),
+		"hint": "" if undoable else _router._undo_threshold_hint(to_apply.size()),
 	})
 
 

@@ -860,8 +860,8 @@ support `dry_run`; `save=True` also saves the scene (a file write after the undo
 | Tool | Params | Returns | Class |
 |------|--------|---------|-------|
 | `godot_composite_compose_node` | `parent_path, node_type, node_name, properties?, script_path?, children?, save=False, dry_run=False` | `ComposeNodeResult { node_path, created, children[], script_attached, properties_set[], saved }` | `mutating` |
-| `godot_composite_batch_create_nodes` | `parent_path, node_type, names[], properties?, save=False, dry_run=False` | `BatchCreateNodesResult { created[], count, saved }` | `mutating` |
-| `godot_composite_apply_node_edits` | `edits[] ({node_path, properties}), save=False, dry_run=False` | `ApplyNodeEditsResult { edited[], skipped[], count, saved, persistence[] }` | `mutating` |
+| `godot_composite_batch_create_nodes` | `parent_path, node_type, names[], properties?, save=False, dry_run=False` | `BatchCreateNodesResult { created[], count, saved, undoable, hint? }` | `mutating` |
+| `godot_composite_apply_node_edits` | `edits[] ({node_path, properties}), save=False, dry_run=False` | `ApplyNodeEditsResult { edited[], skipped[], count, saved, undoable, hint?, persistence[] }` | `mutating` |
 | `godot_composite_run_commands` | `commands[] ({command, params}), stop_on_error=True, dry_run=False` | `RunCommandsResult { results[] ({command, ok, result?, error?, hint?}), ok_all, count, planned[], dry_run, aborted_at?, skipped_count?, hint? }` | `mutating` |
 
 Every result model also carries `dry_run` (true on a preview), as for all `dry_run`-aware tools.
@@ -1048,7 +1048,13 @@ undoable action — target by explicit `node_paths` or by `node_type`; nodes lac
 property are reported in `skipped`. #461: batches of **more than 20** applicable nodes bypass
 `EditorUndoRedoManager` (perf guard) and are applied directly — the result then reports
 `undoable: false` plus a `hint` stating undo will not revert the batch; everything ≤20
-reports `undoable: true`. `godot_batch_cross_scene_set_property` edits scene **files** on
+reports `undoable: true`. The shared 20-node threshold (`MCP_UNDO_THRESHOLD` in the
+addon) is owned by one const + one decision site (`command_router.gd`:
+`_undoable_for_count` / `_undo_threshold_hint`), consumed by all three batch-apply
+tools — `godot_batch_set_property`, `godot_composite_batch_create_nodes`, and
+`godot_composite_apply_node_edits` all carry the identical `undoable` + `hint`
+honesty shape (issue #523), so a consumer reads one contract.
+`godot_batch_cross_scene_set_property` edits scene **files** on
 disk: it loads each (`GEN_EDIT_STATE_MAIN`), sets the property on every `node_type` node,
 re-packs and saves, and re-scans — the **currently-edited** scene is skipped (its
 in-memory copy would clobber the change; reported as an `error`), and each scene's

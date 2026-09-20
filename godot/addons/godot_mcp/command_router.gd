@@ -47,6 +47,13 @@ const MCPImportAssetHandlers := preload("./handlers/import_asset.gd")
 const MCPVisualShaderHandlers := preload("./handlers/visual_shader.gd")
 const MCPProjectScaffoldHandlers := preload("./handlers/project_scaffold.gd")
 
+## The shared UndoRedo 20-node threshold (issue #523, extends #461): batches of
+## property applies / node creates / node edits above this size bypass
+## EditorUndoRedoManager for perf and MUST report `undoable: false` + a hint —
+## the agent otherwise believes undo covers the whole batch. One const owns the
+## value so a future retune updates the hint too (it interpolates this).
+const MCP_UNDO_THRESHOLD := 20
+
 var _handlers: Dictionary = {}
 ## The server's package version, learned from cmd_server_hello (issue #521) and
 ## surfaced here so the plugin entry can label the dock "godot-mcp <ver> / Godot".
@@ -621,6 +628,24 @@ func _with_persistence(result: Dictionary, verdict: Dictionary) -> Dictionary:
 		result["reason"] = str(verdict.get("reason", ""))
 		result["hint"] = str(verdict.get("hint", ""))
 	return result
+
+
+# -- UndoRedo batch-threshold decision (#523) ---------------------------------
+
+## Whether a batch of `count` applies bypasses the undo stack (perf) — the one
+## decision site for the shared threshold, so all three batch tools agree.
+func _undoable_for_count(count: int) -> bool:
+	return count <= MCP_UNDO_THRESHOLD
+
+
+## The #461/#523 hint for a non-undoable batch: names the size and the shared
+## threshold so a future retune updates one place. Single-sourced — every
+## threshold-aware tool stamps this into its result verbatim.
+func _undo_threshold_hint(count: int, noun: String = "nodes") -> String:
+	return (
+		"%d %s exceeds the %d-node UndoRedo threshold: this batch was applied "
+		+ "directly without undo support. Undo will not revert it."
+	) % [count, noun, MCP_UNDO_THRESHOLD]
 
 
 ## Whether an edit to a resource the node uses survives a scene save. `chain` is the edited
