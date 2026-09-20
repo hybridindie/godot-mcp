@@ -176,7 +176,7 @@ func _cmd_set_shader_node_param(params: Dictionary) -> Dictionary:
 		return _router._fail("VALIDATION_ERROR", "No node with id %d in shader." % node_id)
 	var node: VisualShaderNode = shader.get_node(mode, node_id)
 
-	var prop_type := _router._property_type(node, property)
+	var prop_type := _router._helpers.property_type(node, property)
 	if prop_type == -1:
 		return _router._fail("VALIDATION_ERROR", "Node has no property '%s'." % property)
 	var value: Variant = Coerce.from_json(raw_value, prop_type)

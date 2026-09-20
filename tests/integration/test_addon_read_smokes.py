@@ -18,6 +18,7 @@ SMOKES = [
     ("animation_read_smoke.gd", "ANIM_READ_TEST_OK"),
     ("audio_bus_capture_smoke.gd", "AUDIO_BUS_CAPTURE_TEST_OK"),
     ("input_action_read_smoke.gd", "INPUT_ACTION_READ_TEST_OK"),
+    ("helpers_smoke.gd", "HELPERS_TEST_OK"),
     ("particle_read_smoke.gd", "PARTICLE_READ_TEST_OK"),
     ("run_commands_smoke.gd", "RUN_COMMANDS_TEST_OK"),
     ("theme_read_smoke.gd", "THEME_READ_TEST_OK"),

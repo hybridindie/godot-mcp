@@ -62,7 +62,7 @@ func _cmd_create_resource(params: Dictionary) -> Dictionary:
 	var res: Resource = instance
 	var properties: Dictionary = params.get("properties", {})
 	for key in properties:
-		var prop_type := _router._property_type(res, str(key))
+		var prop_type := _router._helpers.property_type(res, str(key))
 		if prop_type != -1:
 			res.set(str(key), Coerce.from_json(properties[key], prop_type))
 
@@ -87,7 +87,7 @@ func _cmd_set_resource_property(params: Dictionary) -> Dictionary:
 	if res == null:
 		return _router._fail("INTERNAL_ERROR", "Failed to load resource '%s'." % path)
 	var property := str(params.get("property", ""))
-	var prop_type := _router._property_type(res, property)
+	var prop_type := _router._helpers.property_type(res, property)
 	if prop_type == -1:
 		return _router._fail("VALIDATION_ERROR", "Resource has no property '%s'." % property)
 

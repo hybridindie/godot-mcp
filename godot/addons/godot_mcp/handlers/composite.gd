@@ -40,7 +40,7 @@ func _build_node(
 	var set_names: Array = []
 	for prop in properties:
 		var prop_name := str(prop)
-		var prop_type := _router._property_type(node, prop_name)
+		var prop_type := _router._helpers.property_type(node, prop_name)
 		if prop_type == -1:
 			node.free()
 			return _router._fail(
@@ -107,7 +107,7 @@ func _cmd_compose_node(params: Dictionary) -> Dictionary:
 
 	# #477 (parent rule): a composed node under a non-editable instanced parent
 	# (and its whole subtree) is lost on save.
-	var persistence := _router._persistent_target(parent)
+	var persistence := _router._helpers.persistent_target(parent)
 	var undo_redo := EditorInterface.get_editor_undo_redo()
 	undo_redo.create_action("Compose %s" % node.name)
 	undo_redo.add_do_method(parent, "add_child", node)
@@ -120,7 +120,7 @@ func _cmd_compose_node(params: Dictionary) -> Dictionary:
 
 	for child_node in child_nodes:
 		child_names.append(String(child_node.name))
-	return _router._ok(_router._with_persistence({
+	return _router._ok(_router._helpers.with_persistence({
 		"node_path": Inspect.relative_path(node, root),
 		"created": true,
 		"children": child_names,
@@ -156,7 +156,7 @@ func _cmd_batch_create_nodes(params: Dictionary) -> Dictionary:
 	# #477 (parent rule): batch-created nodes under a non-editable instanced
 	# parent are all lost on save — one verdict covers them (they share the
 	# parent); a per-node verdict would repeat the same token.
-	var persistence := _router._persistent_target(parent)
+	var persistence := _router._helpers.persistent_target(parent)
 	# Dry-run defense-in-depth (PR #545 review): the MCP layer enforces preview
 	# semantics (run_or_preview never sends this command with dry_run set), but
 	# a raw envelope carrying dry_run: true must not mutate the tree either —
@@ -170,13 +170,13 @@ func _cmd_batch_create_nodes(params: Dictionary) -> Dictionary:
 			"count": planned.size(),
 			"saved": false,
 			"dry_run": true,
-			"undoable": _router._undoable_for_count(names.size()),
-			"hint": "" if _router._undoable_for_count(names.size()) else _router._undo_threshold_hint(names.size()),
+			"undoable": _router._helpers.undoable_for_count(names.size()),
+			"hint": "" if _router._helpers.undoable_for_count(names.size()) else _router._helpers.undo_threshold_hint(names.size()),
 		})
 	var undo_redo := EditorInterface.get_editor_undo_redo()
 	# #523: batch creates share the UndoRedo threshold — the decision + hint
 	# live on the router (one site), same honesty shape as batch_set_property.
-	var undoable := _router._undoable_for_count(names.size())
+	var undoable := _router._helpers.undoable_for_count(names.size())
 	if not undoable:
 		for node in nodes:
 			parent.add_child(node)
@@ -193,12 +193,12 @@ func _cmd_batch_create_nodes(params: Dictionary) -> Dictionary:
 	var created: Array = []
 	for node in nodes:
 		created.append(Inspect.relative_path(node, root))
-	return _router._ok(_router._with_persistence({
+	return _router._ok(_router._helpers.with_persistence({
 		"created": created,
 		"count": created.size(),
 		"saved": _maybe_save(params),
 		"undoable": undoable,
-		"hint": "" if undoable else _router._undo_threshold_hint(names.size()),
+		"hint": "" if undoable else _router._helpers.undo_threshold_hint(names.size()),
 	}, persistence))
 
 
@@ -223,7 +223,7 @@ func _cmd_apply_node_edits(params: Dictionary) -> Dictionary:
 		var applied_any := false
 		for prop in properties:
 			var prop_name := str(prop)
-			var prop_type := _router._property_type(node, prop_name)
+			var prop_type := _router._helpers.property_type(node, prop_name)
 			if prop_type == -1:
 				skipped.append({
 					"node_path": str(edit.get("node_path")),
@@ -243,7 +243,7 @@ func _cmd_apply_node_edits(params: Dictionary) -> Dictionary:
 			edited_paths.append(node_path)
 			# #477: each edited node gets its own verdict — one aggregate ok
 			# must never hide a target the save drops.
-			var verdict := _router._persistent_target(node)
+			var verdict := _router._helpers.persistent_target(node)
 			var entry := {"node_path": node_path, "persisted": bool(verdict.get("ok", false))}
 			if not verdict.get("ok", false):
 				entry["reason"] = str(verdict.get("reason", ""))
@@ -260,8 +260,8 @@ func _cmd_apply_node_edits(params: Dictionary) -> Dictionary:
 			"count": 0,
 			"saved": false,
 			"dry_run": true,
-			"undoable": _router._undoable_for_count(to_apply.size()),
-			"hint": "" if _router._undoable_for_count(to_apply.size()) else _router._undo_threshold_hint(to_apply.size(), "applies"),
+			"undoable": _router._helpers.undoable_for_count(to_apply.size()),
+			"hint": "" if _router._helpers.undoable_for_count(to_apply.size()) else _router._helpers.undo_threshold_hint(to_apply.size(), "applies"),
 			"persistence": persistence,
 		})
 
@@ -269,7 +269,7 @@ func _cmd_apply_node_edits(params: Dictionary) -> Dictionary:
 		# #523: per-node property edits share the UndoRedo threshold — the
 		# decision + hint live on the router (one site), same honesty shape as
 		# batch_set_property.
-		var undoable := _router._undoable_for_count(to_apply.size())
+		var undoable := _router._helpers.undoable_for_count(to_apply.size())
 		if not undoable:
 			for item in to_apply:
 				item["node"].set(item["property"], item["value"])
@@ -281,14 +281,14 @@ func _cmd_apply_node_edits(params: Dictionary) -> Dictionary:
 				undo_redo.add_undo_property(item["node"], item["property"], item["old"])
 			undo_redo.commit_action()
 		for item in to_apply:
-			_router._invalidate_prop_cache(item["node"])
+			_router._helpers.invalidate_prop_cache(item["node"])
 
 	return _router._ok({
 		"edited": edited_paths,
 		"skipped": skipped,
 		"count": edited_paths.size(),
 		"saved": _maybe_save(params),
-		"undoable": _router._undoable_for_count(to_apply.size()),
-		"hint": "" if _router._undoable_for_count(to_apply.size()) else _router._undo_threshold_hint(to_apply.size(), "applies"),
+		"undoable": _router._helpers.undoable_for_count(to_apply.size()),
+		"hint": "" if _router._helpers.undoable_for_count(to_apply.size()) else _router._helpers.undo_threshold_hint(to_apply.size(), "applies"),
 		"persistence": persistence,
 	})

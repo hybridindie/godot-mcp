@@ -52,7 +52,7 @@ func _cmd_create_node(params: Dictionary) -> Dictionary:
 	# live but the new node is never saved — the engine skips the parent's subtree
 	# when packing, so the verdict keys on the parent, probed BEFORE the create
 	# (the node does not exist yet).
-	var persistence := _router._persistent_target(parent)
+	var persistence := _router._helpers.persistent_target(parent)
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Create %s" % node.name)
 	ur.add_do_method(parent, "add_child", node)
@@ -60,7 +60,7 @@ func _cmd_create_node(params: Dictionary) -> Dictionary:
 	ur.add_do_reference(node)
 	ur.add_undo_method(parent, "remove_child", node)
 	ur.commit_action()
-	return _router._ok(_router._with_persistence({
+	return _router._ok(_router._helpers.with_persistence({
 		"node_path": Inspect.relative_path(node, root),
 		"created": true,
 	}, persistence))
@@ -121,13 +121,13 @@ func _cmd_rename_node(params: Dictionary) -> Dictionary:
 	# preview sent named this node by its pre-rename path, so the real run's
 	# verdict must describe the same target (the hint says 'Relic/Cold/Extra',
 	# not 'Relic/Cold/Extra2') — the node is the same object either way.
-	var persistence := _router._persistent_target(node)
+	var persistence := _router._helpers.persistent_target(node)
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Rename %s" % old_name)
 	ur.add_do_property(node, "name", str(params.get("new_name", old_name)))
 	ur.add_undo_property(node, "name", old_name)
 	ur.commit_action()
-	return _router._ok(_router._with_persistence({
+	return _router._ok(_router._helpers.with_persistence({
 		"node_path": Inspect.relative_path(node, EditorInterface.get_edited_scene_root()),
 		"old_name": old_name,
 		"new_name": String(node.name),
@@ -142,7 +142,7 @@ func _cmd_set_node_property(params: Dictionary) -> Dictionary:
 		return found
 	var node: Node = found["node"]
 	var property := str(params.get("property", ""))
-	var prop_type := _router._property_type(node, property)
+	var prop_type := _router._helpers.property_type(node, property)
 	if prop_type == -1:
 		return _router._fail("VALIDATION_ERROR", "Node has no property '%s'." % property)
 
@@ -179,12 +179,12 @@ func _cmd_set_node_property(params: Dictionary) -> Dictionary:
 				+ "incompatible with the property's expected type." % property,
 			"value",
 		)
-	return _router._ok(_router._with_persistence({
+	return _router._ok(_router._helpers.with_persistence({
 		"node_path": str(params.get("node_path")),
 		"property": property,
 		"value": Coerce.to_json(read_back),
 		"set": true,
-	}, _router._persistent_target(node)))
+	}, _router._helpers.persistent_target(node)))
 
 
 
@@ -205,7 +205,7 @@ func _cmd_delete_node(params: Dictionary) -> Dictionary:
 	# #477: deleting an instance-owned node (or an unowned one) is not a save —
 	# the packer writes only owned/local entries, so the node is back on reload.
 	# Probed BEFORE the delete so the verdict names the node that existed.
-	var persistence := _router._persistent_target(node)
+	var persistence := _router._helpers.persistent_target(node)
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Delete %s" % node.name)
 	ur.add_do_method(parent, "remove_child", node)
@@ -214,7 +214,7 @@ func _cmd_delete_node(params: Dictionary) -> Dictionary:
 	ur.add_undo_method(node, "set_owner", root)
 	ur.add_undo_reference(node)
 	ur.commit_action()
-	return _router._ok(_router._with_persistence({
+	return _router._ok(_router._helpers.with_persistence({
 		"node_path": str(params.get("node_path")),
 		"deleted": true,
 	}, persistence))
@@ -239,7 +239,7 @@ func _cmd_attach_script(params: Dictionary) -> Dictionary:
 	ur.add_do_method(node, "set_script", script)
 	ur.add_undo_method(node, "set_script", old_script)
 	ur.commit_action()
-	return _router._ok(_router._with_persistence({"node_path": str(params.get("node_path")), "script_path": script_path, "attached": true}, _router._persistent_target(node)))
+	return _router._ok(_router._helpers.with_persistence({"node_path": str(params.get("node_path")), "script_path": script_path, "attached": true}, _router._helpers.persistent_target(node)))
 
 
 
@@ -410,13 +410,13 @@ func _cmd_set_editable_children(params: Dictionary) -> Dictionary:
 	var already := root.is_editable_instance(instance)
 	# The persistence verdict keys on the parent: the editable-instance flag is
 	# packed as part of the parent's node entry.
-	var persistence := _router._persistent_target(parent)
+	var persistence := _router._helpers.persistent_target(parent)
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("%s Editable Children on %s" % ["Enable" if editable else "Disable", instance.name])
 	ur.add_do_method(parent, "set_editable_instance", instance, editable)
 	ur.add_undo_method(parent, "set_editable_instance", instance, already)
 	ur.commit_action()
-	return _router._ok(_router._with_persistence({
+	return _router._ok(_router._helpers.with_persistence({
 		"node_path": str(params.get("node_path")),
 		"editable": editable,
 	}, persistence))

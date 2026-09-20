@@ -39,7 +39,7 @@ func _cmd_duplicate_node(params: Dictionary) -> Dictionary:
 	var dup := node.duplicate()
 	# #477 (parent rule): a duplicate under a non-editable instanced parent is
 	# applied live but lost on save — probed BEFORE the duplicate is added.
-	var persistence := _router._persistent_target(parent)
+	var persistence := _router._helpers.persistent_target(parent)
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Duplicate %s" % node.name)
 	# force_readable_name=true so a name collision becomes "Box2", not "@Box@123".
@@ -48,7 +48,7 @@ func _cmd_duplicate_node(params: Dictionary) -> Dictionary:
 	ur.add_do_reference(dup)
 	ur.add_undo_method(parent, "remove_child", dup)
 	ur.commit_action()
-	return _router._ok(_router._with_persistence({
+	return _router._ok(_router._helpers.with_persistence({
 		"node_path": Inspect.relative_path(dup, root),
 		"source_path": str(params.get("node_path")),
 	}, persistence))
@@ -78,7 +78,7 @@ func _cmd_move_node(params: Dictionary) -> Dictionary:
 	# non-editable instance subtree is never saved (the moved node is lost);
 	# a move OUT of an instanced subtree that the scene owns saves fine. Probed
 	# BEFORE the move so the verdict names the pre-move destination path.
-	var persistence := _router._persistent_target(new_parent)
+	var persistence := _router._helpers.persistent_target(new_parent)
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Move %s" % node.name)
 	ur.add_do_method(old_parent, "remove_child", node)
@@ -92,7 +92,7 @@ func _cmd_move_node(params: Dictionary) -> Dictionary:
 	ur.add_undo_method(_router, "_own_recursive", node, root)
 	ur.add_undo_method(old_parent, "move_child", node, old_index)
 	ur.commit_action()
-	return _router._ok(_router._with_persistence({
+	return _router._ok(_router._helpers.with_persistence({
 		"node_path": Inspect.relative_path(node, root),
 		"moved": true,
 	}, persistence))
@@ -108,7 +108,7 @@ func _cmd_add_to_group(params: Dictionary) -> Dictionary:
 	if group.is_empty():
 		return _router._fail("VALIDATION_ERROR", "'group' must be a non-empty string.")
 	if node.is_in_group(group):
-		return _router._ok(_router._with_persistence({"node_path": str(params.get("node_path")), "group": group, "added": false}, _router._persistent_target(node)))
+		return _router._ok(_router._helpers.with_persistence({"node_path": str(params.get("node_path")), "group": group, "added": false}, _router._helpers.persistent_target(node)))
 
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Add %s to group %s" % [node.name, group])
@@ -116,7 +116,7 @@ func _cmd_add_to_group(params: Dictionary) -> Dictionary:
 	ur.add_do_method(node, "add_to_group", group, true)
 	ur.add_undo_method(node, "remove_from_group", group)
 	ur.commit_action()
-	return _router._ok(_router._with_persistence({"node_path": str(params.get("node_path")), "group": group, "added": true}, _router._persistent_target(node)))
+	return _router._ok(_router._helpers.with_persistence({"node_path": str(params.get("node_path")), "group": group, "added": true}, _router._helpers.persistent_target(node)))
 
 
 
@@ -129,14 +129,14 @@ func _cmd_remove_from_group(params: Dictionary) -> Dictionary:
 	if group.is_empty():
 		return _router._fail("VALIDATION_ERROR", "'group' must be a non-empty string.")
 	if not node.is_in_group(group):
-		return _router._ok(_router._with_persistence({"node_path": str(params.get("node_path")), "group": group, "removed": false}, _router._persistent_target(node)))
+		return _router._ok(_router._helpers.with_persistence({"node_path": str(params.get("node_path")), "group": group, "removed": false}, _router._helpers.persistent_target(node)))
 
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Remove %s from group %s" % [node.name, group])
 	ur.add_do_method(node, "remove_from_group", group)
 	ur.add_undo_method(node, "add_to_group", group, true)
 	ur.commit_action()
-	return _router._ok(_router._with_persistence({"node_path": str(params.get("node_path")), "group": group, "removed": true}, _router._group_removal_persistence(node, group)))
+	return _router._ok(_router._helpers.with_persistence({"node_path": str(params.get("node_path")), "group": group, "removed": true}, _router._helpers.group_removal_persistence(node, group)))
 
 
 

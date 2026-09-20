@@ -204,7 +204,7 @@ async def test_batch_set_reports_non_undoable_over_threshold() -> None:
 
 async def test_batch_undoable_flag_addon_source_pins_gate_order() -> None:
     """Structural pin: the undoable flag is computed from the shared threshold
-    decision (_undoable_for_count), so the addon cannot silently regress to
+    decision (_helpers.undoable_for_count), so the addon cannot silently regress to
     always-true (#461; decision single-sourced in #523)."""
     addon_dir = Path(__file__).resolve().parents[2] / "godot" / "addons" / "godot_mcp"
     source = (addon_dir / "handlers" / "batch.gd").read_text()
@@ -213,14 +213,15 @@ async def test_batch_undoable_flag_addon_source_pins_gate_order() -> None:
     # The flag is derived from the shared decision (declared before the branch
     # that consumes it) — the addon cannot silently regress to always-true.
     declare_line = fn.index("var undoable := true")
-    decision_line = fn.index("_undoable_for_count(to_apply.size())")
+    decision_line = fn.index("_helpers.undoable_for_count(to_apply.size())")
     assert declare_line < decision_line
     # And the decision site itself stays threshold-derived (no always-true):
-    router = (addon_dir / "command_router.gd").read_text()
-    decision = router[router.index("func _undoable_for_count") :]
+    # since #522 the decision lives in mcp_helpers.gd (the router delegates).
+    helpers = (addon_dir / "mcp_helpers.gd").read_text()
+    decision = helpers[helpers.index("func undoable_for_count") :]
     decision = decision[: decision.index("\nfunc ", 1)]
-    assert "MCP_UNDO_THRESHOLD" in decision
-    assert "return count <= MCP_UNDO_THRESHOLD" in decision
+    assert "UNDO_THRESHOLD" in decision
+    assert "return count <= UNDO_THRESHOLD" in decision
 
 
 async def test_batch_set_property_per_target_persistence() -> None:

@@ -15,37 +15,45 @@ extends RefCounted
 
 const Inspect := preload("./scene_inspect.gd")
 const Coerce := preload("./type_coerce.gd")
-const MCPSceneInspectHandlers := preload("./handlers/scene_inspect.gd")
-const MCPMutationHandlers := preload("./handlers/mutation.gd")
-const MCPScriptHandlers := preload("./handlers/scripts.gd")
-const MCPNodeParityHandlers := preload("./handlers/node_parity.gd")
-const MCPAnimationHandlers := preload("./handlers/animation.gd")
-const MCPPhysicsHandlers := preload("./handlers/physics.gd")
-const MCPScene3DHandlers := preload("./handlers/scene_3d.gd")
-const MCPMeshLibraryHandlers := preload("./handlers/mesh_library.gd")
-const MCPParticlesHandlers := preload("./handlers/particles.gd")
-const MCPNavigationHandlers := preload("./handlers/navigation.gd")
-const MCPAudioHandlers := preload("./handlers/audio.gd")
-const MCPTileMapHandlers := preload("./handlers/tilemap.gd")
-const MCPTileSetHandlers := preload("./handlers/tileset.gd")
-const MCPThemeUIHandlers := preload("./handlers/theme_ui.gd")
-const MCPShadersHandlers := preload("./handlers/shaders.gd")
-const MCPRuntimeSessionHandlers := preload("./handlers/runtime_session.gd")
-const MCPRuntimeInspectHandlers := preload("./handlers/runtime_inspect.gd")
-const MCPInputRecordingHandlers := preload("./handlers/input_recording.gd")
-const MCPProfilingHandlers := preload("./handlers/profiling.gd")
-const MCPBatchHandlers := preload("./handlers/batch.gd")
-const MCPCompositeHandlers := preload("./handlers/composite.gd")
-const MCPExportHandlers := preload("./handlers/export.gd")
-const MCPEditorHandlers := preload("./handlers/editor.gd")
-const MCPProjectFSHandlers := preload("./handlers/project_fs.gd")
-const MCPResourcesHandlers := preload("./handlers/resources.gd")
-const MCPSceneSessionHandlers := preload("./handlers/scene_session.gd")
-const MCPInputMapHandlers := preload("./handlers/input_map.gd")
-const MCPDebuggerHandlers := preload("./handlers/debugger.gd")
-const MCPImportAssetHandlers := preload("./handlers/import_asset.gd")
-const MCPVisualShaderHandlers := preload("./handlers/visual_shader.gd")
-const MCPProjectScaffoldHandlers := preload("./handlers/project_scaffold.gd")
+
+## The domain handler table (#522): adding a domain = one entry here, nothing
+## else. Each script extends RefCounted, takes the router in _init, and exposes
+## register(handlers) — the same contract every handler already satisfies.
+## Order is irrelevant (registration is name-keyed); entries are alphabetical
+## by file for readability.
+const HANDLERS: Array = [
+	preload("./handlers/animation.gd"),
+	preload("./handlers/audio.gd"),
+	preload("./handlers/batch.gd"),
+	preload("./handlers/composite.gd"),
+	preload("./handlers/debugger.gd"),
+	preload("./handlers/editor.gd"),
+	preload("./handlers/export.gd"),
+	preload("./handlers/import_asset.gd"),
+	preload("./handlers/input_map.gd"),
+	preload("./handlers/input_recording.gd"),
+	preload("./handlers/mesh_library.gd"),
+	preload("./handlers/mutation.gd"),
+	preload("./handlers/navigation.gd"),
+	preload("./handlers/node_parity.gd"),
+	preload("./handlers/particles.gd"),
+	preload("./handlers/physics.gd"),
+	preload("./handlers/profiling.gd"),
+	preload("./handlers/project_fs.gd"),
+	preload("./handlers/project_scaffold.gd"),
+	preload("./handlers/resources.gd"),
+	preload("./handlers/runtime_inspect.gd"),
+	preload("./handlers/runtime_session.gd"),
+	preload("./handlers/scene_3d.gd"),
+	preload("./handlers/scene_inspect.gd"),
+	preload("./handlers/scene_session.gd"),
+	preload("./handlers/scripts.gd"),
+	preload("./handlers/shaders.gd"),
+	preload("./handlers/theme_ui.gd"),
+	preload("./handlers/tilemap.gd"),
+	preload("./handlers/tileset.gd"),
+	preload("./handlers/visual_shader.gd"),
+]
 
 ## The shared UndoRedo 20-node threshold (issue #523, extends #461): batches of
 ## property applies / node creates / node edits above this size bypass
@@ -55,45 +63,20 @@ const MCPProjectScaffoldHandlers := preload("./handlers/project_scaffold.gd")
 const MCP_UNDO_THRESHOLD := 20
 
 var _handlers: Dictionary = {}
+## The RefCounted handler instances (one per HANDLERS entry) — promoted to a
+## member so they survive beyond _init(); dispose() clears it.
+var _instances: Array = []
 ## The server's package version, learned from cmd_server_hello (issue #521) and
 ## surfaced here so the plugin entry can label the dock "godot-mcp <ver> / Godot".
 var server_version := ""
 # The EditorDebuggerPlugin that captures a played game's godot_mcp channel (issue #66).
 # Set by the plugin entry; null in headless/unit contexts where there is no editor.
 var _debugger: Object = null
-# Handler instances must NOT be local to _init() (they are RefCounted and get freed).
-var _scene_inspect: MCPSceneInspectHandlers = null
-var _mutation: MCPMutationHandlers = null
-var _scripts: MCPScriptHandlers = null
-var _node_parity: MCPNodeParityHandlers = null
-var _animation: MCPAnimationHandlers = null
-var _physics: MCPPhysicsHandlers = null
-var _scene_3d: MCPScene3DHandlers = null
-var _mesh_library: MCPMeshLibraryHandlers = null
-var _particles: MCPParticlesHandlers = null
-var _navigation: MCPNavigationHandlers = null
-var _audio: MCPAudioHandlers = null
-var _tilemap: MCPTileMapHandlers = null
-var _tileset: MCPTileSetHandlers = null
-var _theme_ui: MCPThemeUIHandlers = null
-var _shaders: MCPShadersHandlers = null
-var _runtime_session: MCPRuntimeSessionHandlers = null
-var _runtime_inspect: MCPRuntimeInspectHandlers = null
-var _input_recording: MCPInputRecordingHandlers = null
-var _profiling: MCPProfilingHandlers = null
-var _batch: MCPBatchHandlers = null
-var _composite: MCPCompositeHandlers = null
-var _export: MCPExportHandlers = null
-var _editor: MCPEditorHandlers = null
-var _project_fs: MCPProjectFSHandlers = null
-var _resources: MCPResourcesHandlers = null
-var _scene_session: MCPSceneSessionHandlers = null
-var _input_map: MCPInputMapHandlers = null
-var _debugger_handlers: MCPDebuggerHandlers = null
-var _import_asset: MCPImportAssetHandlers = null
-var _visual_shader: MCPVisualShaderHandlers = null
-var _project_scaffold: MCPProjectScaffoldHandlers = null
-## The consolidated runtime guards (#527) — created in _init alongside handlers.
+## The shared domain helpers (issue #522): handlers reach the shared logic
+## through `_router._helpers` — no per-domain back-references, no cycle.
+const MCPHelpers := preload("./mcp_helpers.gd")
+var _helpers: MCPHelpers = null
+## The consolidated runtime guards (#527).
 const MCPGuards := preload("./mcp_guards.gd")
 var _guards: MCPGuards = null
 
@@ -111,41 +94,15 @@ func set_debugger(debugger: Object) -> void:
 ## on the plugin's exit path; commands arriving afterwards return the usual
 ## "Unknown command" error instead of dispatching.
 func dispose() -> void:
+	# #522: data-driven registration means there are no per-domain members to
+	# clear — dropping the handler table + the helpers/guards references
+	# frees the whole cluster (the handlers' only remaining back-reference
+	# is via `_router` for the envelope builders, which dies with this object).
 	_handlers.clear()
 	_debugger = null
-	_scene_inspect = null
-	_mutation = null
-	_scripts = null
-	_node_parity = null
-	_animation = null
-	_physics = null
-	_scene_3d = null
-	_mesh_library = null
-	_particles = null
-	_navigation = null
-	_audio = null
-	_tilemap = null
-	_tileset = null
-	_theme_ui = null
-	_shaders = null
-	_runtime_session = null
-	_runtime_inspect = null
-	_input_recording = null
-	_profiling = null
-	_batch = null
-	_composite = null
-	_export = null
-	_editor = null
-	_project_fs = null
-	_resources = null
-	_scene_session = null
-	_input_map = null
-	_debugger_handlers = null
-	_import_asset = null
-	_visual_shader = null
-	_project_scaffold = null
+	_instances.clear()
+	_helpers = null
 	_guards = null
-
 
 func _init() -> void:
 	# Wire command strings are the cmd_<verb>_<noun> handler names (the matching MCP
@@ -167,71 +124,16 @@ func _init() -> void:
 	# Meta-command: execute a batch of sub-commands in one frame (issue #167).
 	# Lives on the router (not a domain handler) because it re-dispatches via _route.
 	_handlers["cmd_run_commands"] = _cmd_run_commands
-	# Instances are promoted to member variables so RefCounted objects survive
-	# beyond _init(); see discussion in git history.
-	_scene_inspect = MCPSceneInspectHandlers.new(self)
-	_scene_inspect.register(_handlers)
-	_mutation = MCPMutationHandlers.new(self)
-	_mutation.register(_handlers)
-	_scripts = MCPScriptHandlers.new(self)
-	_scripts.register(_handlers)
-	_node_parity = MCPNodeParityHandlers.new(self)
-	_node_parity.register(_handlers)
-	_animation = MCPAnimationHandlers.new(self)
-	_animation.register(_handlers)
-	_physics = MCPPhysicsHandlers.new(self)
-	_physics.register(_handlers)
-	_scene_3d = MCPScene3DHandlers.new(self)
-	_scene_3d.register(_handlers)
-	_mesh_library = MCPMeshLibraryHandlers.new(self)
-	_mesh_library.register(_handlers)
-	_particles = MCPParticlesHandlers.new(self)
-	_particles.register(_handlers)
-	_navigation = MCPNavigationHandlers.new(self)
-	_navigation.register(_handlers)
-	_audio = MCPAudioHandlers.new(self)
-	_audio.register(_handlers)
-	_tilemap = MCPTileMapHandlers.new(self)
-	_tilemap.register(_handlers)
-	_tileset = MCPTileSetHandlers.new(self)
-	_tileset.register(_handlers)
-	_theme_ui = MCPThemeUIHandlers.new(self)
-	_theme_ui.register(_handlers)
-	_shaders = MCPShadersHandlers.new(self)
-	_shaders.register(_handlers)
-	_runtime_session = MCPRuntimeSessionHandlers.new(self)
-	_runtime_session.register(_handlers)
-	_runtime_inspect = MCPRuntimeInspectHandlers.new(self)
-	_runtime_inspect.register(_handlers)
-	_input_recording = MCPInputRecordingHandlers.new(self)
-	_input_recording.register(_handlers)
-	_profiling = MCPProfilingHandlers.new(self)
-	_profiling.register(_handlers)
-	_batch = MCPBatchHandlers.new(self)
-	_batch.register(_handlers)
-	_composite = MCPCompositeHandlers.new(self)
-	_composite.register(_handlers)
-	_export = MCPExportHandlers.new(self)
-	_export.register(_handlers)
-	_editor = MCPEditorHandlers.new(self)
-	_editor.register(_handlers)
-	_project_fs = MCPProjectFSHandlers.new(self)
-	_project_fs.register(_handlers)
-	_resources = MCPResourcesHandlers.new(self)
-	_resources.register(_handlers)
-	_scene_session = MCPSceneSessionHandlers.new(self)
-	_scene_session.register(_handlers)
-	_input_map = MCPInputMapHandlers.new(self)
-	_input_map.register(_handlers)
-	_debugger_handlers = MCPDebuggerHandlers.new(self)
-	_debugger_handlers.register(_handlers)
-	_import_asset = MCPImportAssetHandlers.new(self)
-	_import_asset.register(_handlers)
-	_visual_shader = MCPVisualShaderHandlers.new(self)
-	_visual_shader.register(_handlers)
-	_project_scaffold = MCPProjectScaffoldHandlers.new(self)
-	_project_scaffold.register(_handlers)
+	_helpers = MCPHelpers.new()
 	_guards = MCPGuards.new(self)
+	# Data-driven registration (#522): every domain handler is one HANDLERS
+	# table entry, instantiated and registered in this single loop. Instances go
+	# into _instances (a member) so the RefCounted handlers survive beyond
+	# _init(); dispose() clears it.
+	for handler_script in HANDLERS:
+		var handler: RefCounted = handler_script.new(self)
+		handler.register(_handlers)
+		_instances.append(handler)
 
 
 ## Dispatch one envelope ({ id, command, params }) and return a response envelope.
@@ -397,43 +299,19 @@ func _cmd_server_hello(params: Dictionary) -> Dictionary:
 ## Write text to a file (creating parent dirs) and tell the editor to re-import it.
 ## Used as the UndoRedo do/undo callback for script writes.
 func _write_file_text(path: String, text: String) -> void:
-	var base_dir := path.get_base_dir()
-	if not DirAccess.dir_exists_absolute(base_dir):
-		DirAccess.make_dir_recursive_absolute(base_dir)
-	var file := FileAccess.open(path, FileAccess.WRITE)
-	if file != null:
-		file.store_string(text)
-		file.close()
-	EditorInterface.get_resource_filesystem().update_file(path)
+	_helpers.write_file_text(path, text)
 
 
-## Write raw bytes to a file (creating parent dirs) and re-import it. The UndoRedo
-## undo callback for file deletion (#217), so binary resources round-trip exactly.
 func _write_file_bytes(path: String, bytes: PackedByteArray) -> void:
-	var base_dir := path.get_base_dir()
-	if not DirAccess.dir_exists_absolute(base_dir):
-		DirAccess.make_dir_recursive_absolute(base_dir)
-	var file := FileAccess.open(path, FileAccess.WRITE)
-	if file != null:
-		file.store_buffer(bytes)
-		file.close()
-	EditorInterface.get_resource_filesystem().update_file(path)
+	_helpers.write_file_bytes(path, bytes)
 
 
 func _remove_file(path: String) -> void:
-	if FileAccess.file_exists(path):
-		DirAccess.remove_absolute(path)
-		EditorInterface.get_resource_filesystem().update_file(path)
+	_helpers.remove_file(path)
 
 
-## Remove a file and its Godot 4.4+ ".uid" sidecar (if present), so undoing a
-## freshly-created resource leaves nothing orphaned.
 func _remove_file_with_uid(path: String) -> void:
-	_remove_file(path)
-	var uid_path := path + ".uid"
-	if FileAccess.file_exists(uid_path):
-		DirAccess.remove_absolute(uid_path)
-		EditorInterface.get_resource_filesystem().update_file(uid_path)
+	_helpers.remove_file_with_uid(path)
 
 
 # -- property & node helpers (shared by many handlers) ------------------------
@@ -442,28 +320,13 @@ func _remove_file_with_uid(path: String) -> void:
 ## Unknown properties are skipped. Used for freshly-created (not-yet-in-tree) nodes,
 ## where the whole add is one undoable action.
 func _apply_props(obj: Object, props: Dictionary) -> void:
-	for key in props:
-		var pt := _property_type(obj, str(key))
-		if pt != -1:
-			obj.set(str(key), Coerce.from_json(props[key], pt))
+	_helpers.apply_props(obj, props)
 
 
-## Add `child` under `parent` as one undoable action; return its scene-relative path.
 func _commit_add_child(parent: Node, child: Node, action_name: String) -> String:
-	var root := EditorInterface.get_edited_scene_root()
-	var ur := EditorInterface.get_editor_undo_redo()
-	ur.create_action(action_name)
-	ur.add_do_method(parent, "add_child", child)
-	ur.add_do_method(child, "set_owner", root)
-	ur.add_do_reference(child)
-	ur.add_undo_method(parent, "remove_child", child)
-	ur.commit_action()
-	return Inspect.relative_path(child, root)
+	return _helpers.commit_add_child(parent, child, action_name)
 
 
-## #477: the same commit as :meth:`_commit_add_child`, plus the persistence verdict
-## for the create (the parent rule — probed BEFORE the child is added). Returns
-## {path, persistence} so create-family handlers stamp their results uniformly.
 func _commit_add_child_with_persistence(
 	parent: Node, child: Node, action_name: String
 ) -> Dictionary:
@@ -476,41 +339,23 @@ func _commit_add_child_with_persistence(
 ## VALIDATION_ERROR keyed by `field`. Rejects missing/short/invalid input rather than
 ## silently defaulting components to 0 (which would target the wrong cell).
 func _parse_vec2i(value: Variant, field: String) -> Dictionary:
-	if value is Array and (value as Array).size() == 2:
-		return {"ok": true, "value": Vector2i(int(value[0]), int(value[1]))}
-	if value is Dictionary and value.has("x") and value.has("y"):
-		return {"ok": true, "value": Vector2i(int(value["x"]), int(value["y"]))}
-	return _fail("VALIDATION_ERROR", "'%s' must be [x, y] integer coordinates." % field)
+	return _helpers.parse_vec2i(value, field, _parse_vec2i_ok, _fail)
 
 
-const _SIM_MOUSE_BUTTONS := ["left", "right", "middle", "wheel_up", "wheel_down"]
+## The ok-continuation parse_vec2i hands the parsed vector to (keeps the
+## delegate one-line while the helpers module stays router-agnostic).
+func _parse_vec2i_ok(value: Vector2i) -> Dictionary:
+	return {"ok": true, "value": value}
 
 
-## A mouse button name is valid when empty (motion) or a known button.
 func _valid_mouse_button(name: String) -> bool:
-	return name.is_empty() or name in _SIM_MOUSE_BUTTONS
+	return _helpers.valid_mouse_button(name)
 
 
-## Return a reason string if an input-sequence event is malformed, else "" (valid).
 func _invalid_input_event(event: Variant) -> String:
-	if not (event is Dictionary):
-		return "must be an object"
-	match str(event.get("type", "")):
-		"key":
-			return "" if not str(event.get("key", "")).is_empty() else "'key' is required"
-		"action":
-			return "" if not str(event.get("action", "")).is_empty() else "'action' is required"
-		"mouse":
-			return "" if _valid_mouse_button(str(event.get("button", ""))) else "invalid 'button'"
-		_:
-			return "'type' must be key/mouse/action"
+	return _helpers.invalid_input_event(event)
 
 
-## Guard for input injection: a play session must be live with its probe connected.
-## Guard for breakpoint operations: a play session must be live with a valid debug session.
-## #527: both consolidated into mcp_guards.gd (one implementation; the #454
-## probe-never-connected diagnostic ships from every gated handler). The router
-## keeps delegating wrappers so existing call sites read unchanged.
 func _require_debug_session() -> Dictionary:
 	return _guards.require_debug_session()
 
@@ -530,59 +375,25 @@ func _require_live_probe() -> Dictionary:
 ## (useful for whitelist-validated types, or unions the caller checks itself).
 func _instantiate_validated(cls_name: String, expected_base: String = "",
 		noun: String = "") -> Dictionary:
-	var label := "'%s'" % cls_name if noun.is_empty() else "%s '%s'" % [noun, cls_name]
-	if not ClassDB.can_instantiate(cls_name):
-		return _fail("VALIDATION_ERROR", "Cannot instantiate %s." % label)
-	var obj: Object = ClassDB.instantiate(cls_name)
-	if obj == null:
-		return _fail("VALIDATION_ERROR", "Could not instantiate '%s'." % cls_name)
-	if not expected_base.is_empty() and cls_name != expected_base and not ClassDB.is_parent_class(cls_name, expected_base):
-		if not (obj is RefCounted):
-			obj.free()
-		return _fail("VALIDATION_ERROR", "'%s' is not a %s." % [cls_name, expected_base])
-	return {"ok": true, "obj": obj}
+	return _helpers.instantiate_validated(cls_name, _fail, expected_base, noun)
 
-
-# -- batch / refactor helpers (shared) ----------------------------------------
-
-# -- export helpers (shared) --------------------------------------------------
-
-# -- editor screenshot helpers ------------------------------------------------
-
-# -- project & filesystem helpers (shared) ------------------------------------
 
 # -- resource helpers (shared by resources, theme_ui) ---------------------------
 
 ## Load a resource, set a property, and re-save — the UndoRedo callback for edits.
 func _set_and_save_resource(path: String, property: String, value: Variant) -> void:
-	var res: Resource = ResourceLoader.load(path)
-	if res == null:
-		return
-	res.set(property, value)
-	ResourceSaver.save(res, path)
-	EditorInterface.get_resource_filesystem().update_file(path)
+	_helpers.set_and_save_resource(path, property, value)
 
 
 # -- scene-tree helpers (shared by mutations, node_parity) --------------------
 
 ## Set owner of a node and its whole subtree to the scene root so it is saved.
 func _own_recursive(node: Node, root: Node) -> void:
-	if node != root:
-		node.owner = root
-	for child in node.get_children():
-		_own_recursive(child, root)
+	_helpers.own_recursive(node, root)
 
 
-## Resolve a node by scene-relative path, returning {ok, node} or an error body.
 func _resolve(raw_path: Variant) -> Dictionary:
-	var root := EditorInterface.get_edited_scene_root()
-	if root == null:
-		return _fail("PRECONDITION_FAILED", "No scene is open.", "active_scene")
-	var path_str := Inspect.normalize_node_path(str(raw_path))
-	var node: Node = root.get_node_or_null(NodePath(path_str))
-	if node == null:
-		return _fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(raw_path))
-	return {"ok": true, "node": node}
+	return _helpers.resolve_node(raw_path, _fail)
 
 
 # -- persistence truth (#458) -------------------------------------------------
@@ -592,42 +403,15 @@ func _resolve(raw_path: Variant) -> Dictionary:
 ## an editable instance, and a skipped node's subtree is never visited — so every node
 ## on the path up to the root must qualify. Returns {ok: true} or {ok: false, reason, hint}.
 func _persistent_target(node: Node) -> Dictionary:
-	var root := EditorInterface.get_edited_scene_root()
-	if root == null or node == null:
-		return _not_persisted("node_not_owned", "No scene is open, so nothing can be saved.")
-	var current := node
-	while current != root:
-		if current == null:
-			return _not_persisted("node_not_owned", "The target is not inside the edited scene, so changes to it are never saved.")
-		var node_owner := current.owner
-		if node_owner == null:
-			return _not_persisted(
-				"node_not_owned",
-				"'%s' has no owner in the edited scene (e.g. it was added by a @tool script), so it is not saved — the change shows in the editor but is lost on reload." % root.get_path_to(current)
-			)
-		if node_owner != root and not root.is_editable_instance(node_owner):
-			var instance := str(root.get_path_to(node_owner))
-			return _not_persisted(
-				"instanced_child_not_editable",
-				"'%s' is inside the instanced scene '%s', which does not have Editable Children enabled — the change shows in the editor but will not be saved. Enable Editable Children on '%s', or target a node the scene owns." % [root.get_path_to(node), instance, instance]
-			)
-		current = current.get_parent()
-	return {"ok": true}
+	return _helpers.persistent_target(node)
 
 
 func _not_persisted(reason: String, hint: String) -> Dictionary:
-	return {"ok": false, "reason": reason, "hint": hint}
+	return _helpers._not_persisted(reason, hint)
 
 
-## Stamp a persistence verdict onto a mutation result: always `persisted`, plus `reason`
-## and `hint` when the applied change will not be saved.
 func _with_persistence(result: Dictionary, verdict: Dictionary) -> Dictionary:
-	var persisted := bool(verdict.get("ok", false))
-	result["persisted"] = persisted
-	if not persisted:
-		result["reason"] = str(verdict.get("reason", ""))
-		result["hint"] = str(verdict.get("hint", ""))
-	return result
+	return _helpers.with_persistence(result, verdict)
 
 
 # -- UndoRedo batch-threshold decision (#523) ---------------------------------
@@ -635,172 +419,51 @@ func _with_persistence(result: Dictionary, verdict: Dictionary) -> Dictionary:
 ## Whether a batch of `count` applies bypasses the undo stack (perf) — the one
 ## decision site for the shared threshold, so all three batch tools agree.
 func _undoable_for_count(count: int) -> bool:
-	return count <= MCP_UNDO_THRESHOLD
+	return _helpers.undoable_for_count(count)
 
 
-## The #461/#523 hint for a non-undoable batch: names the size and the shared
-## threshold so a future retune updates one place. Single-sourced — every
-## threshold-aware tool stamps this into its result verbatim.
 func _undo_threshold_hint(count: int, noun: String = "nodes") -> String:
-	return (
-		"%d %s exceeds the %d-node UndoRedo threshold: this batch was applied "
-		+ "directly without undo support. Undo will not revert it."
-	) % [count, noun, MCP_UNDO_THRESHOLD]
+	return _helpers.undo_threshold_hint(count, noun)
 
 
-## Whether an edit to a resource the node uses survives a scene save. `chain` is the edited
-## resource first, then each resource embedding it, out to the one the node holds; the first
-## with a path decides. A sub-resource of the edited scene saves with the node. A resource
-## file, or a sub-resource of a loaded non-scene file, is saved by the editor alongside the
-## scene (EditorNode::_save_external_resources, 4.7) even when the node is not. A sub-resource
-## of another scene is never re-saved. No path at all: embedded through the node itself.
 func _resource_persistence(node: Node, chain: Array) -> Dictionary:
-	var root := EditorInterface.get_edited_scene_root()
-	for item in chain:
-		var resource := item as Resource
-		if resource == null or resource.resource_path.is_empty():
-			continue
-		var container := resource.resource_path.get_slice("::", 0)
-		if root != null and container == root.scene_file_path:
-			break
-		if not resource.resource_path.contains("::"):
-			return {"ok": true}
-		if ResourceLoader.has_cached(container) and not (ResourceLoader.get_cached_ref(container) is PackedScene):
-			return {"ok": true}
-		return _not_persisted(
-			"embedded_in_other_resource",
-			"This %s is embedded in '%s', which is not saved with the current scene — the change shows in the editor but is lost on reload. Edit it in '%s' directly, or give the node its own %s." % [resource.get_class(), container, container, resource.get_class()]
-		)
-	return _persistent_target(node)
+	return _helpers.resource_persistence(node, chain)
 
 
-## Whether removing `group` from this node survives a save. The packer writes only the groups
-## a node adds on top of the scenes it comes from (SceneState::_parse_node, 4.7), so a group an
-## instanced or inherited scene gives the node is back after a reload.
 func _group_removal_persistence(node: Node, group: String) -> Dictionary:
-	var verdict := _persistent_target(node)
-	if not verdict["ok"]:
-		return verdict
-	for entry in _base_states(node):
-		var state: SceneState = entry[0]
-		if group in state.get_node_groups(entry[1]):
-			var source := state.get_path() if not state.get_path().is_empty() else "the scene it comes from"
-			return _not_persisted(
-				"group_from_base_scene",
-				"'%s' gets group '%s' from '%s', so removing it is not saved — the group is back after a reload. Remove it in '%s' instead." % [EditorInterface.get_edited_scene_root().get_path_to(node), group, source, source]
-			)
-	return verdict
+	return _helpers.group_removal_persistence(node, group)
 
 
-## The saved scene states this node comes from, as [SceneState, node index] pairs — the
-## GDScript mirror of 4.7's PropertyUtils::get_node_states_stack, which the packer diffs a
-## node against. Empty for a node only the edited scene defines. Node's own state accessors
-## are not exposed to scripts, so each level's state is read from its (cached) PackedScene.
 func _base_states(node: Node) -> Array:
-	var root := EditorInterface.get_edited_scene_root()
-	var states := []
-	var current := node
-	while current != null:
-		var state: SceneState = null
-		if current == root:
-			if not root.scene_file_path.is_empty() and ResourceLoader.exists(root.scene_file_path):
-				var own := load(root.scene_file_path) as PackedScene
-				if own != null:
-					state = own.get_state().get_base_scene_state()
-		elif not current.scene_file_path.is_empty():
-			var instanced := load(current.scene_file_path) as PackedScene
-			if instanced != null:
-				state = instanced.get_state()
-		var relative := current.get_path_to(node)
-		while state != null:
-			for i in state.get_node_count():
-				if str(state.get_node_path(i)).trim_prefix("./") == str(relative):  # SceneState paths read "./Label"
-					states.append([state, i])
-					break
-			state = state.get_base_scene_state()
-		if current == root:
-			break
-		current = current.owner
-	return states
+	return _helpers._base_states(node)
 
-
-## The Variant.Type of an object's property, or -1 if it has no such property.
-## Uses a per-object cache so repeated lookups (e.g. batch operations) are O(1)
-## instead of O(n) over the property list. Cache refreshes automatically on a
-## cache miss so attaching scripts / adding exported vars doesn't leave stale data.
-var _prop_cache: Dictionary = {}  # {Object instance_id: {name: type}}
-const MAX_PROP_CACHE_SIZE := 256
-
-func _prune_prop_cache() -> void:
-	if _prop_cache.size() > MAX_PROP_CACHE_SIZE:
-		_prop_cache.clear()
 
 func _property_type(obj: Object, property: String) -> int:
-	var obj_id := obj.get_instance_id()
-	var cache: Dictionary = _prop_cache.get(obj_id, {})
-	if not cache.has(property):
-		# Refresh cache on miss: property list may have changed (script attached, etc.)
-		cache = {}
-		for entry in obj.get_property_list():
-			cache[entry["name"]] = int(entry["type"])
-		_prop_cache[obj_id] = cache
-		_prune_prop_cache()
-	return cache.get(property, -1)
+	return _helpers.property_type(obj, property)
 
 
-## Call after a batch operation that mutated many objects so stale caches don't leak.
 func _invalidate_prop_cache(obj: Object) -> void:
-	_prop_cache.erase(obj.get_instance_id())
+	_helpers.invalidate_prop_cache(obj)
 
 
-## Shared by handlers that take 1-based bit indices (physics layers/mask,
-## navigation layers). A valid value is an array of ints in [1, 32].
 func _valid_bits(value: Variant) -> bool:
-	if not (value is Array):
-		return false
-	for bit in value:
-		if typeof(bit) not in [TYPE_INT, TYPE_FLOAT]:
-			return false
-		var index := int(bit)
-		if index < 1 or index > 32:
-			return false
-	return true
+	return _helpers.valid_bits(value)
 
 
-## Fold an array of 1-based bit indices into a bitmask. Out-of-range bits are
-## ignored; validate with _valid_bits first to reject bad input.
 func _bitmask(bits: Variant) -> int:
-	var mask := 0
-	if bits is Array:
-		for bit in bits:
-			var index := int(bit)
-			if index >= 1 and index <= 32:
-				mask |= 1 << (index - 1)
-	return mask
+	return _helpers.bitmask(bits)
 
 
 func _scene_name(root: Node) -> String:
-	if not root.scene_file_path.is_empty():
-		return root.scene_file_path.get_file()
-	return String(root.name)
+	return _helpers.scene_name(root)
 
 
 func _autoloads() -> Dictionary:
-	var autoloads: Dictionary = {}
-	for entry in ProjectSettings.get_property_list():
-		var key: String = entry["name"]
-		if key.begins_with("autoload/"):
-			autoloads[key.trim_prefix("autoload/")] = str(ProjectSettings.get_setting(key, ""))
-	return autoloads
+	return _helpers.autoloads()
 
 
 func _input_actions() -> Array:
-	var actions: Array = []
-	for entry in ProjectSettings.get_property_list():
-		var key: String = entry["name"]
-		if key.begins_with("input/"):
-			actions.append(key.trim_prefix("input/"))
-	return actions
+	return _helpers.input_actions()
 
 
 # -- response builders --------------------------------------------------------

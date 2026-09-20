@@ -48,10 +48,10 @@ func _cmd_add_audio_player(params: Dictionary) -> Dictionary:
 		if not (stream is AudioStream):
 			return _router._fail("VALIDATION_ERROR", "'%s' is not an AudioStream." % stream_path)
 		player.set("stream", stream)
-	_router._apply_props(player, params.get("properties", {}))
+	_router._helpers.apply_props(player, params.get("properties", {}))
 	# #477 (parent rule): an audio player under an instanced child is lost on save.
-	var committed := _router._commit_add_child_with_persistence(parent, player, "Add %s" % player.name)
-	return _router._ok(_router._with_persistence({
+	var committed := _router._helpers.commit_add_child_with_persistence(parent, player, "Add %s" % player.name)
+	return _router._ok(_router._helpers.with_persistence({
 		"node_path": committed["path"],
 		"player_type": player_type,
 		"created": true,
@@ -124,7 +124,7 @@ func _cmd_add_audio_bus_effect(params: Dictionary) -> Dictionary:
 			effect_obj.free()
 		return _router._fail("VALIDATION_ERROR", "'%s' is not an AudioEffect." % effect_type)
 	var effect: AudioEffect = effect_obj
-	_router._apply_props(effect, params.get("properties", {}))
+	_router._helpers.apply_props(effect, params.get("properties", {}))
 	var effect_index := AudioServer.get_bus_effect_count(bus_index)  # appended position
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Add %s to bus %d" % [effect_type, bus_index])

@@ -36,7 +36,7 @@ func _cmd_setup_physics_body(params: Dictionary) -> Dictionary:
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Configure body %s" % node.name)
 	for key in properties:
-		var prop_type := _router._property_type(node, str(key))
+		var prop_type := _router._helpers.property_type(node, str(key))
 		if prop_type == -1:
 			continue
 		ur.add_do_property(node, str(key), Coerce.from_json(properties[key], prop_type))
@@ -44,9 +44,9 @@ func _cmd_setup_physics_body(params: Dictionary) -> Dictionary:
 	ur.commit_action()
 	var applied: Dictionary = {}
 	for key in properties:
-		if _router._property_type(node, str(key)) != -1:
+		if _router._helpers.property_type(node, str(key)) != -1:
 			applied[str(key)] = Coerce.to_json(node.get(str(key)))
-	return _router._ok(_router._with_persistence({"node_path": str(params.get("node_path")), "properties": applied}, _router._persistent_target(node)))
+	return _router._ok(_router._helpers.with_persistence({"node_path": str(params.get("node_path")), "properties": applied}, _router._helpers.persistent_target(node)))
 
 
 
@@ -72,7 +72,7 @@ func _cmd_setup_collision(params: Dictionary) -> Dictionary:
 	var shape: Resource = shape_obj
 	var shape_props: Dictionary = params.get("properties", {})
 	for key in shape_props:
-		var pt := _router._property_type(shape, str(key))
+		var pt := _router._helpers.property_type(shape, str(key))
 		if pt != -1:
 			shape.set(str(key), Coerce.from_json(shape_props[key], pt))
 
@@ -116,7 +116,7 @@ func _cmd_setup_collision(params: Dictionary) -> Dictionary:
 	collision.name = str(params.get("name", collision_node_type))
 	collision.set("shape", shape)
 	# #477 (parent rule): a collision shape under an instanced child is lost on save.
-	var persistence := _router._persistent_target(parent)
+	var persistence := _router._helpers.persistent_target(parent)
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Add collision shape to %s" % parent.name)
 	ur.add_do_method(parent, "add_child", collision)
@@ -124,7 +124,7 @@ func _cmd_setup_collision(params: Dictionary) -> Dictionary:
 	ur.add_do_reference(collision)
 	ur.add_undo_method(parent, "remove_child", collision)
 	ur.commit_action()
-	return _router._ok(_router._with_persistence({
+	return _router._ok(_router._helpers.with_persistence({
 		"node_path": Inspect.relative_path(collision, root),
 		"shape_type": shape_type,
 		"created": true,
@@ -139,24 +139,24 @@ func _cmd_set_physics_layers(params: Dictionary) -> Dictionary:
 	var node: Node = found["node"]
 	if not (node is CollisionObject2D or node is CollisionObject3D):
 		return _router._fail("VALIDATION_ERROR", "Node is not a physics body/area (CollisionObject2D/3D).")
-	if params.get("layers") != null and not _router._valid_bits(params["layers"]):
+	if params.get("layers") != null and not _router._helpers.valid_bits(params["layers"]):
 		return _router._fail("VALIDATION_ERROR", "'layers' must be an array of bit indices in [1, 32].")
-	if params.get("mask") != null and not _router._valid_bits(params["mask"]):
+	if params.get("mask") != null and not _router._helpers.valid_bits(params["mask"]):
 		return _router._fail("VALIDATION_ERROR", "'mask' must be an array of bit indices in [1, 32].")
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Set physics layers on %s" % node.name)
 	if params.get("layers") != null:
-		ur.add_do_property(node, "collision_layer", _router._bitmask(params["layers"]))
+		ur.add_do_property(node, "collision_layer", _router._helpers.bitmask(params["layers"]))
 		ur.add_undo_property(node, "collision_layer", node.collision_layer)
 	if params.get("mask") != null:
-		ur.add_do_property(node, "collision_mask", _router._bitmask(params["mask"]))
+		ur.add_do_property(node, "collision_mask", _router._helpers.bitmask(params["mask"]))
 		ur.add_undo_property(node, "collision_mask", node.collision_mask)
 	ur.commit_action()
-	return _router._ok(_router._with_persistence({
+	return _router._ok(_router._helpers.with_persistence({
 		"node_path": str(params.get("node_path")),
 		"collision_layer": node.collision_layer,
 		"collision_mask": node.collision_mask,
-	}, _router._persistent_target(node)))
+	}, _router._helpers.persistent_target(node)))
 
 
 
@@ -179,12 +179,12 @@ func _cmd_add_raycast(params: Dictionary) -> Dictionary:
 	ray.name = str(params.get("name", raycast_type))
 	var ray_props: Dictionary = params.get("properties", {})
 	for key in ray_props:
-		var pt := _router._property_type(ray, str(key))
+		var pt := _router._helpers.property_type(ray, str(key))
 		if pt != -1:
 			ray.set(str(key), Coerce.from_json(ray_props[key], pt))
 
 	# #477 (parent rule): a raycast under an instanced child is lost on save.
-	var persistence := _router._persistent_target(parent)
+	var persistence := _router._helpers.persistent_target(parent)
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Add %s" % ray.name)
 	ur.add_do_method(parent, "add_child", ray)
@@ -192,7 +192,7 @@ func _cmd_add_raycast(params: Dictionary) -> Dictionary:
 	ur.add_do_reference(ray)
 	ur.add_undo_method(parent, "remove_child", ray)
 	ur.commit_action()
-	return _router._ok(_router._with_persistence({
+	return _router._ok(_router._helpers.with_persistence({
 		"node_path": Inspect.relative_path(ray, root),
 		"created": true,
 	}, persistence))

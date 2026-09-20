@@ -114,7 +114,7 @@ func _cmd_simulate_mouse(params: Dictionary) -> Dictionary:
 	if not guard["ok"]:
 		return guard
 	var button := str(params.get("button", ""))
-	if not _router._valid_mouse_button(button):
+	if not _router._helpers.valid_mouse_button(button):
 		return _router._fail("VALIDATION_ERROR", "'button' must be empty (motion) or one of %s." % str(["left", "right", "middle", "wheel_up", "wheel_down"]))
 	_router._debugger.send_to_probe("godot_mcp:simulate_mouse", [params])
 	return _router._ok({"sent": true, "kind": "mouse", "count": 1})
@@ -141,7 +141,7 @@ func _cmd_play_input_sequence(params: Dictionary) -> Dictionary:
 	# Validate each event's shape/type up front so the returned count is reliable and a
 	# malformed event can't be silently skipped by the probe.
 	for i in (events as Array).size():
-		var bad := _router._invalid_input_event(events[i])
+		var bad := _router._helpers.invalid_input_event(events[i])
 		if not bad.is_empty():
 			return _router._fail("VALIDATION_ERROR", "events[%d]: %s" % [i, bad])
 	_router._debugger.send_to_probe("godot_mcp:play_input_sequence", [params])

@@ -37,8 +37,9 @@ func _initialize() -> void:
 		failures.append("hint.noun: applies variant should name applies: %s" % applies_hint)
 
 	# The const is declared once (the decision and the hint both derive from it).
-	if Router.MCP_UNDO_THRESHOLD != 20:
-		failures.append("const: expected 20, got %d" % Router.MCP_UNDO_THRESHOLD)
+	# Since #522 it lives on the helpers module (the router delegates).
+	if router._helpers.UNDO_THRESHOLD != 20:
+		failures.append("const: expected 20, got %d" % router._helpers.UNDO_THRESHOLD)
 
 	router = null
 

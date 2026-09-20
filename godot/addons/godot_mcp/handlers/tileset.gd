@@ -58,8 +58,8 @@ func _cmd_create_tileset(params: Dictionary) -> Dictionary:
 		if prev != null:  # keep the prior TileSet alive for undo
 			ur.add_undo_reference(prev)
 		ur.commit_action()
-		persistence = _router._persistent_target(node)
-	return _router._ok(_router._with_persistence({
+		persistence = _router._helpers.persistent_target(node)
+	return _router._ok(_router._helpers.with_persistence({
 		"node_path": node_path,
 		"tileset_path": save_path,
 		"tile_size": [tile_size.x, tile_size.y],
@@ -109,8 +109,8 @@ func _cmd_add_tileset_atlas_source(params: Dictionary) -> Dictionary:
 		if not saved["ok"]:
 			return saved
 	# A file-backed TileSet was just saved; one the node holds saves wherever it lives.
-	var persistence: Dictionary = _router._resource_persistence(resolved["node"], [tileset]) if resolved["backing"] == "node" else {"ok": true}
-	return _router._ok(_router._with_persistence({
+	var persistence: Dictionary = _router._helpers.resource_persistence(resolved["node"], [tileset]) if resolved["backing"] == "node" else {"ok": true}
+	return _router._ok(_router._helpers.with_persistence({
 		"node_path": str(params.get("node_path", "")),
 		"tileset_path": str(params.get("tileset_path", "")),
 		"source_id": source_id,
@@ -157,8 +157,8 @@ func _cmd_create_tile(params: Dictionary) -> Dictionary:
 		if not saved["ok"]:
 			return saved
 	# The tile lives in the atlas source, which lives in the TileSet.
-	var persistence: Dictionary = _router._resource_persistence(resolved["node"], [source, tileset]) if resolved["backing"] == "node" else {"ok": true}
-	return _router._ok(_router._with_persistence({
+	var persistence: Dictionary = _router._helpers.resource_persistence(resolved["node"], [source, tileset]) if resolved["backing"] == "node" else {"ok": true}
+	return _router._ok(_router._helpers.with_persistence({
 		"node_path": str(params.get("node_path", "")),
 		"tileset_path": str(params.get("tileset_path", "")),
 		"source_id": source_id,
