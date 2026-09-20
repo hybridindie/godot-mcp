@@ -11,7 +11,10 @@ undetected.
 
 This test source-scans ``godot/addons/godot_mcp/**/*.gd`` (same technique as
 ``test_rename_refusal.py`` — the addon is GDScript, only runnable inside Godot)
-and asserts every emitted error code is a member of the Python enum.
+and asserts every emitted error code is a member of the Python enum. The scan
+covers both call layouts the addon uses (code literal on the same line as
+``_fail(`` and the wrapped form with the literal on the next line) plus the
+``"error": "CODE"`` dict form in ``type_coerce.gd``.
 """
 
 from __future__ import annotations
@@ -33,9 +36,13 @@ ALLOWED = {member.value for member in ErrorCode}
 NESTED_ALLOWED: set[str] = set()
 
 # Matches the first argument of the router's _fail(...) builder at every call
-# site (the router's own definition passes through variable args and is
-# excluded below). String literals only; the enum-table form (const ErrorCode)
-# is checked separately once it exists.
+# site, in both layouts used by the addon: the code literal on the same line
+# as `_fail(` and the wrapped form with the literal on the next line(s)
+# (DOTALL across the opening paren + whitespace/newlines; the router's own
+# definition passes through variable args and is excluded by the literal-only
+# match). Only string literals are scanned — a variable/const code reference
+# would evade it, but none exist today and the enum-table direction (issue
+# #525's optional item 1) is the durable fix once the addon adopts one.
 _FAIL_CALL = re.compile(r'_fail\(\s*"([A-Z_]+)"')
 
 
@@ -49,8 +56,10 @@ def _collect_codes() -> dict[str, list[str]]:
     for path in _gd_files():
         src = path.read_text()
         rel = path.relative_to(REPO_ROOT)
-        for code in _FAIL_CALL.findall(src):
-            found.setdefault(code, []).append(f"{rel} (_fail)")
+        # _fail("CODE", ...) and the wrapped form `_fail(\n\t\t"CODE", ...` —
+        # DOTALL bridges the newline; \s* consumes tabs/spaces after it.
+        for match in re.finditer(r'_fail\(\s*"([A-Z_]+)"', src):
+            found.setdefault(match.group(1), []).append(f"{rel} (_fail)")
         for match in re.finditer(r'"error":\s*"([A-Z_]+)"', src):
             code = match.group(1)
             if code in ALLOWED:
