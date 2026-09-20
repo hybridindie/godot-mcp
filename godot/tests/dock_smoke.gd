@@ -35,6 +35,8 @@ func _initialize() -> void:
 	_expect(failures, "selected", dock.displayed_selected(), "Player")
 
 	# === Empty values fall back to a readable placeholder ===
+	dock.set_server_version("")
+	_expect(failures, "server_version_placeholder", dock.displayed_server_version(), "(unknown)")
 	dock.set_active_scene("")
 	_expect(failures, "scene_placeholder", dock.displayed_scene(), "(none)")
 	dock.set_selected_node("")
