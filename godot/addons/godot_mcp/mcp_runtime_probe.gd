@@ -31,6 +31,7 @@ func check_force_break() -> bool:
 func _ready() -> void:
 	if EngineDebugger.is_active():
 		EngineDebugger.register_message_capture("godot_mcp", _capture)
+		_register_output_logger()
 		EngineDebugger.send_message("godot_mcp:ready", [])
 
 
@@ -39,6 +40,9 @@ func _capture(message: String, data: Array) -> bool:
 	match message:
 		"ping":
 			EngineDebugger.send_message("godot_mcp:pong", [])
+			return true
+		"get_output":
+			EngineDebugger.send_message("godot_mcp:game_output", [_output_snapshot()])
 			return true
 		"get_scene_tree":
 			EngineDebugger.send_message("godot_mcp:scene_tree", [_serialize_tree()])
@@ -457,3 +461,94 @@ func _json_safe(value: Variant) -> Variant:
 			return value
 		_:
 			return str(value)
+
+
+# --- game output capture (issue #534) ----------------------------------------
+
+## The bounded output ring: entries {seq, kind, text, time_ms}. kind is
+## "stdout" (print + printerr-style stderr lines), "error" (push_error /
+## script errors / engine errors), or "warning" (push_warning / engine
+## warnings). Bounded per the honesty rules — eviction is counted (`dropped`),
+## never silent.
+const MAX_OUTPUT := 500
+
+## The ring + the running sequence cursor + the eviction counter. The Logger
+## callback can fire from ANY thread (Godot logging contract), so all access
+## is mutex-guarded.
+var _output_lock: Mutex = Mutex.new()
+var _output_ring: Array = []
+var _output_seq := 0
+var _output_dropped := 0
+var _output_logger: Logger = null
+
+
+class MCPOutputLogger extends Logger:
+	## Relays into the probe's ring via a Callable so the inner class stays
+	## decoupled from the probe's state. Called from arbitrary threads — the
+	## probe side guards with its mutex.
+	var _sink: Callable
+
+	func _init(sink: Callable) -> void:
+		_sink = sink
+
+	func _log_message(message: String, error: bool) -> void:
+		_sink.call(message, "error" if error else "stdout")
+
+	func _log_error(
+		function: String, file: String, line: int, code: String, rationale: String,
+		editor_notify: bool, error_type: int, script_backtraces: Array
+	) -> void:
+		var kind := "error"
+		if error_type == Logger.ERROR_TYPE_WARNING:
+			kind = "warning"
+		# `rationale` carries the human text for push_error/push_warning/script
+		# errors; `code` is the engine-side message. Prefer whichever is present.
+		var text := rationale
+		if text.is_empty():
+			text = code
+		if text.is_empty():
+			text = "%s @ %s:%d" % [function, file, line]
+		_sink.call(text, kind)
+
+
+## Register the output logger in _ready (EngineDebugger-active gate lives in
+## _ready; the logger is registered alongside it so captures start as early
+## as the probe itself).
+func _register_output_logger() -> void:
+	_output_logger = MCPOutputLogger.new(_on_output_line)
+	OS.add_logger(_output_logger)
+
+
+## Logger sink (any thread): append {seq, kind, text, time_ms} into the ring,
+## evicting the oldest entry (counted) beyond MAX_OUTPUT.
+func _on_output_line(text: String, kind: String) -> void:
+	_output_lock.lock()
+	_output_seq += 1
+	_output_ring.append({
+		"seq": _output_seq,
+		"kind": kind,
+		"text": text,
+		"time_ms": float(Time.get_ticks_msec()),
+	})
+	if _output_ring.size() > MAX_OUTPUT:
+		_output_ring.pop_front()
+		_output_dropped += 1
+	_output_lock.unlock()
+
+
+## Snapshot the ring for the editor (called from _capture → get_output).
+## Returns {entries, next_seq, total, dropped}; `total` is the count of
+## entries ever captured so the editor can detect eviction (entries <
+## total - dropped is impossible; dropped is the honest eviction count).
+func _output_snapshot() -> Dictionary:
+	_output_lock.lock()
+	var entries := _output_ring.duplicate(true)
+	var next_seq := _output_seq
+	var dropped := _output_dropped
+	_output_lock.unlock()
+	return {
+		"entries": entries,
+		"next_seq": next_seq,
+		"total": next_seq,
+		"dropped": dropped,
+	}

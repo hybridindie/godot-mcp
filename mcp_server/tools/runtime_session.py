@@ -23,7 +23,11 @@ from mcp_server.bridge import Bridge
 from mcp_server.categories import RUNTIME_TAG
 from mcp_server.constraints import TimeoutMs
 from mcp_server.defaults import DEFAULT_CAPTURE_TIMEOUT_MS, DEFAULT_POLL_INTERVAL_SECONDS
-from mcp_server.models.runtime_session import GameSceneTreeResult, PlayResult
+from mcp_server.models.runtime_session import (
+    GameOutputResult,
+    GameSceneTreeResult,
+    PlayResult,
+)
 from mcp_server.safety import READ_ONLY, RUNTIME
 from mcp_server.tools._route import route
 
@@ -132,3 +136,27 @@ def register_runtime_session(mcp: FastMCP, bridge: Bridge) -> None:
         # Normalize e.g. "image/png" → "png".
         fmt = str(result.get("format", "png")).removeprefix("image/")
         return Image(data=data, format=fmt)
+
+    @mcp.tool(meta=READ_ONLY, tags=RUNTIME_SET)
+    async def get_game_output(since_seq: int = 0) -> GameOutputResult:
+        """Read the running game's captured output — ``print()`` lines, script
+        errors (with the engine's text), and warnings — as a ring of
+        ``{seq, kind, text, time_ms}`` entries (issue #534).
+
+        Use it during a play-test to read crash traces and log-based
+        assertions: the capture keeps working while the game is frozen at a
+        debugger break (that is exactly when crash traces are readable).
+        ``since_seq`` is an incremental cursor — pass the ``next_seq`` from
+        your previous call to fetch only newer entries. The ring is bounded
+        (500); ``dropped`` counts evicted entries honestly, so never assume
+        the ring holds the whole session.
+
+        IF THIS FAILS with "No play session":
+          -> Call play_scene(scene_path) first.
+        IF THIS FAILS with "probe is not connected":
+          -> Register MCPRuntimeProbe as an autoload in the game, then
+             play_scene again.
+        """
+        return GameOutputResult(
+            **await route(bridge, "cmd_get_game_output", {"since_seq": since_seq})
+        )

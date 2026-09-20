@@ -42,10 +42,16 @@ godot_resources_edit_register_autoload(
 godot_runtime_play_scene(scene_path='res://scenes/main.tscn')
 godot_runtime_is_playing()                 # → {'playing': true}
 godot_runtime_get_game_scene_tree()        # the LIVE hierarchy (not the editor tree)
+godot_runtime_get_game_output()            # the game's print/error/warning stream (#534)
 godot_runtime_monitor_property(node_path='/root/Main/Player', property='position', samples=30)
 godot_runtime_get_property_samples()       # [{frame, value}] once the capture completes
 godot_runtime_find_ui_elements(text='Start')  # locate a Control by its text
 ```
+
+`godot_runtime_get_game_output()` reads the running game's console — print lines, script
+errors (with stack-trace rationale), warnings — from a bounded ring with a `since_seq`
+cursor. Works while the game is paused at a debugger break: that's when crash traces are
+readable. Pass the previous call's `next_seq` as `since_seq` for incremental pulls.
 
 ## 4. Simulate input
 
