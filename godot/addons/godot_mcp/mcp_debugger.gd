@@ -34,6 +34,7 @@ var _recorded_input: Variant = null  # last godot_mcp:recorded_input payload (#6
 var _performance: Variant = null  # last godot_mcp:performance payload (#38)
 var _game_frame: Variant = null  # last godot_mcp:game_frame payload (#446)
 var _frame_request_id := "__none__"  # request_id of the in-flight game frame capture (#446)
+var _game_output: Variant = null  # last godot_mcp:game_output payload (#534)
 var _breakpoints: Array = []  # tracked breakpoints for issue #110
 var _stack_frames: Variant = null  # last stack_dump payload (Tier 2)
 var _evaluation_result: Variant = null  # last evaluation_return payload (Tier 2)
@@ -81,6 +82,9 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 			return true
 		"godot_mcp:game_frame":
 			_game_frame = data[0] if not data.is_empty() else null
+			return true
+		"godot_mcp:game_output":
+			_game_output = data[0] if not data.is_empty() else null
 			return true
 		# Tier 2 debugger: raw Godot debugger protocol replies (issue #110)
 		"stack_dump":
@@ -308,6 +312,12 @@ func begin_frame_request(request_id: String) -> void:
 
 func get_game_frame() -> Variant:
 	return _game_frame
+
+
+## Issue #534: the probe's game-output ring (poll-and-cache — the editor pulls
+## on demand via the godot_mcp:get_output query; nothing pushes unsolicited).
+func get_game_output() -> Variant:
+	return _game_output
 
 
 ## Cache accessors for Tier 2 debugger tools (step, stack, eval).

@@ -916,6 +916,7 @@ answers `godot_mcp:` debugger queries. Play control is `runtime`; reads are `rea
 | `godot_runtime_is_playing` | — | `PlayResult { playing, scene, paused }` |
 | `godot_runtime_get_game_scene_tree` | — | `GameSceneTreeResult { playing, connected, tree?, hint }` (read_only) |
 | `godot_runtime_capture_game_screenshot` | `timeout_ms?` | image content (PNG) (read_only) |
+| `godot_runtime_get_game_output` | `since_seq=0` | `GameOutputResult { playing, connected, entries[] ({seq, kind, text, time_ms}), next_seq, total, dropped, ready, reason? }` (read_only) |
 
 `godot_runtime_play_scene` runs `scene_path` (a `res://*.tscn`) or the main scene when omitted.
 `godot_runtime_get_game_scene_tree` returns the *running* game's live tree (`GameNode { name, type,
@@ -937,6 +938,15 @@ a 1920×1080 frame is ~1–4 MB base64 over the debugger channel. A frame captur
 game is paused at a debugger break shows the frozen viewport. Same non-stalling readiness
 envelope as the editor capture (#416/#456): a stalled grab reports
 `reason: "editor_not_drawing"` on every poll and the tool relays it in the expiry error.
+
+`godot_runtime_get_game_output` (issue #534) reads the *running game's* console stream —
+`print()` lines, `push_error()`/script errors, and `push_warning()` — captured by a custom
+`Logger` (`OS.add_logger`) the probe registers at startup into a **bounded ring** (500
+entries; eviction is counted in `dropped`, never silent). Entries carry a monotonic `seq`
+cursor; pass the previous call's `next_seq` as `since_seq` for incremental pulls. Unlike
+input injection, there is **no break-state gate** — the ring stays readable while the game
+is frozen at a debugger break, which is exactly when crash traces matter. `kind` is
+`stdout` / `error` / `warning`; script errors carry the engine's rationale text.
 
 #### Input simulation (issue #36) — category: `input` (gated off by default)
 

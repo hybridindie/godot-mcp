@@ -20,6 +20,7 @@ func _init(router: MCPCommandRouter) -> void:
 
 func register(handlers: Dictionary) -> void:
 	handlers["cmd_capture_game_screenshot"] = _cmd_capture_game_screenshot
+	handlers["cmd_get_game_output"] = _cmd_get_game_output
 	handlers["cmd_get_game_scene_tree"] = _cmd_get_game_scene_tree
 	handlers["cmd_get_input_stats"] = _cmd_get_input_stats
 	handlers["cmd_is_playing"] = _cmd_is_playing
@@ -179,3 +180,48 @@ func _cmd_capture_game_screenshot(params: Dictionary) -> Dictionary:
 	# on a later frame (game not rendering / probe busy are the usual waits).
 	return _router._ok({"ready": false, "reason": "capture_pending"})
 
+
+
+func _cmd_get_game_output(params: Dictionary) -> Dictionary:
+	# Deliberately NO break-state gate (unlike input injection): a game frozen
+	# at a debugger break is exactly when reading its output matters most —
+	# crash traces land in the ring before the break. The probe's ring is
+	# already captured (a Logger sink, not frame-callback dependent), so the
+	# read works while broken (#411/#446 parity, issue #534).
+	var guard := _router._require_live_probe()
+	if not guard["ok"]:
+		return guard
+	var since_seq := int(params.get("since_seq", 0))
+	# Poll-and-cache, dispatch-once (PR #547 review): dispatch the probe query
+	# only when the previous pull has been answered (cache empty = in flight),
+	# otherwise serve the cache. The FIRST version of this handler cleared the
+	# cache on every dispatch — but the reply lands AFTER that dispatch's read,
+	# so the next dispatch cleared fresh data before it could be served, and
+	# the cache could never be read non-null (the live e2e caught it). Serving
+	# the cache on later polls bounds staleness to one poll cycle, and the
+	# monotonic seq cursor (next_seq) makes any lag detectable by the caller.
+	var payload: Variant = _router._debugger.get_game_output()
+	if payload == null:
+		_router._debugger.send_to_probe("godot_mcp:get_output", [])
+		payload = _router._debugger.get_game_output()
+	if payload == null:
+		# #459-style honesty: the pull is in flight, not empty.
+		return _router._ok({
+			"playing": true, "connected": true, "entries": [],
+			"next_seq": int(since_seq), "total": 0, "dropped": 0,
+			"ready": false, "reason": "output_pending",
+		})
+	var body: Dictionary = (payload as Dictionary).duplicate()
+	body["playing"] = true
+	body["connected"] = true
+	# Server-side cursor filtering: only entries past since_seq (the ring is
+	# small — 500 max — so linear filtering beats caching a cursor position).
+	var since := int(params.get("since_seq", 0))
+	var entries: Array = body.get("entries", [])
+	if since > 0:
+		var fresh: Array = []
+		for entry in entries:
+			if int((entry as Dictionary).get("seq", 0)) > since:
+				fresh.append(entry)
+		body["entries"] = fresh
+	return _router._ok(body)
