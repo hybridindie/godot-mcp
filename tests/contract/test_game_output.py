@@ -145,3 +145,34 @@ def test_router_registers_cmd_get_game_output() -> None:
     # Served from the poll-and-cache — and readable while broken (#411/#446
     # parity: output is the most useful thing to read during a break).
     assert "cmd_get_game_output" in handler_src
+
+
+def test_probe_removes_the_logger_on_exit() -> None:
+    """PR #547 review: the Logger must be removed in _exit_tree (OS-level
+    object) and the ring cleared — a play/stop/replay cycle frees the autoload,
+    and a stale logger would sink into a dead ring across sessions."""
+    src = (_addon_root() / "mcp_runtime_probe.gd").read_text()
+    assert "OS.remove_logger" in src
+    exit_body = src[src.index("func _exit_tree") :]
+    exit_body = exit_body[: exit_body.index("\nfunc ", 1)]
+    assert "OS.remove_logger" in exit_body
+    assert "_output_ring.clear()" in exit_body
+
+
+def test_handler_dispatches_once_and_serves_the_cache() -> None:
+    """PR #547 review (stale-cache race) — resolved as dispatch-once: the
+    handler dispatches the probe query ONLY when the cache is empty (a pull in
+    flight), otherwise serves the cache. Clearing on every dispatch was tried
+    first and is WRONG: the reply lands after that dispatch's read, so the
+    next dispatch cleared fresh data before it could be served (the live e2e
+    caught it — output_pending forever). Staleness is bounded to one poll
+    cycle and detectable via the monotonic next_seq cursor."""
+    session_src = _addon_root() / "handlers" / "runtime_session.gd"
+    handler = session_src.read_text().split("func _cmd_get_game_output", 1)[1]
+    # Exactly one send_to_probe for the output query, guarded by a null check.
+    assert handler.count('send_to_probe("godot_mcp:get_output"') == 1
+    guard = handler.index("if payload == null")
+    send = handler.index('send_to_probe("godot_mcp:get_output"')
+    assert guard < send, "the dispatch must be guarded by an empty-cache check"
+    # And the in-flight result is honest (ready: false, reason: output_pending).
+    assert '"ready": false' in handler and "output_pending" in handler

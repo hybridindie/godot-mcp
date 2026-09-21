@@ -192,9 +192,18 @@ func _cmd_get_game_output(params: Dictionary) -> Dictionary:
 	if not guard["ok"]:
 		return guard
 	var since_seq := int(params.get("since_seq", 0))
-	# Poll-and-cache: ask the probe for a fresh ring, serve what we have.
-	_router._debugger.send_to_probe("godot_mcp:get_output", [])
+	# Poll-and-cache, dispatch-once (PR #547 review): dispatch the probe query
+	# only when the previous pull has been answered (cache empty = in flight),
+	# otherwise serve the cache. The FIRST version of this handler cleared the
+	# cache on every dispatch — but the reply lands AFTER that dispatch's read,
+	# so the next dispatch cleared fresh data before it could be served, and
+	# the cache could never be read non-null (the live e2e caught it). Serving
+	# the cache on later polls bounds staleness to one poll cycle, and the
+	# monotonic seq cursor (next_seq) makes any lag detectable by the caller.
 	var payload: Variant = _router._debugger.get_game_output()
+	if payload == null:
+		_router._debugger.send_to_probe("godot_mcp:get_output", [])
+		payload = _router._debugger.get_game_output()
 	if payload == null:
 		# #459-style honesty: the pull is in flight, not empty.
 		return _router._ok({

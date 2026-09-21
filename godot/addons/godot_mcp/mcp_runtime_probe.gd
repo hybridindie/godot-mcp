@@ -35,6 +35,20 @@ func _ready() -> void:
 		EngineDebugger.send_message("godot_mcp:ready", [])
 
 
+func _exit_tree() -> void:
+	# PR #547 review: the Logger outlives the probe unless removed — on a
+	# play/stop/replay cycle the autoload is freed and re-instantiated, and a
+	# stale registered logger would keep sinking into a dead ring (duplicate
+	# entries across sessions, and a leaked OS-level logger). Remove it in the
+	# same EngineDebugger-active gate we registered it under.
+	if _output_logger != null and EngineDebugger.is_active():
+		OS.remove_logger(_output_logger)
+		_output_logger = null
+	_output_lock.lock()
+	_output_ring.clear()
+	_output_lock.unlock()
+
+
 ## Capture handler: the "godot_mcp:" prefix is stripped before this is called.
 func _capture(message: String, data: Array) -> bool:
 	match message:

@@ -78,6 +78,15 @@ async def _wait_connected(bridge: Bridge) -> None:
     raise AssertionError("probe never connected")
 
 
+async def _wait_scene_open(bridge: Bridge) -> None:
+    for _ in range(40):
+        r = await bridge.send("cmd_get_active_scene")
+        if r.ok and (r.result or {}).get("is_open"):
+            return
+        await asyncio.sleep(0.25)
+    raise AssertionError("scene did not open")
+
+
 async def _run() -> None:
     bridge = Bridge(BridgeConfig(url=BRIDGE_URL))
     if not await serve_and_await_editor(bridge):
@@ -85,10 +94,14 @@ async def _run() -> None:
 
     try:
         await _ok(bridge, "cmd_create_scene", {"root_type": "Node2D", "scene_path": SCRATCH})
+        await _wait_scene_open(bridge)
         # Attach the printing script so the game emits into all three streams
-        # at startup (stdout + push_error + push_warning).
+        # at startup (stdout + push_error + push_warning). The attach mutates
+        # the OPEN scene — save it, since play_custom_scene loads the .tscn
+        # from disk (without the save the game runs without the script).
         Path(SCRIPT_FILE).write_text(GAME_SCRIPT)
         await _ok(bridge, "cmd_attach_script", {"node_path": ".", "script_path": "res://tmp_e2e_game_output.gd"})
+        await _ok(bridge, "cmd_save_scene", {})
         await _ok(bridge, "cmd_register_autoload", {"name": "GodotMcpProbe", "path": PROBE})
         await _ok(bridge, "cmd_play_scene", {"scene_path": SCRATCH})
         await _wait_connected(bridge)
@@ -149,6 +162,34 @@ async def _run() -> None:
         assert len(frozen["entries"]) >= pre_count
         await _ok(bridge, "cmd_continue_execution", {})
 
+        # PR #547 review (monotonicity across pulls): the ring's cursor never
+        # goes backwards — total/next_seq grow, eviction is counted in dropped.
+        third = await _ok(bridge, "cmd_get_game_output", {})
+        assert third["next_seq"] >= first["next_seq"]
+
+        # PR #547 review (logger teardown): stop and replay the scene — a
+        # stale registered logger would sink into a dead ring and duplicate
+        # entries across sessions.
+        await _ok(bridge, "cmd_stop_scene", {})
+        await _ok(bridge, "cmd_play_scene", {"scene_path": SCRATCH})
+        # #454: after a play/stop cycle the new game needs a moment to attach a
+        # fresh debugger session (the #454 cap diagnostic names the failure mode).
+        await _wait_connected(bridge)
+        replay: dict[str, Any] | None = None
+        for _ in range(20):
+            out = await _ok(bridge, "cmd_get_game_output", {})
+            if out.get("ready") is not False and out.get("entries"):
+                replay = out
+                break
+            await asyncio.sleep(0.25)
+        assert replay is not None, "replay's output ring stayed empty"
+        replay_texts = [e["text"] for e in replay["entries"]]
+        assert any("GAME_OUTPUT_STDOUT_MARKER" in t for t in replay_texts), replay_texts
+        # No duplication: the fresh session captures its own print exactly once
+        # (a leaked logger would show it twice — once from each registration).
+        assert (
+            sum(1 for t in replay_texts if "GAME_OUTPUT_STDOUT_MARKER" in t) == 1
+        ), replay_texts
         await _ok(bridge, "cmd_stop_scene", {})
     finally:
         await bridge.close()
