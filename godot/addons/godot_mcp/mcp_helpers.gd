@@ -107,6 +107,60 @@ func commit_add_child_with_persistence(
 	return {"path": path, "persistence": persistence}
 
 
+## #528: the composite N-child variant — add every child under `parent` as ONE
+## undoable action. Each child is its own undo step (add_child + set_owner on
+## the do side, remove_child on the undo side, one add_do_reference per child
+## so the undo history holds the references), matching commit_add_child's
+## semantics for N nodes. When `own_subtrees` is true each child's whole
+## subtree is owned by the root inside the same action (compose needs that;
+## batch-create's children are flat). Returns the scene-relative paths in
+## input order.
+func commit_add_children(parent: Node, children: Array, action_name: String, own_subtrees := false) -> Array:
+	var root := EditorInterface.get_edited_scene_root()
+	var ur := EditorInterface.get_editor_undo_redo()
+	ur.create_action(action_name)
+	for child in children:
+		ur.add_do_method(parent, "add_child", child)
+		if own_subtrees:
+			ur.add_do_method(self, "_own_subtree", child, root)
+		else:
+			ur.add_do_method(child, "set_owner", root)
+		ur.add_do_reference(child)
+		ur.add_undo_method(parent, "remove_child", child)
+	ur.commit_action()
+	var paths: Array = []
+	for child in children:
+		paths.append(Inspect.relative_path(child, root))
+	return paths
+
+
+## The recursive-own callback registered inside a commit_add_children action
+## (a bound Callable target needs one object: the helpers module itself).
+func _own_subtree(node: Node, root: Node) -> void:
+	own_recursive(node, root)
+
+
+## #477 per-target verdicts, single-sourced (#528): build the persistence entry
+## list for `nodes` (one {node_path, persisted[, reason, hint]} per node) in
+## the order given. `paths` carries the already-resolved scene-relative paths
+## (the callers compute them once and reuse them for `applied`); pass an empty
+## array to resolve the paths here. The one implementation batch + composite
+## stamp from — a drift here previously shipped between batch_set_property and
+## apply_node_edits.
+func persistence_entries(nodes: Array, paths: Array = []) -> Array:
+	var entries: Array = []
+	for i in range(nodes.size()):
+		var node: Node = nodes[i]
+		var node_path: String = paths[i] if i < paths.size() else Inspect.relative_path(node, EditorInterface.get_edited_scene_root())
+		var verdict := persistent_target(node)
+		var entry := {"node_path": node_path, "persisted": bool(verdict.get("ok", false))}
+		if not verdict.get("ok", false):
+			entry["reason"] = str(verdict.get("reason", ""))
+			entry["hint"] = str(verdict.get("hint", ""))
+		entries.append(entry)
+	return entries
+
+
 ## Parse {ok, value: Vector2i} from a JSON [x, y] array or {x, y} dict, or a structured
 ## VALIDATION_ERROR keyed by `field`. Rejects missing/short/invalid input rather than
 ## silently defaulting components to 0 (which would target the wrong cell).

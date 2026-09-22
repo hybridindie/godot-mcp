@@ -106,22 +106,19 @@ func _cmd_compose_node(params: Dictionary) -> Dictionary:
 		child_nodes.append(child_node)
 
 	# #477 (parent rule): a composed node under a non-editable instanced parent
-	# (and its whole subtree) is lost on save.
+	# (and its whole subtree) is lost on save. #528: one shared commit — the
+	# N-child variant with whole-subtree ownership inside the same action (the
+	# undo side removes the subtree root, which drops the whole subtree).
 	var persistence := _router._helpers.persistent_target(parent)
-	var undo_redo := EditorInterface.get_editor_undo_redo()
-	undo_redo.create_action("Compose %s" % node.name)
-	undo_redo.add_do_method(parent, "add_child", node)
-	undo_redo.add_do_method(node, "set_owner", root)
-	for child_node in child_nodes:
-		undo_redo.add_do_method(child_node, "set_owner", root)
-	undo_redo.add_do_reference(node)
-	undo_redo.add_undo_method(parent, "remove_child", node)
-	undo_redo.commit_action()
+	var paths: Array = _router._helpers.commit_add_children(
+		parent, [node], "Compose %s" % node.name, true
+	)
+	var node_path: String = paths[0]
 
 	for child_node in child_nodes:
 		child_names.append(String(child_node.name))
 	return _router._ok(_router._helpers.with_persistence({
-		"node_path": Inspect.relative_path(node, root),
+		"node_path": node_path,
 		"created": true,
 		"children": child_names,
 		"script_attached": not str(params.get("script_path", "")).is_empty(),
@@ -173,7 +170,6 @@ func _cmd_batch_create_nodes(params: Dictionary) -> Dictionary:
 			"undoable": _router._helpers.undoable_for_count(names.size()),
 			"hint": "" if _router._helpers.undoable_for_count(names.size()) else _router._helpers.undo_threshold_hint(names.size()),
 		})
-	var undo_redo := EditorInterface.get_editor_undo_redo()
 	# #523: batch creates share the UndoRedo threshold — the decision + hint
 	# live on the router (one site), same honesty shape as batch_set_property.
 	var undoable := _router._helpers.undoable_for_count(names.size())
@@ -182,13 +178,8 @@ func _cmd_batch_create_nodes(params: Dictionary) -> Dictionary:
 			parent.add_child(node)
 			node.set_owner(root)
 	else:
-		undo_redo.create_action("Batch create %d %s" % [nodes.size(), node_type])
-		for node in nodes:
-			undo_redo.add_do_method(parent, "add_child", node)
-			undo_redo.add_do_method(node, "set_owner", root)
-			undo_redo.add_do_reference(node)
-			undo_redo.add_undo_method(parent, "remove_child", node)
-		undo_redo.commit_action()
+		# #528: one shared N-child commit (one undo action for the batch).
+		_router._helpers.commit_add_children(parent, nodes, "Batch create %d %s" % [nodes.size(), node_type])
 
 	var created: Array = []
 	for node in nodes:
@@ -213,7 +204,9 @@ func _cmd_apply_node_edits(params: Dictionary) -> Dictionary:
 	var to_apply: Array = []  # each: {node, property, value, old}
 	var edited_paths: Array = []
 	var skipped: Array = []
-	var persistence: Array = []  # #477: one verdict per edited node
+	var persistence: Array = []  # #477: one verdict per edited node (#528: shared helper)
+	var verdict_nodes: Array = []
+	var verdict_paths: Array = []
 	for edit in edits:
 		var found := _router._resolve(edit.get("node_path", ""))
 		if not found["ok"]:
@@ -242,13 +235,11 @@ func _cmd_apply_node_edits(params: Dictionary) -> Dictionary:
 			var node_path := Inspect.relative_path(node, root)
 			edited_paths.append(node_path)
 			# #477: each edited node gets its own verdict — one aggregate ok
-			# must never hide a target the save drops.
-			var verdict := _router._helpers.persistent_target(node)
-			var entry := {"node_path": node_path, "persisted": bool(verdict.get("ok", false))}
-			if not verdict.get("ok", false):
-				entry["reason"] = str(verdict.get("reason", ""))
-				entry["hint"] = str(verdict.get("hint", ""))
-			persistence.append(entry)
+			# must never hide a target the save drops. Stamped by the shared
+			# helper (#528).
+			verdict_nodes.append(node)
+			verdict_paths.append(node_path)
+	persistence = _router._helpers.persistence_entries(verdict_nodes, verdict_paths)
 
 	# Dry-run defense-in-depth (PR #545 review): the MCP layer enforces preview
 	# semantics (run_or_preview never sends this command with dry_run set), but
