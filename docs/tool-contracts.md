@@ -366,6 +366,7 @@ UndoRedo-wrapped `cmd_*` handler and runs preconditions first.
  | `godot_scene_edit_save_scene` | — | `SaveSceneResult { path?, saved }` | `mutating` |
  | `godot_scene_edit_create_scene` | `root_type, scene_path` | `CreateSceneResult { scene_path, root_type, created }` | `mutating` |
  | `godot_scene_edit_instance_scene` | `parent_path, scene_path, name=""` | `InstanceSceneResult { node_path, scene_path, instanced, persisted, reason?, hint? }` | `mutating` |
+ | `godot_scene_edit_extract_scene` | `node_path, scene_path, replace_with_instance=False, save_current=False` | `ExtractSceneResult { node_path, scene_path, extracted, replaced, saved, node_count, instance_path?, persisted, reason?, hint? }` | `mutating` |
  | `godot_scene_edit_set_editable_children` | `node_path, editable=True` | `SetEditableChildrenResult { node_path, editable, persisted, reason?, hint? }` | `mutating` |
 
 `godot_scene_edit_set_editable_children` toggles Editable Children on an instanced
@@ -393,8 +394,21 @@ built-in type>)`, then `attach_script` on the root.
    without confirming. The addon also honors the `confirm` flag defensively.
  - `godot_scene_edit_create_scene` writes a new `.tscn`/`.scn` and opens it; it is a file creation, not a
    UndoRedo-tracked tree edit.
- - `godot_scene_edit_instance_scene` (issue #80) loads a `PackedScene`, instantiates with `GEN_EDIT_STATE_INSTANCE`
-   (editor builds), adds it under `parent_path`, and sets owner. Reversible via undo.
+  - `godot_scene_edit_instance_scene` (issue #80) loads a `PackedScene`, instantiates with `GEN_EDIT_STATE_INSTANCE`
+    (editor builds), adds it under `parent_path`, and sets owner. Reversible via undo.
+  - `godot_scene_edit_extract_scene` (issue #531) is the inverse: it packs the subtree at `node_path`
+    into a new `.tscn` at `scene_path` (a detached duplicate, re-owned to the pack root, saved via
+    `ResourceSaver`) — the editor's own "Save Branch as Scene". `replace_with_instance=True` removes
+    the original subtree and instances the new prefab in place in **one** UndoRedo action (undo
+    restores the original subtree wholesale; the instance root keeps its name and sibling index).
+    `save_current=True` saves the edited scene after the extract, so the prefab + (possibly replaced)
+    tree land on disk together. `dry_run=True` routes a read-only `preview` to the addon: the same
+    refusals the real run applies + the `node_count` that would be extracted, and nothing is written.
+    Refusals (#477 family, all structured `VALIDATION_ERROR` with a hint): a subtree from a
+    non-editable instanced scene ("Open '<source>' and extract there, or enable Editable Children"),
+    a subtree containing foreign-owned nodes (mixed-ownership prefab), and an existing destination
+    ("A scene already exists at '<path>'"). `server-side`: `scene_path` must be `res://…​.tscn`
+    (enforced in the tool before any bridge call).
 
 Node parity (issue #31), also in `scene_edit`:
 

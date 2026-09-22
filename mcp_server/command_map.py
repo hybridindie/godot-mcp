@@ -143,6 +143,7 @@ BARE_TO_COMMAND: dict[str, str] = {
     "scene_edit_delete_node": "cmd_delete_node",
     "scene_edit_disconnect_signal": "cmd_disconnect_signal",
     "scene_edit_duplicate_node": "cmd_duplicate_node",
+    "scene_edit_extract_scene": "cmd_extract_scene",
     "scene_edit_instance_scene": "cmd_instance_scene",
     "scene_edit_list_open_scenes": "cmd_list_open_scenes",
     "scene_edit_list_signal_connections": "cmd_list_signal_connections",
