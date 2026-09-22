@@ -329,16 +329,19 @@ built-in Godot properties** (`position`, `modulate`, `collision_layer`, …) tha
 excluded) for snapshotting before `godot_scene_edit_add_to_group`/`godot_scene_edit_remove_from_group` (#216).
 
 **Snapshot + diff (issue #535).** `godot_inspection_snapshot_subtree` serializes a subtree
-(tree shape + per-node property values: script vars, plus any built-in named in `properties`)
-and stores it server-side under a stable `snapshot_id` (`s1`, `s2`, …). The store is a bounded
-LRU (32 entries) — an evicted id errors with `RESOURCE_NOT_FOUND` and a re-snapshot hint; an
-oversized snapshot errors with `OUTPUT_LIMIT` (narrow with `max_depth`).
+(tree shape + per-node property values: script vars, transforms — position/rotation/scale
+where the class exposes them — group memberships by default, plus any further built-in named
+in `properties`) and stores it server-side under a stable `snapshot_id` (`s1`, `s2`, …). The
+store is a bounded LRU (32 entries) — an evicted id errors with `RESOURCE_NOT_FOUND` and a
+re-snapshot hint; an oversized snapshot errors with `OUTPUT_LIMIT` (narrow with `max_depth`).
 `godot_inspection_diff_snapshots` diffs two ids — or, with `after_id` unset, re-reads the same
 `node_path` live (the only diff path that touches the bridge) — into
 `{ added: [node], removed: [node], changed: [{ node, property, before, after }] }` (all empty =
-identical). The verify playbook for any mutating tool: snapshot → mutate → `diff_snapshots`
-(one round-trip instead of N re-reads). Nodes key on their scene-relative `path` (#180), so a
-diff across different snapshot depths is still well-defined per node.
+identical; group changes appear as `property: "groups"`). It is a server-side op: a
+`run_commands` batch entry naming it is refused with a call-it-directly hint. The verify
+playbook for any mutating tool: snapshot → mutate → `diff_snapshots` (one round-trip instead
+of N re-reads). Nodes key on their scene-relative `path` (#180), so a diff across different
+snapshot depths is still well-defined per node.
 
 #### Mutation (issue #6) — `mutating` (except `godot_scene_edit_delete_node`)
 

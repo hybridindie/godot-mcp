@@ -50,8 +50,10 @@ def diff_trees(before: dict[str, Any], after: dict[str, Any]) -> TreeDiff:
     per-property changed entries. Pure function over the JSON-safe snapshot dicts.
 
     Nodes are keyed by their scene-relative ``path``; a node present on both
-    sides is compared property-by-property (script vars + any snapshot-captured
-    properties), each difference emitted as ``{node, property, before, after}``.
+    sides is compared property-by-property (script vars, snapshot-captured
+    built-ins, and ``groups`` — the snapshot shape captures transforms and group
+    membership by default), each difference emitted as
+    ``{node, property, before, after}``.
     """
     added: list[str] = []
     removed: list[str] = []
@@ -75,6 +77,12 @@ def diff_trees(before: dict[str, Any], after: dict[str, Any]) -> TreeDiff:
                         "after": after_props[prop],
                     }
                 )
+        before_groups = before_node.get("groups") or []
+        after_groups = after_node.get("groups") or []
+        if before_groups != after_groups:
+            changed.append(
+                {"node": path, "property": "groups", "before": before_groups, "after": after_groups}
+            )
     for path in after_nodes:
         if path not in before_nodes:
             added.append(path)
@@ -236,13 +244,15 @@ def register_inspection(mcp: FastMCP, bridge: Bridge) -> None:
         max_depth: MaxDepth = -1,
     ) -> SnapshotResult:
         """Snapshot a subtree as a stable dict (issue #535): node paths, types, script
-        paths, and property values (script vars, plus any built-in named in
-        ``properties``; empty list = script vars only). Returns a ``snapshot_id``
-        that references the server-side store — pass it to ``diff_snapshots`` to
-        verify a batch mutation in one round-trip (mutate → diff → assert) instead
-        of N re-reads. ``max_depth`` caps depth (-1 = unlimited), like
-        ``get_scene_tree``. Errors with RESOURCE_NOT_FOUND if the path doesn't
-        resolve, or PRECONDITION_FAILED if no scene is open.
+        paths, and per-node property values. Captured by default: script vars,
+        transforms (position/rotation/scale where the class exposes them), and group
+        memberships — so transform/group changes show in a diff without naming them.
+        ``properties`` adds further built-ins by name. Returns a ``snapshot_id`` that
+        references the server-side store — pass it to ``diff_snapshots`` to verify a
+        batch mutation in one round-trip (mutate → diff → assert) instead of N
+        re-reads. ``max_depth`` caps depth (-1 = unlimited), like ``get_scene_tree``.
+        Errors with RESOURCE_NOT_FOUND if the path doesn't resolve, or
+        PRECONDITION_FAILED if no scene is open.
         """
         params = {
             "node_path": node_path,

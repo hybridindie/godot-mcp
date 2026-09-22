@@ -8,12 +8,15 @@ store is bounded (LRU) and snapshots are JSON-safe and depth-capped.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from fastmcp import Client, FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.config import ServerConfig
 from mcp_server.models.envelope import CommandEnvelope, ResponseEnvelope
+from mcp_server.models.inspection import DiffEntry, SnapshotDiff
 from mcp_server.server import create_server
 from mcp_server.snapshots import SnapshotStore
 from tests.fakes import FakeAddonConnection, connector_for
@@ -26,14 +29,16 @@ _TREE = {
     "type": "Node2D",
     "path": ".",
     "script": None,
-    "properties": {"speed": 200.0},
+    "properties": {"speed": 200.0, "position": {"x": 0.0, "y": 0.0}},
+    "groups": [],
     "children": [
         {
             "name": "Player",
             "type": "CharacterBody2D",
             "path": "Player",
             "script": "res://player.gd",
-            "properties": {"speed": 200.0},
+            "properties": {"speed": 200.0, "position": {"x": 5.0, "y": 6.0}},
+            "groups": ["enemies"],
             "children": [],
         }
     ],
@@ -110,6 +115,78 @@ async def test_snapshot_ids_stable_and_distinct() -> None:
     assert id_b == "s2"
 
 
+async def test_snapshot_default_captures_transform_and_groups() -> None:
+    # #535 ticket wording: "groups, transforms" are part of the snapshot shape —
+    # the addon captures them per node (transforms only where the class exposes them).
+    conn = FakeAddonConnection(responder=_snapshot_responder)
+    async with Client(_build(conn)) as client:
+        result = await client.call_tool("godot_inspection_snapshot_subtree", {})
+    player = result.structured_content["snapshot"]["children"][0]
+    assert player["properties"]["position"] == {"x": 5.0, "y": 6.0}
+    assert player["groups"] == ["enemies"]
+    assert result.structured_content["snapshot"]["groups"] == []
+
+
+async def test_diff_reports_group_changes() -> None:
+    # Groups are part of the snapshot shape, so a membership change between two
+    # snapshots shows up as a changed entry (property "groups").
+    before: dict[str, Any] = {
+        "name": "Main",
+        "type": "Node2D",
+        "path": ".",
+        "script": None,
+        "properties": {},
+        "groups": [],
+        "children": [
+            {
+                "name": "Player",
+                "type": "CharacterBody2D",
+                "path": "Player",
+                "script": None,
+                "properties": {},
+                "groups": ["enemies"],
+                "children": [],
+            }
+        ],
+    }
+    after: dict[str, Any] = {
+        "name": "Main",
+        "type": "Node2D",
+        "path": ".",
+        "script": None,
+        "properties": {},
+        "groups": [],
+        "children": [
+            {
+                "name": "Player",
+                "type": "CharacterBody2D",
+                "path": "Player",
+                "script": None,
+                "properties": {},
+                "groups": ["enemies", "spawnable"],
+                "children": [],
+            }
+        ],
+    }
+    store = SnapshotStore()
+    id_before = store.put(before)
+    id_after = store.put(after)
+    # Diff through the pure helper the tool delegates to.
+    from mcp_server.tools.inspection import diff_trees
+
+    diff = diff_trees(store.get(id_before) or before, store.get(id_after) or after)
+    result = SnapshotDiff(
+        added=diff["added"],
+        removed=diff["removed"],
+        changed=[DiffEntry(**e) for e in diff["changed"]],
+    )
+    assert result.changed == [
+        DiffEntry(
+            node="Player", property="groups", before=["enemies"], after=["enemies", "spawnable"]
+        )
+    ]
+
+
 async def test_diff_two_snapshots_reports_changed() -> None:
     # Snapshot s1 (speed=200), then a changed tree under s2 (speed=900).
     changed = {
@@ -117,14 +194,16 @@ async def test_diff_two_snapshots_reports_changed() -> None:
         "type": "Node2D",
         "path": ".",
         "script": None,
-        "properties": {"speed": 200.0},
+        "properties": {"speed": 200.0, "position": {"x": 0.0, "y": 0.0}},
+        "groups": [],
         "children": [
             {
                 "name": "Player",
                 "type": "CharacterBody2D",
                 "path": "Player",
                 "script": "res://player.gd",
-                "properties": {"speed": 900.0},
+                "properties": {"speed": 900.0, "position": {"x": 5.0, "y": 6.0}},
+                "groups": ["enemies"],
                 "children": [],
             }
         ],
@@ -192,6 +271,18 @@ async def test_diff_unknown_snapshot_id_is_structured_error() -> None:
         )
     assert result.is_error
     assert "RESOURCE_NOT_FOUND" in str(result.content)
+
+
+async def test_diff_snapshots_rejects_batch_entry() -> None:
+    # diff_snapshots is a server-side op: a run_commands/batch entry must get a
+    # targeted refusal, not diff params sent to the addon as bridge params.
+    from fastmcp.exceptions import ToolError
+
+    from mcp_server.command_map import resolve_command
+
+    with pytest.raises(ToolError) as exc:
+        resolve_command("inspection_diff_snapshots")
+    assert "directly" in str(exc.value)
 
 
 async def test_snapshot_store_is_bounded() -> None:

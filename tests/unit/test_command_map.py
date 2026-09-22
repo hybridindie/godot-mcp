@@ -149,6 +149,8 @@ def test_every_bridge_tool_bare_name_resolves_or_is_exempted() -> None:
         "debug_workflow", "run_tests", "run_test_scenario", "run_stress_test",
         "run_and_capture", "export_project", "assert_node_state",
         "compare_screenshots",
+        # server-side ops (only a conditional re-read touches the bridge)
+        "diff_snapshots",
     }
     # delegated fns: the literal lives in a module-level helper, not the tool fn
     delegated: dict[str, str] = {
