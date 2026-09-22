@@ -182,6 +182,15 @@ def test_script_write_kicks_a_deferred_filesystem_rescan() -> None:
     assert "get_resource_filesystem" in rescan
 
 
+def test_delete_node_invalidates_the_prop_cache() -> None:
+    """#540: the delete path must erase the deleted node's property-type cache
+    entry — Godot reuses instance ids after free, so a lingering entry would be
+    served for a new object with the same id (stale property types)."""
+    mutation = (ADDON_DIR / "handlers" / "mutation.gd").read_text()
+    handler = mutation.split("func _cmd_delete_node", 1)[1].split("\n\n\n", 1)[0]
+    assert "invalidate_prop_cache" in handler
+
+
 def test_router_registers_node_parity_commands() -> None:
     source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in (
