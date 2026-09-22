@@ -23,9 +23,9 @@ func register(handlers: Dictionary) -> void:
 
 ## Describe an engine class from ClassDB: properties (+ defaults), methods
 ## (+ typed args / return), signals, constants, enums, the inheritance chain,
-## and instantiability. `include_inherited` restricts every list to the class
-## itself (no_inheritance=true); `include_private` keeps the _-prefixed
-## entries Godot marks private.
+## and instantiability. Default flags list the class's OWN members
+## (no_inheritance=true); `include_inherited` widens every list to the full
+## ancestry; `include_private` keeps the _-prefixed entries Godot marks private.
 func _cmd_describe_class(params: Dictionary) -> Dictionary:
 	var wanted := str(params.get("class_name", ""))
 	if wanted.is_empty():

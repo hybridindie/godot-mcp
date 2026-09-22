@@ -29,9 +29,10 @@ def register_class_info(mcp: FastMCP, bridge: Bridge) -> None:
         the ``type`` fields are Variant.Type names — exactly the shapes the
         coercion layer accepts for ``set_node_property`` values. Engine classes
         only (script ``class_name`` globals are not in ClassDB; an unknown name
-        returns VALIDATION_ERROR with did-you-mean suggestions).
-        ``include_inherited=True`` restricts every list to the class itself;
-        ``include_private=True`` keeps ``_``-prefixed entries.
+        returns VALIDATION_ERROR with did-you-mean suggestions). Default flags
+        list the class's OWN members; ``include_inherited=True`` widens every
+        list to the full ancestry; ``include_private=True`` keeps
+        ``_``-prefixed entries.
         """
         if not class_name.strip():
             raise ValueError("class_name must be a non-empty class name.")
