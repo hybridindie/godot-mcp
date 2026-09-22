@@ -45,6 +45,7 @@ HANDLER_TABLE = [
     "runtime_inspect", "input_recording", "profiling", "batch", "composite",
     "export", "editor", "project_fs", "resources", "scene_session",
     "input_map", "debugger", "import_asset", "visual_shader", "project_scaffold",
+    "class_info",
 ]
 
 

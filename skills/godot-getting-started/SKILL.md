@@ -36,7 +36,7 @@ Quick map (all 28 gated toolsets):
 - **Run & verify** — headless run + output capture → `runtime` · live play-test + input sim → `input` · input actions in project settings → `input_map` · automated assertions/screenshots → `testing` · breakpoints/stepping → `debugger` · performance monitors → `profiling`
 - **Bulk & ship** — batch/cross-scene ops → `batch` · static analysis → `analysis` · export presets → `export` · import external assets → `asset_import` · editor screenshots (vision clients) → `editor`
 
-Always-on `core` extras: `godot_undo` (undo the last editor action), `godot_redo` (re-apply an undone action — `godot_list_history()` orients first), `godot_list_tools_by_safety_class()`, `godot_debug_workflow()` (diagnostics recipe), the toolset tools, and the two checks above.
+Always-on `core` extras: `godot_describe_class` (ClassDB metadata — check property/method names before setting), `godot_undo` (undo the last editor action), `godot_redo` (re-apply an undone action — `godot_list_history()` orients first), `godot_list_tools_by_safety_class()`, `godot_debug_workflow()` (diagnostics recipe), the toolset tools, and the two checks above.
 
 ## 3. The safety convention
 

@@ -463,6 +463,7 @@ If the bridge is offline: open the `godot/` project in Godot 4.4+ with the addon
 | `godot_undo()` | Undo the last editor action (always-on core) |
 | `godot_redo()` | Re-apply an undone action (mirror of undo; core) |
 | `godot_list_history()` | Inspect the editor undo history (version, depth, recent actions; read-only) |
+| `godot_describe_class()` | ClassDB metadata: properties/methods/signals/enums with Variant.Type names (core) |
 
 **Round-trip economy:** for a multi-step build (create scene → add nodes → attach script → save), prefer one `godot_composite_run_commands` batch over a sequence of single calls — the editor drains each command in ~one frame, so batching is the main throughput lever. Keep `dry_run` previews on unfamiliar mutations.
 
@@ -472,6 +473,7 @@ If the bridge is offline: open the `godot/` project in Godot 4.4+ with the addon
 - Changing `project.godot` on disk requires **Project → Reload Current Project** (or `godot_scene_edit_reload_scene()` for the scene)
 - `godot_runtime_run_and_capture()` runs the **files on disk** — save the scene first
 - Every small mutation is undoable via `godot_undo()` — but **batch sets above 20 nodes bypass undo** for performance: `godot_batch_set_property` reports `undoable: false` with a hint. Read that flag; undo will not revert the batch. `godot_redo()` re-applies an undone action; `godot_list_history()` shows `has_undo`/`has_redo` and the recent action names before you step.
+- Before guessing property or method names, run `godot_describe_class("Tween")` — its `type` fields are the exact Variant.Type names the coercion layer accepts, and `default` shows the JSON shape to pass. Saves the trial-and-error round-trips.
 - `godot_composite_run_commands` with the default `stop_on_error=true` halts at the first failure — read `aborted_at`/`skipped_count`/`hint` in the result; the trailing commands (e.g. a final `save_scene`) did **not** run.
 - A parse check right after a fresh `class_name` write may report "Could not find type" with `rescan_pending: true` — the editor's rescan hadn't flushed yet. Re-check before rewriting correct code.
 - `godot_project_set_setting` validates keys: a typo inside a known engine section is refused with a did-you-mean hint (`application/config/main_scene` → `application/run/main_scene`). Custom sections (e.g. `my_game/…`) are still accepted.

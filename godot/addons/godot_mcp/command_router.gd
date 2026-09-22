@@ -25,6 +25,7 @@ const HANDLERS: Array = [
 	preload("./handlers/animation.gd"),
 	preload("./handlers/audio.gd"),
 	preload("./handlers/batch.gd"),
+	preload("./handlers/class_info.gd"),
 	preload("./handlers/composite.gd"),
 	preload("./handlers/debugger.gd"),
 	preload("./handlers/editor.gd"),
