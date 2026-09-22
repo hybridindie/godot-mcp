@@ -86,6 +86,7 @@ BARE_TO_COMMAND: dict[str, str] = {
     "inspection_get_scene_tree": "cmd_get_scene_tree",
     "inspection_get_selected_node": "cmd_get_selected_node",
     "inspection_list_scenes": "cmd_list_scenes",
+    "inspection_snapshot_subtree": "cmd_snapshot_subtree",
     "list_history": "cmd_list_history",
     "navigation_bake_mesh": "cmd_bake_navigation_mesh",
     "navigation_get_region": "cmd_get_navigation_region",
@@ -224,6 +225,10 @@ ORCHESTRATORS: dict[str, str] = {
         " call it directly instead"
     ),
     "debug_workflow": "an aggregator over several read-only checks; call it directly instead",
+    "inspection_diff_snapshots": (
+        "a server-side diff of two stored snapshots (only its live re-read touches"
+        " the bridge); call it directly instead"
+    ),
     "assert_node_state": "polls the runtime probe (monitor + samples); call it directly instead",
     "testing_assert_node_state": (
         "polls the runtime probe (monitor + samples); call it directly instead"

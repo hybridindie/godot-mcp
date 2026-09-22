@@ -26,6 +26,7 @@ func register(handlers: Dictionary) -> void:
 	handlers["cmd_get_node_property"] = _cmd_get_node_property
 	handlers["cmd_get_node_property_list"] = _cmd_get_node_property_list
 	handlers["cmd_get_node_groups"] = _cmd_get_node_groups
+	handlers["cmd_snapshot_subtree"] = _cmd_snapshot_subtree
 
 
 # -- handlers ----------------------------------------------------------------
@@ -271,4 +272,28 @@ func _cmd_get_node_property_list(params: Dictionary) -> Dictionary:
 		"node_path": str(params["node_path"]),
 		"type": node.get_class(),
 		"properties": names,
+	})
+
+
+## Subtree snapshot for diff-based verification (issue #535): the tree shape plus
+## per-node property values, JSON-safe. Read-only; no UndoRedo (nothing mutates).
+## `properties` are built-in property names to capture beyond script vars;
+## `max_depth` caps depth (<0 unlimited) like cmd_get_scene_tree.
+func _cmd_snapshot_subtree(params: Dictionary) -> Dictionary:
+	if not params.has("node_path"):
+		return _router._fail("VALIDATION_ERROR", "'node_path' is required.")
+	var root: Node = EditorInterface.get_edited_scene_root()
+	if root == null:
+		return _router._fail("PRECONDITION_FAILED", "No scene is open.", "active_scene")
+	var node_path := Inspect.normalize_node_path(str(params["node_path"]))
+	var node: Node = root.get_node_or_null(NodePath(node_path))
+	if node == null:
+		return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(params["node_path"]))
+	var properties: Variant = params.get("properties", [])
+	if not (properties is Array):
+		return _router._fail("VALIDATION_ERROR", "'properties' must be an array of property names.")
+	var max_depth := int(params.get("max_depth", -1))
+	return _router._ok({
+		"node_path": str(params["node_path"]),
+		"snapshot": Inspect.snapshot_tree(node, max_depth, properties, root),
 	})

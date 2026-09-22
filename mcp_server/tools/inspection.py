@@ -7,13 +7,17 @@ Each is a thin wrapper that routes to the addon and returns a typed model.
 
 from __future__ import annotations
 
+from typing import Any, TypedDict
+
 from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import INSPECTION_TAG
 from mcp_server.constraints import MaxDepth
 from mcp_server.models.inspection import (
     ActiveScene,
+    DiffEntry,
     NodeGroups,
     NodeInfo,
     NodeProperty,
@@ -22,16 +26,90 @@ from mcp_server.models.inspection import (
     ScenesResult,
     SceneTree,
     SelectedNode,
+    SnapshotDiff,
+    SnapshotResult,
 )
 from mcp_server.output import TRUNCATION_HINT, over_character_limit
 from mcp_server.safety import READ_ONLY
+from mcp_server.snapshots import SnapshotStore
 from mcp_server.tools._route import route
 
 INSPECTION = {INSPECTION_TAG}
 
 
+class TreeDiff(TypedDict):
+    """The diff_trees result: added/removed node paths + property-level changes."""
+
+    added: list[str]
+    removed: list[str]
+    changed: list[dict[str, Any]]
+
+
+def diff_trees(before: dict[str, Any], after: dict[str, Any]) -> TreeDiff:
+    """Diff two serialized subtrees (issue #535): added/removed node paths and
+    per-property changed entries. Pure function over the JSON-safe snapshot dicts.
+
+    Nodes are keyed by their scene-relative ``path``; a node present on both
+    sides is compared property-by-property (script vars, snapshot-captured
+    built-ins, and ``groups`` — the snapshot shape captures transforms and group
+    membership by default), each difference emitted as
+    ``{node, property, before, after}``.
+    """
+    added: list[str] = []
+    removed: list[str] = []
+    changed: list[dict[str, Any]] = []
+    before_nodes = _flatten_nodes(before)
+    after_nodes = _flatten_nodes(after)
+    for path, before_node in before_nodes.items():
+        after_node = after_nodes.get(path)
+        if after_node is None:
+            removed.append(path)
+            continue
+        before_props = before_node.get("properties") or {}
+        after_props = after_node.get("properties") or {}
+        for prop in before_props:
+            if prop in after_props and after_props[prop] != before_props[prop]:
+                changed.append(
+                    {
+                        "node": path,
+                        "property": prop,
+                        "before": before_props[prop],
+                        "after": after_props[prop],
+                    }
+                )
+        before_groups = before_node.get("groups") or []
+        after_groups = after_node.get("groups") or []
+        if before_groups != after_groups:
+            changed.append(
+                {"node": path, "property": "groups", "before": before_groups, "after": after_groups}
+            )
+    for path in after_nodes:
+        if path not in before_nodes:
+            added.append(path)
+    return {"added": added, "removed": removed, "changed": changed}
+
+
+def _flatten_nodes(tree: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Flatten a serialized tree to {path: node}, children before parents skipped —
+    every node carries its own explicit ``path`` (#180), so no re-derivation."""
+    out: dict[str, dict[str, Any]] = {}
+
+    def walk(node: dict[str, Any]) -> None:
+        path = node.get("path", "")
+        if path:
+            out[path] = node
+        for child in node.get("children") or []:
+            walk(child)
+
+    walk(tree)
+    return out
+
+
 def register_inspection(mcp: FastMCP, bridge: Bridge) -> None:
     """Register all inspection tools on the server."""
+    # Server-owned snapshot store (issue #535): plain dicts, bounded LRU, no
+    # addon state growth. Process-wide (single-user local server, per #227/#364).
+    snapshots = SnapshotStore()
 
     @mcp.tool(meta=READ_ONLY, tags=INSPECTION)
     async def get_project_info() -> ProjectInfo:
@@ -158,3 +236,76 @@ def register_inspection(mcp: FastMCP, bridge: Bridge) -> None:
         or PRECONDITION_FAILED if no scene is open.
         """
         return NodeGroups(**await route(bridge, "cmd_get_node_groups", {"node_path": node_path}))
+
+    @mcp.tool(meta=READ_ONLY, tags=INSPECTION)
+    async def snapshot_subtree(
+        node_path: str = ".",
+        properties: list[str] | None = None,
+        max_depth: MaxDepth = -1,
+    ) -> SnapshotResult:
+        """Snapshot a subtree as a stable dict (issue #535): node paths, types, script
+        paths, and per-node property values. Captured by default: script vars,
+        transforms (position/rotation/scale where the class exposes them), and group
+        memberships — so transform/group changes show in a diff without naming them.
+        ``properties`` adds further built-ins by name. Returns a ``snapshot_id`` that
+        references the server-side store — pass it to ``diff_snapshots`` to verify a
+        batch mutation in one round-trip (mutate → diff → assert) instead of N
+        re-reads. ``max_depth`` caps depth (-1 = unlimited), like ``get_scene_tree``.
+        Errors with RESOURCE_NOT_FOUND if the path doesn't resolve, or
+        PRECONDITION_FAILED if no scene is open.
+        """
+        params = {
+            "node_path": node_path,
+            "properties": properties or [],
+            "max_depth": max_depth,
+        }
+        body = await route(bridge, "cmd_snapshot_subtree", params)
+        tree = body["snapshot"]
+        if over_character_limit(SnapshotResult(snapshot_id="x", **body).model_dump_json()):
+            raise ToolError(
+                f"OUTPUT_LIMIT: snapshot of '{node_path}' exceeds the character limit. "
+                f"Narrow with max_depth (current: {max_depth}) or snapshot a smaller subtree."
+            )
+        snapshot_id = snapshots.put(tree)
+        return SnapshotResult(snapshot_id=snapshot_id, **body)
+
+    @mcp.tool(meta=READ_ONLY, tags=INSPECTION)
+    async def diff_snapshots(
+        before_id: str,
+        after_id: str | None = None,
+        node_path: str = ".",
+    ) -> SnapshotDiff:
+        """Diff two subtree snapshots taken with ``snapshot_subtree`` (issue #535):
+        ``{added: [node], removed: [node], changed: [{node, property, before, after}]}``.
+        All three lists empty means identical. With ``after_id`` unset, the tool
+        re-reads the same ``node_path`` live and diffs snapshot-vs-now — the natural
+        acceptance check after ``batch_set_property`` / ``apply_node_edits`` /
+        ``run_commands``. Errors with RESOURCE_NOT_FOUND for an unknown/evicted id
+        (re-snapshot, the store is bounded).
+        """
+        before = snapshots.get(before_id)
+        if before is None:
+            raise ToolError(
+                f"RESOURCE_NOT_FOUND: unknown or evicted snapshot_id '{before_id}'. "
+                "Re-take the snapshot with snapshot_subtree (the store is bounded)."
+            )
+        if after_id is None:
+            body = await route(
+                bridge,
+                "cmd_snapshot_subtree",
+                {"node_path": node_path, "properties": [], "max_depth": -1},
+            )
+            after = body["snapshot"]
+        else:
+            after = snapshots.get(after_id)
+            if after is None:
+                raise ToolError(
+                    f"RESOURCE_NOT_FOUND: unknown or evicted snapshot_id '{after_id}'. "
+                    "Re-take the snapshot with snapshot_subtree (the store is bounded)."
+                )
+        diff = diff_trees(before, after)
+        return SnapshotDiff(
+            added=diff["added"],
+            removed=diff["removed"],
+            changed=[DiffEntry(**entry) for entry in diff["changed"]],
+        )

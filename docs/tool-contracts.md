@@ -307,6 +307,8 @@ states return an empty model (`is_open=False` / `tree=None` / `selected=None`), 
 | `godot_inspection_get_node_property` | `node_path: str, property: str` | `NodeProperty { node_path, property, value, exists }` | `cmd_get_node_property` |
 | `godot_inspection_get_node_property_list` | `node_path: str` | `NodePropertyList { node_path, type, properties[] }` | `cmd_get_node_property_list` |
 | `godot_inspection_get_node_groups` | `node_path: str` | `NodeGroups { node_path, groups[] }` | `cmd_get_node_groups` |
+| `godot_inspection_snapshot_subtree` | `node_path: str = ".", properties: [str] = [], max_depth: int = -1` | `SnapshotResult { snapshot_id, node_path, snapshot }` | `cmd_snapshot_subtree` |
+| `godot_inspection_diff_snapshots` | `before_id: str, after_id: str? = None, node_path: str = "."` | `SnapshotDiff { added: [node], removed: [node], changed: [DiffEntry { node, property, before, after }] }` | `cmd_snapshot_subtree` (live re-read only) |
 
 `SceneNode = { name, type, path, script?, owner?, editable_children?, children: [SceneNode] }`. Each node's `path` (#180)
 is scene-relative (`"."` for the root, e.g. `Player/Weapon` below it) and is accepted verbatim
@@ -325,6 +327,21 @@ built-in Godot properties** (`position`, `modulate`, `collision_layer`, …) tha
 (`exists=false`, value null when absent), for snapshotting a value before a set (#215).
 `godot_inspection_get_node_groups` returns a node's group memberships (editor-internal `_`-prefixed groups
 excluded) for snapshotting before `godot_scene_edit_add_to_group`/`godot_scene_edit_remove_from_group` (#216).
+
+**Snapshot + diff (issue #535).** `godot_inspection_snapshot_subtree` serializes a subtree
+(tree shape + per-node property values: script vars, transforms — position/rotation/scale
+where the class exposes them — group memberships by default, plus any further built-in named
+in `properties`) and stores it server-side under a stable `snapshot_id` (`s1`, `s2`, …). The
+store is a bounded LRU (32 entries) — an evicted id errors with `RESOURCE_NOT_FOUND` and a
+re-snapshot hint; an oversized snapshot errors with `OUTPUT_LIMIT` (narrow with `max_depth`).
+`godot_inspection_diff_snapshots` diffs two ids — or, with `after_id` unset, re-reads the same
+`node_path` live (the only diff path that touches the bridge) — into
+`{ added: [node], removed: [node], changed: [{ node, property, before, after }] }` (all empty =
+identical; group changes appear as `property: "groups"`). It is a server-side op: a
+`run_commands` batch entry naming it is refused with a call-it-directly hint. The verify
+playbook for any mutating tool: snapshot → mutate → `diff_snapshots` (one round-trip instead
+of N re-reads). Nodes key on their scene-relative `path` (#180), so a diff across different
+snapshot depths is still well-defined per node.
 
 #### Mutation (issue #6) — `mutating` (except `godot_scene_edit_delete_node`)
 

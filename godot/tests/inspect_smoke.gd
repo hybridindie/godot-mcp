@@ -23,6 +23,7 @@ func _initialize() -> void:
 	_test_node_groups(failures)
 	_test_normalize_node_path(failures)
 	_test_node_info(failures)
+	_test_snapshot_tree(failures)
 
 	if failures.is_empty():
 		print("INSPECT_TEST_OK")
@@ -211,4 +212,55 @@ func _test_node_info(failures: Array[String]) -> void:
 	_eq(failures, "info.children", info.get("children"), ["Sprite2D"])
 	# Root resolves to "." relative to itself.
 	_eq(failures, "info.root_path", Inspect.node_info(root, root).get("node_path"), ".")
+	root.free()
+
+
+func _test_snapshot_tree(failures: Array[String]) -> void:
+	# Issue #535: the snapshot shape = serialize_tree + per-node properties,
+	# with transforms and groups captured by default (review of PR #554).
+	var root := Node2D.new()
+	root.name = "Root"
+	var player := CharacterBody2D.new()
+	player.name = "Player"
+	player.set_script(Probe)
+	player.set("speed", 300.0)
+	player.position = Vector2(5, 6)
+	player.add_to_group("enemies")
+	root.add_child(player)
+
+	var snap: Dictionary = Inspect.snapshot_tree(root)
+	_eq(failures, "snap.path", snap.get("path"), ".")
+	# Default capture: transforms ride properties where the class exposes them;
+	# the bare root has no script vars, so its properties are transform-only.
+	var root_props: Dictionary = snap.get("properties", {})
+	_eq(failures, "snap.root.position", root_props.get("position"), {"x": 0.0, "y": 0.0})
+	_eq(failures, "snap.root.scale", root_props.get("scale"), {"x": 1.0, "y": 1.0})
+	_eq(failures, "snap.root.groups", snap.get("groups"), [])
+	var children: Array = snap.get("children")
+	if children.size() != 1:
+		failures.append("snap children wrong: %s" % str(children))
+	else:
+		_eq(failures, "snap.child.path", children[0].get("path"), "Player")
+		var player_props: Dictionary = children[0].get("properties", {})
+		_eq(failures, "snap.child.script_vars", player_props.get("speed"), 300.0)
+		_eq(failures, "snap.child.transform", player_props.get("position"), {"x": 5.0, "y": 6.0})
+		_eq(failures, "snap.child.groups", children[0].get("groups"), ["enemies"])
+		# JSON-safe: stringify must not error.
+		if JSON.stringify(snap) == "":
+			failures.append("snapshot is not JSON-safe")
+
+	# Requested extra built-in properties are captured (read_property semantics);
+	# an absent name is simply omitted, not an error.
+	var picked: Dictionary = Inspect.snapshot_tree(player, -1, ["modulate", "no_such_prop"], root)
+	_eq(failures, "snap.picked.path", picked.get("path"), "Player")
+	_eq(failures, "snap.picked.script_var", picked.get("properties", {}).get("speed"), 300.0)
+	# CharacterBody2D is a CanvasItem, so modulate exists and is captured.
+	_eq(failures, "snap.picked.modulate", picked.get("properties", {}).get("modulate"),
+		{"r": 1.0, "g": 1.0, "b": 1.0, "a": 1.0})
+	_eq(failures, "snap.picked.absent_omitted", picked.get("properties", {}).has("no_such_prop"), false)
+
+	# max_depth=0 ⇒ the node only, no children serialized.
+	var shallow: Dictionary = Inspect.snapshot_tree(root, 0)
+	_eq(failures, "snap.depth0", shallow.get("children"), [])
+
 	root.free()
