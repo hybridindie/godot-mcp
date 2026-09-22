@@ -30,7 +30,9 @@ signal command_received(command: String)
 ## exec_ms replaces the mislabeled latency arg).
 signal command_completed(command: String, exec_ms: float)
 
-var _peer: WebSocketPeer = null
+# _peer is untyped so tests can inject a send-recording stand-in (peer_hello
+# smoke, #537); production only ever assigns a real WebSocketPeer.
+var _peer = null
 var _router: MCPCommandRouter = null
 var _url := DEFAULT_URL
 var _active := false  # whether we should keep a connection alive (start/stop)
@@ -82,7 +84,7 @@ func get_status() -> Status:
 ## Open a fresh peer and start the non-blocking connect. _process drives the rest.
 func _open() -> int:
 	_peer = WebSocketPeer.new()
-	var err := _peer.connect_to_url(_url)
+	var err: int = _peer.connect_to_url(_url)
 	if err != OK:
 		# Bad URL / invalid state: drop the peer and back off; _process retries.
 		push_error("godot_mcp: connect_to_url(%s) failed (error %d)" % [_url, err])
@@ -109,6 +111,7 @@ func _process(delta: float) -> void:
 		WebSocketPeer.STATE_OPEN:
 			if _status != Status.CONNECTED:
 				_retry_delay = _RETRY_MIN  # connected: reset the backoff
+				_send_peer_hello()  # #537: announce identity (project_path etc.)
 			_set_status(Status.CONNECTED)
 			while _peer.get_available_packet_count() > 0:
 				_handle_text(_peer.get_packet().get_string_from_utf8())
@@ -126,6 +129,34 @@ func _process(delta: float) -> void:
 func _schedule_retry() -> void:
 	_retry_remaining = _retry_delay
 	_retry_delay = minf(_retry_delay * 2.0, _RETRY_MAX)
+
+
+## Announce this editor's identity to the server (#537): a control envelope the
+## server consumes without replying (no waiter). The server keeps it and
+## surfaces the connected editor's project path in godot_get_server_info, and
+## logs a structured "peer replaced" entry naming both paths when a second
+## editor takes over — silence is what a replaced agent can't diagnose.
+func _send_peer_hello() -> void:
+	if _peer == null:
+		return
+	var info: Dictionary = {
+		"id": "peer_hello",
+		"command": "cmd_peer_hello",
+		"params": {
+			"project_path": ProjectSettings.globalize_path("res://"),
+			"godot_version": str(Engine.get_version_info().get("string", "")),
+			"addon_version": _addon_version(),
+		},
+	}
+	_peer.send_text(JSON.stringify(info))
+
+
+func _addon_version() -> String:
+	var addon_version := ""
+	var cfg := ConfigFile.new()
+	if cfg.load("res://addons/godot_mcp/plugin.cfg") == OK:
+		addon_version = str(cfg.get_value("plugin", "version", ""))
+	return addon_version
 
 
 func _handle_text(text: String) -> void:
