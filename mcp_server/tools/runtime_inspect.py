@@ -35,12 +35,24 @@ def register_runtime_inspect(mcp: FastMCP, bridge: Bridge) -> None:
 
     @mcp.tool(meta=READ_ONLY, tags=RUNTIME_SET)
     async def monitor_property(
-        node_path: str, property: str, samples: Samples = DEFAULT_MONITOR_SAMPLES
+        node_path: str,
+        property: str,
+        samples: Samples = DEFAULT_MONITOR_SAMPLES,
+        on_change_only: bool = True,
+        epsilon: float = 0.0001,
     ) -> MonitorResult:
         """Start watching ``property`` on the running game's node at ``node_path`` (an
         absolute path from ``get_game_scene_tree``, e.g. "/root/Main/Player"). The probe
         captures ``samples`` readings, one per frame; collect them with
         ``get_property_samples``. Requires a play session + runtime probe.
+
+        Push-on-change (#536): with ``on_change_only=True`` (default) the probe queues
+        a sample only when the value changed since the last sample — exact match for
+        non-floats, ``epsilon``-tolerant for floats (also inside Vector2/3, Color
+        dicts). A static property then yields one sample instead of N duplicates, and
+        the capture still ends after ``samples`` frames, so ``get_property_samples``
+        may return fewer, deduped entries. ``on_change_only=False`` restores the
+        legacy every-frame sampling.
 
         IF THIS FAILS with "No play session":
           -> Call play_scene(scene_path) first.
@@ -50,7 +62,13 @@ def register_runtime_inspect(mcp: FastMCP, bridge: Bridge) -> None:
           -> The node_path is wrong for the LIVE tree. Use get_game_scene_tree()
              (not get_scene_tree()) to see running node paths.
         """
-        params = {"node_path": node_path, "property": property, "samples": samples}
+        params = {
+            "node_path": node_path,
+            "property": property,
+            "samples": samples,
+            "on_change_only": on_change_only,
+            "epsilon": epsilon,
+        }
         return MonitorResult(**await route(bridge, "cmd_monitor_property", params))
 
     @mcp.tool(meta=READ_ONLY, tags=RUNTIME_SET)

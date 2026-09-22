@@ -1169,14 +1169,22 @@ with #66). Requires a play session + the runtime probe.
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `godot_runtime_monitor_property` | `node_path, property, samples=30` | `MonitorResult { monitoring, node_path, property, samples }` |
-| `godot_runtime_get_property_samples` | — | `PropertySamplesResult { ready, connected, node_path, property, samples[], error }` |
+| `godot_runtime_monitor_property` | `node_path, property, samples=30, on_change_only=True, epsilon=0.0001` | `MonitorResult { monitoring, node_path, property, samples, on_change_only, epsilon }` |
+| `godot_runtime_get_property_samples` | — | `PropertySamplesResult { ready, connected, node_path, property, samples[], error, requested?, dropped_duplicates?, sampling_usec?, on_change_only? }` |
 | `godot_runtime_find_ui_elements` | `name_contains="", class_filter="", visible_only=False, timeout_ms=2000` | `UiElementsResult { ready, elements[] }` |
 
 `godot_runtime_monitor_property` captures `samples` readings of a live node's property (one per frame —
 `node_path` is an absolute path from `godot_runtime_get_game_scene_tree`); collect the `[{frame, value}]`
 series with `godot_runtime_get_property_samples` (which reports a validation `error` for a bad
-node/property). `godot_runtime_find_ui_elements` returns matching Control nodes — each
+node/property). **Push-on-change (#536):** with `on_change_only=True` (default) the probe queues a
+sample only when the value changed since the last queued one — exact match for non-floats,
+`epsilon`-tolerant for floats (recursively inside Vector2/3, Color, and array shapes). A static
+property then yields one sample instead of N duplicates; the capture still ends after `samples`
+frames, so the series may legitimately hold fewer entries (`requested` reports the frame count,
+`dropped_duplicates` the collapsed readings, `sampling_usec` the cumulative probe-side sampling
+time so the profiling surface can measure the win). `on_change_only=False` restores legacy
+every-frame sampling (a full `samples`-long series, byte-identical to pre-#536 behavior).
+`godot_runtime_find_ui_elements` returns matching Control nodes — each
 `UiElement { path, name, node_class, visible, rect{x,y,w,h}, text }` —
 and polls the probe up to `timeout_ms` for a fresh result. Each invocation carries an
 internal `request_id` (constant across its poll), so the addon dispatches exactly one
