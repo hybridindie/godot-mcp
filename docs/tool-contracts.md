@@ -1207,6 +1207,10 @@ history returns zero-values, not an error.
 
 On the first exchange with a connected editor the server fetches the addon's self-description — `cmd_get_addon_info` → `{ addon_version (from plugin.cfg), godot_version, commands: [all registered cmd_* names] }` — caches it per peer, and (a) surfaces it in `godot_get_server_info.bridge` as `addon_version` + `addon_commands`, and (b) pushes its own package version back via `cmd_server_hello` `{version}` so the **editor dock** labels the connection `godot-mcp <calVer> / Godot <x.y.z>` (the #521 fix; previously the label could never appear). A pre-handshake addon (older release) leaves both fields `None` — a graceful degrade, not an error. When the addon's command set is missing commands the server's tool surface routes to, the snapshot carries an `addon_drift_warning` naming the missing sample with an update hint, replacing opaque per-command `Unknown command` errors as the drift signal.
 
+#### Peer identity (issue #537)
+
+The addon sends a hello immediately after connecting — `cmd_peer_hello` `{project_path, godot_version, addon_version}` — a control envelope the server consumes without replying. The identity is exposed as `godot_get_server_info.bridge.peer_identity`, so the connected editor's project path is visible even before any command round-trip, and a second editor instance is diagnosable: the server logs a structured `bridge peer replaced` entry naming the previous peer's project path (or `unknown` for a pre-hello addon) when a new peer takes over. A pre-hello addon (older release) is marked identity-unknown (`peer_identity: None`), never refused.
+
 `godot_debug_workflow` aggregates multiple read-only checks — parse errors across all `.gd` files, active scene tree, headless run capture, and bridge state — into a unified report with actionable findings and suggestions.
 
 ### Class discovery — `read_only` (category: `core`)

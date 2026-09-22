@@ -45,6 +45,12 @@ class BridgeDiagnostics(BaseModel):
     # gracefully.
     addon_version: str | None = None
     addon_commands: list[str] | None = None
+    # Peer identity (issue #537): the hello the connected editor announced at
+    # connect time (project_path / godot_version / addon_version). None when
+    # the peer predates the hello (older addon) — identity unknown, not an
+    # error. Distinct from cmd_get_project_info's response: this is who the
+    # server THINKS is attached, visible even before any command round-trip.
+    peer_identity: dict[str, str] | None = None
 
 
 class ServerDiagnostics(BaseModel):
@@ -127,6 +133,7 @@ async def _fetch_bridge_diagnostics(bridge: Bridge) -> BridgeDiagnostics:
             project_path=None,
             addon_version=None,
             addon_commands=None,
+            peer_identity=None,
         )
     response = await bridge.send("cmd_get_project_info", timeout=3.0)
     if response.ok and response.result:
@@ -144,6 +151,7 @@ async def _fetch_bridge_diagnostics(bridge: Bridge) -> BridgeDiagnostics:
         project_path=result.get("project_path"),
         addon_version=addon_info.get("addon_version"),
         addon_commands=addon_info.get("commands"),
+        peer_identity=bridge.peer_identity,
     )
 
 

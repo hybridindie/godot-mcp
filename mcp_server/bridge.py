@@ -111,6 +111,11 @@ class Bridge:
         # can't both see an empty cache and both send the handshake (Qodo
         # review on PR #543: duplicate cmd_server_hello pushes otherwise).
         self._addon_info_lock = asyncio.Lock()
+        # Peer identity (issue #537): the hello the addon sends right after
+        # connecting (project_path / godot_version / addon_version). None when
+        # the peer predates the hello (older addon) — identity-unknown, never
+        # an error. Reset whenever the peer changes.
+        self._peer_identity: dict[str, Any] | None = None
 
     @property
     def connected(self) -> bool:
@@ -119,6 +124,28 @@ class Bridge:
     @property
     def url(self) -> str:
         return self._config.url
+
+    @property
+    def peer_identity(self) -> dict[str, Any] | None:
+        """The connected editor's announced identity (issue #537), or None.
+
+        ``{project_path, godot_version, addon_version}`` once the hello landed;
+        ``None`` = an older addon without the hello (identity unknown).
+        """
+        return self._peer_identity
+
+    async def adopt_identity(self, identity: dict[str, Any]) -> None:
+        """Record the connected peer's announced identity (issue #537).
+
+        Called from the read loop when a ``cmd_peer_hello`` envelope arrives
+        (and from tests). The replacement event itself is logged in ``_attach``
+        (naming the old path); this records the new identity and logs it.
+        """
+        self._peer_identity = dict(identity or {})
+        logger.info(
+            "bridge peer identity",
+            extra={"project_path": str((identity or {}).get("project_path", ""))},
+        )
 
     async def addon_info(self) -> dict[str, Any] | None:
         """The connected addon's self-description (issue #530), or None.
@@ -202,8 +229,23 @@ class Bridge:
                         await old_reader
                 self._fail_pending("BRIDGE_DISCONNECTED", "Replaced by a new editor connection.")
                 await old.close()
+                # #537: a replaced peer is never silent — the log names both
+                # project paths (or "unknown" when the old peer predated the
+                # hello), so the first editor's agent can see WHY it went dark.
+                old_path = str((self._peer_identity or {}).get("project_path", ""))
+                logger.info(
+                    "bridge peer replaced",
+                    extra={
+                        "previous_peer": old_path or "(unknown)",
+                        "new_peer": "(pending hello)",
+                    },
+                )
             # A new peer is a new addon: the cached handshake no longer describes it.
             self._addon_info = None
+            # ...and neither does its announced identity (#537): the replacement
+            # itself is logged at replacement time (above), the new identity
+            # lands when its hello arrives.
+            self._peer_identity = None
         self._conn = conn
         self._reader = asyncio.create_task(self._read_loop(conn))
         logger.debug("bridge peer connected")
@@ -229,6 +271,7 @@ class Bridge:
             self._server = None
         self._fail_pending("BRIDGE_DISCONNECTED", "Bridge closed.")
         self._addon_info = None
+        self._peer_identity = None
 
     async def send(
         self,
@@ -320,6 +363,18 @@ class Bridge:
             payload = json.loads(raw)
         except json.JSONDecodeError:
             logger.error("dropping unparseable bridge message")
+            return
+        # Peer identity hello (issue #537): a control message, not a response —
+        # no waiter exists for it, so it must be consumed here rather than
+        # falling through to the malformed-reply path.
+        if isinstance(payload, dict) and payload.get("command") == "cmd_peer_hello":
+            params = payload.get("params")
+            if isinstance(params, dict):
+                self._peer_identity = dict(params)
+                logger.info(
+                    "bridge peer identity",
+                    extra={"project_path": str(params.get("project_path", ""))},
+                )
             return
         try:
             response = ResponseEnvelope.model_validate(payload)
