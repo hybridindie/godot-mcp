@@ -51,6 +51,7 @@ BARE_TO_COMMAND: dict[str, str] = {
     "composite_compose_node": "cmd_compose_node",
     "composite_run_commands": "cmd_run_commands",
     "debugger_clear_breakpoints": "cmd_clear_breakpoints",
+    "describe_class": "cmd_describe_class",
     "debugger_continue_execution": "cmd_continue_execution",
     "debugger_evaluate_expression": "cmd_evaluate_expression",
     "debugger_force_break": "cmd_force_break",

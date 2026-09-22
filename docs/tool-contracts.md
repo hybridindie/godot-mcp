@@ -1209,6 +1209,21 @@ On the first exchange with a connected editor the server fetches the addon's sel
 
 `godot_debug_workflow` aggregates multiple read-only checks — parse errors across all `.gd` files, active scene tree, headless run capture, and bridge state — into a unified report with actionable findings and suggestions.
 
+### Class discovery — `read_only` (category: `core`)
+
+| Tool | Params | Returns | Notes |
+|------|--------|---------|-------|
+| `godot_describe_class` | `class_name: str, include_inherited: bool = False, include_private: bool = False` | `ClassInfo { class_name, inherits, inherits_chain[], can_instantiate, properties: [{name, type, default}], methods: [{name, args[{name, type}], return_type}], signals: [{name, args}], constants: [{name, value, enum}], enums: [{name, members}] }` | ClassDB metadata — call before guessing property/method names (#533) |
+
+`godot_describe_class` reads ClassDB directly — no live node, no instantiation. Use it
+before `set_node_property` / method calls: every `type` field is a Variant.Type *name*
+(`Vector2`, `float`, …) — exactly the token the addon's JSON coercion layer accepts for
+property values, and `default` is the JSON-coerced shape. Default flags list the class's
+OWN members (the focused view); `include_inherited=True` widens to the full ancestry.
+Script `class_name` globals are not in ClassDB — an unknown class returns
+`VALIDATION_ERROR` with did-you-mean suggestions drawn from engine classes plus
+`ProjectSettings.get_global_class_list()`.
+
 #### Contract / compatibility versioning (issue #196)
 
 `godot_get_server_info` carries two integers — `contract_version` and `min_compatible_contract` — that let a consuming client (e.g. [godot-agents](https://github.com/hybridindie/godot-agents)) negotiate compatibility against the **tool/envelope contract**, independent of the model layer.

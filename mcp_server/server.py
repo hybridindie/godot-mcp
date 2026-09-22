@@ -33,6 +33,7 @@ from mcp_server.tools.analysis import register_analysis
 from mcp_server.tools.animation import register_animation
 from mcp_server.tools.audio import register_audio
 from mcp_server.tools.batch import register_batch
+from mcp_server.tools.class_info import register_class_info
 from mcp_server.tools.composite import register_composite
 from mcp_server.tools.debug_workflow import register_debug_workflow
 from mcp_server.tools.debugger import register_debugger
@@ -164,6 +165,7 @@ def create_server(
 
     register_health(mcp, bridge, config)
     register_undo(mcp, bridge)
+    register_class_info(mcp, bridge)
     register_inspection(mcp, bridge)
     register_mutation(mcp, bridge)
     register_scene_session(mcp, bridge)
