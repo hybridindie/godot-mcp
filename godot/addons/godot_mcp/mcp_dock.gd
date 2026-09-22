@@ -11,7 +11,7 @@ extends HBoxContainer
 ## Layout: two columns for the wide bottom panel.
 ##   Left:  connection status (color dot + text), server/Godot version, bridge URL,
 ##          project, scene, selected node, enabled toolsets.
-##   Right: command statistics (total, last exec time, last latency), recent
+##   Right: command statistics (total, last handler-exec time), recent
 ##          command log (last N entries with timestamps).
 
 enum ConnectionStatus { DISCONNECTED, CONNECTING, CONNECTED }
@@ -45,7 +45,6 @@ var _toolsets_value: Label
 # --- Right column widgets ---
 var _cmd_count_value: Label
 var _last_exec_value: Label
-var _last_latency_value: Label
 var _log_value: Label
 
 # --- State ---
@@ -97,7 +96,6 @@ func _init() -> void:
 	right_col.add_child(stats_title)
 	_cmd_count_value = _add_field(right_col, "Total:")
 	_last_exec_value = _add_field(right_col, "Last exec:")
-	_last_latency_value = _add_field(right_col, "Latency:")
 
 	# Recent commands log
 	var log_title := Label.new()
@@ -116,7 +114,7 @@ func _init() -> void:
 	set_active_scene("")
 	set_selected_node("")
 	set_enabled_toolsets(PackedStringArray())
-	set_command_stats(0, 0.0, 0.0)
+	set_command_stats(0, 0.0)
 
 
 ## Add a "label: value" row to a container and return the value Label for later updates.
@@ -164,10 +162,9 @@ func set_enabled_toolsets(toolsets: PackedStringArray) -> void:
 		_toolsets_value.text = ", ".join(toolsets)
 
 
-func set_command_stats(count: int, last_exec_ms: float, last_latency_ms: float) -> void:
+func set_command_stats(count: int, last_exec_ms: float) -> void:
 	_cmd_count_value.text = str(count)
 	_last_exec_value.text = "%.1f ms" % last_exec_ms if last_exec_ms > 0.0 else PLACEHOLDER
-	_last_latency_value.text = "%.1f ms" % last_latency_ms if last_latency_ms > 0.0 else PLACEHOLDER
 
 
 ## Append a command to the recent log, keeping only the last MAX_LOG_ENTRIES.
@@ -226,10 +223,6 @@ func displayed_command_count() -> String:
 
 func displayed_last_exec() -> String:
 	return _last_exec_value.text
-
-
-func displayed_last_latency() -> String:
-	return _last_latency_value.text
 
 
 func displayed_log() -> String:

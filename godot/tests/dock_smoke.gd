@@ -49,19 +49,17 @@ func _initialize() -> void:
 	dock.set_enabled_toolsets(PackedStringArray())
 	_expect(failures, "toolsets_empty", dock.displayed_toolsets(), "(none)")
 
-	# === Command statistics: total, last exec, last latency ===
-	dock.set_command_stats(42, 15.3, 8.7)
+	# === Command statistics: total, last exec (#520: no latency field — the
+	# addon can only measure handler-exec time honestly) ===
+	dock.set_command_stats(42, 15.3)
 	_expect(failures, "cmd_count", dock.displayed_command_count(), "42")
-	# Last exec and latency are formatted as "X.X ms"
+	# Last exec is formatted as "X.X ms"
 	if not dock.displayed_last_exec().contains("15.3"):
 		failures.append("last_exec: expected '15.3 ms', got %s" % dock.displayed_last_exec())
-	if not dock.displayed_last_latency().contains("8.7"):
-		failures.append("last_latency: expected '8.7 ms', got %s" % dock.displayed_last_latency())
-	# Zero exec/latency shows placeholder
-	dock.set_command_stats(0, 0.0, 0.0)
+	# Zero exec shows placeholder
+	dock.set_command_stats(0, 0.0)
 	_expect(failures, "cmd_count_zero", dock.displayed_command_count(), "0")
 	_expect(failures, "last_exec_zero", dock.displayed_last_exec(), "(none)")
-	_expect(failures, "last_latency_zero", dock.displayed_last_latency(), "(none)")
 
 	# === Recent-command log keeps only the last 10 entries ===
 	for i in range(15):
