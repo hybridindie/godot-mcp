@@ -114,11 +114,17 @@ func _init() -> void:
 	# Core: pop the current scene's undo history N steps (S4). Lives on the router
 	# (not a domain handler) because it drives EditorUndoRedoManager directly.
 	_handlers["cmd_undo"] = _cmd_undo
+	# Core history parity + introspection (#529): redo mirrors undo; list_history
+	# is the read-only orientation view of the same history. Same reason to live
+	# on the router as cmd_undo — they drive EditorUndoRedoManager directly.
+	_handlers["cmd_redo"] = _cmd_redo
+	_handlers["cmd_list_history"] = _cmd_list_history
 	# Meta-command: execute a batch of sub-commands in one frame (issue #167).
 	# Lives on the router (not a domain handler) because it re-dispatches via _route.
 	_handlers["cmd_run_commands"] = _cmd_run_commands
 	_helpers = MCPHelpers.new()
 	_guards = MCPGuards.new(self)
+	_history_override = null
 	# Data-driven registration (#522): every domain handler is one HANDLERS
 	# table entry, instantiated and registered in this single loop. Instances go
 	# into _instances (a member) so the RefCounted handlers survive beyond
@@ -161,6 +167,30 @@ func _cmd_ping(_params: Dictionary) -> Dictionary:
 	return _ok({"pong": true})
 
 
+## The UndoRedo object behind the edited scene's history — the one prologue the
+## three history commands (cmd_undo / cmd_redo / cmd_list_history) share: the
+## scene's object history when a scene is open, else the global history (null
+## ur is handled by each caller, not here).
+## A test-only seam overrides this (see _history_override).
+var _history_override: UndoRedo = null
+
+
+func _scene_history_undo_redo() -> UndoRedo:
+	if _history_override != null:
+		return _history_override
+	var manager := EditorInterface.get_editor_undo_redo()
+	var root := EditorInterface.get_edited_scene_root()
+	var history_id: int = manager.get_object_history_id(root) if root != null else EditorUndoRedoManager.GLOBAL_HISTORY
+	return manager.get_history_undo_redo(history_id)
+
+
+## Test seam: pin the history commands to a specific UndoRedo object
+## (godot/tests/history_smoke.gd, where the editor's manager is unavailable).
+## Production never calls this; the plugin entry drops the seam on dispose.
+func set_history_seam(ur: UndoRedo) -> void:
+	_history_override = ur
+
+
 ## Undo the last `count` editor actions on the current scene's history (S4).
 ## Succeeds with `undone == 0` on an empty history (an empty-history undo is a
 ## no-op, not an error — the caller/reversibility ledger decides what that means).
@@ -169,10 +199,7 @@ func _cmd_undo(params: Dictionary) -> Dictionary:
 	if count < 1:
 		return _fail("VALIDATION_ERROR", "count must be >= 1")
 	var dry_run: bool = bool(params.get("dry_run", false))
-	var manager := EditorInterface.get_editor_undo_redo()
-	var root := EditorInterface.get_edited_scene_root()
-	var history_id: int = manager.get_object_history_id(root) if root != null else EditorUndoRedoManager.GLOBAL_HISTORY
-	var ur := manager.get_history_undo_redo(history_id)
+	var ur := _scene_history_undo_redo()
 	if dry_run:
 		# Preview only — the editor UndoRedo API can't report stack depth without
 		# popping, so a dry-run reports whether an undo is available and the next
@@ -189,6 +216,63 @@ func _cmd_undo(params: Dictionary) -> Dictionary:
 		ur.undo()
 		undone += 1
 	return _ok({"undone": undone, "requested": count, "last_action": last_action, "dry_run": false})
+
+
+## Redo the last `count` undone actions on the current scene's history (#529) —
+## the mirror of _cmd_undo: same history targeting, same dry-run preview shape
+## (has_redo + would_redo_next), same empty-history-is-a-no-op honesty.
+func _cmd_redo(params: Dictionary) -> Dictionary:
+	var count: int = int(params.get("count", 1))
+	if count < 1:
+		return _fail("VALIDATION_ERROR", "count must be >= 1")
+	var dry_run: bool = bool(params.get("dry_run", false))
+	var ur := _scene_history_undo_redo()
+	if dry_run:
+		var has_redo := ur != null and ur.has_redo()
+		# The action redo() would re-apply sits one past the undo pointer; 4.7
+		# has no dedicated getter, so resolve it via get_action_name(cur + 1)
+		# (guaranteed in-bounds whenever has_redo). Empty = nothing to redo.
+		var next_action := str(ur.get_action_name(ur.get_current_action() + 1)) if has_redo else ""
+		return _ok({"dry_run": true, "requested": count, "has_redo": has_redo, "would_redo_next": next_action})
+	var redone := 0
+	var last_action := ""
+	while redone < count:
+		if ur == null or not ur.has_redo():
+			break
+		# Name the action about to be redone (mirrors the undo loop's
+		# get_current_action_name() before popping).
+		last_action = str(ur.get_action_name(ur.get_current_action() + 1))
+		ur.redo()
+		redone += 1
+	return _ok({"redone": redone, "requested": count, "last_action": last_action, "dry_run": false})
+
+
+## Read-only orientation view of the current scene's undo history (#529): the
+## version counter (increments on every commit — a cheap change-detector),
+## undo/redo availability, the current action name, and the recent action
+## names via get_history_count + get_action_name (4.4+).
+func _cmd_list_history(_params: Dictionary) -> Dictionary:
+	var ur := _scene_history_undo_redo()
+	var version := ur.get_version() if ur != null else 0
+	var has_undo := ur != null and ur.has_undo()
+	var has_redo := ur != null and ur.has_redo()
+	var current := ur.get_current_action_name() if ur != null else ""
+	var depth := ur.get_history_count() if ur != null else 0
+	# Cap the orientation view: agents need the recent tail, not the whole stack.
+	var recent: Array = []
+	if ur != null:
+		for i in range(depth):
+			if recent.size() >= 20:
+				break
+			recent.append(str(ur.get_action_name(i)))
+	return _ok({
+		"version": version,
+		"has_undo": has_undo,
+		"has_redo": has_redo,
+		"current_action": current,
+		"depth": depth,
+		"recent": recent,
+	})
 
 
 ## Execute a batch of sub-commands in a single frame and return one response body

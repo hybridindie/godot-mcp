@@ -86,7 +86,22 @@ async def _run() -> None:
         assert undone["undone"] == 1, undone
         after = await _ok(bridge, "cmd_get_scene_tree", {})
         assert TARGET not in _child_names(after), "undo did not revert the create"
+
+        # #529: redo parity — re-apply the undone create, then verify the node
+        # is back and the history view reports a redoable... nothing (pointer
+        # at the top). list_history orients before the redo.
+        history = await _ok(bridge, "cmd_list_history", {})
+        assert history["has_redo"] is True, history
+        assert history["depth"] >= 1, history
+        preview = await _ok(bridge, "cmd_redo", {"count": 1, "dry_run": True})
+        assert preview["has_redo"] is True, preview
+        redone = await _ok(bridge, "cmd_redo", {"count": 1})
+        assert redone["redone"] == 1, redone
+        after_redo = await _ok(bridge, "cmd_get_scene_tree", {})
+        assert TARGET in _child_names(after_redo), "redo did not re-apply the create"
     finally:
+        # Clean the scratch scene from disk (the editor holds no unsaved copy).
+        SCRATCH_FILE.unlink(missing_ok=True)
         await bridge.close()
 
 
