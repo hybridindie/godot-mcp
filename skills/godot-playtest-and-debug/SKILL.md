@@ -48,6 +48,10 @@ godot_runtime_get_property_samples()       # [{frame, value}] once the capture c
 godot_runtime_find_ui_elements(text='Start')  # locate a Control by its text
 ```
 
+`monitor_property` dedupes by default (#536): a static property yields one sample (plus
+`dropped_duplicates`/`requested` honesty stats) instead of N identical readings. Pass
+`on_change_only=False` when you need a full every-frame series.
+
 `godot_runtime_get_game_output()` reads the running game's console — print lines, script
 errors (with stack-trace rationale), warnings — from a bounded ring with a `since_seq`
 cursor. Works while the game is paused at a debugger break: that's when crash traces are

@@ -291,10 +291,25 @@ var _monitor_property := ""
 var _monitor_remaining := 0
 var _monitor_samples: Array = []
 var _monitor_error := ""
+# #536 push-on-change state: last queued value (JSON-safe) for the change test,
+# the epsilon used for float comparisons, and frames since the last queued sample.
+var _monitor_last_value: Variant = null
+var _monitor_last_queued_frame := -1
+var _monitor_epsilon := 0.0001
+var _monitor_on_change_only := true
+var _monitor_requested := 0
+# #536 probe self-timing: cumulative microseconds spent sampling (get + change
+# test + queue), so the profiling surface can measure the frame-time win.
+var _monitor_sampling_usec := 0
+var _monitor_dropped_duplicates := 0
 
 
 ## Sample the monitored property once per frame until the requested count is reached,
 ## then push the completed series to the editor (bounded capture — no perpetual stream).
+## #536: with on_change_only (default) a sample is queued only when the JSON-coerced
+## value differs from the last queued one — exact for non-floats, epsilon-tolerant for
+## floats — and duplicates are dropped (counted). The capture still ends after
+## `samples` frames, so the series may hold fewer entries than requested.
 ## Also services force_break: an editor-requested break fires here (one ``breakpoint``
 ## inside this frame), so the game needs no cooperation.
 func _process(_delta: float) -> void:
@@ -312,12 +327,60 @@ func _process(_delta: float) -> void:
 		_monitor_error = "node not found at '%s'" % String(_monitor_target)
 		_monitor_remaining = 0
 	else:
-		_monitor_samples.append({
-			"frame": Engine.get_process_frames(),
-			"value": _json_safe(node.get(_monitor_property)),
-		})
+		var sample_start := Time.get_ticks_usec()
+		var value := _json_safe(node.get(_monitor_property))
+		if _should_queue_sample(value, Engine.get_process_frames()):
+			_monitor_samples.append({
+				"frame": Engine.get_process_frames(),
+				"value": value,
+			})
+		_monitor_sampling_usec += Time.get_ticks_usec() - sample_start
 	if _monitor_remaining <= 0:
 		_push_samples()
+
+
+## The #536 push-on-change decision for one frame's reading: queue when the value
+## differs from the last queued one (exact for non-floats, epsilon-tolerant for
+## floats) — or always, when legacy on_change_only=false. Unchanged readings are
+## dropped and counted (honest stats, never silent). Updates the last-value state.
+func _should_queue_sample(value: Variant, frame: int) -> bool:
+	var changed := not _values_equal(value, _monitor_last_value, _monitor_epsilon)
+	if _monitor_on_change_only and not changed:
+		_monitor_dropped_duplicates += 1
+		return false
+	_monitor_last_value = value
+	_monitor_last_queued_frame = frame
+	return true
+
+
+## Value equality for the #536 change test: floats compare within `epsilon`
+## (recursively for the dict/array shapes _json_safe emits), everything else
+## compares exactly. A float inside a Vector2/Color dict differs when any
+## component exceeds epsilon. Mismatched types are always a difference — GDScript
+## raises on `==` between mismatched operand types (e.g. int vs String), so the
+## type check precedes the comparison.
+func _values_equal(a: Variant, b: Variant, epsilon: float) -> bool:
+	if typeof(a) != typeof(b):
+		return false
+	if typeof(a) == TYPE_FLOAT:
+		return absf(a - b) <= epsilon
+	if typeof(a) == TYPE_DICTIONARY:
+		if (a as Dictionary).size() != (b as Dictionary).size():
+			return false
+		for key in a:
+			if not (b as Dictionary).has(key):
+				return false
+			if not _values_equal(a[key], b[key], epsilon):
+				return false
+		return true
+	if typeof(a) == TYPE_ARRAY:
+		if (a as Array).size() != (b as Array).size():
+			return false
+		for i in range((a as Array).size()):
+			if not _values_equal(a[i], b[i], epsilon):
+				return false
+		return true
+	return a == b
 
 
 func _start_monitor(d: Dictionary) -> void:
@@ -325,7 +388,15 @@ func _start_monitor(d: Dictionary) -> void:
 	_monitor_property = str(d.get("property", ""))
 	_monitor_samples = []
 	_monitor_error = ""
+	_monitor_last_value = null
+	_monitor_last_queued_frame = -1
+	_monitor_sampling_usec = 0
+	_monitor_dropped_duplicates = 0
+	# #536: dedup defaults on; epsilon clamps to a sane positive range.
+	_monitor_on_change_only = bool(d.get("on_change_only", true))
+	_monitor_epsilon = clampf(float(d.get("epsilon", 0.0001)), 0.0, 1.0e9)
 	var count := clampi(int(d.get("samples", 30)), 1, _MONITOR_MAX_SAMPLES)
+	_monitor_requested = count
 	var node := get_node_or_null(_monitor_target)
 	if node == null:
 		_monitor_error = "node not found at '%s'" % String(_monitor_target)
@@ -347,6 +418,13 @@ func _push_samples() -> void:
 		"samples": _monitor_samples,
 		"error": _monitor_error,
 		"ready": true,
+		# #536 honesty stats: the capture ran `requested` frames; `dropped_duplicates`
+		# says how many unchanged readings were collapsed, and `sampling_usec` is the
+		# cumulative probe-side sampling time (the profiling surface measures the win).
+		"requested": _monitor_requested,
+		"dropped_duplicates": _monitor_dropped_duplicates,
+		"sampling_usec": _monitor_sampling_usec,
+		"on_change_only": _monitor_on_change_only,
 	}])
 
 

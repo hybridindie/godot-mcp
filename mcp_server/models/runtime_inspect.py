@@ -12,6 +12,10 @@ class MonitorResult(BaseModel):
     node_path: str
     property: str
     samples: int = 0
+    # #536 push-on-change sampling: only changed values are queued (default);
+    # epsilon is the float-comparison tolerance for the change test.
+    on_change_only: bool = True
+    epsilon: float = 0.0001
 
 
 class PropertySample(BaseModel):

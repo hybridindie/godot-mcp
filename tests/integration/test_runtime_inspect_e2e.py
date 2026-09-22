@@ -112,16 +112,34 @@ async def _run() -> None:
         assert button["text"] == "Play"
         assert "rect" in button and button["visible"] is True
 
-        # monitor a property over time on that live node
+        # monitor a property over time on that live node. on_change_only=False
+        # pins legacy every-frame sampling so the series has exactly `samples`
+        # entries (a static position would dedupe to fewer under the #536 default).
         await _ok(
             bridge,
             "cmd_monitor_property",
-            {"node_path": button["path"], "property": "position", "samples": 5},
+            {
+                "node_path": button["path"],
+                "property": "position",
+                "samples": 5,
+                "on_change_only": False,
+            },
         )
         samples = await _poll(bridge, "cmd_get_property_samples", {})
         assert samples["error"] == ""
         assert len(samples["samples"]) == 5
         assert "value" in samples["samples"][0]
+
+        # #536: the dedup default collapses a static property to one sample.
+        await _ok(
+            bridge,
+            "cmd_monitor_property",
+            {"node_path": button["path"], "property": "position", "samples": 5},
+        )
+        dedup = await _poll(bridge, "cmd_get_property_samples", {})
+        assert dedup["error"] == ""
+        assert len(dedup["samples"]) < 5, "static property must dedupe under on_change_only"
+        assert dedup.get("dropped_duplicates", 0) >= 4
 
         # monitoring an invalid property reports an error (not a crash)
         await _ok(

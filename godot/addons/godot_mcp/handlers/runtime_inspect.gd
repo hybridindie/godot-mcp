@@ -30,11 +30,19 @@ func _cmd_monitor_property(params: Dictionary) -> Dictionary:
 	if node_path.is_empty() or property.is_empty():
 		return _router._fail("VALIDATION_ERROR", "'node_path' and 'property' are required.")
 	var samples := clampi(int(params.get("samples", 30)), 1, 300)
+	# #536 push-on-change sampling defaults on; the probe dedupes unchanged values
+	# (epsilon-tolerant for floats) unless the caller pins the legacy behavior.
+	var on_change_only := bool(params.get("on_change_only", true))
+	var epsilon := float(params.get("epsilon", 0.0001))
 	_router._debugger.clear_property_samples()  # drop any prior capture so get_ reflects this one
 	_router._debugger.send_to_probe("godot_mcp:monitor_property", [{
 		"node_path": node_path, "property": property, "samples": samples,
+		"on_change_only": on_change_only, "epsilon": epsilon,
 	}])
-	return _router._ok({"monitoring": true, "node_path": node_path, "property": property, "samples": samples})
+	return _router._ok({
+		"monitoring": true, "node_path": node_path, "property": property, "samples": samples,
+		"on_change_only": on_change_only, "epsilon": epsilon,
+	})
 
 
 
