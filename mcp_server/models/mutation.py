@@ -79,6 +79,24 @@ class InstanceSceneResult(PersistenceReport):
     dry_run: bool = False
 
 
+class ExtractSceneResult(PersistenceReport):
+    """Result of extracting a subtree into a reusable .tscn (issue #531).
+
+    ``node_count`` sizes the extracted subtree (the dry-run preview's node list
+    count). ``instance_path`` is the scene-relative path of the replacement
+    instance when ``replace_with_instance`` was requested (empty otherwise).
+    """
+
+    node_path: str
+    scene_path: str
+    extracted: bool
+    replaced: bool = False
+    saved: bool = False
+    node_count: int = 0
+    instance_path: str | None = None
+    dry_run: bool = False
+
+
 class SetEditableChildrenResult(PersistenceReport):
     node_path: str
     editable: bool

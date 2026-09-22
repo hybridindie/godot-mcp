@@ -28,6 +28,7 @@ from mcp_server.models.mutation import (
     CreateNodeResult,
     CreateSceneResult,
     DeleteNodeResult,
+    ExtractSceneResult,
     InstanceSceneResult,
     RenameNodeResult,
     SaveSceneResult,
@@ -306,6 +307,56 @@ def register_mutation(
             # #477: the instance keys on the parent (it does not exist yet).
             persistence_probe=node_probe(parent_path, probe_parent=True),
         )
+
+    @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
+    @enforce_preconditions
+    async def extract_scene(
+        node_path: str,
+        scene_path: str,
+        replace_with_instance: bool = False,
+        save_current: bool = False,
+        dry_run: bool = False,
+    ) -> ExtractSceneResult:
+        """Extract the subtree at ``node_path`` into a reusable scene file at
+        ``scene_path`` (``res://…​.tscn``) — the prefab workflow (issue #531):
+        build a subtree once, extract it, then instance it N copies with
+        ``instance_scene`` and batch-edit the prefab.
+
+        With ``replace_with_instance=True`` the original subtree is replaced by an
+        instance of the new scene in one undoable action (the editor's own
+        "Save Branch as Scene" move). With ``save_current=True`` the edited scene is
+        saved right after extraction so the new prefab file and the (possibly
+        replaced) tree are on disk together. Reversible via the editor's undo;
+        refuses subtrees inside non-editable instanced children — those would be
+        silently dropped on save (enable Editable Children or extract in the
+        source scene).
+
+        IF THIS FAILS with "comes from the instanced scene":
+          -> The target subtree belongs to another .tscn. Extract there, or call
+             set_editable_children(instance_path, True) first and re-try.
+        IF THIS FAILS with "already exists":
+          -> Pick another ``scene_path`` (or delete_resource_file first).
+        """
+        await require_active_scene(bridge)
+        await require_node_exists(bridge, node_path)
+        if not scene_path.startswith("res://") or not scene_path.endswith(".tscn"):
+            raise ToolError(
+                "VALIDATION_ERROR: scene_path must be a res:// path ending in .tscn. "
+                f"Got: '{scene_path}' [required=scene_path]"
+            )
+        params = {
+            "node_path": node_path,
+            "scene_path": scene_path,
+            "replace_with_instance": replace_with_instance,
+            "save_current": save_current,
+        }
+        if dry_run:
+            # The preview asks the addon (read-only `preview` flag): only it knows
+            # the subtree's node list and the same refusals the real run applies —
+            # one source of truth, so a preview never disagrees with the real run.
+            body = await route(bridge, "cmd_extract_scene", {**params, "preview": True})
+            return ExtractSceneResult(**body, dry_run=True)
+        return ExtractSceneResult(**await route(bridge, "cmd_extract_scene", params))
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
     @enforce_preconditions
