@@ -1166,11 +1166,13 @@ internal `request_id` (constant across its poll), so the addon dispatches exactl
 full-Control scan per call and never returns a prior identical-filter request's stale
 result. The `rect` pairs with `godot_input_simulate_mouse` to click located UI.
 
-### Editor history — `mutating` (category: `core`)
+### Editor history — `mutating` / `read_only` (category: `core`)
 
 | Tool | Params | Returns | Safety |
 |------|--------|---------|--------|
 | `godot_undo` | `count: int = 1, dry_run: bool = False` | `UndoResult { dry_run, requested, undone?, last_action?, nothing_to_undo?, has_undo?, would_undo_next? }` | `mutating` |
+| `godot_redo` | `count: int = 1, dry_run: bool = False` | `RedoResult { dry_run, requested, redone?, last_action?, nothing_to_redo?, has_redo?, would_redo_next? }` | `mutating` |
+| `godot_list_history` | — | `HistoryResult { version, has_undo, has_redo, can_redo, current_action, depth, recent: [{name}] }` | `read_only` |
 
 `godot_undo` undoes up to `count` actions on the current scene's undo history (falls
 back to the global history when no scene is open). A real undo returns
@@ -1179,6 +1181,18 @@ no-op (`undone == 0`, `nothing_to_undo == True`), not an error. `dry_run=True` p
 instead — `{ has_undo, would_undo_next }` — and performs nothing. Each response carries
 only its mode's keys (a dry-run never emits `nothing_to_undo`). `count < 1` is a
 structured `ToolError`.
+
+`godot_redo` (#529) mirrors `godot_undo` exactly for the redo direction: a real redo
+returns `{ redone, requested, last_action, nothing_to_redo }`; redoing with nothing to
+redo is a no-op; `dry_run=True` previews `{ has_redo, would_redo_next }`. `last_action`
+names the action that was re-applied (the undo pointer's next entry).
+
+`godot_list_history` (#529, read-only) is the orientation view of the same history:
+`version` (increments on commit — a cheap change-detector; undo/redo do not bump it on
+4.7), `has_undo` / `has_redo` (plus the ticket's literal `can_redo` alias of `has_redo`),
+`current_action` (the last committed action under the undo pointer), `depth`
+(`get_history_count`), and `recent` (up to 20 action names, oldest first). An empty
+history returns zero-values, not an error.
 
 ### Diagnostics & debug workflow — `read_only` (category: `core`)
 

@@ -20,12 +20,9 @@ const MIN_GODOT_MAJOR := 4
 const MIN_GODOT_MINOR := 4
 const REFRESH_INTERVAL := 2.0  # seconds between connection-status polls
 
-# Connection-status colors for the bottom-bar button icon dot.
-const _STATUS_COLORS := {
-	MCPBridge.Status.DISCONNECTED: Color(0.9, 0.3, 0.3),
-	MCPBridge.Status.CONNECTING: Color(0.9, 0.7, 0.2),
-	MCPBridge.Status.CONNECTED: Color(0.3, 0.8, 0.3),
-}
+# #539: the cached status-icon textures (one per connection status, built
+# lazily by the helper this module consumes).
+const StatusIcons := preload("./mcp_status_icons.gd")
 
 var _dock: MCPStatusDock
 var _dock_button: Button
@@ -35,10 +32,14 @@ var _router: MCPCommandRouter
 var _selection: EditorSelection
 var _refresh_timer: Timer
 var _server_version := ""
+# #539: the lazily-built, cached status-icon textures (a RefCounted helper, so
+# the textures live exactly as long as the plugin).
+var _status_icons: StatusIcons
 
 
 func _enter_tree() -> void:
 	_warn_if_unsupported_version()
+	_status_icons = StatusIcons.new()
 	_dock = MCPStatusDock.new()
 	_dock_button = add_control_to_bottom_panel(_dock, "MCP")
 	# Auto-show the bottom panel and set the initial status icon.
@@ -95,6 +96,8 @@ func _exit_tree() -> void:
 	if _bridge != null:
 		# dispose() drops the router/handler references before the node goes away.
 		_bridge.dispose()
+		# Drop the router's test-only history seam with the plugin's dispose path.
+		_router.set_history_seam(null)
 		_bridge.queue_free()
 		_bridge = null
 	_router = null
@@ -110,6 +113,7 @@ func _exit_tree() -> void:
 		_dock.queue_free()
 		_dock = null
 		_dock_button = null
+	_status_icons = null
 
 
 func _get_plugin_name() -> String:
@@ -177,20 +181,12 @@ func _on_refresh_timer() -> void:
 ## panel is open). The button icon is set as a best-effort for 4.4/4.5 where
 ## the button is the real tab toggle.
 func _update_button_icon(status: MCPBridge.Status) -> void:
-	var color: Color = _STATUS_COLORS.get(status, Color.GRAY)
 	# Best-effort: set the legacy button icon (works on 4.4/4.5, no-op on 4.7).
 	if _dock_button != null:
-		var size := 16
-		var radius := 6.0
-		var img := Image.create_empty(size, size, false, Image.FORMAT_RGBA8)
-		img.fill(Color(0, 0, 0, 0))
-		var center := Vector2(size / 2.0, size / 2.0)
-		for x in range(size):
-			for y in range(size):
-				if Vector2(x, y).distance_to(center) <= radius:
-					img.set_pixel(x, y, color)
-		var tex := ImageTexture.create_from_image(img)
-		_dock_button.icon = tex
+		# #539: three statuses → three immutable textures, built once (lazily)
+		# and cached for the plugin's lifetime — the hot path only swaps a
+		# reference (no per-status-change 256-pixel regeneration).
+		_dock_button.icon = _status_icons.texture(status as int)
 
 
 ## Human-readable name for the active scene: its file name, else the root node

@@ -135,6 +135,35 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                 cmd.id,
                 {"undone": 1, "requested": p.get("count", 1), "last_action": "Create Node"},
             )
+        case "cmd_redo":
+            if p.get("dry_run"):
+                # Preview shape: has_redo / would_redo_next, no redo performed.
+                return ResponseEnvelope.success(
+                    cmd.id,
+                    {
+                        "dry_run": True,
+                        "requested": p.get("count", 1),
+                        "has_redo": True,
+                        "would_redo_next": "Create Node",
+                    },
+                )
+            return ResponseEnvelope.success(
+                cmd.id,
+                {"redone": 1, "requested": p.get("count", 1), "last_action": "Create Node"},
+            )
+        case "cmd_list_history":
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "version": 3,
+                    "has_undo": True,
+                    "has_redo": False,
+                    "can_redo": False,
+                    "current_action": "Create Node",
+                    "depth": 2,
+                    "recent": ["Create Node", "Set Property"],
+                },
+            )
     return None  # bootstrap commands (cmd_ping/…) auto-answered by the fake
 
 
@@ -216,6 +245,11 @@ async def test_high_traffic_tools_emit_schema_consistent_structured_content() ->
         # fields and emits has_undo / would_undo_next instead.
         ("godot_undo", {}),
         ("godot_undo", {"dry_run": True}),
+        # #529: same mode-split guarantee for the redo mirror and the
+        # read-only history view.
+        ("godot_redo", {}),
+        ("godot_redo", {"dry_run": True}),
+        ("godot_list_history", {}),
     ]
     server = await _build()
     async with Client(server) as client:
