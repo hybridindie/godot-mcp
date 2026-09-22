@@ -86,6 +86,6 @@ The envelope is versioned from day one and has been shape-stable since the
 first PR: additive keys (`persisted`, `reason`, `hint`, `required`,
 `scanning`, …) never break a client, because clients ignore unknown fields.
 That is why `contract_version` has stayed at **1** through every release while
-the surface grew 184 tools. A *breaking* change (removed/renamed key, changed
+the surface grew 186 tools. A *breaking* change (removed/renamed key, changed
 required param) would bump it — and `godot_get_server_info` carries the
 counter so clients can negotiate.

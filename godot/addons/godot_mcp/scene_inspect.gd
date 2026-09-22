@@ -149,3 +149,27 @@ static func relative_path(node: Node, scene_root: Node) -> String:
 	if node == scene_root:
 		return "."
 	return String(scene_root.get_path_to(node))
+
+
+## A subtree snapshot for diff-based verification (issue #535): the serialize_tree
+## shape plus each node's property values. Properties are the node's script vars
+## (node_properties), plus any built-in names the caller lists in `properties`
+## (read_property semantics: absent names are omitted). max_depth mirrors
+## serialize_tree (<0 unlimited, 0 = node only). JSON-safe via MCPTypeCoerce.
+static func snapshot_tree(
+	node: Node, max_depth: int = -1, properties: Array = [], scene_root: Node = null
+) -> Dictionary:
+	var root: Node = scene_root if scene_root != null else node
+	var data := serialize_tree(node, max_depth, false, root)
+	data["properties"] = node_properties(node)
+	for property in properties:
+		var read := read_property(node, String(property))
+		if read["exists"]:
+			data["properties"][String(property)] = read["value"]
+	var child_data: Array = []
+	if max_depth != 0:
+		var child_depth: int = (max_depth - 1) if max_depth > 0 else -1
+		for child in node.get_children():
+			child_data.append(snapshot_tree(child, child_depth, properties, root))
+	data["children"] = child_data
+	return data

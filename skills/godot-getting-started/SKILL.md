@@ -5,7 +5,7 @@ description: Connect to and drive a Godot editor through the godot-mcp server. U
 
 # godot: getting started
 
-godot-mcp exposes the Godot editor (inspection, scene edits, scripts, runtime) over MCP. This skill documents the **2026.09.19** surface — 184 tools, 29 categories. Tools are named `godot_<toolset>_<action>`. Read this once at the start of a Godot session — it prevents the three most common failures: a version mismatch, missing tools, and unconfirmed destructive edits.
+godot-mcp exposes the Godot editor (inspection, scene edits, scripts, runtime) over MCP. This skill documents the **2026.09.19** surface — 186 tools, 29 categories. Tools are named `godot_<toolset>_<action>`. Read this once at the start of a Godot session — it prevents the three most common failures: a version mismatch, missing tools, and unconfirmed destructive edits.
 
 ## 1. Confirm the bridge and the version
 
@@ -46,6 +46,8 @@ Always-on `core` extras: `godot_describe_class` (ClassDB metadata — check prop
 - **Runtime** tools control game execution (play/stop/breakpoints) — no `dry_run`.
 
 Read results as ground truth, not decoration: batch results carry honesty flags — `godot_batch_set_property` returns `undoable` (false above 20 nodes: undo will NOT revert it), `godot_composite_run_commands` reports `aborted_at`/`skipped_count` when it halted early — and `godot_scripts_get_parse_errors` returns `rescan_pending` (a fresh-class_name "Could not find type" may be stale cache; re-check before fixing). Read these fields; they prevent double-work.
+
+**Verify mutations with snapshot + diff** (read-only, always available): `godot_inspection_snapshot_subtree(node_path)` before a batch edit, `godot_inspection_diff_snapshots(before_id)` after (diffs vs. live state) — one call returns `{added, removed, changed: [{node, property, before, after}]}` instead of N re-reads. Snapshot ids are bounded (`s1`, `s2`, …); an evicted id says so — re-snapshot.
 
 ## 4. Use the built-in workflow prompts
 

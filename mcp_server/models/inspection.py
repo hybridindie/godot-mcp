@@ -144,3 +144,36 @@ class SelectedNode(BaseModel):
     """The selected node, or ``selected=None`` when nothing is selected."""
 
     selected: NodeInfo | None = None
+
+
+class SnapshotResult(BaseModel):
+    """A subtree snapshot (issue #535): a stable id + the serialized subtree.
+
+    ``snapshot_id`` references the server-side bounded store — pass it to
+    ``diff_snapshots`` (as ``before_id``/``after_id``) instead of re-serializing.
+    """
+
+    snapshot_id: str
+    node_path: str
+    snapshot: dict[str, Any] = Field(default_factory=dict)
+
+
+class DiffEntry(BaseModel):
+    """One property-level difference between two snapshots (issue #535)."""
+
+    node: str
+    property: str
+    before: Any = None
+    after: Any = None
+
+
+class SnapshotDiff(BaseModel):
+    """The diff of two subtree snapshots (issue #535).
+
+    ``added``/``removed`` list node paths; ``changed`` lists per-property
+    before/after pairs (JSON-coerced shapes). All three empty = identical.
+    """
+
+    added: list[str] = Field(default_factory=list)
+    removed: list[str] = Field(default_factory=list)
+    changed: list[DiffEntry] = Field(default_factory=list)
