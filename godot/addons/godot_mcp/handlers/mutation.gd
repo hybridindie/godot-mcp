@@ -51,19 +51,14 @@ func _cmd_create_node(params: Dictionary) -> Dictionary:
 	# #477 (parent rule): a create under a non-editable instanced child is applied
 	# live but the new node is never saved — the engine skips the parent's subtree
 	# when packing, so the verdict keys on the parent, probed BEFORE the create
-	# (the node does not exist yet).
-	var persistence := _router._helpers.persistent_target(parent)
-	var ur := EditorInterface.get_editor_undo_redo()
-	ur.create_action("Create %s" % node.name)
-	ur.add_do_method(parent, "add_child", node)
-	ur.add_do_method(node, "set_owner", root)
-	ur.add_do_reference(node)
-	ur.add_undo_method(parent, "remove_child", node)
-	ur.commit_action()
+	# (the node does not exist yet). #528: one shared commit (mcp_helpers).
+	var committed := _router._helpers.commit_add_child_with_persistence(
+		parent, node, "Create %s" % node.name
+	)
 	return _router._ok(_router._helpers.with_persistence({
-		"node_path": Inspect.relative_path(node, root),
+		"node_path": committed["path"],
 		"created": true,
-	}, persistence))
+	}, committed["persistence"]))
 
 
 

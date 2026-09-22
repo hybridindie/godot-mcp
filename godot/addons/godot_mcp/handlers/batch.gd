@@ -154,7 +154,9 @@ func _cmd_batch_set_property(params: Dictionary) -> Dictionary:
 	var dry_run := bool(params.get("dry_run", false))
 	var applied: Array = []
 	var skipped: Array = []
-	var persistence: Array = []  # #477: one verdict per applied target
+	var persistence: Array = []  # #477: one verdict per applied target (#528: shared helper)
+	var verdict_nodes: Array = []
+	var verdict_paths: Array = []
 	var to_apply: Array = []  # only nodes that actually have the property
 	for node in targets:
 		var prop_type := _router._helpers.property_type(node, property)
@@ -166,13 +168,11 @@ func _cmd_batch_set_property(params: Dictionary) -> Dictionary:
 		to_apply.append({"node": node, "value": Coerce.from_json(value, prop_type)})
 		# #477: `_batch_targets` descends into instanced children, so a target
 		# inside a non-editable instance is individually lost on save even when
-		# the batch reports ok. Each applied target gets its own verdict.
-		var verdict := _router._helpers.persistent_target(node)
-		var entry := {"node_path": node_path, "persisted": bool(verdict.get("ok", false))}
-		if not verdict.get("ok", false):
-			entry["reason"] = str(verdict.get("reason", ""))
-			entry["hint"] = str(verdict.get("hint", ""))
-		persistence.append(entry)
+		# the batch reports ok. Each applied target gets its own verdict —
+		# stamped by the shared helper (#528).
+		verdict_nodes.append(node)
+		verdict_paths.append(node_path)
+	persistence = _router._helpers.persistence_entries(verdict_nodes, verdict_paths)
 	# Only open an UndoRedo action when at least one set is scheduled (no no-op steps).
 	# #461/#523: batches above the shared UndoRedo threshold bypass the undo
 	# stack for perf — the response must say so, or the agent believes undo

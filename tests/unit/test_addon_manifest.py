@@ -223,11 +223,19 @@ def test_router_registers_composite_commands() -> None:
     source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in ("cmd_compose_node", "cmd_batch_create_nodes", "cmd_apply_node_edits"):
         assert f'"{command}"' in source, f"router must register {command}"
-    # Each of the three composites must wrap its tree mutation in exactly one
-    # UndoRedo action: one create_action + one commit_action per handler.
+    # #528: the composites' tree mutations route through the ONE shared
+    # N-child commit (mcp_helpers.commit_add_children) — no handler hand-rolls
+    # an add-child undo block, so composite.gd hosts no create_action at all.
+    # (apply_node_edits keeps its property-only action — it touches no tree.)
     composite = (ADDON_DIR / "handlers" / "composite.gd").read_text()
-    assert composite.count(".create_action(") == 3
-    assert composite.count(".commit_action(") == 3
+    assert composite.count(".create_action(") == 1, (
+        "composite tree mutations must commit via mcp_helpers.commit_add_children (#528)"
+    )
+    assert composite.count(".commit_action(") == 1
+    helpers = (ADDON_DIR / "mcp_helpers.gd").read_text()
+    assert "func commit_add_children(" in helpers, (
+        "the shared N-child commit must live in mcp_helpers.gd (#528)"
+    )
 
 
 def test_router_registers_resource_commands() -> None:
