@@ -102,6 +102,8 @@ class HistoryResult(BaseModel):
     the agent can compare across calls. ``depth`` counts the history entries
     (``get_history_count``, 4.4+); ``recent`` names up to 20 entries, most
     recent last (``get_action_name`` indices are 0-based over the history).
+    ``can_redo`` is the #529 ticket's field name — a documented alias of
+    ``has_redo``, emitted so the envelope matches the issue's field list.
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -109,6 +111,7 @@ class HistoryResult(BaseModel):
     version: int
     has_undo: bool
     has_redo: bool
+    can_redo: bool
     current_action: str
     depth: int
     recent: list[HistoryEntry]

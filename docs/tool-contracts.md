@@ -1172,7 +1172,7 @@ result. The `rect` pairs with `godot_input_simulate_mouse` to click located UI.
 |------|--------|---------|--------|
 | `godot_undo` | `count: int = 1, dry_run: bool = False` | `UndoResult { dry_run, requested, undone?, last_action?, nothing_to_undo?, has_undo?, would_undo_next? }` | `mutating` |
 | `godot_redo` | `count: int = 1, dry_run: bool = False` | `RedoResult { dry_run, requested, redone?, last_action?, nothing_to_redo?, has_redo?, would_redo_next? }` | `mutating` |
-| `godot_list_history` | — | `HistoryResult { version, has_undo, has_redo, current_action, depth, recent: [{name}] }` | `read_only` |
+| `godot_list_history` | — | `HistoryResult { version, has_undo, has_redo, can_redo, current_action, depth, recent: [{name}] }` | `read_only` |
 
 `godot_undo` undoes up to `count` actions on the current scene's undo history (falls
 back to the global history when no scene is open). A real undo returns
@@ -1189,9 +1189,10 @@ names the action that was re-applied (the undo pointer's next entry).
 
 `godot_list_history` (#529, read-only) is the orientation view of the same history:
 `version` (increments on commit — a cheap change-detector; undo/redo do not bump it on
-4.7), `has_undo` / `has_redo`, `current_action` (the last committed action under the
-undo pointer), `depth` (`get_history_count`), and `recent` (up to 20 action names,
-oldest first). An empty history returns zero-values, not an error.
+4.7), `has_undo` / `has_redo` (plus the ticket's literal `can_redo` alias of `has_redo`),
+`current_action` (the last committed action under the undo pointer), `depth`
+(`get_history_count`), and `recent` (up to 20 action names, oldest first). An empty
+history returns zero-values, not an error.
 
 ### Diagnostics & debug workflow — `read_only` (category: `core`)
 

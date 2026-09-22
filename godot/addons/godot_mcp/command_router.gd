@@ -269,6 +269,9 @@ func _cmd_list_history(_params: Dictionary) -> Dictionary:
 		"version": version,
 		"has_undo": has_undo,
 		"has_redo": has_redo,
+		# #529 ticket field (a literal-spec alias for has_redo, emitted so the
+		# envelope matches the issue's documented field list).
+		"can_redo": has_redo,
 		"current_action": current,
 		"depth": depth,
 		"recent": recent,

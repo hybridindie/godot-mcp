@@ -45,6 +45,8 @@ func _initialize() -> void:
 	var mr: Dictionary = mid.get("result", {})
 	_eq(failures, "mid.has_undo", mr.get("has_undo"), true)
 	_eq(failures, "mid.has_redo", mr.get("has_redo"), true)
+	# #529 ticket field: can_redo is a documented alias of has_redo.
+	_eq(failures, "mid.can_redo", mr.get("can_redo"), true)
 	_eq(failures, "mid.depth", mr.get("depth"), 3)
 	# 4.7 semantics: the current action is the last COMMITTED (undone-pointer)
 	# action — after two undos that is Action A's entry. Redo re-applies the

@@ -23,18 +23,6 @@
     ".opencode/rules/graphify.md"
   ],
   "mcp": {
-    "context7": {
-      "type": "remote",
-      "url": "https://mcp.context7.com/mcp",
-      "enabled": true
-    },
-    "graphify": {
-      "_comment": "Serves graphify-out/graph.json over stdio. Uses the uv-tool-installed graphifyy venv (bare python3 can't import graphify/mcp); 'graphify-mcp' resolves to the same interpreter. Requires `uv tool install graphifyy --with mcp --with openai --with tree-sitter-language-pack` + one `graphify update .` to seed graphify-out/.",
-      "type": "local",
-      "command": ["/Users/johnd/.local/share/uv/tools/graphifyy/bin/python", "-m", "graphify.serve", "graphify-out/graph.json"],
-      "enabled": true,
-      "timeout": 10000
-    },
     "mlflow": {
       "_comment": "Disabled here: mlflow must not be a godot-mcp dependency (conflicts with the FastMCP 4.x pin). Eval->MLflow logging and the mlflow MCP server are owned by godot-agents; wire it there.",
       "type": "local",
@@ -61,8 +49,5 @@
       "uv.lock",
       "node_modules/**"
     ]
-  },
-  "plugin": [
-    ".opencode/plugins/graphify.js"
-  ]
+  }
 }

@@ -112,6 +112,7 @@ async def test_godot_list_history_returns_documented_fields() -> None:
                 "version": 7,
                 "has_undo": True,
                 "has_redo": False,
+                "can_redo": False,
                 "current_action": "Create Node",
                 "depth": 2,
                 "recent": ["Create Node", "Set Property"],
@@ -124,6 +125,8 @@ async def test_godot_list_history_returns_documented_fields() -> None:
     sc = result.structured_content
     assert sc["has_undo"] is True
     assert sc["has_redo"] is False
+    # #529 ticket field: can_redo is a documented alias of has_redo.
+    assert sc["can_redo"] is False
     assert sc["current_action"] == "Create Node"
     assert sc["depth"] == 2
     assert sc["recent"] == [{"name": "Create Node"}, {"name": "Set Property"}]
@@ -136,6 +139,7 @@ async def test_godot_list_history_empty_history_is_zero_values() -> None:
                 "version": 0,
                 "has_undo": False,
                 "has_redo": False,
+                "can_redo": False,
                 "current_action": "",
                 "depth": 0,
                 "recent": [],

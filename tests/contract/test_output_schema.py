@@ -158,6 +158,7 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                     "version": 3,
                     "has_undo": True,
                     "has_redo": False,
+                    "can_redo": False,
                     "current_action": "Create Node",
                     "depth": 2,
                     "recent": ["Create Node", "Set Property"],
