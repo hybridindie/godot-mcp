@@ -224,8 +224,16 @@ func _cmd_extract_scene(params: Dictionary) -> Dictionary:
 	# #477 honesty: refuse subtrees the edited scene does not own. Packing them
 	# produces a .tscn, but the replace-with-instance drop (and any unsaved
 	# original) would be a silent half-failure — same family as the rename refusal.
+	# A null owner on a non-root node is an unowned editor artifact (@tool-script
+	# add): it is never saved, so extraction would pack a phantom — refuse it too.
 	if node != root:
-		if node.owner != root and node.owner != null and not root.is_editable_instance(node.owner):
+		if node.owner == null:
+			return _router._fail(
+				"VALIDATION_ERROR",
+				"Node '%s' has no owner in the edited scene (e.g. it was added by a @tool script), so it is not saved — extracting it would produce a prefab of a node that vanishes on reload. Save it first (set its owner), then extract." % root.get_path_to(node),
+				"node_path",
+			)
+		if node.owner != root and not root.is_editable_instance(node.owner):
 			var source := str(node.owner.scene_file_path)
 			if source.is_empty():
 				source = "the edited scene's root"
@@ -289,13 +297,14 @@ func _cmd_extract_scene(params: Dictionary) -> Dictionary:
 		ur.create_action("Extract %s as %s" % [node.name, scene_path.get_file()])
 		ur.add_do_method(parent, "remove_child", node)
 		ur.add_do_method(parent, "add_child", instance)
+		ur.add_do_method(parent, "move_child", instance, index)
 		ur.add_do_method(instance, "set_owner", root)
 		ur.add_do_reference(instance)
 		ur.add_undo_method(parent, "remove_child", instance)
 		ur.add_undo_method(parent, "add_child", node)
+		ur.add_undo_method(parent, "move_child", node, index)
 		ur.add_undo_method(node, "set_owner", node.owner)
 		ur.commit_action()
-		parent.move_child(instance, index)
 		instance_path = Inspect.relative_path(instance, root)
 	if save_current:
 		EditorInterface.save_scene()

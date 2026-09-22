@@ -49,6 +49,16 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                         "Open 'res://enemy.tscn' and extract there, or enable Editable Children.",
                         "node_path",
                     )
+                if p.get("node_path") == "Unowned":
+                    return ResponseEnvelope.failure(
+                        cmd.id,
+                        "VALIDATION_ERROR",
+                        "Node 'Unowned' has no owner in the edited scene (e.g. it was added by a "
+                        "@tool script), so it is not saved — extracting it would produce a "
+                        "prefab of a node that vanishes on reload. Save it first (set its "
+                        "owner), then extract.",
+                        "node_path",
+                    )
                 return ResponseEnvelope.success(
                     cmd.id,
                     {
@@ -61,13 +71,12 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                         "persisted": True,
                     },
                 )
-            if p.get("node_path") == "Enemy/Part":
+            if p.get("node_path") == "Enemy/Part" or p.get("node_path") == "Unowned":
                 return ResponseEnvelope.failure(
                     cmd.id,
                     "VALIDATION_ERROR",
-                    "Node 'Part' comes from the instanced scene 'res://enemy.tscn' (Editable "
-                    "Children is off) — extracting it would silently drop those nodes on save. "
-                    "Open 'res://enemy.tscn' and extract there, or enable Editable Children.",
+                    "Node comes from the instanced scene 'res://enemy.tscn' (Editable Children "
+                    "is off) — extracting it would silently drop those nodes on save.",
                     "node_path",
                 )
             if p.get("scene_path") == "res://exists.tscn":
@@ -187,6 +196,21 @@ async def test_extract_refuses_instanced_subtree() -> None:
         )
     assert result.is_error
     assert "Editable Children" in str(result.content)
+
+
+async def test_extract_refuses_unowned_subtree() -> None:
+    # A null owner on a non-root node (a @tool-script artifact) is never saved —
+    # extraction would pack a phantom. Structured refusal, per the PR #556 review.
+    server, _ = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
+        result = await client.call_tool(
+            "godot_scene_edit_extract_scene",
+            {"node_path": "Unowned", "scene_path": "res://ghost.tscn", "dry_run": True},
+            raise_on_error=False,
+        )
+    assert result.is_error
+    assert "no owner" in str(result.content)
 
 
 async def test_extract_existing_destination_is_structured_error() -> None:
