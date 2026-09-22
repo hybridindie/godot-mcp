@@ -214,6 +214,10 @@ func _cmd_delete_node(params: Dictionary) -> Dictionary:
 	ur.add_undo_method(node, "set_owner", root)
 	ur.add_undo_reference(node)
 	ur.commit_action()
+	# #540: the delete must not leave a stale property-type cache entry behind —
+	# a later object reusing the freed instance id would be served the dead
+	# node's property types. (The liveness guard bounds this; erase closes it.)
+	_router._helpers.invalidate_prop_cache(node)
 	return _router._ok(_router._helpers.with_persistence({
 		"node_path": str(params.get("node_path")),
 		"deleted": true,
@@ -239,6 +243,10 @@ func _cmd_attach_script(params: Dictionary) -> Dictionary:
 	ur.add_do_method(node, "set_script", script)
 	ur.add_undo_method(node, "set_script", old_script)
 	ur.commit_action()
+	# #540: a script attach changes the property list (exported vars) — drop the
+	# cached types so the next read refreshes. (The miss-refresh covers this, but
+	# an explicit erase keeps the mutation paths uniform with batch/composite.)
+	_router._helpers.invalidate_prop_cache(node)
 	return _router._ok(_router._helpers.with_persistence({"node_path": str(params.get("node_path")), "script_path": script_path, "attached": true}, _router._helpers.persistent_target(node)))
 
 

@@ -330,7 +330,10 @@ func _base_states(node: Node) -> Array:
 ## Uses a per-object cache so repeated lookups (e.g. batch operations) are O(1)
 ## instead of O(n) over the property list. Cache refreshes automatically on a
 ## cache miss so attaching scripts / adding exported vars doesn't leave stale data.
-var _prop_cache: Dictionary = {}  # {Object instance_id: {name: type}}
+## Entries carry a WeakRef to the cached object (#540): Godot reuses instance ids
+## after free, so on a hit the ref is validated against the object being read —
+## a dead or mismatched entry refreshes instead of serving stale property types.
+var _prop_cache: Dictionary = {}  # {Object instance_id: {"obj": WeakRef, "props": {name: type}}}
 const MAX_PROP_CACHE_SIZE := 256
 
 func _prune_prop_cache() -> void:
@@ -339,13 +342,18 @@ func _prune_prop_cache() -> void:
 
 func property_type(obj: Object, property: String) -> int:
 	var obj_id := obj.get_instance_id()
-	var cache: Dictionary = _prop_cache.get(obj_id, {})
-	if not cache.has(property):
-		# Refresh cache on miss: property list may have changed (script attached, etc.)
+	var entry: Dictionary = _prop_cache.get(obj_id, {})
+	var cached_obj: Variant = entry.get("obj")
+	var valid_ref: bool = cached_obj is WeakRef and (cached_obj as WeakRef).get_ref() == obj
+	var cache: Dictionary = entry.get("props", {}) if valid_ref else {}
+	if not valid_ref or not cache.has(property):
+		# Refresh on miss or dead/mismatched entry: the property list may have
+		# changed (script attached, etc.), or the entry belonged to a freed
+		# object whose id was reused (#540).
 		cache = {}
-		for entry in obj.get_property_list():
-			cache[entry["name"]] = int(entry["type"])
-		_prop_cache[obj_id] = cache
+		for prop_entry in obj.get_property_list():
+			cache[prop_entry["name"]] = int(prop_entry["type"])
+		_prop_cache[obj_id] = {"obj": weakref(obj), "props": cache}
 		_prune_prop_cache()
 	return cache.get(property, -1)
 
