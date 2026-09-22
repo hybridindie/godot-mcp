@@ -24,9 +24,11 @@ const _RETRY_MAX := 5.0
 
 signal connection_changed(status: Status)
 signal command_received(command: String)
-## Emitted after each command completes with the command name, execution time
-## (handler only, in milliseconds), and round-trip latency (send to response, ms).
-signal command_completed(command: String, exec_ms: float, latency_ms: float)
+## Emitted after each command completes with the command name and handler
+## execution time in milliseconds (#520: the addon only ever *responds* to
+## commands, so a round-trip "latency" can't be measured here — one honest
+## exec_ms replaces the mislabeled latency arg).
+signal command_completed(command: String, exec_ms: float)
 
 var _peer: WebSocketPeer = null
 var _router: MCPCommandRouter = null
@@ -35,8 +37,6 @@ var _active := false  # whether we should keep a connection alive (start/stop)
 var _status: Status = Status.DISCONNECTED
 var _retry_delay := _RETRY_MIN
 var _retry_remaining := 0.0  # seconds until the next reconnect attempt
-## Per-command timing: maps command id → send timestamp (for round-trip latency).
-var _pending_times: Dictionary = {}
 
 
 func _init(router: MCPCommandRouter = null) -> void:
@@ -132,26 +132,21 @@ func _handle_text(text: String) -> void:
 	var response: Dictionary
 	var parsed: Variant = JSON.parse_string(text)
 	var cmd_name := "?"
-	var cmd_id := ""
-	var send_time := 0.0
+	var send_time := Time.get_ticks_usec()
 	if typeof(parsed) != TYPE_DICTIONARY:
 		response = {"id": "", "ok": false, "error": "VALIDATION_ERROR", "hint": "Malformed JSON envelope."}
 	else:
 		var d := parsed as Dictionary
 		cmd_name = str(d.get("command", "?"))
-		cmd_id = str(d.get("id", ""))
-		send_time = Time.get_ticks_usec()
 		response = _router.handle(parsed)
 		command_received.emit(cmd_name)
 	if _peer != null:
 		_peer.send_text(JSON.stringify(response))
-	# Compute timing: exec = handler time, latency = full round-trip.
+	# Handler execution time only (#520): the addon responds to commands, it
+	# never originates them, so there is no send-side timestamp to diff —
+	# exec_ms is the one honest number this side can measure.
 	var exec_ms := (Time.get_ticks_usec() - send_time) / 1000.0
-	var latency_ms := exec_ms  # Without a server-side timestamp, exec is our best proxy.
-	if not cmd_id.is_empty() and _pending_times.has(cmd_id):
-		latency_ms = (Time.get_ticks_usec() - float(_pending_times[cmd_id])) / 1000.0
-		_pending_times.erase(cmd_id)
-	command_completed.emit(cmd_name, exec_ms, latency_ms)
+	command_completed.emit(cmd_name, exec_ms)
 
 
 func _set_status(status: Status) -> void:

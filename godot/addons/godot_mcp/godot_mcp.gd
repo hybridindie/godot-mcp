@@ -223,10 +223,11 @@ func _server_version_label() -> String:
 	return "godot-mcp %s / %s" % [_server_version, godot_ver]
 
 
-## Handle command completion: update the dock's command statistics with
-## execution time and round-trip latency from the bridge.
-func _on_command_completed(command: String, exec_ms: float, latency_ms: float) -> void:
-	_dock.set_command_stats(_dock.get_command_count(), exec_ms, latency_ms)
+## Handle command completion: update the dock's command statistics with the
+## handler execution time from the bridge (#520: exec is the one honest number
+## the addon can measure — the latency field was dead code reporting exec).
+func _on_command_completed(command: String, exec_ms: float) -> void:
+	_dock.set_command_stats(_dock.get_command_count(), exec_ms)
 	if command == "cmd_write_script" or command == "cmd_patch_script":
 		# #417: a script write may introduce a new ``class_name`` global. The
 		# parser's global class cache only refreshes on a filesystem scan, so

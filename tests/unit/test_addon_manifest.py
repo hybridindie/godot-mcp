@@ -176,6 +176,8 @@ def test_script_write_kicks_a_deferred_filesystem_rescan() -> None:
     # Isolate the handler body by its signature — splitting on the bare name can
     # straddle two occurrences (Qodo #449 review).
     hook = entry.split("func _on_command_completed", 1)[1].split("\nfunc ", 1)[0]
+    # #520: the hook receives exec-only (no latency arg).
+    assert "func _on_command_completed(command: String, exec_ms: float)" in entry
     assert "_rescan_after_script_write.call_deferred()" in hook
     rescan = entry.split("func _rescan_after_script_write", 1)[1].split("\nfunc ", 1)[0]
     assert "scan()" in rescan
@@ -192,6 +194,16 @@ def test_delete_node_invalidates_the_prop_cache() -> None:
     assert "invalidate_prop_cache" in delete_handler
     attach_handler = mutation.split("func _cmd_attach_script", 1)[1].split("\n\n\n", 1)[0]
     assert "invalidate_prop_cache" in attach_handler
+
+
+def test_bridge_command_completed_reports_exec_only() -> None:
+    """#520: ``command_completed`` reports ONE honest number — handler exec time.
+    The old 3-arg form (exec + mislabeled round-trip latency backed by a
+    never-populated ``_pending_times`` dict) is dead code and must be gone."""
+    bridge = (ADDON_DIR / "mcp_bridge.gd").read_text()
+    assert "command_completed(command: String, exec_ms: float)" in bridge
+    assert "_pending_times" not in bridge, "dead timing state must be removed"
+    assert "latency_ms" not in bridge, "mislabeled latency must be removed"
 
 
 def test_router_registers_node_parity_commands() -> None:

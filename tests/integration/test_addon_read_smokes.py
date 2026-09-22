@@ -17,6 +17,7 @@ pytestmark = pytest.mark.skipif(GODOT_BIN is None, reason="Godot binary not inst
 SMOKES = [
     ("animation_read_smoke.gd", "ANIM_READ_TEST_OK"),
     ("audio_bus_capture_smoke.gd", "AUDIO_BUS_CAPTURE_TEST_OK"),
+    ("bridge_timing_smoke.gd", "BRIDGE_TIMING_TEST_OK"),
     ("input_action_read_smoke.gd", "INPUT_ACTION_READ_TEST_OK"),
     ("helpers_smoke.gd", "HELPERS_TEST_OK"),
     ("particle_read_smoke.gd", "PARTICLE_READ_TEST_OK"),
