@@ -243,6 +243,10 @@ func _cmd_attach_script(params: Dictionary) -> Dictionary:
 	ur.add_do_method(node, "set_script", script)
 	ur.add_undo_method(node, "set_script", old_script)
 	ur.commit_action()
+	# #540: a script attach changes the property list (exported vars) — drop the
+	# cached types so the next read refreshes. (The miss-refresh covers this, but
+	# an explicit erase keeps the mutation paths uniform with batch/composite.)
+	_router._helpers.invalidate_prop_cache(node)
 	return _router._ok(_router._helpers.with_persistence({"node_path": str(params.get("node_path")), "script_path": script_path, "attached": true}, _router._helpers.persistent_target(node)))
 
 

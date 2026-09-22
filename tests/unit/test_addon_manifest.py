@@ -183,12 +183,15 @@ def test_script_write_kicks_a_deferred_filesystem_rescan() -> None:
 
 
 def test_delete_node_invalidates_the_prop_cache() -> None:
-    """#540: the delete path must erase the deleted node's property-type cache
-    entry — Godot reuses instance ids after free, so a lingering entry would be
-    served for a new object with the same id (stale property types)."""
+    """#540: mutation paths that change an object's identity or property list must
+    erase its property-type cache entry — Godot reuses instance ids after free,
+    so a lingering entry would be served for a new object with the same id (stale
+    property types), and an attached script adds exported vars to the list."""
     mutation = (ADDON_DIR / "handlers" / "mutation.gd").read_text()
-    handler = mutation.split("func _cmd_delete_node", 1)[1].split("\n\n\n", 1)[0]
-    assert "invalidate_prop_cache" in handler
+    delete_handler = mutation.split("func _cmd_delete_node", 1)[1].split("\n\n\n", 1)[0]
+    assert "invalidate_prop_cache" in delete_handler
+    attach_handler = mutation.split("func _cmd_attach_script", 1)[1].split("\n\n\n", 1)[0]
+    assert "invalidate_prop_cache" in attach_handler
 
 
 def test_router_registers_node_parity_commands() -> None:
