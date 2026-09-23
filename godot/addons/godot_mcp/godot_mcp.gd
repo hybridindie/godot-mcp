@@ -88,6 +88,14 @@ func _enter_tree() -> void:
 	# decides the default; the dock toggle overrides it at runtime. The timer
 	# only ticks when enabled; the tick's is_scanning() guard keeps scan()
 	# off an in-flight scan (re-entrancy, #417/#453 family).
+	#
+	# Why a timer and not EditorFileSystem.sources_changed (#561 review): that
+	# signal fires only for editor-driven import changes — an external
+	# DirAccess rename/move does not fire it (verified live: no signal on an
+	# out-of-band rename), which is exactly the gap this timer closes. Wiring
+	# the signal would also stack a scan on the editor's own in-flight import
+	# scan — the is_scanning() guard makes that a no-op, so the signal adds
+	# nothing the timer doesn't already cover.
 	_auto_refresh_enabled = AutoRefreshHelper.enabled_from_env()
 	_dock.set_auto_refresh(_auto_refresh_enabled)
 	_dock.auto_refresh_toggled.connect(_on_auto_refresh_toggled)
@@ -215,7 +223,11 @@ func _run_auto_refresh_tick() -> void:
 func _on_auto_refresh_toggled(enabled: bool) -> void:
 	_auto_refresh_enabled = enabled
 	if enabled:
-		_auto_refresh_timer.start()  # waits one full interval, then ticks
+		# Timer.start() waits one interval before the first tick — consistent
+		# with the env path's autostart (PR #562 review). An immediate scan on
+		# enable would be the scan-stacking case the is_scanning() guard
+		# prevents anyway, so the delay is harmless.
+		_auto_refresh_timer.start()
 	else:
 		_auto_refresh_timer.stop()
 
