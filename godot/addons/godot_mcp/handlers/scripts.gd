@@ -127,6 +127,15 @@ func _cmd_write_script(params: Dictionary) -> Dictionary:
 
 func _cmd_patch_script(params: Dictionary) -> Dictionary:
 	var path := str(params.get("script_path", ""))
+	# Phase 1 (#207): a compiled find/replace without a build check invites broken
+	# C# — refuse .cs (defense-in-depth; the server refuses it first).
+	if path.ends_with(".cs"):
+		return _router._fail(
+			"VALIDATION_ERROR",
+			"patch_script does not edit .cs files yet — C# edits are Phase 2 (issue #207). "
+				+ "Use write_script for full-file .cs authoring.",
+			"script_path",
+		)
 	if not path.ends_with(".gd"):
 		return _router._fail("VALIDATION_ERROR", "script_path must end with .gd.")
 	if not FileAccess.file_exists(path):

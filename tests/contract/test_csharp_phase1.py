@@ -119,6 +119,21 @@ async def test_write_script_gd_has_no_build_hint() -> None:
     assert "hint" not in (result.structured_content or {})
 
 
+async def test_write_script_dry_run_cs_carries_build_hint() -> None:
+    """A dry-run of a .cs write must carry the same build hint — a preview must
+    predict the real run's guidance (PR #559 review)."""
+    server, _ = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "scripts"})
+        result = await client.call_tool(
+            "godot_scripts_write",
+            {"script_path": "res://a.cs", "content": "class A {}", "dry_run": True},
+        )
+    sc = result.structured_content
+    assert sc["dry_run"] is True
+    assert "build" in (sc.get("hint") or "").lower()
+
+
 async def test_read_script_accepts_cs() -> None:
     server, _ = _build()
     async with Client(server) as client:

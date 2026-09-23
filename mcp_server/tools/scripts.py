@@ -115,6 +115,17 @@ def register_scripts(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
         #207). GDScript is validated via ``get_parse_errors``.
         """
         params = {"script_path": script_path, "content": content}
+        if script_path.endswith(".cs"):
+            # A preview must predict the real run's guidance (PR #559 review):
+            # the build hint rides the dry-run too.
+            build_hint = (
+                "C# script written but NOT yet usable: C# is compiled, not live. Validate "
+                "via a C# build (godot_scripts_get_parse_errors does not cover .cs — "
+                "build support ships in Phase 2, issue #207); the new script is invisible "
+                "to the game until an MSBuild rebuild."
+            )
+        else:
+            build_hint = None
         if dry_run:
             # Validate the path BEFORE probing — a dry-run must not bypass the
             # res:// containment check and read a file outside the project (#205).
@@ -125,16 +136,11 @@ def register_scripts(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
                 created=not exists,
                 would_overwrite=exists,
                 previous_existed=exists,
+                hint=build_hint,
                 dry_run=True,
             )
         result = WriteScriptResult(**await route(bridge, "cmd_write_script", params))
-        if script_path.endswith(".cs"):
-            result.hint = (
-                "C# script written but NOT yet usable: C# is compiled, not live. Validate "
-                "via a C# build (godot_scripts_get_parse_errors does not cover .cs — "
-                "build support ships in Phase 2, issue #207); the new script is invisible "
-                "to the game until an MSBuild rebuild."
-            )
+        result.hint = build_hint
         return result
 
     @mcp.tool(meta=MUTATING, tags=SCRIPTS)
