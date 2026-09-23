@@ -47,6 +47,10 @@ var _cmd_count_value: Label
 var _last_exec_value: Label
 var _log_value: Label
 
+# --- Auto-refresh toggle (issue #561): opt-in timer-based filesystem scan ---
+signal auto_refresh_toggled(enabled: bool)
+var _auto_refresh_check: CheckBox
+
 # --- State ---
 var _recent: PackedStringArray = PackedStringArray()
 var _command_count := 0
@@ -106,6 +110,20 @@ func _init() -> void:
 	_log_value.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	right_col.add_child(_log_value)
 
+	# Auto-refresh toggle (issue #561): opt-in timer-based filesystem scan so
+	# external edits (agent/git/other tools) are picked up without editor
+	# focus. Default OFF; the plugin wires the signal to the timer. The dock
+	# itself never mutates the project — this toggles a plugin-local Timer.
+	_auto_refresh_check = CheckBox.new()
+	_auto_refresh_check.text = "Auto-refresh files (external edits)"
+	_auto_refresh_check.tooltip_text = (
+		"Periodically scan the filesystem so edits made outside Godot (agents, git) "
+		+ "show up without focusing the editor."
+	)
+	_auto_refresh_check.toggled.connect(func(on: bool) -> void:
+		auto_refresh_toggled.emit(on))
+	right_col.add_child(_auto_refresh_check)
+
 	# Sensible defaults before the plugin pushes real state.
 	set_connection_status(ConnectionStatus.DISCONNECTED)
 	set_server_version("")
@@ -115,6 +133,17 @@ func _init() -> void:
 	set_selected_node("")
 	set_enabled_toolsets(PackedStringArray())
 	set_command_stats(0, 0.0)
+
+
+## Set the auto-refresh checkbox without emitting the signal (plugin-init sync).
+func set_auto_refresh(enabled: bool) -> void:
+	if _auto_refresh_check.button_pressed != enabled:
+		_auto_refresh_check.set_pressed_no_signal(enabled)
+
+
+## The checkbox's current state (read-only accessor for tests/plugin).
+func displayed_auto_refresh() -> bool:
+	return _auto_refresh_check.button_pressed
 
 
 ## Add a "label: value" row to a container and return the value Label for later updates.

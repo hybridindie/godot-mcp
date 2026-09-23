@@ -61,4 +61,21 @@ GODOT_MCP_BRIDGE_URL=ws://127.0.0.1:9080 godot --path /path/to/your/game
 3. `godot_health_check()` from your agent returns
    `{"bridge_connected": true, "version": "…"}`.
 
+## Auto-refresh for external edits (optional)
+
+The editor's own external-file detection is **window-focus-driven** — files
+changed by an agent, git, or any other tool while Godot is unfocused stay
+invisible until you click into the editor. All files written *through* godot-mcp
+tools already refresh the editor's filesystem view automatically; for edits made
+outside the MCP path, enable the opt-in auto-refresh:
+
+```bash
+GODOT_MCP_AUTO_REFRESH=1 GODOT_MCP_AUTO_REFRESH_INTERVAL=10 godot --editor
+```
+
+The **MCP dock** (bottom panel) has an **Auto-refresh files** checkbox — the
+runtime override of the env default. When on, the addon runs a periodic
+`EditorFileSystem.scan()` (never stacking a scan on an in-flight one) so
+external edits are picked up within one interval without focus.
+
 Next: [configure your MCP client](getting-started-clients.md).
