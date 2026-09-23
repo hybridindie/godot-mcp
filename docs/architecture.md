@@ -54,7 +54,9 @@ a separate, explicitly-versioned channel.)
 
 - **URL:** `ws://127.0.0.1:9080` by default. Configurable on both sides (server:
   `GODOT_MCP_BRIDGE_URL`; addon: same env var) — never hard-coded in library code.
-  localhost-only, **no auth in v1**.
+  localhost-only; **opt-in shared-token auth** (`GODOT_MCP_BRIDGE_TOKEN`, issue
+  #538): unset = no auth; set = the addon authenticates as its first message and
+  a mismatch is refused at the handshake (see docs/site/reference-env-vars.md).
 - **Framing:** one JSON object per WebSocket text message. UTF-8.
 - **Connection lifecycle:** the **server listens; the editor (addon) connects out and
   reconnects** with **exponential backoff** (start ~500 ms, capped) whenever the link is
