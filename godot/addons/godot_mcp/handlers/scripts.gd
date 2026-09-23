@@ -36,8 +36,12 @@ func _cmd_get_scan_state(_params: Dictionary) -> Dictionary:
 
 func _cmd_read_script(params: Dictionary) -> Dictionary:
 	var path := str(params.get("script_path", ""))
-	if not path.ends_with(".gd"):
-		return _router._fail("VALIDATION_ERROR", "script_path must be a .gd file: '%s'." % path)
+	# #207 Phase 1: language-aware — .gd (default) and .cs both read.
+	if not path.ends_with(".gd") and not path.ends_with(".cs"):
+		return _router._fail(
+			"VALIDATION_ERROR",
+			"script_path must be a .gd or .cs file: '%s'." % path,
+		)
 	if not FileAccess.file_exists(path):
 		return _router._fail("RESOURCE_NOT_FOUND", "No script at '%s'." % path)
 	return _router._ok({"script_path": path, "content": FileAccess.get_file_as_string(path)})
@@ -48,8 +52,12 @@ func _cmd_list_scripts(params: Dictionary) -> Dictionary:
 	var directory := str(params.get("directory", "res://"))
 	if not DirAccess.dir_exists_absolute(directory):
 		return _router._fail("RESOURCE_NOT_FOUND", "No directory '%s'." % directory)
+	# #207 Phase 1: language-aware — "gd" (default) collects .gd, "cs" collects .cs.
+	var language := str(params.get("language", "gd"))
+	if language != "gd" and language != "cs":
+		return _router._fail("VALIDATION_ERROR", "language must be 'gd' or 'cs'.", "language")
 	var scripts: Array = []
-	_collect_gd(directory, scripts)
+	_collect_scripts(directory, scripts, language)
 	scripts.sort()
 	return _router._ok({"directory": directory, "scripts": scripts})
 
@@ -89,10 +97,11 @@ func _cmd_get_script_for_node(params: Dictionary) -> Dictionary:
 
 func _cmd_write_script(params: Dictionary) -> Dictionary:
 	var path := str(params.get("script_path", ""))
-	# Require a res:// .gd path (parity with the shader handler). Containment
-	# against res:// escape is enforced server-side; this is defense-in-depth.
-	if not path.begins_with("res://") or not path.ends_with(".gd"):
-		return _router._fail("VALIDATION_ERROR", "script_path must be a res:// .gd file.")
+	# Require a res:// script path (.gd or .cs, #207 Phase 1). Containment against
+	# res:// escape is enforced server-side; this is defense-in-depth.
+	if not path.begins_with("res://") \
+			or (not path.ends_with(".gd") and not path.ends_with(".cs")):
+		return _router._fail("VALIDATION_ERROR", "script_path must be a res:// .gd or .cs file.")
 	var content := str(params.get("content", ""))
 	var existed := FileAccess.file_exists(path)
 	var old := FileAccess.get_file_as_string(path) if existed else ""
@@ -138,18 +147,19 @@ func _cmd_patch_script(params: Dictionary) -> Dictionary:
 	return _router._ok({"script_path": path, "replacements": occurrences})
 
 
-func _collect_gd(directory: String, out: Array) -> void:
+func _collect_scripts(directory: String, out: Array, language: String) -> void:
 	var dir := DirAccess.open(directory)
 	if dir == null:
 		return
+	var extension := ".gd" if language == "gd" else ".cs"
 	dir.list_dir_begin()
 	var name := dir.get_next()
 	while name != "":
 		var full := directory.path_join(name)
 		if dir.current_is_dir():
 			if not name.begins_with("."):
-				_collect_gd(full, out)
-		elif name.ends_with(".gd"):
+				_collect_scripts(full, out, language)
+		elif name.ends_with(extension):
 			out.append(full)
 		name = dir.get_next()
 	dir.list_dir_end()

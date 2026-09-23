@@ -51,6 +51,18 @@ class BridgeDiagnostics(BaseModel):
     # error. Distinct from cmd_get_project_info's response: this is who the
     # server THINKS is attached, visible even before any command round-trip.
     peer_identity: dict[str, str] | None = None
+    # Scripting backend capability (issue #207 Phase 1): what the connected
+    # editor + project support, so agents branch BEFORE authoring .cs.
+    # ``csharp_build`` is False until Phase 2 ships the build primitive.
+    backend: BackendDiagnostics | None = None
+
+
+class BackendDiagnostics(BaseModel):
+    """Scripting backend capability of the connected editor/project (issue #207)."""
+
+    csharp_supported: bool = False  # the editor is a .NET build (CSharpScript in ClassDB)
+    csharp_project: bool = False  # a .csproj exists in res://
+    csharp_build: bool = False  # Phase 2: the build primitive is not shipped yet
 
 
 class ServerDiagnostics(BaseModel):
@@ -134,6 +146,7 @@ async def _fetch_bridge_diagnostics(bridge: Bridge) -> BridgeDiagnostics:
             addon_version=None,
             addon_commands=None,
             peer_identity=None,
+            backend=None,
         )
     response = await bridge.send("cmd_get_project_info", timeout=3.0)
     if response.ok and response.result:
@@ -143,6 +156,15 @@ async def _fetch_bridge_diagnostics(bridge: Bridge) -> BridgeDiagnostics:
     # The handshake is best-effort: an unreachable/older addon leaves the fields
     # None (Bridge.addon_info caches, so this costs one round-trip per peer).
     addon_info = await bridge.addon_info() or {}
+    # Backend capability (#207 Phase 1): rides cmd_get_project_info; an older
+    # addon omits the probe — None = "unknown backend", never an error.
+    backend = None
+    if "csharp_supported" in result:
+        backend = BackendDiagnostics(
+            csharp_supported=bool(result.get("csharp_supported")),
+            csharp_project=bool(result.get("csharp_project")),
+            csharp_build=False,  # Phase 2 ships the build primitive
+        )
     return BridgeDiagnostics(
         connected=True,
         url=url_str,
@@ -152,6 +174,7 @@ async def _fetch_bridge_diagnostics(bridge: Bridge) -> BridgeDiagnostics:
         addon_version=addon_info.get("addon_version"),
         addon_commands=addon_info.get("commands"),
         peer_identity=bridge.peer_identity,
+        backend=backend,
     )
 
 

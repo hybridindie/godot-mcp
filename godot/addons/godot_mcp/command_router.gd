@@ -344,7 +344,32 @@ func _cmd_get_project_info(_params: Dictionary) -> Dictionary:
 		"project_path": ProjectSettings.globalize_path("res://"),
 		"autoloads": _autoloads(),
 		"input_actions": _input_actions(),
+		# Scripting backend probe (issue #207 Phase 1): lets agents branch before
+		# authoring .cs. ``csharp_supported`` = the editor is a .NET build
+		# (CSharpScript is only in Mono/.NET builds); ``csharp_project`` = a
+		# .csproj exists in res:// (a C# project). Verified live on 4.7: a
+		# non-.NET build has neither; the fields are absent on older addons.
+		"csharp_supported": ClassDB.class_exists("CSharpScript"),
+		"csharp_project": FileAccess.file_exists(_csproj_path()),
 	})
+
+
+## The C# project file for the edited project, or "" when none: the first
+## *.csproj at res:// root (Godot names it after the project; searching by
+## pattern covers renamed projects without parsing project.godot).
+func _csproj_path() -> String:
+	var dir := DirAccess.open("res://")
+	if dir == null:
+		return ""
+	dir.list_dir_begin()
+	var name := dir.get_next()
+	while name != "":
+		if name.ends_with(".csproj"):
+			dir.list_dir_end()
+			return "res://" + name
+		name = dir.get_next()
+	dir.list_dir_end()
+	return ""
 
 
 ## Self-description for the server↔addon handshake (issue #530, fixes #521):

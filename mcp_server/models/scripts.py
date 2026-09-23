@@ -39,6 +39,9 @@ class WriteScriptResult(BaseModel):
     overwrote: bool = False
     previous_existed: bool = False
     would_overwrite: bool = False
+    # C# authoring (#207 Phase 1): a .cs write lands the bytes but is NOT usable
+    # until an MSBuild build (Phase 2) — the hint says so, never a false parse-OK.
+    hint: str | None = None
     dry_run: bool = False
 
     @model_serializer(mode="plain")
@@ -63,6 +66,8 @@ class WriteScriptResult(BaseModel):
         else:
             data["overwrote"] = overwrote
             data["previous_existed"] = previous_existed
+        if self.hint is not None:
+            data["hint"] = self.hint
         return data
 
 
