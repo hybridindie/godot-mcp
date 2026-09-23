@@ -3,7 +3,7 @@ type: index
 title: "Install the Godot addon"
 description: "Copy the addon into your project and enable it — the editor dials the server and reconnects on its own."
 created: 2026-09-19
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 # Install the Godot addon

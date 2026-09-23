@@ -1,9 +1,9 @@
 ---
 type: index
 title: "Toolset gating"
-description: "Why 187 tools are gated, how the enabled set works, and what list_changed does."
+description: "Why 192 tools are gated, how the enabled set works, and what list_changed does."
 created: 2026-09-19
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 # Toolset gating
@@ -45,7 +45,7 @@ toolset is disabled fails with a structured gating error, and
 
 ## Why the gate is worth its friction
 
-1. **Tool selection sharpness.** With 187 tools exposed, models confuse
+1. **Tool selection sharpness.** With 192 tools exposed, models confuse
    similar tools and waste calls. The default 18-tool surface fits in context
    with room to reason.
 2. **Safety surface minimization.** Destructive tools (`delete_node`,

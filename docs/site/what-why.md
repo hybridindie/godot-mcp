@@ -3,7 +3,7 @@ type: index
 title: "What & why"
 description: "The problems godot-mcp solves, and why it is built the way it is."
 created: 2026-09-19
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 # What & why
@@ -112,7 +112,7 @@ reusable for any genre and keeps the surface small.
   headless runs exist for verification).
 - **Not a game framework.** There are no gameplay tools and no game models.
 - **Not a generic MCP server for anything.** The surface is Godot-shaped by
-  design; that specificity is what makes 187 tools useful instead of 187 ways
+  design; that specificity is what makes 192 tools useful instead of 192 ways
   to say "read a file".
 
 ---

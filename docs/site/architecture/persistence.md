@@ -3,7 +3,7 @@ type: index
 title: "Persistence truth"
 description: "Whether a change will survive a scene save — the owner chain, the parent rule, per-target verdicts, and the reason tokens."
 created: 2026-09-19
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 # Persistence truth

@@ -3,7 +3,7 @@ type: index
 title: "Value shapes"
 description: "How Godot types (Vector2/3, Color, Rect2, NodePath) arrive as JSON — and how they are coerced back."
 created: 2026-09-19
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 # Value shapes

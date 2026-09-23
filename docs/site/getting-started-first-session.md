@@ -3,7 +3,7 @@ type: index
 title: "Your first session"
 description: "Orient → enable → preview → act → verify — the shape of every good godot-mcp session."
 created: 2026-09-19
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 # Your first session

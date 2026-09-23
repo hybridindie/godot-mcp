@@ -3,7 +3,7 @@ type: index
 title: "Environment variables"
 description: "Every configuration knob on both the server and the addon."
 created: 2026-09-19
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 # Environment variables

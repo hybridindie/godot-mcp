@@ -4,7 +4,7 @@ layout: home
 hero:
   name: 'godot-mcp'
   text: 'Drive a live Godot editor from an AI agent'
-  tagline: 'A generic, game-agnostic MCP server for AI-driven Godot development — inspect, mutate, run, and verify a real project over the Model Context Protocol. 187 tools across 29 gated toolsets.'
+  tagline: 'A generic, game-agnostic MCP server for AI-driven Godot development — inspect, mutate, run, and verify a real project over the Model Context Protocol. 192 tools across 29 gated toolsets.'
   actions:
     - theme: brand
       text: What & why
@@ -21,7 +21,7 @@ features:
     details: Every action happens against the live editor — the same scene the human sees, with the editor's own undo stack covering agent actions. File-blind agents drift; this one doesn't.
   - title: Safety is a product, not a flag
     details: Every tool carries a safety class. Destructive tools require confirm. dry_run previews run the same persistence rule the real run will. All safety lives in the server — never in the addon.
-  - title: 187 tools, gated on demand
+  - title: 192 tools, gated on demand
     details: Only core + inspection are exposed by default. The agent enables toolsets as needed — a small surface keeps tool-selection sharp. New categories always register gated off.
   - title: Honest results, not optimistic ones
     details: Every mutation stamps a persistence verdict; batches report undoable and aborted_at; parse checks flag rescan_pending; timeouts are distinguished from crashes.

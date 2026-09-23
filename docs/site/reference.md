@@ -3,7 +3,7 @@ type: index
 title: "Reference"
 description: "The tool surface in tables — toolsets, safety classes, value shapes, errors, and env vars."
 created: 2026-09-19
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 # Reference

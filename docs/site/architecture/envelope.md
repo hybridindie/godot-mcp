@@ -3,7 +3,7 @@ type: index
 title: "The JSON envelope"
 description: "Command and response shapes, the error-code enum, id correlation, and structured hints."
 created: 2026-09-19
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 # The JSON envelope
@@ -86,6 +86,6 @@ The envelope is versioned from day one and has been shape-stable since the
 first PR: additive keys (`persisted`, `reason`, `hint`, `required`,
 `scanning`, …) never break a client, because clients ignore unknown fields.
 That is why `contract_version` has stayed at **1** through every release while
-the surface grew 187 tools. A *breaking* change (removed/renamed key, changed
+the surface grew 192 tools. A *breaking* change (removed/renamed key, changed
 required param) would bump it — and `godot_get_server_info` carries the
 counter so clients can negotiate.

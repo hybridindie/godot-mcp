@@ -3,7 +3,7 @@ type: index
 title: "Remote access & OpenWebUI"
 description: "Drive Godot over HTTP from another machine — OpenWebUI, Docker, VPN-from-a-phone."
 created: 2026-09-19
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 # Remote access & OpenWebUI

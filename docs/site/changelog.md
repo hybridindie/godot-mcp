@@ -3,7 +3,7 @@ type: index
 title: "Changelog"
 description: "Release history for godot-mcp."
 created: 2026-09-19
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 # Changelog
@@ -11,6 +11,54 @@ updated: 2026-09-19
 Full release notes live on
 [GitHub Releases](https://github.com/hybridindie/godot-mcp/releases). This page
 summarizes the recent ones.
+
+## 2026.09.23 — Prefab workflow, snapshot verification, C# authoring
+
+Closes the authoring gaps: the editor's inverse moves, one-round-trip
+verification, and C# authoring behind a capability gate. Surface: **192 tools**
+(was 184). All changes additive — `contract_version` stays 1.
+
+- **Extract subtree to PackedScene (#531)** — `godot_scene_edit_extract_scene`
+  (`mutating`): the editor's "Save Branch as Scene" — packs a subtree into a
+  reusable `.tscn`, optionally replacing it with an instance in one UndoRedo
+  action; refuses non-owned/mixed-ownership subtrees (#477 family).
+- **Move/rename project file (#532)** — `godot_project_move_file`
+  (`mutating`): `res://` move with project-wide dependency remap (path + uid
+  forms), `.uid` sidecar relocation, uid re-point; structured refusals for
+  missing source / existing destination / open-and-unsaved scene; honest
+  `undoable: false` with a recovery hint.
+- **Snapshot + diff a subtree (#535)** — `godot_inspection_snapshot_subtree`
+  + `godot_inspection_diff_snapshots` (both `read_only`): verify a batch
+  mutation in one round-trip; server-side bounded LRU store; group changes
+  surface as `property: "groups"`.
+- **Push-on-change property sampling (#536)** — `monitor_property` dedupes
+  unchanged values by default (epsilon-tolerant floats, recursively through
+  Vector2/Color shapes); `requested`/`dropped_duplicates`/`sampling_usec`
+  honesty stats; `on_change_only=False` restores legacy sampling.
+- **Optional bridge auth token (#538)** — `GODOT_MCP_BRIDGE_TOKEN` on both
+  sides; the addon authenticates as its first message; a mismatch is refused
+  at the handshake with a structured envelope (reconnect loop shows the
+  reason); unset = byte-identical no-auth path. Never logged.
+- **C# Phase 1 (#207)** — language-aware script authoring: read/write/list
+  accept `.cs` (default GDScript, contracts unchanged); `list` gains
+  `language=gd|cs`; a `.cs` write carries a validate-via-build hint (never a
+  false parse-OK); parse/patch refuse `.cs` until Phase 2 (#560);
+  `get_server_info().bridge.backend` surfaces
+  `{csharp_supported, csharp_project, csharp_build}`.
+- **ClassDB discovery (#533)** — `godot_describe_class`: properties/methods/
+  signals for agent discovery before setting.
+- **Game console output (#534)** — `godot_runtime_get_game_output`: the
+  running game's stdout/stderr/script errors from a bounded ring.
+- **Server↔addon handshake (#530/#521)** — `cmd_get_addon_info` cached per
+  peer; `get_server_info` exposes `addon_version`/`addon_commands` + a drift
+  warning; the dock labels `godot-mcp <ver> / Godot <ver>`.
+- **Peer identity (#537)** — the addon announces project path/Godot/addon
+  versions at connect; peer replacement is logged naming both paths.
+- **Undo/redo parity (#529)** — `godot_redo` + `godot_list_history`.
+- Refactors: single-sourced add-child undo commits (#528), unified
+  probe/break guards (#526), shared helpers extraction (#546), honest
+  `command_completed` exec_ms (#520), prop-cache staleness fix (#540), dock
+  status-icon texture cache (#539).
 
 ## 2026.09.19 — Persistence truth everywhere + verification tools
 

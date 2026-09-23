@@ -3,12 +3,12 @@ type: index
 title: "Prompts & resources"
 description: "The 9 workflow prompts and the 4 godot:// read-only resources — the surfaces beyond tools."
 created: 2026-09-19
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 # Prompts & resources
 
-Beyond the 184 tools, the server exposes two more MCP surfaces: **prompts**
+Beyond the 192 tools, the server exposes two more MCP surfaces: **prompts**
 (step-numbered workflow templates the agent renders for guidance) and
 **resources** (read-only `godot://` snapshots the host can fetch).
 

@@ -3,7 +3,7 @@ type: index
 title: "Configure your MCP client"
 description: "Register godot-mcp in OpenCode, Claude, or any MCP host — stdio or HTTP."
 created: 2026-09-19
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 # Configure your MCP client

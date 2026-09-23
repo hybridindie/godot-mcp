@@ -3,7 +3,7 @@ type: index
 title: "Play-test & debug"
 description: "The live loop — play, inspect, simulate input, assert, break and step through the debugger."
 created: 2026-09-19
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 # Play-test & debug

@@ -3,7 +3,7 @@ type: index
 title: "Core concepts"
 description: "Toolsets, safety classes, the envelope, tool naming, and honesty fields — the vocabulary the rest of the docs assume."
 created: 2026-09-19
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 # Core concepts
@@ -18,7 +18,7 @@ a toolset on with `godot_enable_toolset("scene_edit")`, which writes into a
 server-global enabled set and (since 2026.09.17) emits
 `notifications/tools/list_changed` so clients refresh their cached registry.
 
-Why gate at all? 187 tools in the context window degrade tool-selection and
+Why gate at all? 192 tools in the context window degrade tool-selection and
 burn tokens. The default surface (`core` + `inspection` — 18 tools) is enough
 to orient and inspect; the agent pulls in `scene_edit` only when it means to
 edit. `godot_list_toolsets()` is always authoritative.
@@ -92,7 +92,7 @@ Results carry structured self-reporting that reads as ground truth:
 `godot_get_server_info` carries `contract_version` (breaking-change counter,
 currently **1**) and `min_compatible_contract`. A client is compatible when
 `min ≤ client ≤ contract`. Additive changes (new tools, optional fields) never
-bump it; removals/renames do. The CalVer build version (`2026.09.19`) moves
+bump it; removals/renames do. The CalVer build version (`2026.09.23`) moves
 every release and is *not* the compatibility signal.
 
 ---

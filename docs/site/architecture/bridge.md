@@ -3,7 +3,7 @@ type: index
 title: "Bridge & transport"
 description: "The WebSocket contract — connection direction, backoff, timeouts, and configuration."
 created: 2026-09-19
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 # Bridge & transport

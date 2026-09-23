@@ -3,7 +3,7 @@ type: index
 title: "Install the MCP server"
 description: "Three ways to run godot-editor-mcp — PyPI, Docker, or from source."
 created: 2026-09-19
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 # Install the MCP server

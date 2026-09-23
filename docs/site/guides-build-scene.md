@@ -3,7 +3,7 @@ type: index
 title: "Build a scene"
 description: "Scaffold → nodes → script → collision → save, with previews and persistence verdicts at each step."
 created: 2026-09-19
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 # Build a scene

@@ -3,7 +3,7 @@ type: index
 title: "Architecture"
 description: "The four-layer transport chain, the bridge contract, and where every responsibility lives."
 created: 2026-09-19
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 # Architecture
@@ -17,7 +17,7 @@ flowchart LR
         AI["AI client (OpenCode / Claude / any MCP client)"]
     end
     subgraph server["godot-mcp server (Python)"]
-        SRV["FastMCP server 187 tools · safety · Pydantic models"]
+        SRV["FastMCP server 192 tools · safety · Pydantic models"]
         BR["WebSocket listener ws://127.0.0.1:9080"]
     end
     subgraph addon["godot-mcp addon (GDScript)"]

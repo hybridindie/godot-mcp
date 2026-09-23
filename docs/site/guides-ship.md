@@ -3,7 +3,7 @@ type: index
 title: "Ship: export, tests & CI"
 description: "The ship loop — export builds, run test suites headlessly, and wire the verification into CI."
 created: 2026-09-19
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 # Ship: export, tests & CI

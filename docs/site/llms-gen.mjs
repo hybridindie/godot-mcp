@@ -30,7 +30,7 @@ const SITE_URL = 'https://hybridindie.github.io/godot-mcp/'
 const TITLE = 'godot-mcp'
 const SUMMARY =
   'Bridge an AI agent and a live Godot editor over MCP — inspect, mutate, run, ' +
-  'and verify a real project. 184 tools across 29 gated toolsets; the server ' +
+  'and verify a real project. 192 tools across 29 gated toolsets; the server ' +
   'owns safety and typing, the Godot addon owns the editor.'
 const DETAILS =
   'godot-mcp is a generic, game-agnostic MCP server: the FastMCP server owns ' +
