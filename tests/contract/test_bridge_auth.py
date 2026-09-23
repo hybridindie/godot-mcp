@@ -116,6 +116,27 @@ async def test_addon_only_token_is_control_message_ignored() -> None:
         await bridge.close()
 
 
+async def test_control_message_racing_auth_does_not_false_refuse() -> None:
+    """A peer hello (or other control message) arriving BEFORE the auth envelope
+    is skipped, not consumed as the auth message — no false refusal (PR #558
+    review: pipelined control messages must not eat the auth check)."""
+    conn = FakeAddonConnection()
+    hello = json.dumps(
+        {"id": "hello", "command": "cmd_peer_hello", "params": {"project_path": "/tmp/x"}}
+    )
+    conn._incoming.put_nowait(hello)
+    conn._incoming.put_nowait(_auth_envelope("secret-token"))
+    bridge = Bridge(BridgeConfig(auth_token="secret-token"), connector=connector_for(conn))
+    await bridge.connect()
+    try:
+        assert bridge.connected is True
+        assert await bridge.ping() is True
+        # The skipped hello still lands as the peer's identity.
+        assert (bridge.peer_identity or {}).get("project_path") == "/tmp/x"
+    finally:
+        await bridge.close()
+
+
 async def test_auth_resets_with_the_peer() -> None:
     """A replaced peer must re-authenticate: the previous peer's auth state
     never leaks to the next connection."""

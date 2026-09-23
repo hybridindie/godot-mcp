@@ -68,22 +68,24 @@ def _bind_target(url: str) -> tuple[str, int]:
     return host, parsed.port or 9080
 
 
-def _supplied_token(raw: str | bytes) -> str:
-    """The token a peer's auth envelope carries, or "" when absent/malformed.
+def _supplied_token(raw: str | bytes) -> tuple[str, bool]:
+    """The token a peer's auth envelope carries, and whether it IS an auth envelope.
 
     The auth message is ``{id, command: cmd_auth, params: {token}}`` — the
-    addon's first message when it is configured with a token (issue #538). Any
-    other shape supplies "" (which then fails the comparison)."""
+    addon's first message when it is configured with a token (issue #538).
+    Any other shape reports ``(, False)`` so the handshake loop can skip it
+    (a control message racing ahead of the auth envelope) instead of falsely
+    refusing."""
     try:
         payload: Any = json.loads(raw if isinstance(raw, str) else raw.decode("utf-8"))
     except (json.JSONDecodeError, UnicodeDecodeError):
-        return ""
-    if not isinstance(payload, dict) or payload.get("command") != "cmd_auth":
-        return ""
+        return "", False
+    if not isinstance(payload, dict):
+        return "", False
     params = payload.get("params")
-    if not isinstance(params, dict):
-        return ""
-    return str(params.get("token", ""))
+    if payload.get("command") != "cmd_auth" or not isinstance(params, dict):
+        return "", False
+    return str(params.get("token", "")), True
 
 
 async def _default_serve(
@@ -282,60 +284,81 @@ class Bridge:
         # handshake, structured, never as a per-command error — and the peer is
         # dropped immediately (the addon's reconnect/backoff loop then retries,
         # showing the refusal reason in the dock log).
-        if self._config.auth_token is not None and not await self._auth_check(conn):
-            return
+        pre_auth: list[str | bytes] = []
+        if self._config.auth_token is not None:
+            ok, pre_auth = await self._auth_check(conn)
+            if not ok:
+                return
         self._conn = conn
+        # Control messages the handshake consumed ahead of the auth envelope
+        # (e.g. the #537 peer hello pipelined alongside it) still belong to the
+        # read loop — replay them so identity handling isn't skipped.
+        for raw in pre_auth:
+            self._resolve(raw if isinstance(raw, str) else raw.decode("utf-8"))
         self._reader = asyncio.create_task(self._read_loop(conn))
         logger.debug("bridge peer connected")
 
-    async def _auth_check(self, conn: Connection) -> bool:
+    async def _auth_check(self, conn: Connection) -> tuple[bool, list[str | bytes]]:
         """Require + verify the peer's auth envelope before adoption (issue #538).
 
         The addon sends ``{id, command: cmd_auth, params: {token}}`` as its first
-        message when configured with a token. A missing/wrong token answers a
-        structured refusal envelope, drops the peer, and returns False.
-        Comparison is constant-time (``hmac.compare_digest``); the token is
-        never logged.
+        message when configured with a token. Within the handshake budget the
+        check consumes up to a few messages and picks the FIRST ``cmd_auth``
+        envelope — so a peer that pipelines its identity hello (or other control
+        messages) alongside the auth can never have the hello consumed as the
+        auth message (a false refusal; PR #558 review). Skipped control messages
+        are returned for replay into the read loop. A missing/wrong token
+        answers a structured refusal envelope, drops the peer, and returns
+        False. Comparison is constant-time (``hmac.compare_digest``); the token
+        is never logged.
         """
         expected = self._config.auth_token
         if expected is None:
-            return True  # no auth configured: today's path, byte-identical
-        try:
-            # A short handshake budget: the addon sends auth right after the
-            # websocket opens (or never — that's the refusal case). A full
-            # request timeout here would stall the listener on a silent peer.
-            raw = await asyncio.wait_for(
-                conn.recv(), timeout=min(2.0, self._config.request_timeout)
-            )
-        except (TimeoutError, Exception) as exc:  # noqa: BLE001 — see hint text
-            if isinstance(exc, asyncio.CancelledError):
-                raise  # never swallow shutdown cancellation
-            logger.warning("bridge auth: no auth message from peer; refusing")
-            with suppress(Exception):
-                await conn.close()
-            return False
-        supplied = _supplied_token(raw)
-        if not hmac.compare_digest(supplied, expected):
-            # Structured refusal at the handshake (never per-command, never
-            # silent). The token itself is never logged.
-            logger.warning("bridge auth: token mismatch; refusing peer")
-            with suppress(Exception):
-                await conn.send(
-                    ResponseEnvelope.failure(
-                        "auth",
-                        ErrorCode.VALIDATION_ERROR,
-                        "Bridge auth failed: the GODOT_MCP_BRIDGE_TOKEN this editor sent does "
-                        "not match the server's. Fix the env var on one side; reconnecting "
-                        "will keep failing until they match.",
-                        "bridge_token",
-                    ).model_dump_json()
+            return True, []
+        # A short handshake budget: the addon sends auth right after the
+        # websocket opens (or never — that's the refusal case). A full request
+        # timeout here would stall the listener on a silent peer.
+        deadline = asyncio.get_running_loop().time() + min(
+            2.0, self._config.request_timeout
+        )
+        skipped: list[str | bytes] = []
+        while True:
+            try:
+                raw = await asyncio.wait_for(
+                    conn.recv(), timeout=max(0.0, deadline - asyncio.get_running_loop().time())
                 )
-            with suppress(Exception):
-                await conn.close()
-            return False
-        self._authed = True
-        logger.info("bridge peer authenticated")
-        return True
+            except (TimeoutError, Exception) as exc:  # noqa: BLE001 — see hint text
+                if isinstance(exc, asyncio.CancelledError):
+                    raise  # never swallow shutdown cancellation
+                logger.warning("bridge auth: no auth message from peer; refusing")
+                with suppress(Exception):
+                    await conn.close()
+                return False, []
+            supplied, is_auth = _supplied_token(raw)
+            if not is_auth:
+                skipped.append(raw)  # replay after adoption (identity, etc.)
+                continue
+            if not hmac.compare_digest(supplied, expected):
+                # Structured refusal at the handshake (never per-command, never
+                # silent). The token itself is never logged.
+                logger.warning("bridge auth: token mismatch; refusing peer")
+                with suppress(Exception):
+                    await conn.send(
+                        ResponseEnvelope.failure(
+                            "auth",
+                            ErrorCode.VALIDATION_ERROR,
+                            "Bridge auth failed: the GODOT_MCP_BRIDGE_TOKEN this editor sent does "
+                            "not match the server's. Fix the env var on one side; reconnecting "
+                            "will keep failing until they match.",
+                            "bridge_token",
+                        ).model_dump_json()
+                    )
+                with suppress(Exception):
+                    await conn.close()
+                return False, []
+            self._authed = True
+            logger.info("bridge peer authenticated")
+            return True, skipped
 
     async def close(self) -> None:
         """Stop listening, drop the peer, and fail any in-flight requests.

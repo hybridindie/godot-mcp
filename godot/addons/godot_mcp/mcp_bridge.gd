@@ -120,7 +120,14 @@ func _process(delta: float) -> void:
 		WebSocketPeer.STATE_OPEN:
 			if _status != Status.CONNECTED:
 				_retry_delay = _RETRY_MIN  # connected: reset the backoff
-				_send_auth()  # #538: authenticate FIRST when a token is configured
+				# #538: authenticate FIRST when a token is configured, then the
+				# identity hello (#537). Both fire on the DISCONNECTED→OPEN
+				# transition, so every (re)connection re-authenticates: after a
+				# refusal, STATE_CLOSED → DISCONNECTED, and the next OPEN re-sends
+				# auth. A peer seen mid-STATE_CLOSING never transitions straight
+				# to OPEN — it must pass STATE_CLOSED/DISCONNECTED first — so the
+				# auth send cannot be missed between attempts (PR #558 review).
+				_send_auth()
 				_send_peer_hello()  # #537: announce identity (project_path etc.)
 			_set_status(Status.CONNECTED)
 			while _peer.get_available_packet_count() > 0:
