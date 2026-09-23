@@ -20,6 +20,7 @@ from mcp_server.defaults import (
 from mcp_server.models.project_fs import (
     DeleteResourceFileResult,
     FilesystemTree,
+    MoveResourceFileResult,
     SearchResult,
     SetSettingResult,
     SettingValue,
@@ -129,3 +130,35 @@ def register_project_fs(mcp: FastMCP, bridge: Bridge) -> None:
         return DeleteResourceFileResult(
             **await route(bridge, "cmd_delete_resource_file", params)
         )
+
+    @mcp.tool(meta=MUTATING, tags=PROJECT)
+    async def move_resource_file(
+        path: str, new_path: str, dry_run: bool = False
+    ) -> MoveResourceFileResult:
+        """Move/rename the ``res://`` file at ``path`` to ``new_path``, rewriting every
+        project file that references it (issue #532) — the agent-safe way to rename
+        ``player.gd`` → ``player_controller.gd`` or move assets into ``assets/`` without
+        breaking scenes/scripts. ``updated_refs`` reports each rewritten file and how
+        many references changed.
+
+        A file move is NOT undo-tracked (``undoable=false`` + a recovery hint):
+        reverse it with a second move (or version control). Not for directories —
+        use it per file.
+
+        IF THIS FAILS with "escapes the project root":
+          -> ``new_path`` (or ``path``) must stay inside ``res://``.
+        IF THIS FAILS with "already exists":
+          -> ``new_path`` is taken — pick another or delete_resource_file first.
+        IF THIS FAILS with "unsaved changes":
+          -> The moved file is an open scene with unsaved edits: call save_scene
+             first (the in-memory copy would clobber the moved file).
+        """
+        require_bridge_connected(bridge)
+        params = {"path": path, "new_path": new_path}
+        # Containment for both endpoints before any bridge call (parity with the
+        # script-write / delete hardening, #205/#217).
+        await validate_or_raise(bridge, "cmd_move_resource_file", params)
+        if dry_run:
+            body = await route(bridge, "cmd_move_resource_file", {**params, "preview": True})
+            return MoveResourceFileResult(**body, dry_run=True)
+        return MoveResourceFileResult(**await route(bridge, "cmd_move_resource_file", params))

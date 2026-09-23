@@ -52,6 +52,9 @@ _OVERRIDE: dict[str, str] = {
     "import_asset": "godot_asset_import_asset",
     "get_import_status": "godot_asset_import_get_status",
     "get_script_for_node": "godot_scripts_get_for_node",
+    # #532: the ticket names the tool godot_project_move_file; "resource" is
+    # redundant next to the project prefix and would double up by rule.
+    "move_resource_file": "godot_project_move_file",
 }
 
 # scripts: trim "script" only where the result stays unambiguous.
