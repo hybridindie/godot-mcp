@@ -97,26 +97,46 @@ async def _validate_delete_resource_path(
     if command != "cmd_delete_resource_file":
         return None
     path = params.get("path", "")
+    return _containment_failure(path, "path")
+
+
+def _containment_failure(path: str, field: str) -> dict[str, Any] | None:
+    """A ``PARAM_ERROR`` dict when ``path`` isn't a contained ``res://`` path, else None."""
     if not path.startswith("res://"):
         return {
             "ok": False,
             "error": "PARAM_ERROR",
-            "hint": f"path must start with 'res://'. Got: '{path}'",
-            "required": "path",
+            "hint": f"{field} must start with 'res://'. Got: '{path}'",
+            "required": field,
         }
     if _escapes_res_root(path):
         return {
             "ok": False,
             "error": "PARAM_ERROR",
-            "hint": f"path escapes the project root (res://). Got: '{path}'",
-            "required": "path",
+            "hint": f"{field} escapes the project root (res://). Got: '{path}'",
+            "required": field,
         }
     return None
 
 
+async def _validate_move_resource_file(
+    bridge: Bridge, command: str, params: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Fail a file move whose endpoints aren't contained ``res://`` paths (#532)."""
+    if command != "cmd_move_resource_file":
+        return None
+    return _containment_failure(params.get("path", ""), "path") or _containment_failure(
+        params.get("new_path", ""), "new_path"
+    )
+
+
 # Each validator returns a PARAM_ERROR dict on failure, else None. Property
 # names are deliberately not validated server-side — the addon has better context.
-_VALIDATORS = (_validate_script_path, _validate_delete_resource_path)
+_VALIDATORS = (
+    _validate_script_path,
+    _validate_delete_resource_path,
+    _validate_move_resource_file,
+)
 
 
 async def _preflight_validate(

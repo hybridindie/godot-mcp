@@ -53,3 +53,28 @@ class DeleteResourceFileResult(BaseModel):
     had_uid: bool = False
     tab_closed: bool = False
     dry_run: bool = False
+
+
+class MovedRef(BaseModel):
+    """One referencing file the mover rewrote (issue #532), with the number of
+    references updated inside it."""
+
+    file: str
+    count: int = 0
+
+
+class MoveResourceFileResult(BaseModel):
+    """Result of moving/renaming a ``res://`` file (issue #532).
+
+    ``updated_refs`` lists each file whose references were rewritten. A file move
+    is NOT UndoRedo-tracked (``undoable=False`` always, with a recovery hint) —
+    reverse it with a second move or version control.
+    """
+
+    old_path: str
+    new_path: str
+    updated_refs: list[MovedRef] = Field(default_factory=list)
+    moved: bool = False
+    undoable: bool = False
+    hint: str | None = None
+    dry_run: bool = False

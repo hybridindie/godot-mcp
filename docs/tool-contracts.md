@@ -533,6 +533,7 @@ Import external files (local paths or HTTP URLs) into a Godot project and assemb
 | `godot_project_set_setting` | `name, value, dry_run=False` | `SetSettingResult { name, value, set, dry_run }` | `mutating` |
 | `godot_project_resolve_uid` | `value` (a `res://` path or `uid://…`) | `UidResolution { uid?, path? }` | `read_only` |
 | `godot_project_delete_resource_file` | `path, confirm=False, dry_run=False` | `DeleteResourceFileResult { path, deleted, had_uid, tab_closed, dry_run }` | `destructive` |
+| `godot_project_move_file` | `path, new_path, dry_run=False` | `MoveResourceFileResult { old_path, new_path, updated_refs: [MovedRef{file,count}], moved, undoable, hint?, dry_run }` | `mutating` |
 
 Hidden entries (`.godot`, `.git`, …) are skipped. `godot_project_search_files` matches `name_glob`
 and/or `content` substring (truncating at `max_results`). `godot_project_set_setting` coerces to the
@@ -543,6 +544,25 @@ removes a `res://` file (and its `.uid` sidecar) — the inverse of the file-cre
 undoable in the editor. Deleting a `.tscn`/`.scn` that is open in the editor also closes its
 tab (`tab_closed:true`) so the stale in-memory scene can't resurrect mangled duplicates when
 the path is later recreated (#422).
+
+`godot_project_move_file` (issue #532) moves/renames a `res://` file and rewrites every
+project file referencing it: it discovers referencing files project-wide (text-editable
+kinds — `.tscn`/`.scn`/`.gd`/`.cs`/`.tres`/`.import`/`.cfg`/shader sources — hidden dirs
+skipped) by both path form (`res://old.gd`) and uid form (`uid://…`), rewrites path-form
+references (`updated_refs` reports each file + how many references changed), moves the file
+and its `.uid` sidecar via `DirAccess.rename_absolute`, re-points the file's UID at its new
+path (`ResourceUID.set_id`), and rescans the filesystem so instances/imports follow. The
+uid reference strings themselves never change — the uid moves *with* the file. A file move
+is NOT UndoRedo-tracked (`undoable:false` always, with a recovery hint: reverse it with a
+second move or version control) — the editor's own move dialog does its remap in C++, and
+no GDScript-reachable move-with-remap API exists (verified live on 4.7: ClassDB exposes no
+`EditorFileSystem`/`EditorInterface`/dock move method). `dry_run=True` routes a read-only
+`preview` to the addon: the same refusals + `updated_refs` of files that *would* change,
+nothing moved. Structured refusals: `RESOURCE_NOT_FOUND` (no source file),
+`VALIDATION_ERROR` ("A file already exists at '<new_path>'"), `PRECONDITION_FAILED`
+("'<path>' is open and has unsaved changes — call save_scene first"; `get_unsaved_scenes()`,
+4.4+) — the in-memory copy would clobber the moved file. `res://` containment is enforced
+server-side for both endpoints before any bridge call (#205/#217 parity).
 
 #### Editor screenshots (issue #33) — category: `editor` (gated off by default)
 

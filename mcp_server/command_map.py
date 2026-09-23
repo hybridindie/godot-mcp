@@ -108,6 +108,7 @@ BARE_TO_COMMAND: dict[str, str] = {
     "project_delete_resource_file": "cmd_delete_resource_file",
     "project_get_filesystem_tree": "cmd_get_filesystem_tree",
     "project_get_setting": "cmd_get_setting",
+    "project_move_file": "cmd_move_resource_file",
     "project_resolve_uid": "cmd_uid_to_path",
     "project_scaffold": "cmd_scaffold_project",
     "project_search_files": "cmd_search_files",

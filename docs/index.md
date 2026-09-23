@@ -57,7 +57,7 @@ game-specific vocabulary belongs in a separate consumer project.
 
     ---
 
-    186 tools across 29 categories, with only `core` + `inspection` exposed by
+    187 tools across 29 categories, with only `core` + `inspection` exposed by
     default. The agent enables toolsets as needed — a small surface keeps
     tool-selection sharp.
 

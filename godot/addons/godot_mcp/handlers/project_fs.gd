@@ -2,6 +2,7 @@
 class_name MCPProjectFSHandlers
 extends RefCounted
 const Coerce := preload("../type_coerce.gd")
+const Remap := preload("../mcp_fs_remap.gd")
 ## Domain handler: project fs.
 ##
 ## Registered by the router on _init().  Each handler receives params dict and
@@ -90,6 +91,7 @@ func register(handlers: Dictionary) -> void:
 	handlers["cmd_set_setting"] = _cmd_set_setting
 	handlers["cmd_uid_to_path"] = _cmd_uid_to_path
 	handlers["cmd_delete_resource_file"] = _cmd_delete_resource_file
+	handlers["cmd_move_resource_file"] = _cmd_move_resource_file
 
 
 # -- handlers ----------------------------------------------------------------
@@ -301,5 +303,104 @@ func _cmd_delete_resource_file(params: Dictionary) -> Dictionary:
 	ur.commit_action()
 	EditorInterface.get_resource_filesystem().update_file(path)
 	return _router._ok({"path": path, "deleted": true, "had_uid": had_uid, "tab_closed": tab_closed})
+
+
+## Move/rename a res:// file and rewrite every referencing file (issue #532).
+##
+## res:// containment is enforced server-side; the checks here are
+## defense-in-depth + the three #532 refusals: missing source, existing
+## destination, and an open-and-unsaved scene (the in-memory copy would clobber
+## the moved file — hint points at save_scene first).
+##
+## The editor's own move dialog does its remap in C++ (FileSystemDock::_move);
+## GDScript has no move-with-remap API, so the mover implements the equivalent:
+## DirAccess.rename_absolute for the file (+ its .uid sidecar), then a
+## project-wide text remap of both path-form ("res://old.gd") and uid-form
+## ("uid://…") references across text-editable project files (.tscn/.scn/.gd/
+## .tres/.import/.cfg/.cs). ResourceUID.set_id re-points the moved file's uid at
+## its new path, and the filesystem is scanned so instances/imports follow.
+## NOT UndoRedo-tracked (undoable=false always, with a recovery hint) — reverse
+## it with a second move or version control. The `preview` flag (the dry-run)
+## runs the same refusals + reports the files that WOULD change, mutating nothing.
+func _cmd_move_resource_file(params: Dictionary) -> Dictionary:
+	var path := str(params.get("path", ""))
+	var new_path := str(params.get("new_path", ""))
+	if path.is_empty() or new_path.is_empty():
+		return _router._fail("VALIDATION_ERROR", "'path' and 'new_path' are required.")
+	# Defense-in-depth containment (server validates first, #205/#217).
+	for candidate: String in [path, new_path]:
+		if Remap.escapes_res_root(candidate) and not candidate.begins_with("res://"):
+			return _router._fail("VALIDATION_ERROR", "%s must be a res:// path." % candidate, "path")
+		if Remap.escapes_res_root(candidate):
+			return _router._fail(
+				"VALIDATION_ERROR",
+				"Path escapes the project root (res://). Got: '%s'" % candidate,
+				"new_path" if candidate == new_path else "path",
+			)
+	if path == new_path:
+		return _router._fail("VALIDATION_ERROR", "'new_path' must differ from 'path'.")
+	if not FileAccess.file_exists(path):
+		return _router._fail("RESOURCE_NOT_FOUND", "No file at '%s'." % path, "path")
+	if FileAccess.file_exists(new_path):
+		return _router._fail(
+			"VALIDATION_ERROR",
+			"A file already exists at '%s'. Move elsewhere (or delete the existing file first)." % new_path,
+			"new_path",
+		)
+	# #532 refusal: moving an open scene with unsaved changes would clobber the
+	# in-memory copy (the editor holds the buffer under the OLD path; after the
+	# move the save writes the old content back to the OLD path and the moved
+	# file diverges). get_unsaved_scenes() (4.4+) lists them by path.
+	if (path.ends_with(".tscn") or path.ends_with(".scn")) \
+			and path in EditorInterface.get_unsaved_scenes():
+		return _router._fail(
+			"PRECONDITION_FAILED",
+			"'%s' is open and has unsaved changes — moving it now would clobber the in-memory copy. Call save_scene first, then move." % path,
+			"scene_saved",
+		)
+	var uid := ResourceLoader.get_resource_uid(path)
+	var uid_text := ResourceUID.id_to_text(uid) if uid != -1 else ""
+	# The referencing files: a project-wide search for the old path (and the
+	# uid form) across text-editable project files. Mirrors search_files.
+	var referencing := Remap.find_referencing_files(path, uid_text)
+	var remaps: Array = []
+	if params.get("preview", false):
+		# The dry-run preview: report the files that WOULD change (the count a
+		# rewrite would produce), mutating nothing.
+		for file: String in referencing:
+			var count := FileAccess.get_file_as_string(file).count(path)
+			if count > 0:
+				remaps.append({"file": file, "count": count})
+	else:
+		remaps = Remap.rewrite_references(path, new_path, referencing, _router._write_file_text)
+		# Move the file + its .uid sidecar.
+		var moved := DirAccess.rename_absolute(
+			ProjectSettings.globalize_path(path), ProjectSettings.globalize_path(new_path)
+		)
+		if moved != OK:
+			return _router._fail("INTERNAL_ERROR", "Failed to move '%s' to '%s' (error %d)." % [path, new_path, moved])
+		var uid_path := path + ".uid"
+		if FileAccess.file_exists(uid_path):
+			DirAccess.rename_absolute(
+				ProjectSettings.globalize_path(uid_path),
+				ProjectSettings.globalize_path(new_path + ".uid"),
+			)
+		# Re-point the uid at the new location so uid:// references resolve.
+		if uid != -1:
+			ResourceUID.set_id(uid, new_path)
+		var fs := EditorInterface.get_resource_filesystem()
+		fs.update_file(path)  # drops the stale entry
+		fs.update_file(new_path)
+		fs.scan()
+	return _router._ok({
+		"old_path": path,
+		"new_path": new_path,
+		"updated_refs": remaps,
+		"moved": not params.get("preview", false),
+		# Honest reporting (issue #532): a file move is not UndoRedo-tracked —
+		# reverse it with a second move or version control.
+		"undoable": false,
+		"hint": "A file move is not UndoRedo-tracked; reverse it with a second move_file(old→new) or version control.",
+	})
 
 

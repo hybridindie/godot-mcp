@@ -18,7 +18,7 @@ a toolset on with `godot_enable_toolset("scene_edit")`, which writes into a
 server-global enabled set and (since 2026.09.17) emits
 `notifications/tools/list_changed` so clients refresh their cached registry.
 
-Why gate at all? 186 tools in the context window degrade tool-selection and
+Why gate at all? 187 tools in the context window degrade tool-selection and
 burn tokens. The default surface (`core` + `inspection` — 18 tools) is enough
 to orient and inspect; the agent pulls in `scene_edit` only when it means to
 edit. `godot_list_toolsets()` is always authoritative.
