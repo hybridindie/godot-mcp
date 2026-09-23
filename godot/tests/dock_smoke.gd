@@ -86,6 +86,27 @@ func _initialize() -> void:
 	if not recent[0].begins_with("["):
 		failures.append("timestamp_format: expected '[HH:MM:SS] ...', got %s" % recent[0])
 
+	# === Auto-refresh toggle (issue #561) ===
+	if dock.displayed_auto_refresh() != false:
+		failures.append("auto_refresh_default: expected false, got %s" % dock.displayed_auto_refresh())
+	var got_toggle := [false]
+	dock.auto_refresh_toggled.connect(func(on: bool) -> void: got_toggle[0] = on)
+	dock.set_auto_refresh(true)
+	if dock.displayed_auto_refresh() != true:
+		failures.append("auto_refresh_set: expected true, got %s" % dock.displayed_auto_refresh())
+	# set_auto_refresh must not emit (plugin-init sync); toggling via the checkbox does.
+	# The checkbox is already pressed=true (set_auto_refresh synced it silently),
+	# so toggle down-then-up: a same-value set_pressed emits nothing (verified live).
+	if got_toggle[0] != false:
+		failures.append("auto_refresh_set_no_signal: set_auto_refresh emitted the signal")
+	dock._auto_refresh_check.set_pressed(false)
+	dock._auto_refresh_check.set_pressed(true)
+	if got_toggle[0] != true:
+		failures.append("auto_refresh_toggle_signal: checkbox toggle did not emit")
+	dock.set_auto_refresh(false)
+	if dock.displayed_auto_refresh() != false:
+		failures.append("auto_refresh_unset: expected false, got %s" % dock.displayed_auto_refresh())
+
 	dock.free()
 
 	if failures.is_empty():

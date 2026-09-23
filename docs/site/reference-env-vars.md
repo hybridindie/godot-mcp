@@ -29,6 +29,8 @@ All knobs are optional; the defaults serve a local single-user setup.
 |----------|---------|---------|
 | `GODOT_MCP_BRIDGE_URL` | `ws://127.0.0.1:9080` | where the addon dials the server (same var as the server) |
 | `GODOT_MCP_BRIDGE_TOKEN` | unset | the same opt-in secret as the server — the addon authenticates with it as its first message after connecting; never logged |
+| `GODOT_MCP_AUTO_REFRESH` | unset (= off) | opt-in timer-based filesystem auto-refresh (#561): `1`/`true`/`yes` enables a periodic `EditorFileSystem.scan()` so external edits (agents, git, other tools) show up without editor focus; the dock checkbox is the runtime override |
+| `GODOT_MCP_AUTO_REFRESH_INTERVAL` | `10` | seconds between auto-refresh scans (floor 2s; only read when `GODOT_MCP_AUTO_REFRESH` is on) |
 | `GODOT_BIN` | `godot` on PATH | the Godot binary (used by the server's headless runs; set as an Actions var on CI) |
 
 ## Security model

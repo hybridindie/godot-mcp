@@ -23,6 +23,7 @@ const REFRESH_INTERVAL := 2.0  # seconds between connection-status polls
 # #539: the cached status-icon textures (one per connection status, built
 # lazily by the helper this module consumes).
 const StatusIcons := preload("./mcp_status_icons.gd")
+const AutoRefreshHelper: GDScript = preload("./mcp_auto_refresh.gd")
 
 var _dock: MCPStatusDock
 var _dock_button: Button
@@ -32,6 +33,11 @@ var _router: MCPCommandRouter
 var _selection: EditorSelection
 var _refresh_timer: Timer
 var _server_version := ""
+# Opt-in filesystem auto-refresh (issue #561): the timer fires AutoRefreshHelper.tick
+# so external edits (agent/git/other tools) are picked up without editor focus.
+# Off by default (env var or dock toggle); the env value seeds the checkbox.
+var _auto_refresh_timer: Timer
+var _auto_refresh_enabled := false
 # #539: the lazily-built, cached status-icon textures (a RefCounted helper, so
 # the textures live exactly as long as the plugin).
 var _status_icons: StatusIcons
@@ -78,6 +84,28 @@ func _enter_tree() -> void:
 	_refresh_timer.timeout.connect(_on_refresh_timer)
 	add_child(_refresh_timer)
 
+	# Opt-in filesystem auto-refresh (issue #561): MCPAutoRefresh's env parsing
+	# decides the default; the dock toggle overrides it at runtime. The timer
+	# only ticks when enabled; the tick's is_scanning() guard keeps scan()
+	# off an in-flight scan (re-entrancy, #417/#453 family).
+	#
+	# Why a timer and not EditorFileSystem.sources_changed (#561 review): that
+	# signal fires only for editor-driven import changes — an external
+	# DirAccess rename/move does not fire it (verified live: no signal on an
+	# out-of-band rename), which is exactly the gap this timer closes. Wiring
+	# the signal would also stack a scan on the editor's own in-flight import
+	# scan — the is_scanning() guard makes that a no-op, so the signal adds
+	# nothing the timer doesn't already cover.
+	_auto_refresh_enabled = AutoRefreshHelper.enabled_from_env()
+	_dock.set_auto_refresh(_auto_refresh_enabled)
+	_dock.auto_refresh_toggled.connect(_on_auto_refresh_toggled)
+	_auto_refresh_timer = Timer.new()
+	_auto_refresh_timer.wait_time = AutoRefreshHelper.interval_from_env()
+	_auto_refresh_timer.timeout.connect(_run_auto_refresh_tick)
+	add_child(_auto_refresh_timer)
+	if _auto_refresh_enabled:
+		_auto_refresh_timer.autostart = true
+
 	_refresh_all()
 
 
@@ -86,6 +114,13 @@ func _exit_tree() -> void:
 		_refresh_timer.stop()
 		_refresh_timer.queue_free()
 		_refresh_timer = null
+
+	if _auto_refresh_timer != null:
+		_auto_refresh_timer.stop()
+		_auto_refresh_timer.queue_free()
+		_auto_refresh_timer = null
+	if _dock != null and _dock.auto_refresh_toggled.is_connected(_on_auto_refresh_toggled):
+		_dock.auto_refresh_toggled.disconnect(_on_auto_refresh_toggled)
 
 	if _selection != null and _selection.selection_changed.is_connected(_on_selection_changed):
 		_selection.selection_changed.disconnect(_on_selection_changed)
@@ -172,6 +207,29 @@ func _on_refresh_timer() -> void:
 	if _router != null and _router.server_version != _server_version:
 		_server_version = _router.server_version
 		_dock.set_server_version(_server_version_label())
+
+
+## The auto-refresh timer tick (issue #561): the decision lives in MCPAutoRefresh
+## (env-parsed opt-in + is_scanning re-entrancy guard, headless-testable); this
+## just supplies the live EditorFileSystem and keeps the enabled flag in sync.
+func _run_auto_refresh_tick() -> void:
+	if AutoRefreshHelper.tick(_auto_refresh_enabled, EditorInterface.get_resource_filesystem()):
+		_dock.log_command("auto-refresh: filesystem scanned")
+
+
+## Dock toggle (issue #561): start/stop the timer. The env value seeds the
+## checkbox; the toggle is the runtime override. Stopping a running timer
+## keeps the tick from firing while disabled.
+func _on_auto_refresh_toggled(enabled: bool) -> void:
+	_auto_refresh_enabled = enabled
+	if enabled:
+		# Timer.start() waits one interval before the first tick — consistent
+		# with the env path's autostart (PR #562 review). An immediate scan on
+		# enable would be the scan-stacking case the is_scanning() guard
+		# prevents anyway, so the delay is harmless.
+		_auto_refresh_timer.start()
+	else:
+		_auto_refresh_timer.stop()
 
 
 ## Set the bottom-bar button icon to a colored dot reflecting connection status.
