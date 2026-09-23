@@ -21,6 +21,9 @@ DEFAULT_HTTP_PORT = 9090
 
 # Environment overrides.
 BRIDGE_URL_ENV = "GODOT_MCP_BRIDGE_URL"
+# Opt-in shared secret for the bridge handshake (issue #538). Unset = no auth
+# (zero-config local dev); when set, both sides must agree.
+BRIDGE_TOKEN_ENV = "GODOT_MCP_BRIDGE_TOKEN"
 
 Transport = Literal["stdio", "http"]
 
@@ -39,11 +42,18 @@ class BridgeConfig(BaseModel):
 
     url: str = DEFAULT_BRIDGE_URL
     request_timeout: float = DEFAULT_REQUEST_TIMEOUT
+    # Opt-in shared secret (issue #538): when set, the addon must send a matching
+    # token as its first message after connecting or the peer is refused at the
+    # handshake. None = no auth (zero-config localhost dev, byte-identical path).
+    auth_token: str | None = None
 
     @classmethod
     def from_env(cls) -> BridgeConfig:
         """Build config from the environment, falling back to localhost defaults."""
-        return cls(url=os.environ.get(BRIDGE_URL_ENV, DEFAULT_BRIDGE_URL))
+        return cls(
+            url=os.environ.get(BRIDGE_URL_ENV, DEFAULT_BRIDGE_URL),
+            auth_token=os.environ.get(BRIDGE_TOKEN_ENV) or None,
+        )
 
 
 class ServerConfig(BaseModel):

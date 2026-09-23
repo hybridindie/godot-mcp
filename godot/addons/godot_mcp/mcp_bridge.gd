@@ -7,7 +7,11 @@ extends Node
 ## reconnects with backoff whenever the link is down — the editor is the party that
 ## comes and goes, so it owns reconnection (see docs/architecture.md). Pumps the peer
 ## every frame in _process: parse JSON command envelopes, dispatch through
-## MCPCommandRouter, and send back JSON response envelopes. localhost-only, no auth in v1.
+## MCPCommandRouter, and send back JSON response envelopes. Optional shared-token
+## auth (issue #538): when GODOT_MCP_BRIDGE_TOKEN is set, the FIRST message after
+## connect authenticates the editor ({command: cmd_auth, params:{token}}); a
+## mismatch gets a structured refusal and this side drops into its normal
+## reconnect/backoff loop (the dock log shows the refusal reason each attempt).
 ##
 ## API verified against the Godot 4 docs (class_websocketpeer): WebSocketPeer
 ## connect_to_url / poll / get_ready_state (STATE_CONNECTING/OPEN/CLOSING/CLOSED) /
@@ -39,6 +43,8 @@ var _active := false  # whether we should keep a connection alive (start/stop)
 var _status: Status = Status.DISCONNECTED
 var _retry_delay := _RETRY_MIN
 var _retry_remaining := 0.0  # seconds until the next reconnect attempt
+# Opt-in shared-token auth (issue #538): read once at start; never logged.
+var _auth_token := ""
 
 
 func _init(router: MCPCommandRouter = null) -> void:
@@ -46,8 +52,11 @@ func _init(router: MCPCommandRouter = null) -> void:
 
 
 ## Begin connecting (and reconnecting) to the server. Returns the first attempt's Error.
-func start(url: String = DEFAULT_URL) -> int:
+func start(url: String = DEFAULT_URL, auth_token: String = "") -> int:
 	_url = url
+	# Token resolution mirrors GODOT_MCP_BRIDGE_URL (godot_mcp.gd): explicit arg
+	# wins, else the env var, else no auth. Never logged.
+	_auth_token = auth_token if not auth_token.is_empty() else OS.get_environment("GODOT_MCP_BRIDGE_TOKEN")
 	_active = true
 	_retry_delay = _RETRY_MIN
 	_retry_remaining = 0.0
@@ -111,6 +120,7 @@ func _process(delta: float) -> void:
 		WebSocketPeer.STATE_OPEN:
 			if _status != Status.CONNECTED:
 				_retry_delay = _RETRY_MIN  # connected: reset the backoff
+				_send_auth()  # #538: authenticate FIRST when a token is configured
 				_send_peer_hello()  # #537: announce identity (project_path etc.)
 			_set_status(Status.CONNECTED)
 			while _peer.get_available_packet_count() > 0:
@@ -151,6 +161,23 @@ func _send_peer_hello() -> void:
 	_peer.send_text(JSON.stringify(info))
 
 
+## Authenticate the connection (issue #538): the FIRST message after connecting
+## when a token is configured. The server verifies it before serving anything —
+## a mismatch answers a structured refusal envelope and closes the peer, which
+## drops this side into the normal reconnect/backoff loop (the dock shows the
+## refusal reason each attempt until the tokens agree). With no token configured
+## nothing is sent — zero-config localhost dev stays byte-identical.
+func _send_auth() -> void:
+	if _peer == null or _auth_token.is_empty():
+		return
+	var envelope: Dictionary = {
+		"id": "auth",
+		"command": "cmd_auth",
+		"params": {"token": _auth_token},
+	}
+	_peer.send_text(JSON.stringify(envelope))
+
+
 func _addon_version() -> String:
 	var addon_version := ""
 	var cfg := ConfigFile.new()
@@ -160,16 +187,30 @@ func _addon_version() -> String:
 
 
 func _handle_text(text: String) -> void:
-	var response: Dictionary
 	var parsed: Variant = JSON.parse_string(text)
+	if typeof(parsed) == TYPE_DICTIONARY:
+		var d := parsed as Dictionary
+		# Server→addon push (issue #538): an ok-shaped envelope is NOT a command —
+		# it is the server refusing or notifying us (today: the auth refusal).
+		# Log its hint for the dock, never echo a response to a response, and
+		# drop the link so the reconnect loop retries (with backoff) once the
+		# operator fixes the mismatched GODOT_MCP_BRIDGE_TOKEN.
+		if d.has("ok") and not d.has("command"):
+			if bool(d.get("ok", true)) == false:
+				push_error("godot_mcp: server refused this editor — %s: %s" % [
+					str(d.get("error", "ERROR")), str(d.get("hint", "")),
+				])
+				_peer.close()
+			return
+	var response: Dictionary
 	var cmd_name := "?"
 	var send_time := Time.get_ticks_usec()
 	if typeof(parsed) != TYPE_DICTIONARY:
 		response = {"id": "", "ok": false, "error": "VALIDATION_ERROR", "hint": "Malformed JSON envelope."}
 	else:
-		var d := parsed as Dictionary
-		cmd_name = str(d.get("command", "?"))
-		response = _router.handle(parsed)
+		var d2 := parsed as Dictionary
+		cmd_name = str(d2.get("command", "?"))
+		response = _router.handle(d2)
 		command_received.emit(cmd_name)
 	if _peer != null:
 		_peer.send_text(JSON.stringify(response))

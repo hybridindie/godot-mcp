@@ -20,6 +20,7 @@ exercised with no editor and no sockets.
 from __future__ import annotations
 
 import asyncio
+import hmac
 import json
 import logging
 from collections.abc import Awaitable, Callable
@@ -65,6 +66,24 @@ def _bind_target(url: str) -> tuple[str, int]:
     if host == "localhost":
         host = "127.0.0.1"
     return host, parsed.port or 9080
+
+
+def _supplied_token(raw: str | bytes) -> str:
+    """The token a peer's auth envelope carries, or "" when absent/malformed.
+
+    The auth message is ``{id, command: cmd_auth, params: {token}}`` — the
+    addon's first message when it is configured with a token (issue #538). Any
+    other shape supplies "" (which then fails the comparison)."""
+    try:
+        payload: Any = json.loads(raw if isinstance(raw, str) else raw.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return ""
+    if not isinstance(payload, dict) or payload.get("command") != "cmd_auth":
+        return ""
+    params = payload.get("params")
+    if not isinstance(params, dict):
+        return ""
+    return str(params.get("token", ""))
 
 
 async def _default_serve(
@@ -116,6 +135,14 @@ class Bridge:
         # the peer predates the hello (older addon) — identity-unknown, never
         # an error. Reset whenever the peer changes.
         self._peer_identity: dict[str, Any] | None = None
+        # Bridge auth (issue #538): when a token is configured, each adopted peer
+        # must authenticate before the bridge serves it. True once THIS peer
+        # authenticated; reset whenever the peer changes.
+        self._authed = False
+        # Count of peer connection attempts (auth'd or refused) — diagnostics +
+        # e2e polling: a refused peer (auth mismatch) never flips ``connected``,
+        # so the e2e asserts on this instead.
+        self.peer_attempts = 0
 
     @property
     def connected(self) -> bool:
@@ -246,9 +273,69 @@ class Bridge:
             # itself is logged at replacement time (above), the new identity
             # lands when its hello arrives.
             self._peer_identity = None
+            # ...and it must authenticate again (#538): auth state never leaks
+            # from one connection to the next.
+            self._authed = False
+        self.peer_attempts += 1
+        # Bridge auth handshake (issue #538): with a token configured, the peer's
+        # FIRST message must authenticate it. A refusal happens here — at the
+        # handshake, structured, never as a per-command error — and the peer is
+        # dropped immediately (the addon's reconnect/backoff loop then retries,
+        # showing the refusal reason in the dock log).
+        if self._config.auth_token is not None and not await self._auth_check(conn):
+            return
         self._conn = conn
         self._reader = asyncio.create_task(self._read_loop(conn))
         logger.debug("bridge peer connected")
+
+    async def _auth_check(self, conn: Connection) -> bool:
+        """Require + verify the peer's auth envelope before adoption (issue #538).
+
+        The addon sends ``{id, command: cmd_auth, params: {token}}`` as its first
+        message when configured with a token. A missing/wrong token answers a
+        structured refusal envelope, drops the peer, and returns False.
+        Comparison is constant-time (``hmac.compare_digest``); the token is
+        never logged.
+        """
+        expected = self._config.auth_token
+        if expected is None:
+            return True  # no auth configured: today's path, byte-identical
+        try:
+            # A short handshake budget: the addon sends auth right after the
+            # websocket opens (or never — that's the refusal case). A full
+            # request timeout here would stall the listener on a silent peer.
+            raw = await asyncio.wait_for(
+                conn.recv(), timeout=min(2.0, self._config.request_timeout)
+            )
+        except (TimeoutError, Exception) as exc:  # noqa: BLE001 — see hint text
+            if isinstance(exc, asyncio.CancelledError):
+                raise  # never swallow shutdown cancellation
+            logger.warning("bridge auth: no auth message from peer; refusing")
+            with suppress(Exception):
+                await conn.close()
+            return False
+        supplied = _supplied_token(raw)
+        if not hmac.compare_digest(supplied, expected):
+            # Structured refusal at the handshake (never per-command, never
+            # silent). The token itself is never logged.
+            logger.warning("bridge auth: token mismatch; refusing peer")
+            with suppress(Exception):
+                await conn.send(
+                    ResponseEnvelope.failure(
+                        "auth",
+                        ErrorCode.VALIDATION_ERROR,
+                        "Bridge auth failed: the GODOT_MCP_BRIDGE_TOKEN this editor sent does "
+                        "not match the server's. Fix the env var on one side; reconnecting "
+                        "will keep failing until they match.",
+                        "bridge_token",
+                    ).model_dump_json()
+                )
+            with suppress(Exception):
+                await conn.close()
+            return False
+        self._authed = True
+        logger.info("bridge peer authenticated")
+        return True
 
     async def close(self) -> None:
         """Stop listening, drop the peer, and fail any in-flight requests.
