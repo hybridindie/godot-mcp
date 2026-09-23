@@ -464,9 +464,9 @@ writes, and writes register `UndoRedo`). `godot_scripts_get_parse_errors` shells
 | Tool | Params | Returns | Class |
 |------|--------|---------|-------|
 | `godot_scripts_read` | `script_path` | `ScriptContent { script_path, content }` | `read_only` |
-| `godot_scripts_list` | `directory = "res://"` | `ScriptList { directory, scripts[] }` (recursive) | `read_only` |
+| `godot_scripts_list` | `directory = "res://", language = "gd", offset = 0, limit = 200` | `ScriptList { directory, scripts[] }` (recursive; `language="cs"` lists `.cs`) | `read_only` |
 | `godot_scripts_get_for_node` | `node_path = ""` (else selected) | `NodeScript { node_path, script_path?, content? }` | `read_only` |
-| `godot_scripts_write` | `script_path, content, dry_run=False` | `WriteScriptResult { script_path, created, would_overwrite, dry_run }` | `mutating` |
+| `godot_scripts_write` | `script_path, content, dry_run=False` | `WriteScriptResult { script_path, created, would_overwrite, dry_run, hint? }` | `mutating` |
 | `godot_scripts_patch` | `script_path, find, replace, dry_run=False` | `PatchScriptResult { script_path, replacements, dry_run }` | `mutating` |
 | `godot_scripts_get_parse_errors` | `script_path` | `ParseCheckResult { script_path, ok, errors: [ParseError{message, source?, line?}], rescan_pending }` | `read_only` |
 
@@ -479,6 +479,19 @@ replacing hand-written code; it stays `mutating` because the change is reversibl
 editor's undo (the prior content is restored, and undoing a *created* script also removes
 its `.uid` sidecar). The agent composes `godot_scripts_get_parse_errors` to validate after a write —
 `godot_scripts_write` does not auto-validate.
+
+**C# authoring (issue #207 Phase 1).** The scripts surface is language-aware: `read`/`list`/`write`
+accept `.cs` alongside `.gd` (default contracts unchanged), `godot_scripts_list` gains
+`language="gd"|"cs"`. C# is **compiled, not live**: a `.cs` write lands the bytes but the new
+script is invisible to the game until an MSBuild rebuild, so the write result carries a `hint`
+saying to validate via a C# build (Phase 2) — never a false parse-OK. `godot_scripts_patch`
+stays GDScript-only in Phase 1 (a find/replace in compiled C# without a build check invites
+broken code — refused with the Phase 2 pointer); `godot_scripts_get_parse_errors` refuses
+`.cs` for the same reason (`godot --check-only` does not validate C#). The backend capability
+rides `cmd_get_project_info` and surfaces in `godot_get_server_info.bridge.backend`:
+`{ csharp_supported (the editor is a .NET build — `CSharpScript` in ClassDB),
+csharp_project (a `.csproj` exists in res://), csharp_build (false until Phase 2) }`.
+An older addon omits the probe — the field reads `null` ("unknown backend"), not an error.
 
 `get_parse_errors` is deterministic across the deferred rescan (#453): the subprocess
 reads `global_script_class_cache.cfg` from disk, and the editor's post-write scan (#417)
@@ -1257,7 +1270,7 @@ history returns zero-values, not an error.
 
 | Tool | Params | Returns | Notes |
 |------|--------|---------|-------|
-| `godot_get_server_info` | — | `ServerDiagnostics { server, version, contract_version, min_compatible_contract, transport, toolsets[], prompts[], resources[], bridge{connected, url, godot_version?, project_name?, project_path?, addon_version?, addon_commands?}, active_scene?, addon_drift_warning?, common_errors[], next_steps[] }` | capability snapshot — call first |
+| `godot_get_server_info` | — | `ServerDiagnostics { server, version, contract_version, min_compatible_contract, transport, toolsets[], prompts[], resources[], bridge{connected, url, godot_version?, project_name?, project_path?, addon_version?, addon_commands?, backend?{csharp_supported, csharp_project, csharp_build}}, active_scene?, addon_drift_warning?, common_errors[], next_steps[] }` | capability snapshot — call first |
 | `godot_debug_workflow` | `scene="", timeout_seconds=5.0, expected_timeout=False` | `DebugWorkflowResult { bridge{}, scene_tree?, run?, parse{ok, errors[], skipped_reason}, findings[], suggestions[] }` | one-call comprehensive check; `expected_timeout=True` suppresses the timeout/NON-ZERO-EXIT findings for games that never self-quit (#490) |
 
 `godot_get_server_info` returns the full server surface so an agent can discover everything in one call: toolset summaries with counts, registered prompt names, resource URIs, bridge state, active scene, common errors with fixes, and suggested next steps.

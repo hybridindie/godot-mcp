@@ -32,7 +32,7 @@ godot_enable_toolset('scene_edit')    # turn on what you need, then call its too
 Quick map (all 28 gated toolsets):
 
 - **Scene building** — edit nodes/scenes/signals → `scene_edit` · macro edits in one round-trip → `composite` · extract a subtree into a reusable .tscn prefab (replace-with-instance) → `scene_edit_extract_scene` · 3D scenes (meshes, cameras, lights, GridMap) → `scene_3d` · UI themes → `theme_ui` · tilemaps → `tilemap` · particles → `particles` · navigation → `navigation` · physics → `physics` · animation → `animation` · audio buses → `audio` · shaders → `shader` · visual shader graphs → `visual_shader`
-- **Code & data** — GDScript files → `scripts` · resources (.tres) + autoloads → `resources_edit` · project files/settings/UIDs → `project` · move/rename a project file with dependency remap → `godot_project_move_file` · new project skeleton → `project_scaffold`
+- **Code & data** — GDScript files → `scripts` · C# files (read/list/write; `.cs` needs a build to be usable — check `godot_get_server_info().bridge.backend`) → `scripts` · resources (.tres) + autoloads → `resources_edit` · project files/settings/UIDs → `project` · move/rename a project file with dependency remap → `godot_project_move_file` · new project skeleton → `project_scaffold`
 - **Run & verify** — headless run + output capture → `runtime` · live play-test + input sim → `input` · input actions in project settings → `input_map` · automated assertions/screenshots → `testing` · breakpoints/stepping → `debugger` · performance monitors → `profiling`
 - **Bulk & ship** — batch/cross-scene ops → `batch` · static analysis → `analysis` · export presets → `export` · import external assets → `asset_import` · editor screenshots (vision clients) → `editor`
 

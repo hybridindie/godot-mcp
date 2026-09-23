@@ -14,6 +14,7 @@ import asyncio
 from typing import Annotated
 
 from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
 from pydantic import Field
 
 from mcp_server.bridge import Bridge
@@ -54,7 +55,8 @@ def register_scripts(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
 
     @mcp.tool(meta=READ_ONLY, tags=SCRIPTS)
     async def read_script(script_path: str) -> ScriptContent:
-        """Read the full text of the GDScript at ``script_path`` (a ``res://`` path)."""
+        """Read the full text of the script at ``script_path`` (a ``res://`` path,
+        ``.gd`` or ``.cs``)."""
         return ScriptContent(**await route(bridge, "cmd_read_script", {"script_path": script_path}))
 
     @mcp.tool(meta=READ_ONLY, tags=SCRIPTS)
@@ -62,13 +64,25 @@ def register_scripts(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
         directory: str = "res://",
         offset: Annotated[int, Field(ge=0)] = 0,
         limit: Annotated[int, Field(ge=1, le=1000)] = DEFAULT_PAGE_LIMIT,
+        language: str = "gd",
     ) -> ScriptList:
-        """List all ``.gd`` files under ``directory`` (recursive, ``res://`` path).
+        """List script files under ``directory`` (recursive, ``res://`` path) for a
+        backend: ``language="gd"`` (default) lists ``.gd``, ``"cs"`` lists ``.cs``
+        (C# support: issue #207 Phase 1).
 
         Paginated: ``scripts`` is a window of ``total`` files starting at ``offset``
         (default page ``limit`` 200). When ``truncated``, pass ``next_offset`` to page on.
         """
-        result = ScriptList(**await route(bridge, "cmd_list_scripts", {"directory": directory}))
+        if language not in ("gd", "cs"):
+            raise ToolError(
+                f"VALIDATION_ERROR: language must be 'gd' or 'cs'. Got: '{language}'"
+                " [required=language]"
+            )
+        result = ScriptList(
+            **await route(
+                bridge, "cmd_list_scripts", {"directory": directory, "language": language}
+            )
+        )
         window, total, truncated, next_offset = paginate(result.scripts, offset, limit)
         result.scripts = window
         result.total = total
@@ -89,13 +103,29 @@ def register_scripts(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
     async def write_script(
         script_path: str, content: str, dry_run: bool = False
     ) -> WriteScriptResult:
-        """Create or overwrite the GDScript at ``script_path`` with ``content``.
-        Reversible via the editor's undo. ``dry_run=True`` writes nothing and reports
-        ``would_overwrite`` so the agent knows whether it is about to replace an
-        existing script. A real run reports what happened: ``created`` on a fresh file,
-        ``overwrote``/``previous_existed`` when an existing script was replaced.
+        """Create or overwrite the script at ``script_path`` (``res://``, ``.gd`` or
+        ``.cs``) with ``content``. Reversible via the editor's undo. ``dry_run=True``
+        writes nothing and reports ``would_overwrite`` so the agent knows whether it is
+        about to replace an existing script. A real run reports what happened:
+        ``created`` on a fresh file, ``overwrote``/``previous_existed`` when an existing
+        script was replaced.
+
+        C# (``.cs``) writes land the bytes but are NOT usable until a build — the
+        result carries a ``hint`` saying to validate via a C# build (Phase 2; issue
+        #207). GDScript is validated via ``get_parse_errors``.
         """
         params = {"script_path": script_path, "content": content}
+        if script_path.endswith(".cs"):
+            # A preview must predict the real run's guidance (PR #559 review):
+            # the build hint rides the dry-run too.
+            build_hint = (
+                "C# script written but NOT yet usable: C# is compiled, not live. Validate "
+                "via a C# build (godot_scripts_get_parse_errors does not cover .cs — "
+                "build support ships in Phase 2, issue #207); the new script is invisible "
+                "to the game until an MSBuild rebuild."
+            )
+        else:
+            build_hint = None
         if dry_run:
             # Validate the path BEFORE probing — a dry-run must not bypass the
             # res:// containment check and read a file outside the project (#205).
@@ -106,17 +136,26 @@ def register_scripts(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
                 created=not exists,
                 would_overwrite=exists,
                 previous_existed=exists,
+                hint=build_hint,
                 dry_run=True,
             )
-        return WriteScriptResult(**await route(bridge, "cmd_write_script", params))
+        result = WriteScriptResult(**await route(bridge, "cmd_write_script", params))
+        result.hint = build_hint
+        return result
 
     @mcp.tool(meta=MUTATING, tags=SCRIPTS)
     async def patch_script(
         script_path: str, find: str, replace: str, dry_run: bool = False
     ) -> PatchScriptResult:
-        """Replace every occurrence of ``find`` with ``replace`` in the script.
-        Errors if ``find`` isn't present. Reversible via undo; ``dry_run`` previews.
-        """
+        """Replace every occurrence of ``find`` with ``replace`` in the script
+        (``.gd`` or ``.cs``). Errors if ``find`` isn't present. Reversible via undo;
+        ``dry_run`` previews. A ``.cs`` patch still needs a C# build to take effect
+        (issue #207)."""
+        if script_path.endswith(".cs"):
+            raise ToolError(
+                "VALIDATION_ERROR: patch_script does not edit .cs files yet — C# edits are "
+                "Phase 2 (issue #207). Use write_script for full-file .cs authoring."
+            )
         params = {"script_path": script_path, "find": find, "replace": replace}
         preview = {"script_path": script_path, "replacements": 0}
         return await run_or_preview(
@@ -136,6 +175,15 @@ def register_scripts(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
         analogue is ``godot_shader_validate``.
         """
         require_godot_binary(runner.binary)
+        if script_path.endswith(".cs"):
+            # Phase 1 honesty (#207): C# is compiled, not live — godot --check-only
+            # does not validate it, and a parse-OK would be a false positive. Refuse
+            # with the build hint until Phase 2 ships the build primitive.
+            raise ToolError(
+                "VALIDATION_ERROR: get_parse_errors checks GDScript syntax only — it does "
+                "not validate C# (issue #207). A .cs file is usable only after an MSBuild "
+                "build (Phase 2); until then there is no in-MCP C# validation."
+            )
         project_dir = await resolve_project_dir(bridge, config)
         # #453: the check's subprocess reads global_script_class_cache.cfg from
         # disk, and the editor's scan after a write (issue #417) is asynchronous.
