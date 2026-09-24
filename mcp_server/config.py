@@ -14,6 +14,10 @@ from pydantic import BaseModel, Field
 
 DEFAULT_BRIDGE_URL = "ws://localhost:9080"
 DEFAULT_REQUEST_TIMEOUT = 10.0
+# #563: websockets' default inbound max_size is 1 MiB — a full 3D gameplay
+# screenshot (base64 PNG) exceeds it and the listener would drop the frame.
+# 32 MiB mirrors the addon's WebSocketPeer buffer raise in mcp_bridge.gd.
+DEFAULT_MAX_INBOUND_MESSAGE_BYTES = 32 * 1024 * 1024
 
 # MCP HTTP transport defaults (distinct from Godot's bridge port 9080).
 DEFAULT_HTTP_HOST = "127.0.0.1"
@@ -44,8 +48,11 @@ class BridgeConfig(BaseModel):
     request_timeout: float = DEFAULT_REQUEST_TIMEOUT
     # Opt-in shared secret (issue #538): when set, the addon must send a matching
     # token as its first message after connecting or the peer is refused at the
-    # handshake. None = no auth (zero-config localhost dev, byte-identical path).
+    # handshake. None = no auth (zero-config local dev, byte-identical path).
     auth_token: str | None = None
+    # #563: inbound message cap for the listener (websockets ``max_size``).
+    # The 1 MiB library default drops large screenshot frames the addon sends.
+    max_inbound_message_bytes: int = DEFAULT_MAX_INBOUND_MESSAGE_BYTES
 
     @classmethod
     def from_env(cls) -> BridgeConfig:

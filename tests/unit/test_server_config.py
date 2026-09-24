@@ -2,9 +2,16 @@
 
 from __future__ import annotations
 
+import inspect
+
 import pytest
 
-from mcp_server.config import DEFAULT_BRIDGE_URL, ServerConfig
+from mcp_server.config import (
+    DEFAULT_BRIDGE_URL,
+    DEFAULT_MAX_INBOUND_MESSAGE_BYTES,
+    BridgeConfig,
+    ServerConfig,
+)
 
 
 def test_defaults_are_stdio_localhost() -> None:
@@ -14,6 +21,20 @@ def test_defaults_are_stdio_localhost() -> None:
     assert config.log_level == "INFO"
     # The MCP HTTP port is distinct from Godot's bridge port (9080).
     assert config.port != 9080
+
+
+def test_bridge_message_limit_admits_full_screenshot_frames() -> None:
+    """#563: the websockets library's default inbound ``max_size`` is 1 MiB —
+    a full 3D gameplay screenshot (base64 PNG) exceeds it, so the listener
+    would drop the frame the addon just started sending. The default must be
+    a deliberate, documented value large enough for normal captures."""
+    config = BridgeConfig()
+    assert config.max_inbound_message_bytes == DEFAULT_MAX_INBOUND_MESSAGE_BYTES
+    assert config.max_inbound_message_bytes >= 16 * 1024 * 1024
+    # The real listener must actually apply it (no dead config field).
+    src = inspect.getsource(__import__("mcp_server.bridge", fromlist=["_default_serve"]))
+    default_serve = src.split("async def _default_serve", 1)[1].split("\nasync def ", 1)[0]
+    assert "max_size" in default_serve, "_default_serve must pass max_size to websockets.serve"
 
 
 def test_from_env_reads_overrides(monkeypatch: pytest.MonkeyPatch) -> None:

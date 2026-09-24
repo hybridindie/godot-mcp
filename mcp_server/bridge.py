@@ -54,7 +54,10 @@ class Server(Protocol):
 # real listener instead and adopts whatever connects, so connector is None there.
 Connector = Callable[[str], Awaitable[Connection]]
 # A serve function: start listening, dispatching each accepted peer to ``handler``.
-Serve = Callable[[Callable[[Connection], Awaitable[None]], str, int], Awaitable[Server]]
+# ``max_size`` is the inbound message cap the real listener must apply (#563).
+Serve = Callable[
+    [Callable[[Connection], Awaitable[None]], str, int, int], Awaitable[Server]
+]
 Sleep = Callable[[float], Awaitable[None]]
 
 
@@ -89,7 +92,10 @@ def _supplied_token(raw: str | bytes) -> tuple[str, bool]:
 
 
 async def _default_serve(
-    handler: Callable[[Connection], Awaitable[None]], host: str, port: int
+    handler: Callable[[Connection], Awaitable[None]],
+    host: str,
+    port: int,
+    max_size: int,
 ) -> Server:
     # Imported lazily so importing this module performs no I/O and does not hard-require
     # the websockets package until the listener is actually started.
@@ -98,7 +104,10 @@ async def _default_serve(
     async def _on_connect(ws: Any) -> None:
         await handler(ws)
 
-    return await serve(_on_connect, host, port)
+    # #563: max_size must exceed the largest frame the addon sends — the library
+    # default (1 MiB) silently drops full-screenshot responses (over the wire the
+    # addon sees a closed connection and just reconnects; the tool times out).
+    return await serve(_on_connect, host, port, max_size=max_size)
 
 
 class Bridge:
@@ -145,6 +154,9 @@ class Bridge:
         # e2e polling: a refused peer (auth mismatch) never flips ``connected``,
         # so the e2e asserts on this instead.
         self.peer_attempts = 0
+        # #563: the inbound message cap handed to the real listener (the injected
+        # test ``serve`` ignores it — fakes have no transport limits to drop a frame).
+        self._max_inbound_message_bytes = self._config.max_inbound_message_bytes
 
     @property
     def connected(self) -> bool:
@@ -221,7 +233,9 @@ class Bridge:
         if self._server is not None:
             return
         host, port = _bind_target(self._config.url)
-        self._server = await self._serve(self._handle_peer, host, port)
+        self._server = await self._serve(
+            self._handle_peer, host, port, self._max_inbound_message_bytes
+        )
         logger.info("bridge listening", extra={"host": host, "port": port})
 
     async def connect(self) -> None:
