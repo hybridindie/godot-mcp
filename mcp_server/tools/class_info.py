@@ -45,5 +45,4 @@ def register_class_info(mcp: FastMCP, bridge: Bridge) -> None:
                 "include_private": include_private,
             },
         )
-        # The default field arrives as a JSON-shaped string from the addon.
         return ClassInfo(**result)

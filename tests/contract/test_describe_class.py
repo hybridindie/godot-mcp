@@ -25,14 +25,20 @@ pytestmark = pytest.mark.asyncio
 
 # The canned ClassDB response the fake addon answers with (the addon reads the
 # real ClassDB; the fake pins the envelope shape the server must map through).
+# #564: `default` is the addon's Coerce.to_json VARIANT — a dict for Vector2/
+# Color, raw int/float/bool otherwise, null when ClassDB has no stored default.
+# It is NOT a string; the model must accept every JSON-safe Variant shape.
 NODE2D = {
     "class_name": "Node2D",
     "inherits": "CanvasItem",
     "inherits_chain": ["Node2D", "CanvasItem", "Node", "Object"],
     "can_instantiate": True,
     "properties": [
-        {"name": "position", "type": "Vector2", "default": "[0, 0]"},
-        {"name": "rotation", "type": "float", "default": "0.0"},
+        {"name": "position", "type": "Vector2", "default": {"x": 0.0, "y": 0.0}},
+        {"name": "rotation", "type": "float", "default": 0.0},
+        {"name": "visible", "type": "bool", "default": True},
+        {"name": "modulate", "type": "Color", "default": {"r": 1.0, "g": 1.0, "b": 1.0, "a": 1.0}},
+        {"name": "texture_filter", "type": "int", "default": None},
     ],
     "methods": [
         {
@@ -82,7 +88,14 @@ async def test_describe_class_forwards_with_flags() -> None:
     sc = result.structured_content
     assert sc["class_name"] == "Node2D"
     assert sc["can_instantiate"] is True
-    assert sc["properties"][0]["name"] == "position"
+    # #564: defaults survive as the structured JSON Variant the addon sends —
+    # not stringified. Each shape the addon's Coerce.to_json emits is pinned.
+    props = {p["name"]: p for p in sc["properties"]}
+    assert props["position"]["default"] == {"x": 0.0, "y": 0.0}
+    assert props["rotation"]["default"] == 0.0
+    assert props["visible"]["default"] is True
+    assert props["modulate"]["default"] == {"r": 1.0, "g": 1.0, "b": 1.0, "a": 1.0}
+    assert props["texture_filter"]["default"] is None
     assert sc["properties"][0]["type"] == "Vector2"
     assert sc["methods"][0]["name"] == "get_angle_to"
     assert sc["methods"][0]["args"][0]["name"] == "to_point"

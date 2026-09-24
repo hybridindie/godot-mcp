@@ -8,6 +8,8 @@ layer accepts shapes for.
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -16,7 +18,11 @@ class ClassProperty(BaseModel):
 
     name: str
     type: str
-    default: str
+    # #564: the addon sends Coerce.to_json's JSON-safe Variant (a dict for
+    # Vector2/Color/Rect2, raw int/float/bool otherwise, null when ClassDB
+    # stores no default) — never a string. Any keeps the structured shape,
+    # which is the shape the coercion layer accepts back for set_node_property.
+    default: Any
 
 
 class ClassArgument(BaseModel):
