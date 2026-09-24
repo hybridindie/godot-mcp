@@ -29,6 +29,12 @@ func check_force_break() -> bool:
 
 
 func _ready() -> void:
+	# #565: keep processing while the game's SceneTree is paused — games pause
+	# routinely (pause menus, death screens, dialogue) and this probe's frame
+	# grabs / property monitors / force-break check all defer to _process; an
+	# INHERIT node under a paused tree stops and every capture starves into a
+	# tool timeout. It only answers debugger messages, so ALWAYS is safe.
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	if EngineDebugger.is_active():
 		EngineDebugger.register_message_capture("godot_mcp", _capture)
 		_register_output_logger()

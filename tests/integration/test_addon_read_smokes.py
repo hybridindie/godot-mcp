@@ -25,6 +25,7 @@ SMOKES = [
     ("helpers_smoke.gd", "HELPERS_TEST_OK"),
     ("peer_hello_smoke.gd", "PEER_HELLO_TEST_OK"),
     ("particle_read_smoke.gd", "PARTICLE_READ_TEST_OK"),
+    ("probe_pause_smoke.gd", "PROBE_PAUSE_TEST_OK"),
     ("prop_cache_smoke.gd", "PROP_CACHE_TEST_OK"),
     ("run_commands_smoke.gd", "RUN_COMMANDS_TEST_OK"),
     ("theme_read_smoke.gd", "THEME_READ_TEST_OK"),
