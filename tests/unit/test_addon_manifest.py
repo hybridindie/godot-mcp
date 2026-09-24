@@ -103,6 +103,21 @@ def test_bridge_uses_websocket_transport() -> None:
     assert "TCPServer" not in source, "bridge no longer listens (direction inverted, #276)"
 
 
+def test_bridge_buffers_admit_full_screenshot_frames() -> None:
+    """#563: Godot's default 64 KB WebSocketPeer buffers silently drop any
+    screenshot response over 64 KB (ERR_OUT_OF_MEMORY from wslay), and the
+    caller then times out. _open() must raise both buffers before
+    connect_to_url so a full 3D gameplay frame transfers."""
+    bridge = ADDON_DIR / "mcp_bridge.gd"
+    source = bridge.read_text()
+    _open = source.split("func _open()", 1)[1].split("\nfunc ", 1)[0]
+    assert "outbound_buffer_size" in _open, "_open() must raise the outbound buffer"
+    assert "inbound_buffer_size" in _open, "_open() must raise the inbound buffer"
+    # Both must be set BEFORE the actual connect call (the peer applies them at connect).
+    assert _open.index("outbound_buffer_size") < _open.index("_peer.connect_to_url")
+    assert _open.index("inbound_buffer_size") < _open.index("_peer.connect_to_url")
+
+
 def test_plugin_wires_the_bridge() -> None:
     source = (ADDON_DIR / "godot_mcp.gd").read_text()
     assert "MCPBridge" in source, "plugin must start the bridge"

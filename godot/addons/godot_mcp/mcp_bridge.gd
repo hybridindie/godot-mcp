@@ -21,6 +21,12 @@ extends Node
 enum Status { DISCONNECTED, CONNECTING, CONNECTED }
 
 const DEFAULT_URL := "ws://127.0.0.1:9080"
+# #563: Godot's default WebSocketPeer buffers are 64 KB (verified against the
+# 4.7 class docs) — a base64 PNG of a full 3D gameplay frame exceeds that, and
+# wslay refuses the send (ERR_OUT_OF_MEMORY), silently dropping the screenshot
+# response until the caller times out. Raise both buffers so normal viewport
+# captures transfer; the server side raises its websockets max_size to match.
+const BUFFER_SIZE := 33554432  # 32 MiB (2^25), power of two per the class docs
 # Reconnect backoff: start small, double on each failed attempt, capped — so a server
 # that isn't up yet (or that restarts) is found again without hammering it.
 const _RETRY_MIN := 0.5
@@ -93,6 +99,10 @@ func get_status() -> Status:
 ## Open a fresh peer and start the non-blocking connect. _process drives the rest.
 func _open() -> int:
 	_peer = WebSocketPeer.new()
+	# #563: both buffers must be raised BEFORE connect_to_url — the peer applies
+	# them at connect time and the 64 KB defaults drop large screenshot frames.
+	_peer.outbound_buffer_size = BUFFER_SIZE
+	_peer.inbound_buffer_size = BUFFER_SIZE
 	var err: int = _peer.connect_to_url(_url)
 	if err != OK:
 		# Bad URL / invalid state: drop the peer and back off; _process retries.

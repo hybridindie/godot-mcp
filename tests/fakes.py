@@ -119,7 +119,10 @@ class _NullServer:
 
 
 async def null_serve(
-    handler: Callable[[Connection], Awaitable[None]], host: str, port: int
+    handler: Callable[[Connection], Awaitable[None]],
+    host: str,
+    port: int,
+    max_size: int = 0,
 ) -> _NullServer:
     """A ``serve`` that binds nothing and accepts no peer — for the 'editor absent'
     case (the bridge listens but stays disconnected), with no real socket."""
