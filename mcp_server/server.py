@@ -27,6 +27,7 @@ from mcp_server.config import ServerConfig
 from mcp_server.diagnostics import register_diagnostics
 from mcp_server.prompts import register_prompts
 from mcp_server.resources.context import register_resources
+from mcp_server.result_validation_middleware import ResultValidationMiddleware
 from mcp_server.runtime import GodotRunner, Runner
 from mcp_server.safety import ApprovalGate, apply_safety_annotations, register_safety_tools
 from mcp_server.tools.analysis import register_analysis
@@ -155,6 +156,10 @@ def create_server(
     # Centralize the webhook ApprovalGate at the tools/call boundary (issue #330).
     # No-op unless a webhook is configured; dry_run short-circuits in the middleware.
     mcp.add_middleware(ApprovalMiddleware(approval))
+    # Result-model ValidationError → structured INTERNAL_ERROR ToolError
+    # (issue #567): a tool whose typed result doesn't match the addon payload
+    # must surface pydantic's field detail, not an opaque -32602.
+    mcp.add_middleware(ResultValidationMiddleware())
     # Background tasks (issue #315): register the in-process TasksExtension so
     # tools marked ``task=True`` can return a handle immediately instead of
     # holding the MCP request open for the whole bridge op. Three long-running
