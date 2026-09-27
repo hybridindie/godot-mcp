@@ -62,7 +62,8 @@ readable. Pass the previous call's `next_seq` as `since_seq` for incremental pul
 ```
 godot_input_simulate_action(action='ui_right', pressed=true)   # hold
 godot_input_simulate_action(action='ui_right', pressed=false)  # release
-godot_input_simulate_key(key='Space', pressed=true)
+godot_input_simulate_key(key='Space', pressed=true)  # matches keycode + physical-keycode bindings
+godot_input_simulate_action(action='interact')       # preferred when an action is bound — bypasses key matching
 godot_input_simulate_mouse(x=200, y=150, button='left')        # move / click
 godot_input_play_sequence(events=[...], delay_ms=100)          # replay a recorded macro
 godot_input_record()                       # start capturing (include_motion=false)

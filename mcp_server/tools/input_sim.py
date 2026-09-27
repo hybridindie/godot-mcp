@@ -49,6 +49,8 @@ def register_input_sim(mcp: FastMCP, bridge: Bridge) -> None:
         """Send a key event to the running game. ``key`` is a Godot key name
         ("A", "Space", "Enter", "Escape", …); ``pressed`` false sends a release. Optional
         modifier flags (shift/ctrl/alt/meta). Requires a play session + runtime probe.
+        The injected event carries both keycode and physical_keycode (like real
+        hardware), so Input Map actions bound either way fire.
 
         WHEN TO USE: You need to send a SINGLE key press or release (e.g., tap
         Space to jump, or hold Shift for sprint). Simple, one-off interactions.

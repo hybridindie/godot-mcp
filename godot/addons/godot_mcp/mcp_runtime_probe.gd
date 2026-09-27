@@ -202,7 +202,14 @@ func _payload(data: Array) -> Dictionary:
 
 func _inject_key(d: Dictionary) -> void:
 	var event := InputEventKey.new()
-	event.keycode = OS.find_keycode_from_string(str(d.get("key", "")))
+	var key := OS.find_keycode_from_string(str(d.get("key", "")))
+	# #570: set BOTH keycodes like real hardware events do. The Input Map editor
+	# binds actions by physical keycode by default, and an event carrying only
+	# `keycode` never matches such a binding (docs: comparison is keycode →
+	# physical_keycode, first match wins). `physical_keycode` here is the key's
+	# US-QWERTY position, exactly what a real keypress reports.
+	event.keycode = key
+	event.physical_keycode = key
 	event.pressed = bool(d.get("pressed", true))
 	event.shift_pressed = bool(d.get("shift", false))
 	event.ctrl_pressed = bool(d.get("ctrl", false))
@@ -211,6 +218,7 @@ func _inject_key(d: Dictionary) -> void:
 	# device left at default 0. Verified on Godot 4.7 (GH-116274 made real keyboard
 	# events device=16 / mouse=32) that injected events still reach _input/
 	# _unhandled_input and update InputMap action state — tests/input_inject_smoke.gd.
+	# #570: keycode + physical_keycode are both set, so bindings of either type fire.
 	Input.parse_input_event(event)
 	_ack()
 

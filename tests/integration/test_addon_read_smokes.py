@@ -22,6 +22,7 @@ SMOKES = [
     ("history_smoke.gd", "HISTORY_TEST_OK"),
     ("icon_cache_smoke.gd", "ICON_CACHE_TEST_OK"),
     ("input_action_read_smoke.gd", "INPUT_ACTION_READ_TEST_OK"),
+    ("key_binding_smoke.gd", "KEY_BINDING_TEST_OK"),
     ("helpers_smoke.gd", "HELPERS_TEST_OK"),
     ("peer_hello_smoke.gd", "PEER_HELLO_TEST_OK"),
     ("particle_read_smoke.gd", "PARTICLE_READ_TEST_OK"),
