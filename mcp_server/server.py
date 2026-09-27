@@ -11,6 +11,7 @@ missing editor never blocks the server) and closes on shutdown
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -25,6 +26,7 @@ from mcp_server.capabilities import STATIC_CAPABILITY, apply_capability
 from mcp_server.coercion_middleware import ArgumentCoercionMiddleware
 from mcp_server.config import ServerConfig
 from mcp_server.diagnostics import register_diagnostics
+from mcp_server.logging_setup import install_proactor_reset_demotion
 from mcp_server.prompts import register_prompts
 from mcp_server.resources.context import register_resources
 from mcp_server.result_validation_middleware import ResultValidationMiddleware
@@ -102,6 +104,10 @@ def create_server(
 
     @asynccontextmanager
     async def lifespan(_server: FastMCP) -> AsyncIterator[None]:
+        # #572: demote the benign Windows proactor ConnectionResetError inside
+        # the running loop (anyio.run creates the loop, so it can't be set up
+        # before server.run()); every other loop error keeps its ERROR path.
+        install_proactor_reset_demotion(asyncio.get_running_loop())
         # Start the bridge listener; the Godot addon connects (and reconnects) to it
         # (#276). Best-effort: if the port can't be bound (another server owns it), boot
         # anyway and report disconnected via health_check rather than failing — but log
