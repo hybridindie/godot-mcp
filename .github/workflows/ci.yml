@@ -29,6 +29,10 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v8.3.1
         with:
+          # Pinned (issue #579): setup-uv's manifest fetch (raw.githubusercontent.com
+          # uv.ndjson) is the flaky step on the self-hosted runner — a pinned
+          # version skips it entirely (matches the dev toolchain, uv 0.11.29).
+          version: "0.11.29"
           enable-cache: true
 
       - name: Set up Python
@@ -52,6 +56,10 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v8.3.1
         with:
+          # Pinned (issue #579): setup-uv's manifest fetch (raw.githubusercontent.com
+          # uv.ndjson) is the flaky step on the self-hosted runner — a pinned
+          # version skips it entirely (matches the dev toolchain, uv 0.11.29).
+          version: "0.11.29"
           enable-cache: true
 
       - name: Set up Python
@@ -72,6 +80,10 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v8.3.1
         with:
+          # Pinned (issue #579): setup-uv's manifest fetch (raw.githubusercontent.com
+          # uv.ndjson) is the flaky step on the self-hosted runner — a pinned
+          # version skips it entirely (matches the dev toolchain, uv 0.11.29).
+          version: "0.11.29"
           enable-cache: true
 
       - name: Set up Python
@@ -92,6 +104,10 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v8.3.1
         with:
+          # Pinned (issue #579): setup-uv's manifest fetch (raw.githubusercontent.com
+          # uv.ndjson) is the flaky step on the self-hosted runner — a pinned
+          # version skips it entirely (matches the dev toolchain, uv 0.11.29).
+          version: "0.11.29"
           enable-cache: true
 
       - name: Set up Python

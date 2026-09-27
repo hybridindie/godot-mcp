@@ -68,6 +68,8 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v8.3.1
         with:
+          # Pinned (issue #579) — skips the flaky manifest fetch (see ci.yml).
+          version: "0.11.29"
           enable-cache: true
 
       - name: Set up Python
