@@ -84,7 +84,15 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 					_read_property = reply
 			return true
 		"godot_mcp:ui_elements":
-			_ui_elements = data[0] if not data.is_empty() else null
+			# #577 (Qodo review of #575): same stale-reply gate as read_property —
+			# store the scan reply only when its request_id matches the pending
+			# scan, so a delayed reply to an older request can't be served to a
+			# new poll (wrong rects to click).
+			var scan: Variant = data[0] if not data.is_empty() else null
+			if scan is Dictionary:
+				var pending_scan := _ui_pending
+				if pending_scan != "__none__" and str((scan as Dictionary).get("request_id", "")) == pending_scan:
+					_ui_elements = scan
 			return true
 		"godot_mcp:recorded_input":
 			_recorded_input = data[0] if not data.is_empty() else null
