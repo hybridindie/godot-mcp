@@ -82,6 +82,12 @@ func _capture(message: String, data: Array) -> bool:
 		"monitor_property":
 			_start_monitor(_payload(data))
 			return true
+		"read_property":
+			# #571: dedicated one-shot read — reads the value now and replies
+			# immediately, never touching the monitor slot, so a one-shot assert
+			# cannot replace a running monitor_property capture.
+			EngineDebugger.send_message("godot_mcp:read_property", [_read_property(_payload(data))])
+			return true
 		"find_ui":
 			EngineDebugger.send_message("godot_mcp:ui_elements", [_find_ui(_payload(data))])
 			return true
@@ -395,6 +401,31 @@ func _values_equal(a: Variant, b: Variant, epsilon: float) -> bool:
 				return false
 		return true
 	return a == b
+
+
+## #571 one-shot read: resolve the node, read the property once, reply now.
+## Uses the same JSON-safe coercion as the monitor series and the same
+## read-property semantics (built-ins + script vars), but shares no state with
+## the monitor slot — a capture in progress keeps capturing.
+func _read_property(d: Dictionary) -> Dictionary:
+	var node_path := str(d.get("node_path", ""))
+	var property := str(d.get("property", ""))
+	var request_id := str(d.get("request_id", ""))
+	var node := get_node_or_null(NodePath(node_path))
+	if node == null:
+		return {
+			"request_id": request_id, "node_path": node_path, "property": property,
+			"value": null, "error": "node not found at '%s'" % node_path, "ready": true,
+		}
+	if not (property in node):
+		return {
+			"request_id": request_id, "node_path": node_path, "property": property,
+			"value": null, "error": "no property '%s' on the node" % property, "ready": true,
+		}
+	return {
+		"request_id": request_id, "node_path": node_path, "property": property,
+		"value": _json_safe(node.get(property)), "error": "", "ready": true,
+	}
 
 
 func _start_monitor(d: Dictionary) -> void:

@@ -1218,6 +1218,7 @@ with #66). Requires a play session + the runtime probe.
 |------|--------|---------|
 | `godot_runtime_monitor_property` | `node_path, property, samples=30, on_change_only=True, epsilon=0.0001` | `MonitorResult { monitoring, node_path, property, samples, on_change_only, epsilon }` |
 | `godot_runtime_get_property_samples` | — | `PropertySamplesResult { ready, connected, node_path, property, samples[], error, requested?, dropped_duplicates?, sampling_usec?, on_change_only? }` |
+| `godot_runtime_read_property` | `node_path, property, timeout_ms=2000` | `ReadPropertyResult { ready, node_path, property, value, error }` |
 | `godot_runtime_find_ui_elements` | `name_contains="", class_filter="", visible_only=False, timeout_ms=2000` | `UiElementsResult { ready, elements[] }` |
 
 `godot_runtime_monitor_property` captures `samples` readings of a live node's property (one per frame —
@@ -1237,6 +1238,11 @@ and polls the probe up to `timeout_ms` for a fresh result. Each invocation carri
 internal `request_id` (constant across its poll), so the addon dispatches exactly one
 full-Control scan per call and never returns a prior identical-filter request's stale
 result. The `rect` pairs with `godot_input_simulate_mouse` to click located UI.
+`godot_runtime_read_property` reads a live property **once** and returns its current
+JSON-coerced value — the dedicated #571 one-shot path that never touches the
+`monitor_property` capture slot (assertions and single-value reads during a running
+capture leave the capture's series intact). Same `request_id` + poll pattern as
+`find_ui_elements`; `reason: "read_pending"` while the probe reply is in flight.
 
 ### Editor history — `mutating` / `read_only` (category: `core`)
 
@@ -1356,6 +1362,7 @@ in their `TIMEOUT` expiry error so an agent can act on the cause:
 |-------|---------|---------|
 | `recording_pending` | `godot_input_stop_recording` | the stop push hasn't landed from the probe yet |
 | `capture_pending` | `godot_runtime_get_property_samples`, game-frame capture | the monitor/capture request is dispatched; the probe answers on a later frame |
+| `read_pending` | `godot_runtime_read_property` | the one-shot read is dispatched; the probe replies on a later frame (#571) |
 | `scan_in_flight` | `godot_runtime_find_ui_elements` | the full-Control scan is dispatched and runs over the next frames |
 | `probe_pending` | `godot_profiling_get_performance_monitors` | the probe hasn't answered the first monitor pull |
 | `rescan_in_flight` | `godot_asset_import_get_status` | the editor's filesystem scan is running (an import just triggered it); the status read is provisional and its `scanning` flag is true |

@@ -486,7 +486,12 @@ def test_router_registers_input_sim_commands() -> None:
 
 def test_router_registers_runtime_inspect_commands() -> None:
     source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
-    for command in ("cmd_monitor_property", "cmd_get_property_samples", "cmd_find_ui_elements"):
+    for command in (
+        "cmd_monitor_property",
+        "cmd_get_property_samples",
+        "cmd_find_ui_elements",
+        "cmd_read_property",
+    ):
         assert f'"{command}"' in source, f"router must register {command}"
     # The probe must sample properties and collect Control nodes with their rect.
     probe = (ADDON_DIR / "mcp_runtime_probe.gd").read_text()

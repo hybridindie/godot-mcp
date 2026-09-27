@@ -9,6 +9,7 @@ and diff screenshots. Gated `testing` toolset. Scenario/stress control the run
 from __future__ import annotations
 
 import asyncio
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -50,21 +51,29 @@ TESTING = {TESTING_TAG}
 async def _read_live_value(
     bridge: Bridge, node_path: str, prop: str, timeout_ms: int
 ) -> tuple[Any, str]:
-    """One-shot read of a live property by reusing monitor_property with a single sample.
+    """One-shot read of a live property via the probe's dedicated read path (#571).
 
-    Returns (value, error): error is set when the node/property was invalid or no sample
-    arrived in time.
+    Returns (value, error): error is set when the node/property was invalid or no
+    value arrived in time. Deliberately NOT monitor_property(samples=1) — that
+    silently replaced a running monitor capture with the one-shot's series.
     """
-    await route(
-        bridge, "cmd_monitor_property", {"node_path": node_path, "property": prop, "samples": 1}
+    result = await poll_ready(
+        bridge,
+        "cmd_read_property",
+        {
+            "node_path": node_path,
+            "property": prop,
+            # Stable per-invocation id so a reply is never confused with a prior
+            # request's stale result (same pattern as find_ui_elements).
+            "request_id": uuid.uuid4().hex,
+        },
+        timeout_ms,
     )
-    result = await poll_ready(bridge, "cmd_get_property_samples", {}, timeout_ms)
     if result.get("error"):
         return None, str(result["error"])
-    samples = result.get("samples") or []
-    if not result.get("ready") or not samples:
-        return None, "no sample captured (is the game still running?)"
-    return samples[0].get("value"), ""
+    if not result.get("ready"):
+        return None, "no value captured (is the game still running?)"
+    return result.get("value"), ""
 
 
 async def _assert_one(bridge: Bridge, spec: dict[str, Any], timeout_ms: int) -> AssertionResult:

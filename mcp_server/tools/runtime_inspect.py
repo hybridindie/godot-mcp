@@ -22,6 +22,7 @@ from mcp_server.defaults import (
 from mcp_server.models.runtime_inspect import (
     MonitorResult,
     PropertySamplesResult,
+    ReadPropertyResult,
     UiElementsResult,
 )
 from mcp_server.safety import READ_ONLY
@@ -78,6 +79,33 @@ def register_runtime_inspect(mcp: FastMCP, bridge: Bridge) -> None:
         ``error`` set if the node/property was invalid).
         """
         return PropertySamplesResult(**await route(bridge, "cmd_get_property_samples", {}))
+
+    @mcp.tool(meta=READ_ONLY, tags=RUNTIME_SET)
+    async def read_property(
+        node_path: str,
+        property: str,
+        timeout_ms: TimeoutMs = DEFAULT_RUNTIME_INSPECT_TIMEOUT_MS,
+    ) -> ReadPropertyResult:
+        """Read a property from the running game's node at ``node_path`` ONCE and
+        return its current value (JSON-coerced, same shapes ``monitor_property``
+        samples use). The dedicated #571 one-shot path: it never touches the
+        ``monitor_property`` capture slot, so an assert or read during a running
+        capture cannot replace that capture's series. Requires a play session +
+        runtime probe.
+
+        WHEN TO USE: a single current-value check (assertions, "what is X now?").
+        WHEN NOT TO USE: you want a series over time — use ``monitor_property`` +
+        ``get_property_samples``.
+        """
+        params = {
+            "node_path": node_path,
+            "property": property,
+            # Stable per-invocation id (constant across the poll loop) so a reply is
+            # never confused with a prior request's stale result (#571, find_ui pattern).
+            "request_id": uuid.uuid4().hex,
+        }
+        result = await poll_ready(bridge, "cmd_read_property", params, timeout_ms)
+        return ReadPropertyResult(**result)
 
     @mcp.tool(meta=READ_ONLY, tags=RUNTIME_SET)
     async def find_ui_elements(

@@ -45,12 +45,15 @@ godot_runtime_get_game_scene_tree()        # the LIVE hierarchy (not the editor 
 godot_runtime_get_game_output()            # the game's print/error/warning stream (#534)
 godot_runtime_monitor_property(node_path='/root/Main/Player', property='position', samples=30)
 godot_runtime_get_property_samples()       # [{frame, value}] once the capture completes
+godot_runtime_read_property(node_path='/root/Main/Player', property='velocity')  # one-shot, current value
 godot_runtime_find_ui_elements(text='Start')  # locate a Control by its text
 ```
 
 `monitor_property` dedupes by default (#536): a static property yields one sample (plus
 `dropped_duplicates`/`requested` honesty stats) instead of N identical readings. Pass
-`on_change_only=False` when you need a full every-frame series.
+`on_change_only=False` when you need a full every-frame series. `read_property` (#571) is
+the dedicated one-shot read — it never disturbs a running capture, so assert mid-capture
+is safe.
 
 `godot_runtime_get_game_output()` reads the running game's console — print lines, script
 errors (with stack-trace rationale), warnings — from a bounded ring with a `since_seq`

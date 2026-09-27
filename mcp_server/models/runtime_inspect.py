@@ -34,6 +34,19 @@ class PropertySamplesResult(BaseModel):
     reason: str | None = None
 
 
+class ReadPropertyResult(BaseModel):
+    """One-shot live property read (#571): the value now, from the probe's
+    dedicated read path that never touches the monitor slot."""
+
+    ready: bool = False
+    node_path: str = ""
+    property: str = ""
+    value: Any = None
+    error: str = ""
+    # #459: stable reason token while pending (read_pending).
+    reason: str | None = None
+
+
 class Rect(BaseModel):
     x: float = 0.0
     y: float = 0.0
