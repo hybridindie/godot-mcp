@@ -46,9 +46,10 @@ def _build() -> tuple[FastMCP, FakeAddonConnection]:
                 )
             case "cmd_monitor_property":
                 return ResponseEnvelope.success(cmd.id, {"monitoring": True})
-            case "cmd_get_property_samples":
+            case "cmd_read_property":
+                # #571: assert_node_state reads via the dedicated one-shot read now.
                 return ResponseEnvelope.success(
-                    cmd.id, {"ready": True, "samples": [{"frame": 1, "value": False}]}
+                    cmd.id, {"ready": True, "value": False, "error": ""}
                 )
         return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
 

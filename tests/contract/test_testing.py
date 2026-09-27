@@ -36,6 +36,11 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
             return ResponseEnvelope.success(
                 cmd.id, {"monitoring": True, "node_path": p["node_path"], "property": p["property"]}
             )
+        case "cmd_read_property":
+            # #571: assert reads via the dedicated one-shot read, not the monitor.
+            return ResponseEnvelope.success(
+                cmd.id, {"ready": True, "value": 100, "node_path": p["node_path"], "error": ""}
+            )
         case "cmd_get_property_samples":
             return ResponseEnvelope.success(
                 cmd.id,

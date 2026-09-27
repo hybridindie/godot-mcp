@@ -126,6 +126,7 @@ BARE_TO_COMMAND: dict[str, str] = {
     "runtime_is_playing": "cmd_is_playing",
     "runtime_monitor_property": "cmd_monitor_property",
     "runtime_play_scene": "cmd_play_scene",
+    "runtime_read_property": "cmd_read_property",
     "runtime_stop_scene": "cmd_stop_scene",
     "scene_3d_add_mesh_instance": "cmd_add_mesh_instance",
     "scene_3d_add_mesh_library_item": "cmd_add_mesh_library_item",

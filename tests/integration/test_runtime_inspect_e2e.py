@@ -150,6 +150,43 @@ async def _run() -> None:
         bad = await _poll(bridge, "cmd_get_property_samples", {})
         assert bad["error"] != ""
 
+        # #571: a one-shot read DURING a running capture must not replace it.
+        # Start a legacy every-frame capture…
+        await _ok(
+            bridge,
+            "cmd_monitor_property",
+            {"node_path": button["path"], "property": "position", "samples": 30,
+             "on_change_only": False},
+        )
+        # …read a different property one-shot mid-capture…
+        one_shot = await _poll(
+            bridge,
+            "cmd_read_property",
+            {"node_path": button["path"], "property": "text", "request_id": "e2e-read-1"},
+        )
+        assert one_shot["error"] == ""
+        assert one_shot["value"] == "Play"
+        # …and the capture keeps collecting ITS series (not the one-shot's).
+        series = await _poll(bridge, "cmd_get_property_samples", {})
+        assert series["error"] == ""
+        assert series["property"] == "position", (
+            f"#571: one-shot read clobbered the capture: {series.get('property')}"
+        )
+        assert series["node_path"] == button["path"]
+        assert len(series["samples"]) >= 2, "capture must still be sampling past the one-shot"
+
+        # the one-shot read errors are structured, not crashes
+        bad_read = await _poll(
+            bridge,
+            "cmd_read_property",
+            {
+                "node_path": button["path"],
+                "property": "no_such_prop_xyz",
+                "request_id": "e2e-read-2",
+            },
+        )
+        assert bad_read["error"] != ""
+
         await _ok(bridge, "cmd_stop_scene", {})
     finally:
         await bridge.close()

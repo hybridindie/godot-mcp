@@ -28,6 +28,8 @@ var _owned_connections: Array = []
 var _scene_tree: Variant = null  # last godot_mcp:scene_tree payload (Dictionary) or null
 var _input_acks: int = 0  # count of synthesized inputs the game has acknowledged (#36)
 var _property_samples: Variant = null  # last godot_mcp:property_samples payload (#35)
+var _read_property: Variant = null  # last godot_mcp:read_property one-shot reply (#571)
+var _read_property_pending := "__none__"  # request_id of the in-flight one-shot read (#571)
 var _ui_elements: Variant = null  # last godot_mcp:ui_elements payload (#35)
 var _ui_pending := "__none__"  # request_id of the in-flight find_ui request (#35)
 var _recorded_input: Variant = null  # last godot_mcp:recorded_input payload (#68)
@@ -70,6 +72,9 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 			return true
 		"godot_mcp:property_samples":
 			_property_samples = data[0] if not data.is_empty() else null
+			return true
+		"godot_mcp:read_property":
+			_read_property = data[0] if not data.is_empty() else null
 			return true
 		"godot_mcp:ui_elements":
 			_ui_elements = data[0] if not data.is_empty() else null
@@ -190,6 +195,8 @@ func _on_stopped() -> void:
 	_scene_tree = null
 	_input_acks = 0
 	_property_samples = null
+	_read_property = null
+	_read_property_pending = "__none__"
 	_ui_elements = null
 	_ui_pending = "__none__"
 	_recorded_input = null
@@ -267,6 +274,23 @@ func get_property_samples() -> Variant:
 ## (the next get_property_samples reports ready=false until the new series arrives).
 func clear_property_samples() -> void:
 	_property_samples = null
+
+
+# #571 one-shot read cache (mirrors the find_ui request_id pattern).
+func get_read_property() -> Variant:
+	return _read_property
+
+
+## request_id of the in-flight one-shot read (so repeated polls don't re-dispatch
+## and a completed read isn't confused with a prior request's stale reply).
+func get_pending_read_request() -> String:
+	return _read_property_pending
+
+
+## Mark a new one-shot read as in-flight and drop any prior (stale) reply.
+func begin_read_request(request_id: String) -> void:
+	_read_property_pending = request_id
+	_read_property = null
 
 
 func get_ui_elements() -> Variant:

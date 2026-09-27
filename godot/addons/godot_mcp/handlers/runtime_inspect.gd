@@ -17,6 +17,7 @@ func register(handlers: Dictionary) -> void:
 	handlers["cmd_find_ui_elements"] = _cmd_find_ui_elements
 	handlers["cmd_get_property_samples"] = _cmd_get_property_samples
 	handlers["cmd_monitor_property"] = _cmd_monitor_property
+	handlers["cmd_read_property"] = _cmd_read_property
 
 
 # -- handlers ----------------------------------------------------------------
@@ -58,6 +59,35 @@ func _cmd_get_property_samples(_params: Dictionary) -> Dictionary:
 	var result: Dictionary = (payload as Dictionary).duplicate()
 	result["connected"] = true
 	return _router._ok(result)
+
+
+
+# #571: dedicated one-shot read — reads the live value NOW via the probe's
+# read_property message and never touches the monitor slot, so a one-shot
+# assert (assert_node_state) cannot replace a running monitor_property capture.
+# Same request_id + poll pattern as find_ui_elements: the reply lands in the
+# debugger cache on a later frame via _capture; the caller polls until ready.
+func _cmd_read_property(params: Dictionary) -> Dictionary:
+	var guard := _router._require_live_probe()
+	if not guard["ok"]:
+		return guard
+	var node_path := str(params.get("node_path", ""))
+	var property := str(params.get("property", ""))
+	if node_path.is_empty() or property.is_empty():
+		return _router._fail("VALIDATION_ERROR", "'node_path' and 'property' are required.")
+	var request_id := str(params.get("request_id", ""))
+	if request_id.is_empty():
+		return _router._fail("VALIDATION_ERROR", "'request_id' is required.")
+	if _router._debugger.get_pending_read_request() != request_id:
+		_router._debugger.begin_read_request(request_id)
+		_router._debugger.send_to_probe("godot_mcp:read_property", [{
+			"node_path": node_path, "property": property, "request_id": request_id,
+		}])
+	var payload: Variant = _router._debugger.get_read_property()
+	if payload == null:
+		# #459: dispatched to the probe; the reply lands on a later frame.
+		return _router._ok({"ready": false, "reason": "read_pending"})
+	return _router._ok(payload)
 
 
 
