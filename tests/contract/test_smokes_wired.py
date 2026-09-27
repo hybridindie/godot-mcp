@@ -40,12 +40,11 @@ def test_every_smoke_script_is_wired_into_pytest() -> None:
     unwired: list[str] = []
     for path in sorted(GODOT_TESTS.glob("*_smoke.gd")):
         name = path.name
-        wired = (
-            f'"{name}"' in sources
-            or f"'{name}'" in sources
-            or name in _DEDICATED_WIRING
-            and (TESTS_DIR / _DEDICATED_WIRING[name]).exists()
+        in_smokes = f'"{name}"' in sources or f"'{name}'" in sources
+        has_dedicated = (
+            name in _DEDICATED_WIRING and (TESTS_DIR / _DEDICATED_WIRING[name]).exists()
         )
+        wired = in_smokes or has_dedicated
         if not wired:
             unwired.append(name)
     assert not unwired, (
