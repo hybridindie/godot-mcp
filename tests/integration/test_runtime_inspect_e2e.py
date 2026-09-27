@@ -55,7 +55,9 @@ async def _wait_scene_open(bridge: Bridge) -> None:
 
 
 async def _wait_connected(bridge: Bridge) -> None:
-    for _ in range(30):
+    # The probe's first connection can lag several seconds behind the play
+    # command under editor cold-start/load.
+    for _ in range(60):
         state = await _ok(bridge, "cmd_get_game_scene_tree", {})
         if state.get("connected"):
             return
@@ -64,7 +66,12 @@ async def _wait_connected(bridge: Bridge) -> None:
 
 
 async def _poll(bridge: Bridge, command: str, params: dict[str, Any]) -> dict[str, Any]:
-    for _ in range(30):
+    # The played game under a headless editor's debug session was measured at
+    # ~1 fps (probe perf: fps=1, process_time≈1000ms) — a 5-frame capture takes
+    # ~5-8s; 6s was marginal and failed under boot-time jitter. 90 x 0.2s = 18s
+    # covers the observed cadence with headroom; ready replies still return
+    # immediately. (The 1fps cadence itself is tracked in #582's follow-up.)
+    for _ in range(90):
         r = await _ok(bridge, command, params)
         if r.get("ready"):
             return r
@@ -151,11 +158,12 @@ async def _run() -> None:
         assert bad["error"] != ""
 
         # #571: a one-shot read DURING a running capture must not replace it.
-        # Start a legacy every-frame capture…
+        # Start a legacy every-frame capture (10 frames — at the debug session's
+        # ~1 fps cadence a frame costs ~1s; keep the budget bounded)…
         await _ok(
             bridge,
             "cmd_monitor_property",
-            {"node_path": button["path"], "property": "position", "samples": 30,
+            {"node_path": button["path"], "property": "position", "samples": 10,
              "on_change_only": False},
         )
         # …read a different property one-shot mid-capture…

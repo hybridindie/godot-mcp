@@ -9,74 +9,75 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from mcp_server.models.json_strict import JSONBool, JSONInt, JSONStr
 from mcp_server.models.persistence import PersistenceReport
 
 
 class CreateNodeResult(PersistenceReport):
-    node_path: str
-    created: bool
-    dry_run: bool = False
+    node_path: JSONStr
+    created: JSONBool
+    dry_run: JSONBool = False
 
 
 class RenameNodeResult(PersistenceReport):
-    node_path: str
-    new_name: str
-    renamed: bool
-    old_name: str | None = None
-    dry_run: bool = False
+    node_path: JSONStr
+    new_name: JSONStr
+    renamed: JSONBool
+    old_name: JSONStr | None = None
+    dry_run: JSONBool = False
 
 
 class SetPropertyResult(PersistenceReport):
-    node_path: str
-    property: str
+    node_path: JSONStr
+    property: JSONStr
     value: Any = None
-    set: bool = False
-    dry_run: bool = False
+    set: JSONBool = False
+    dry_run: JSONBool = False
 
 
 class DeleteNodeResult(PersistenceReport):
-    node_path: str
-    deleted: bool
-    dry_run: bool = False
+    node_path: JSONStr
+    deleted: JSONBool
+    dry_run: JSONBool = False
 
 
 class AttachScriptResult(PersistenceReport):
-    node_path: str
-    script_path: str
-    attached: bool
-    dry_run: bool = False
+    node_path: JSONStr
+    script_path: JSONStr
+    attached: JSONBool
+    dry_run: JSONBool = False
 
 
 class ConnectSignalResult(BaseModel):
-    source_path: str
-    signal_name: str
-    target_path: str
-    method_name: str
-    connected: bool
+    source_path: JSONStr
+    signal_name: JSONStr
+    target_path: JSONStr
+    method_name: JSONStr
+    connected: JSONBool
     # True when the connection already existed (e.g. saved in the scene file);
     # the addon treats that as an idempotent success rather than a failure (#152).
-    already_connected: bool = False
-    dry_run: bool = False
+    already_connected: JSONBool = False
+    dry_run: JSONBool = False
 
 
 class SaveSceneResult(BaseModel):
-    saved: bool
-    path: str | None = None
-    dry_run: bool = False
+    saved: JSONBool
+    path: JSONStr | None = None
+    dry_run: JSONBool = False
 
 
 class CreateSceneResult(BaseModel):
-    scene_path: str
-    root_type: str
-    created: bool
-    dry_run: bool = False
+    scene_path: JSONStr
+    root_type: JSONStr
+    created: JSONBool
+    dry_run: JSONBool = False
 
 
 class InstanceSceneResult(PersistenceReport):
-    node_path: str
-    scene_path: str
-    instanced: bool
-    dry_run: bool = False
+    node_path: JSONStr
+    scene_path: JSONStr
+    instanced: JSONBool
+    dry_run: JSONBool = False
 
 
 class ExtractSceneResult(PersistenceReport):
@@ -87,17 +88,17 @@ class ExtractSceneResult(PersistenceReport):
     instance when ``replace_with_instance`` was requested (empty otherwise).
     """
 
-    node_path: str
-    scene_path: str
-    extracted: bool
-    replaced: bool = False
-    saved: bool = False
-    node_count: int = 0
-    instance_path: str | None = None
-    dry_run: bool = False
+    node_path: JSONStr
+    scene_path: JSONStr
+    extracted: JSONBool
+    replaced: JSONBool = False
+    saved: JSONBool = False
+    node_count: JSONInt = 0
+    instance_path: JSONStr | None = None
+    dry_run: JSONBool = False
 
 
 class SetEditableChildrenResult(PersistenceReport):
-    node_path: str
-    editable: bool
-    dry_run: bool = False
+    node_path: JSONStr
+    editable: JSONBool
+    dry_run: JSONBool = False

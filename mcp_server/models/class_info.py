@@ -12,12 +12,14 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
+from mcp_server.models.json_strict import JSONBool, JSONInt, JSONStr
+
 
 class ClassProperty(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    name: str
-    type: str
+    name: JSONStr
+    type: JSONStr
     # #564: the addon sends Coerce.to_json's JSON-safe Variant (a dict for
     # Vector2/Color/Rect2, raw int/float/bool otherwise, null when ClassDB
     # stores no default) — never a string. Any keeps the structured shape,
@@ -28,47 +30,47 @@ class ClassProperty(BaseModel):
 class ClassArgument(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    name: str
-    type: str
+    name: JSONStr
+    type: JSONStr
 
 
 class ClassMethod(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    name: str
+    name: JSONStr
     args: list[ClassArgument]
-    return_type: str
+    return_type: JSONStr
 
 
 class ClassSignal(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    name: str
+    name: JSONStr
     args: list[ClassArgument]
 
 
 class ClassConstant(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    name: str
-    value: int
-    enum: str
+    name: JSONStr
+    value: JSONInt
+    enum: JSONStr
 
 
 class ClassEnum(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    name: str
-    members: list[str]
+    name: JSONStr
+    members: list[JSONStr]
 
 
 class ClassInfo(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    class_name: str
-    inherits: str
-    inherits_chain: list[str]
-    can_instantiate: bool
+    class_name: JSONStr
+    inherits: JSONStr
+    inherits_chain: list[JSONStr]
+    can_instantiate: JSONBool
     properties: list[ClassProperty]
     methods: list[ClassMethod]
     signals: list[ClassSignal]
