@@ -6,30 +6,32 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from mcp_server.models.json_strict import JSONBool, JSONInt, JSONStr
+
 
 class MonitorResult(BaseModel):
-    monitoring: bool
-    node_path: str
-    property: str
-    samples: int = 0
+    monitoring: JSONBool
+    node_path: JSONStr
+    property: JSONStr
+    samples: JSONInt = 0
     # #536 push-on-change sampling: only changed values are queued (default);
     # epsilon is the float-comparison tolerance for the change test.
-    on_change_only: bool = True
+    on_change_only: JSONBool = True
     epsilon: float = 0.0001
 
 
 class PropertySample(BaseModel):
-    frame: int
+    frame: JSONInt
     value: Any = None
 
 
 class PropertySamplesResult(BaseModel):
-    ready: bool = False
-    connected: bool = False
-    node_path: str = ""
-    property: str = ""
+    ready: JSONBool = False
+    connected: JSONBool = False
+    node_path: JSONStr = ""
+    property: JSONStr = ""
     samples: list[PropertySample] = Field(default_factory=list)
-    error: str = ""
+    error: JSONStr = ""
     # #459: stable reason token while pending (capture_pending).
     reason: str | None = None
 
@@ -38,11 +40,11 @@ class ReadPropertyResult(BaseModel):
     """One-shot live property read (#571): the value now, from the probe's
     dedicated read path that never touches the monitor slot."""
 
-    ready: bool = False
-    node_path: str = ""
-    property: str = ""
+    ready: JSONBool = False
+    node_path: JSONStr = ""
+    property: JSONStr = ""
     value: Any = None
-    error: str = ""
+    error: JSONStr = ""
     # #459: stable reason token while pending (read_pending).
     reason: str | None = None
 
@@ -55,16 +57,16 @@ class Rect(BaseModel):
 
 
 class UiElement(BaseModel):
-    path: str
-    name: str
-    node_class: str = ""
-    visible: bool = False
+    path: JSONStr
+    name: JSONStr
+    node_class: JSONStr = ""
+    visible: JSONBool = False
     rect: Rect = Field(default_factory=Rect)
-    text: str = ""
+    text: JSONStr = ""
 
 
 class UiElementsResult(BaseModel):
-    ready: bool = False
+    ready: JSONBool = False
     elements: list[UiElement] = Field(default_factory=list)
     # #459: stable reason token while pending (scan_in_flight).
     reason: str | None = None
