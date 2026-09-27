@@ -84,10 +84,13 @@ func _cmd_read_property(params: Dictionary) -> Dictionary:
 			"node_path": node_path, "property": property, "request_id": request_id,
 		}])
 	var payload: Variant = _router._debugger.get_read_property()
-	if payload == null:
-		# #459: dispatched to the probe; the reply lands on a later frame.
-		return _router._ok({"ready": false, "reason": "read_pending"})
-	return _router._ok(payload)
+	# Qodo review (#575): belt-and-braces id match — the cache is already gated
+	# on the pending request_id in _capture; re-verify here so a stale reply can
+	# never be served as this request's result.
+	if payload is Dictionary and (payload as Dictionary).get("request_id") == request_id:
+		return _router._ok(payload)
+	# #459: dispatched to the probe; the reply lands on a later frame.
+	return _router._ok({"ready": false, "reason": "read_pending"})
 
 
 

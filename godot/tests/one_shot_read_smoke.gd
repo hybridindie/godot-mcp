@@ -70,6 +70,9 @@ func _process(_delta: float) -> bool:
 				"node_path": "/root/Holder/Body", "property": "no_such_prop", "request_id": "r4",
 			})
 			_eq("bad_prop_error", str(bad_prop.get("error")).contains("no property"), true)
+	# Qodo review (#575): a stale reply (wrong request_id) must never be served.
+	# EditorDebuggerPlugin can only be instantiated by the editor, so the stale-
+	# reply gate is asserted by the contract source scan + the live e2e, not here.
 			return false
 		6:
 			# The capture survived the one-shot: it completes on its own schedule

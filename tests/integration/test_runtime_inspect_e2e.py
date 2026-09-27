@@ -187,6 +187,16 @@ async def _run() -> None:
         )
         assert bad_read["error"] != ""
 
+        # Qodo review (#575): a reply to an OLDER request must never serve as
+        # the current one — a second invocation with a fresh request_id reads
+        # its own reply (the debugger gates the cache on the pending id).
+        second = await _poll(
+            bridge,
+            "cmd_read_property",
+            {"node_path": button["path"], "property": "text", "request_id": "e2e-read-3"},
+        )
+        assert second["error"] == "" and second["value"] == "Play"
+
         await _ok(bridge, "cmd_stop_scene", {})
     finally:
         await bridge.close()

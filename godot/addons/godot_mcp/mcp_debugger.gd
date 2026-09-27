@@ -74,7 +74,14 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 			_property_samples = data[0] if not data.is_empty() else null
 			return true
 		"godot_mcp:read_property":
-			_read_property = data[0] if not data.is_empty() else null
+			# Qodo review (#575): only store the reply when it matches the pending
+			# request — a delayed reply to an older request must not serve as the
+			# current one's result (the one-shot value is returned directly).
+			var reply: Variant = data[0] if not data.is_empty() else null
+			if reply is Dictionary:
+				var pending := _read_property_pending
+				if pending != "__none__" and str((reply as Dictionary).get("request_id", "")) == pending:
+					_read_property = reply
 			return true
 		"godot_mcp:ui_elements":
 			_ui_elements = data[0] if not data.is_empty() else null

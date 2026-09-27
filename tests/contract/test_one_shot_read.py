@@ -182,6 +182,28 @@ def test_probe_has_dedicated_read_property_message() -> None:
     assert "_monitor_" not in reader, "the one-shot read must not touch monitor state"
 
 
+def test_debugger_gates_read_property_replies_on_request_id() -> None:
+    """Qodo review (#575): a delayed reply to an OLDER request must never serve
+    as the current request's result — the debugger's capture gates on the
+    pending request_id, and the handler re-verifies before returning."""
+    from pathlib import Path
+
+    addon = Path(__file__).resolve().parents[2] / "godot" / "addons" / "godot_mcp"
+    capture = (addon / "mcp_debugger.gd").read_text().split(
+        '"godot_mcp:read_property":', 1
+    )[1].split("return true", 1)[0]
+    assert "request_id" in capture and "_read_property_pending" in capture, (
+        "godot_mcp:read_property capture must gate the cache on the pending request_id"
+    )
+    handler = (addon / "handlers" / "runtime_inspect.gd").read_text().split(
+        "func _cmd_read_property", 1
+    )[1].split("func ", 1)[0]
+    # The handler re-verifies the id (belt-and-braces) instead of returning the
+    # cache unconditionally.
+    assert 'get("request_id") == request_id' in handler
+    assert "read_pending" in handler
+
+
 def test_one_shot_read_smoke_is_wired_into_pytest() -> None:
     from tests.integration.test_addon_read_smokes import SMOKES
 
