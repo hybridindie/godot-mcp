@@ -19,7 +19,7 @@ server-global enabled set and (since 2026.09.17) emits
 `notifications/tools/list_changed` so clients refresh their cached registry.
 
 Why gate at all? 193 tools in the context window degrade tool-selection and
-burn tokens. The default surface (`core` + `inspection` — 18 tools) is enough
+burn tokens. The default surface (`core` + `inspection` — 23 tools) is enough
 to orient and inspect; the agent pulls in `scene_edit` only when it means to
 edit. `godot_list_toolsets()` is always authoritative.
 

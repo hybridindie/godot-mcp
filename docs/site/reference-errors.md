@@ -13,6 +13,9 @@ silent, and every failure names a fix.
 
 ## The error-code enum
 
+The seven bridge-envelope codes (the `ErrorCode` enum in
+`mcp_server/models/envelope.py` — what the addon can emit):
+
 | Code | Meaning | Typical cause |
 |------|---------|---------------|
 | `PRECONDITION_FAILED` | a required state is missing | no scene open, missing `confirm`, toolset version gate |
@@ -22,6 +25,14 @@ silent, and every failure names a fix.
 | `TIMEOUT` | the request outlived its timeout (may carry a readiness `reason`) | a capture that never landed; a stalled editor |
 | `INTERNAL_ERROR` | a handler failed without producing a response | a GDScript error inside the addon (see the editor's Output panel) |
 | `APPROVAL_DENIED` | the human declined an approval | n/a — retry with different intent |
+
+Two server-side codes appear in `ToolError` text but never cross the bridge
+(the server rejects before dispatching, or bounds the payload locally):
+
+| Code | Meaning | Typical cause |
+|------|---------|---------------|
+| `PARAM_ERROR` | a path parameter rejected server-side before the bridge call | a script/resource path that isn't `res://`-contained (`res://../…`, `res:///abs`) |
+| `OUTPUT_LIMIT` | a result payload would exceed the 25k character cap | an oversized `snapshot_subtree` — narrow with `max_depth` |
 
 ## The recovery table
 

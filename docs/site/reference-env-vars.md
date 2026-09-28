@@ -22,6 +22,11 @@ All knobs are optional; the defaults serve a local single-user setup.
 | `GODOT_MCP_BRIDGE_TOKEN` | unset | opt-in shared secret for the bridge handshake (#538) — when set, the addon must send the matching token as its first message or the peer is refused at the handshake; never logged |
 | `GODOT_MCP_PROJECT_DIR` | unset | explicit project dir; else the connected editor's project is used |
 | `GODOT_MCP_DEFAULT_TOOLSETS` | unset (= `inspection`) | seed the initial enabled toolsets: `all` or a comma-separated list (e.g. `scene_edit,runtime`); unknown names are logged and ignored |
+| `GODOT_MCP_GODOT_BIN` | `godot` on PATH | the Godot binary the *server* shells out to for headless runs and parse/compile checks (distinct from the addon's editor; also settable as `GODOT_BIN` on CI) |
+| `GODOT_MCP_LOG_LEVEL` | `INFO` | structured stderr logging level (JSON per line) |
+| `GODOT_MCP_APPROVAL_WEBHOOK` | unset | human-in-the-loop approval endpoint for `destructive` tools (#153); unset → auto-approve |
+| `GODOT_MCP_APPROVAL_TIMEOUT` | `30.0` | per-approval-request timeout, seconds |
+| `GODOT_MCP_APPROVAL_FAIL_OPEN` | `true` | on an unreachable/slow webhook: `true` approves, `false` denies |
 
 ## Addon (read in the editor's environment)
 
@@ -31,7 +36,7 @@ All knobs are optional; the defaults serve a local single-user setup.
 | `GODOT_MCP_BRIDGE_TOKEN` | unset | the same opt-in secret as the server — the addon authenticates with it as its first message after connecting; never logged |
 | `GODOT_MCP_AUTO_REFRESH` | unset (= off) | opt-in timer-based filesystem auto-refresh (#561): `1`/`true`/`yes` enables a periodic `EditorFileSystem.scan()` so external edits (agents, git, other tools) show up without editor focus; the dock checkbox is the runtime override |
 | `GODOT_MCP_AUTO_REFRESH_INTERVAL` | `10` | seconds between auto-refresh scans (floor 2s; only read when `GODOT_MCP_AUTO_REFRESH` is on) |
-| `GODOT_BIN` | `godot` on PATH | the Godot binary (used by the server's headless runs; set as an Actions var on CI) |
+| `GODOT_BIN` | `godot` on PATH | where a *CI workflow* points the server's binary lookup (`e2e.yml` Actions var) — the server itself reads `GODOT_MCP_GODOT_BIN`, then `godot`/`Godot` on PATH, then the macOS app bundle |
 
 ## Security model
 

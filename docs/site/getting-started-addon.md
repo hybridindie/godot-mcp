@@ -13,7 +13,7 @@ The addon is the only part of the system that lives inside Godot. It is an
 
 - dials the server's bridge listener (`ws://127.0.0.1:9080` by default) and
   **reconnects with backoff** — launch order never matters
-- routes the server's `{id, command}` envelopes to 80+ `cmd_*` handlers that
+- routes the server's `{id, command}` envelopes to 175 `cmd_*` handlers that
   call the Godot Editor API
 - shows a **read-only status dock** (connection state, project/scene/selected
   node, recent commands with timing)

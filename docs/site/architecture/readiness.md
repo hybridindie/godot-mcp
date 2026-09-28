@@ -29,9 +29,12 @@ Instead, poll-and-cache handlers **always answer within one round-trip**:
 |-------|---------|---------|
 | `recording_pending` | `godot_input_stop_recording` | the stop push hasn't landed from the probe yet |
 | `capture_pending` | `godot_runtime_get_property_samples`, game-frame capture | the request is dispatched; the probe answers on a later frame |
+| `read_pending` | `godot_runtime_read_property` | the one-shot read is dispatched; the probe replies on a later frame (#571) |
+| `output_pending` | `godot_runtime_get_game_output` (cold start) | the first probe pull is in flight; the ring is empty until it lands |
 | `scan_in_flight` | `godot_runtime_find_ui_elements` | the full-Control scan runs over the next frames |
 | `probe_pending` | `godot_profiling_get_performance_monitors` | the probe hasn't answered the first monitor pull |
 | `rescan_in_flight` | `godot_asset_import_get_status` | the editor's filesystem scan is running; the status read is provisional |
+| `editor_not_drawing` | `godot_editor_capture_screenshot` | the editor hasn't rendered a frame yet (e.g. minimized/unfocused) |
 
 `godot_asset_import_get_status` also reports `scanning: bool` — the same
 `EditorFileSystem.is_scanning()` read the parse-check gate keys on, so an agent
@@ -75,8 +78,12 @@ on one that needs one more frame. With it:
 
 - `recording_pending` → the game is still flushing the input buffer; wait, or
   check `input_get_stats`.
+- `read_pending` → the one-shot read is in flight; poll once more (#571).
+- `output_pending` → the first output pull hasn't landed; poll once more.
 - `scan_in_flight` → the UI scan is running; poll once more.
 - `probe_pending` → the probe autoload is present but slow; check
   `runtime_is_playing`.
 - `rescan_in_flight` → the import is *progressing*; keep polling rather than
   re-importing.
+- `editor_not_drawing` → the editor isn't producing frames (unfocused window);
+  focus the editor or wait for the next frame.

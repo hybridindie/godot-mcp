@@ -22,7 +22,7 @@ flowchart LR
     end
     subgraph addon["godot-mcp addon (GDScript)"]
         WS["WebSocketPeer client connects out · reconnects"]
-        RT["Command router 80+ cmd_* handlers"]
+        RT["Command router 175 cmd_* handlers"]
     end
     ED[("Live Godot project")]
     AI -->|"stdio (MCP)"| SRV
@@ -76,7 +76,7 @@ that runs on the Python side. The four-layer shape lets each half evolve on its
 own Cadver/contract terms: the addon pins Godot APIs, the server pins the MCP
 protocol, and the envelope is the versioned glue.
 
-The bridge seam is also the test boundary: the entire suite (819 tests) runs
+The bridge seam is also the test boundary: the entire suite (997 tests) runs
 against a fake addon connection — no sockets, no editor, deterministic — and a
 separate live-e2e suite exercises the real editor on a self-hosted runner.
 

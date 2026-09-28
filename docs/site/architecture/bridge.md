@@ -43,9 +43,12 @@ Why the editor dials:
 - **Framing:** one JSON object per WebSocket text message, UTF-8. No headers.
 - **One active peer:** a new addon connection replaces the old one (a stale
   editor can't ghost the bridge).
-- **No auth in v1**: localhost-only by design. For non-loopback HTTP binds the
-  *server* (not the bridge) requires `GODOT_MCP_AUTH_TOKEN` (#226) — a
-  fail-fast guard refuses to start otherwise.
+- **Auth is opt-in (#538)**: localhost-only by default — the zero-config path
+  has no handshake. Set `GODOT_MCP_BRIDGE_TOKEN` on both sides for
+  shared/remote-editor setups: the addon authenticates as its first message, a
+  mismatch is refused at the handshake, tokens are never logged. Separately, a
+  non-loopback HTTP bind requires `GODOT_MCP_AUTH_TOKEN` (#226) — a fail-fast
+  guard refuses to start otherwise.
 - **`cmd_ping` → `{pong: true}`** is the health check, both directions.
 
 ## Timeouts, everywhere
@@ -84,6 +87,7 @@ immediately — it does not wait for an editor that isn't coming.
 | `GODOT_MCP_TRANSPORT` | `stdio` | `stdio` or `http` |
 | `GODOT_MCP_HTTP_HOST` / `_PORT` | `127.0.0.1:9090` | HTTP bind |
 | `GODOT_MCP_AUTH_TOKEN` | unset | Bearer token — **required** for non-loopback HTTP binds (#226) |
+| `GODOT_MCP_BRIDGE_TOKEN` | unset | opt-in shared secret for the bridge handshake (#538) — set on both sides; the addon authenticates as its first message; a mismatch is refused at the handshake; never logged |
 | `GODOT_MCP_PROJECT_DIR` | unset | explicit project dir (else the connected editor's) |
 
 The full table lives in [env-vars](../reference-env-vars.md).

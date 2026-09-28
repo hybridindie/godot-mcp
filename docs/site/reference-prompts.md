@@ -1,7 +1,7 @@
 ---
 type: index
 title: "Prompts & resources"
-description: "The 9 workflow prompts and the 4 godot:// read-only resources — the surfaces beyond tools."
+description: "The 9 workflow prompts and the godot:// read-only resources — the surfaces beyond tools."
 created: 2026-09-19
 updated: 2026-09-23
 ---
@@ -47,6 +47,7 @@ resource support can read them through the `read_resource` fallback tool.
 | `godot://project/info` | Project metadata: name, Godot version, main scene, autoloads, input actions |
 | `godot://scene/current` | The currently open scene: `is_open`, `path`, `name` |
 | `godot://scene/tree` | The full active scene tree `{name, type, script, children}` (may be large) |
+| `godot://scene/tree/{max_depth}` | The tree limited to N child levels (resource template) |
 | `godot://node/selected` | The currently selected node snapshot, or `{"selected": null}` |
 
 These mirror the always-on inspection tools (`get_project_info`,

@@ -1045,8 +1045,32 @@ synthesized events the game has acknowledged — use it to confirm delivery.
 `godot_input_record` (issue #68) captures the input the game receives — key + mouse button, plus
 mouse motion when `include_motion` — via the probe's `_input` hook; `godot_input_stop_recording`
 returns the buffered `events` in the same `godot_input_play_sequence` format, so a recording
-replays directly (regression). Since `parse_input_event` also fires `_input`, synthesized
-input is recorded too.
+ replays directly (regression). Since `parse_input_event` also fires `_input`, synthesized
+ input is recorded too.
+
+#### Input Map (issue #81) — category: `input_map` (gated off by default, Godot 4.4+)
+
+Edit the project's Input Map (ProjectSettings `input/` entries) — persists via
+`ProjectSettings.save()` (4.4+ reliable; the reason for the toolset's version gate).
+Mutations persist directly and are **not** UndoRedo-tracked (the contract says so);
+`dry_run` previews without saving. `remove_input_action` and `clear_input_action_events`
+are `destructive` (require `confirm=True`).
+
+| Tool | Params | Returns |
+|------|--------|---------|
+| `godot_input_map_add_action` | `name, deadzone=0.5, dry_run=False` | `AddInputActionResult { name, added, deadzone, dry_run }` |
+| `godot_input_map_remove_action` | `name, confirm=False, dry_run=False` | `RemoveInputActionResult { name, removed, dry_run }` (destructive) |
+| `godot_input_map_add_event` | `action, event_type, keycode="", physical_keycode="", shift/ctrl/alt/meta=False, button="", device=0, joy_button_index=-1, axis=-1, axis_value=0.0, dry_run=False` | `AddInputEventResult { action, event_index, added, dry_run }` |
+| `godot_input_map_clear_action_events` | `action, confirm=False, dry_run=False` | `ClearInputActionEventsResult { action, cleared, dry_run }` (destructive) |
+| `godot_input_map_get_action_events` | `action` | `InputActionEvents { action, deadzone, events[] }` (read_only) |
+
+`event_type` is `key | mouse | joy_button | joy_axis`. Each event is validated up front
+(`keycode`/`physical_keycode` take Godot key names like `"A"`/`"Space"`; modifiers are
+booleans). `godot_input_map_get_action_events` returns events in exactly the shape
+`add_input_event` accepts — snapshot before editing so the change can be rebuilt; the
+injected-key probe matches physical-keycode bindings (#570). An unknown action is
+`RESOURCE_NOT_FOUND`; the action-not-in-running-InputMap note on
+`godot_input_simulate_action` still applies (this toolset edits the *project* map).
 
 #### Export (issue #50) — category: `export` (gated off by default)
 
@@ -1276,8 +1300,10 @@ history returns zero-values, not an error.
 
 | Tool | Params | Returns | Notes |
 |------|--------|---------|-------|
+| `godot_health_check` | — | `HealthStatus { server, version, transport, bridge_url, bridge_connected, godot_version?, project_name? }` | liveness ping — call first; `version` is the CalVer build (see § contract versioning) |
 | `godot_get_server_info` | — | `ServerDiagnostics { server, version, contract_version, min_compatible_contract, transport, toolsets[], prompts[], resources[], bridge{connected, url, godot_version?, project_name?, project_path?, addon_version?, addon_commands?, backend?{csharp_supported, csharp_project, csharp_build}}, active_scene?, addon_drift_warning?, common_errors[], next_steps[] }` | capability snapshot — call first |
 | `godot_debug_workflow` | `scene="", timeout_seconds=5.0, expected_timeout=False` | `DebugWorkflowResult { bridge{}, scene_tree?, run?, parse{ok, errors[], skipped_reason}, findings[], suggestions[] }` | one-call comprehensive check; `expected_timeout=True` suppresses the timeout/NON-ZERO-EXIT findings for games that never self-quit (#490) |
+| `godot_read_resource` | `uri` | JSON string for any `godot://` URI (see § resources) | the resources-as-tools fallback for clients without resource-protocol support; unknown URIs → structured `ToolError` |
 
 `godot_get_server_info` returns the full server surface so an agent can discover everything in one call: toolset summaries with counts, registered prompt names, resource URIs, bridge state, active scene, common errors with fixes, and suggested next steps.
 
@@ -1363,9 +1389,11 @@ in their `TIMEOUT` expiry error so an agent can act on the cause:
 | `recording_pending` | `godot_input_stop_recording` | the stop push hasn't landed from the probe yet |
 | `capture_pending` | `godot_runtime_get_property_samples`, game-frame capture | the monitor/capture request is dispatched; the probe answers on a later frame |
 | `read_pending` | `godot_runtime_read_property` | the one-shot read is dispatched; the probe replies on a later frame (#571) |
+| `output_pending` | `godot_runtime_get_game_output` (cold start) | the first probe pull is in flight; the ring is empty until it lands |
 | `scan_in_flight` | `godot_runtime_find_ui_elements` | the full-Control scan is dispatched and runs over the next frames |
 | `probe_pending` | `godot_profiling_get_performance_monitors` | the probe hasn't answered the first monitor pull |
 | `rescan_in_flight` | `godot_asset_import_get_status` | the editor's filesystem scan is running (an import just triggered it); the status read is provisional and its `scanning` flag is true |
+| `editor_not_drawing` | `godot_editor_capture_screenshot` | the editor hasn't rendered a frame yet (e.g. minimized/unfocused) |
 
 `godot_asset_import_get_status` also reports `scanning: bool` (#453) — the same
 `EditorFileSystem.is_scanning()` read the parse-check gate uses, so agents can

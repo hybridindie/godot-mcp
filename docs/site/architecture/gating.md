@@ -10,7 +10,7 @@ updated: 2026-09-23
 
 A large flat tool surface degrades agent tool-selection and burns context. So
 the *live* surface stays small: `core` + `inspection` are exposed by default
-(18 tools), and 27 further toolsets are **gated off** until the agent enables
+(23 tools), and 27 further toolsets are **gated off** until the agent enables
 them.
 
 ## The enabled set
@@ -46,7 +46,7 @@ toolset is disabled fails with a structured gating error, and
 ## Why the gate is worth its friction
 
 1. **Tool selection sharpness.** With 193 tools exposed, models confuse
-   similar tools and waste calls. The default 18-tool surface fits in context
+   similar tools and waste calls. The default 23-tool surface fits in context
    with room to reason.
 2. **Safety surface minimization.** Destructive tools (`delete_node`,
    `reload_scene`, `close_scene`, bus removers, file deleters) are *invisible*

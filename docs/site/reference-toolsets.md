@@ -1,9 +1,9 @@
 ---
 type: index
 title: "Toolsets & tools"
-description: "Every tool in the 2026.09.19 surface, grouped by toolset, with safety classes."
+description: "Every tool in the 193-tool surface, grouped by toolset, with safety classes."
 created: 2026-09-19
-updated: 2026-09-23
+updated: 2026-09-28
 ---
 
 # Toolsets & tools
@@ -16,15 +16,15 @@ updated: 2026-09-23
 
 | Tool | Class |
 |------|-------|
-| `analyze_dependencies` | read_only |
-| `analyze_signal_flow` | read_only |
-| `cross_scene_find_refs` | read_only |
-| `detect_circular_dependencies` | read_only |
-| `find_orphaned_resources` | read_only |
-| `find_unused_resources` | read_only |
-| `project_stats` | read_only |
-| `project_structure` | read_only |
-| `validate_scene_integrity` | read_only |
+| `godot_analysis_analyze_dependencies` | read_only |
+| `godot_analysis_analyze_signal_flow` | read_only |
+| `godot_analysis_cross_scene_find_refs` | read_only |
+| `godot_analysis_detect_circular_dependencies` | read_only |
+| `godot_analysis_find_orphaned_resources` | read_only |
+| `godot_analysis_find_unused_resources` | read_only |
+| `godot_analysis_project_stats` | read_only |
+| `godot_analysis_project_structure` | read_only |
+| `godot_analysis_validate_scene_integrity` | read_only |
 
 ## `animation` — AnimationPlayers and AnimationTrees: author animations, tracks, keyframes, state machines.
 
@@ -32,14 +32,14 @@ updated: 2026-09-23
 
 | Tool | Class |
 |------|-------|
-| `add_animation_track` | mutating |
-| `add_state_machine_state` | mutating |
-| `create_animation` | mutating |
-| `create_animation_tree` | mutating |
-| `get_animation` | read_only |
-| `insert_keyframe` | mutating |
-| `list_animations` | read_only |
-| `set_blend_tree_node` | mutating |
+| `godot_animation_add_state_machine_state` | mutating |
+| `godot_animation_add_track` | mutating |
+| `godot_animation_create` | mutating |
+| `godot_animation_create_tree` | mutating |
+| `godot_animation_get` | read_only |
+| `godot_animation_insert_keyframe` | mutating |
+| `godot_animation_list_animations` | read_only |
+| `godot_animation_set_blend_tree_node` | mutating |
 
 ## `asset_import` — Import external assets (.png/.glb/.wav/…), create materials from textures, poll import status.
 
@@ -47,9 +47,9 @@ updated: 2026-09-23
 
 | Tool | Class |
 |------|-------|
-| `create_material_from_textures` | mutating |
-| `get_import_status` | read_only |
-| `import_asset` | mutating |
+| `godot_asset_import_asset` | mutating |
+| `godot_asset_import_create_material_from_textures` | mutating |
+| `godot_asset_import_get_status` | read_only |
 
 ## `audio` — Audio players and AudioServer buses: add players, route buses, effects — with a verifiable layout read.
 
@@ -57,12 +57,12 @@ updated: 2026-09-23
 
 | Tool | Class |
 |------|-------|
-| `add_audio_bus` | mutating |
-| `add_audio_bus_effect` | mutating |
-| `add_audio_player` | mutating |
-| `get_audio_bus_layout` | read_only |
-| `remove_audio_bus` | destructive |
-| `remove_audio_bus_effect` | destructive |
+| `godot_audio_add_bus` | mutating |
+| `godot_audio_add_bus_effect` | mutating |
+| `godot_audio_add_player` | mutating |
+| `godot_audio_get_bus_layout` | read_only |
+| `godot_audio_remove_bus` | destructive |
+| `godot_audio_remove_bus_effect` | destructive |
 
 ## `batch` — Bulk operations: find nodes by type, batch property sets, cross-scene edits, dependency analysis.
 
@@ -70,10 +70,10 @@ updated: 2026-09-23
 
 | Tool | Class |
 |------|-------|
-| `batch_set_property` | mutating |
-| `cross_scene_set_property` | mutating |
-| `find_nodes_by_type` | read_only |
-| `get_dependencies` | read_only |
+| `godot_batch_cross_scene_set_property` | mutating |
+| `godot_batch_find_nodes_by_type` | read_only |
+| `godot_batch_get_dependencies` | read_only |
+| `godot_batch_set_property` | mutating |
 
 ## `composite` — Macro round-trips: N editor commands in one bridge call, batch node creation, apply_node_edits.
 
@@ -81,26 +81,29 @@ updated: 2026-09-23
 
 | Tool | Class |
 |------|-------|
-| `apply_node_edits` | mutating |
-| `batch_create_nodes` | mutating |
-| `compose_node` | mutating |
-| `run_commands` | mutating |
+| `godot_composite_apply_node_edits` | mutating |
+| `godot_composite_batch_create_nodes` | mutating |
+| `godot_composite_compose_node` | mutating |
+| `godot_composite_run_commands` | mutating |
 
 ## `core` — Always-on: diagnostics, toolset management, undo, the debug_workflow recipe.
 
-9 tools.
+12 tools.
 
 | Tool | Class |
 |------|-------|
-| `debug_workflow` | read_only |
-| `disable_toolset` | read_only |
-| `enable_toolset` | read_only |
-| `get_server_info` | read_only |
-| `health_check` | read_only |
-| `list_tools_by_safety_class` | read_only |
-| `list_toolsets` | read_only |
-| `read_resource` | read_only |
-| `undo` | mutating |
+| `godot_debug_workflow` | read_only |
+| `godot_describe_class` | read_only |
+| `godot_disable_toolset` | read_only |
+| `godot_enable_toolset` | read_only |
+| `godot_get_server_info` | read_only |
+| `godot_health_check` | read_only |
+| `godot_list_history` | read_only |
+| `godot_list_tools_by_safety_class` | read_only |
+| `godot_list_toolsets` | read_only |
+| `godot_read_resource` | read_only |
+| `godot_redo` | mutating |
+| `godot_undo` | mutating |
 
 ## `debugger` — Breakpoints, force_break, stack frames/variables, expression evaluation, stepping.
 
@@ -108,17 +111,17 @@ updated: 2026-09-23
 
 | Tool | Class |
 |------|-------|
-| `clear_breakpoints` | runtime |
-| `continue_execution` | runtime |
-| `evaluate_expression` | runtime |
-| `force_break` | runtime |
-| `get_frame_variables` | runtime |
-| `get_stack_frames` | runtime |
-| `remove_breakpoint` | runtime |
-| `set_breakpoint` | runtime |
-| `step_into` | runtime |
-| `step_out` | runtime |
-| `step_over` | runtime |
+| `godot_debugger_clear_breakpoints` | runtime |
+| `godot_debugger_continue_execution` | runtime |
+| `godot_debugger_evaluate_expression` | runtime |
+| `godot_debugger_force_break` | runtime |
+| `godot_debugger_get_frame_variables` | runtime |
+| `godot_debugger_get_stack_frames` | runtime |
+| `godot_debugger_remove_breakpoint` | runtime |
+| `godot_debugger_set_breakpoint` | runtime |
+| `godot_debugger_step_into` | runtime |
+| `godot_debugger_step_out` | runtime |
+| `godot_debugger_step_over` | runtime |
 
 ## `editor` — Editor screenshots (base64 PNG) for vision-capable clients.
 
@@ -126,7 +129,7 @@ updated: 2026-09-23
 
 | Tool | Class |
 |------|-------|
-| `capture_editor_screenshot` | read_only |
+| `godot_editor_capture_screenshot` | read_only |
 
 ## `export` — Export presets and headless export runs.
 
@@ -134,9 +137,9 @@ updated: 2026-09-23
 
 | Tool | Class |
 |------|-------|
-| `export_project` | runtime |
-| `get_export_info` | read_only |
-| `list_export_presets` | read_only |
+| `godot_export_get_info` | read_only |
+| `godot_export_list_presets` | read_only |
+| `godot_export_project` | runtime |
 
 ## `input` — Input simulation and recording for a live play session.
 
@@ -144,13 +147,13 @@ updated: 2026-09-23
 
 | Tool | Class |
 |------|-------|
-| `get_input_stats` | read_only |
-| `play_input_sequence` | runtime |
-| `record_input` | runtime |
-| `simulate_action` | runtime |
-| `simulate_key` | runtime |
-| `simulate_mouse` | runtime |
-| `stop_recording` | read_only |
+| `godot_input_get_stats` | read_only |
+| `godot_input_play_sequence` | runtime |
+| `godot_input_record` | runtime |
+| `godot_input_simulate_action` | runtime |
+| `godot_input_simulate_key` | runtime |
+| `godot_input_simulate_mouse` | runtime |
+| `godot_input_stop_recording` | read_only |
 
 ## `input_map` — Input Map actions in project settings: add/remove actions and events.
 
@@ -158,27 +161,29 @@ updated: 2026-09-23
 
 | Tool | Class |
 |------|-------|
-| `add_input_action` | mutating |
-| `add_input_event` | mutating |
-| `clear_input_action_events` | destructive |
-| `get_input_action_events` | read_only |
-| `remove_input_action` | destructive |
+| `godot_input_map_add_action` | mutating |
+| `godot_input_map_add_event` | mutating |
+| `godot_input_map_clear_action_events` | destructive |
+| `godot_input_map_get_action_events` | read_only |
+| `godot_input_map_remove_action` | destructive |
 
 ## `inspection` — Read-only project/scene/node inspection.
 
-9 tools.
+11 tools.
 
 | Tool | Class |
 |------|-------|
-| `get_active_scene` | read_only |
-| `get_node_groups` | read_only |
-| `get_node_properties` | read_only |
-| `get_node_property` | read_only |
-| `get_node_property_list` | read_only |
-| `get_project_info` | read_only |
-| `get_scene_tree` | read_only |
-| `get_selected_node` | read_only |
-| `list_scenes` | read_only |
+| `godot_inspection_diff_snapshots` | read_only |
+| `godot_inspection_get_active_scene` | read_only |
+| `godot_inspection_get_node_groups` | read_only |
+| `godot_inspection_get_node_properties` | read_only |
+| `godot_inspection_get_node_property` | read_only |
+| `godot_inspection_get_node_property_list` | read_only |
+| `godot_inspection_get_project_info` | read_only |
+| `godot_inspection_get_scene_tree` | read_only |
+| `godot_inspection_get_selected_node` | read_only |
+| `godot_inspection_list_scenes` | read_only |
+| `godot_inspection_snapshot_subtree` | read_only |
 
 ## `navigation` — NavigationRegion/Agent setup, navmesh baking, navigation layers.
 
@@ -186,11 +191,11 @@ updated: 2026-09-23
 
 | Tool | Class |
 |------|-------|
-| `bake_navigation_mesh` | mutating |
-| `get_navigation_region` | read_only |
-| `set_navigation_layers` | mutating |
-| `setup_navigation_agent` | mutating |
-| `setup_navigation_region` | mutating |
+| `godot_navigation_bake_mesh` | mutating |
+| `godot_navigation_get_region` | read_only |
+| `godot_navigation_set_layers` | mutating |
+| `godot_navigation_setup_agent` | mutating |
+| `godot_navigation_setup_region` | mutating |
 
 ## `particles` — GPUParticles2D/3D: create, configure materials, presets, color gradients.
 
@@ -198,11 +203,11 @@ updated: 2026-09-23
 
 | Tool | Class |
 |------|-------|
-| `apply_particle_preset` | mutating |
-| `create_particles` | mutating |
-| `get_particle_material` | read_only |
-| `set_particle_color_gradient` | mutating |
-| `set_particle_material` | mutating |
+| `godot_particles_apply_preset` | mutating |
+| `godot_particles_create` | mutating |
+| `godot_particles_get_material` | read_only |
+| `godot_particles_set_color_gradient` | mutating |
+| `godot_particles_set_material` | mutating |
 
 ## `physics` — Physics bodies, collision shapes, raycasts, layer/mask management.
 
@@ -210,10 +215,10 @@ updated: 2026-09-23
 
 | Tool | Class |
 |------|-------|
-| `add_raycast` | mutating |
-| `set_physics_layers` | mutating |
-| `setup_collision` | mutating |
-| `setup_physics_body` | mutating |
+| `godot_physics_add_raycast` | mutating |
+| `godot_physics_set_layers` | mutating |
+| `godot_physics_setup_body` | mutating |
+| `godot_physics_setup_collision` | mutating |
 
 ## `profiling` — Editor + running-game performance monitors (FPS, draw calls, memory).
 
@@ -221,21 +226,22 @@ updated: 2026-09-23
 
 | Tool | Class |
 |------|-------|
-| `get_editor_performance` | read_only |
-| `get_performance_monitors` | read_only |
+| `godot_profiling_get_editor_performance` | read_only |
+| `godot_profiling_get_performance_monitors` | read_only |
 
 ## `project` — Filesystem tree, file search, project settings, UID resolution.
 
-6 tools.
+7 tools.
 
 | Tool | Class |
 |------|-------|
-| `delete_resource_file` | destructive |
-| `get_filesystem_tree` | read_only |
-| `get_setting` | read_only |
-| `resolve_uid` | read_only |
-| `search_files` | read_only |
-| `set_setting` | mutating |
+| `godot_project_delete_resource_file` | destructive |
+| `godot_project_get_filesystem_tree` | read_only |
+| `godot_project_get_setting` | read_only |
+| `godot_project_move_file` | mutating |
+| `godot_project_resolve_uid` | read_only |
+| `godot_project_search_files` | read_only |
+| `godot_project_set_setting` | mutating |
 
 ## `project_scaffold` — Scaffold a new project skeleton (directories, base scenes).
 
@@ -243,7 +249,7 @@ updated: 2026-09-23
 
 | Tool | Class |
 |------|-------|
-| `scaffold_project` | destructive |
+| `godot_project_scaffold` | destructive |
 
 ## `resources_edit` — Author .tres resource files, register/unregister autoloads.
 
@@ -251,27 +257,29 @@ updated: 2026-09-23
 
 | Tool | Class |
 |------|-------|
-| `create_resource` | mutating |
-| `read_resource_file` | read_only |
-| `register_autoload` | mutating |
-| `set_resource_property` | mutating |
-| `unregister_autoload` | mutating |
+| `godot_resources_edit_create_resource` | mutating |
+| `godot_resources_edit_read_resource_file` | read_only |
+| `godot_resources_edit_register_autoload` | mutating |
+| `godot_resources_edit_set_resource_property` | mutating |
+| `godot_resources_edit_unregister_autoload` | mutating |
 
 ## `runtime` — Headless run + output capture; live play session lifecycle.
 
-9 tools.
+11 tools.
 
 | Tool | Class |
 |------|-------|
-| `capture_game_screenshot` | read_only |
-| `find_ui_elements` | read_only |
-| `get_game_scene_tree` | read_only |
-| `get_property_samples` | read_only |
-| `is_playing` | read_only |
-| `monitor_property` | read_only |
-| `play_scene` | runtime |
-| `run_and_capture` | runtime |
-| `stop_scene` | runtime |
+| `godot_runtime_capture_game_screenshot` | read_only |
+| `godot_runtime_find_ui_elements` | read_only |
+| `godot_runtime_get_game_output` | read_only |
+| `godot_runtime_get_game_scene_tree` | read_only |
+| `godot_runtime_get_property_samples` | read_only |
+| `godot_runtime_is_playing` | read_only |
+| `godot_runtime_monitor_property` | read_only |
+| `godot_runtime_play_scene` | runtime |
+| `godot_runtime_read_property` | read_only |
+| `godot_runtime_run_and_capture` | runtime |
+| `godot_runtime_stop_scene` | runtime |
 
 ## `scene_3d` — 3D scenes: meshes, cameras, lights, environments, GridMaps, MeshLibraries.
 
@@ -279,44 +287,45 @@ updated: 2026-09-23
 
 | Tool | Class |
 |------|-------|
-| `add_mesh_instance` | mutating |
-| `add_mesh_library_item` | mutating |
-| `create_mesh_library` | mutating |
-| `gridmap_get_cell` | read_only |
-| `gridmap_set_cell` | mutating |
-| `setup_camera` | mutating |
-| `setup_environment` | mutating |
-| `setup_lighting` | mutating |
+| `godot_scene_3d_add_mesh_instance` | mutating |
+| `godot_scene_3d_add_mesh_library_item` | mutating |
+| `godot_scene_3d_create_mesh_library` | mutating |
+| `godot_scene_3d_gridmap_get_cell` | read_only |
+| `godot_scene_3d_gridmap_set_cell` | mutating |
+| `godot_scene_3d_setup_camera` | mutating |
+| `godot_scene_3d_setup_environment` | mutating |
+| `godot_scene_3d_setup_lighting` | mutating |
 
 ## `scene_edit` — Create/modify/delete nodes, scripts, signals, scenes — the core authoring surface.
 
-23 tools.
+24 tools.
 
 | Tool | Class |
 |------|-------|
-| `add_to_group` | mutating |
-| `attach_script` | mutating |
-| `close_scene` | destructive |
-| `connect_signal` | mutating |
-| `create_node` | mutating |
-| `create_scene` | mutating |
-| `delete_node` | destructive |
-| `disconnect_signal` | mutating |
-| `duplicate_node` | mutating |
-| `instance_scene` | mutating |
-| `list_open_scenes` | read_only |
-| `list_signal_connections` | read_only |
-| `move_node` | mutating |
-| `open_scene` | mutating |
-| `reload_scene` | destructive |
-| `remove_from_group` | mutating |
-| `rename_node` | mutating |
-| `rescan_filesystem` | read_only |
-| `save_all_scenes` | mutating |
-| `save_scene` | mutating |
-| `select_nodes` | mutating |
-| `set_editable_children` | mutating |
-| `set_node_property` | mutating |
+| `godot_scene_edit_add_to_group` | mutating |
+| `godot_scene_edit_attach_script` | mutating |
+| `godot_scene_edit_close_scene` | destructive |
+| `godot_scene_edit_connect_signal` | mutating |
+| `godot_scene_edit_create_node` | mutating |
+| `godot_scene_edit_create_scene` | mutating |
+| `godot_scene_edit_delete_node` | destructive |
+| `godot_scene_edit_disconnect_signal` | mutating |
+| `godot_scene_edit_duplicate_node` | mutating |
+| `godot_scene_edit_extract_scene` | mutating |
+| `godot_scene_edit_instance_scene` | mutating |
+| `godot_scene_edit_list_open_scenes` | read_only |
+| `godot_scene_edit_list_signal_connections` | read_only |
+| `godot_scene_edit_move_node` | mutating |
+| `godot_scene_edit_open_scene` | mutating |
+| `godot_scene_edit_reload_scene` | destructive |
+| `godot_scene_edit_remove_from_group` | mutating |
+| `godot_scene_edit_rename_node` | mutating |
+| `godot_scene_edit_rescan_filesystem` | read_only |
+| `godot_scene_edit_save_all_scenes` | mutating |
+| `godot_scene_edit_save_scene` | mutating |
+| `godot_scene_edit_select_nodes` | mutating |
+| `godot_scene_edit_set_editable_children` | mutating |
+| `godot_scene_edit_set_node_property` | mutating |
 
 ## `scripts` — Read/write/patch GDScript; parse checks.
 
@@ -324,12 +333,12 @@ updated: 2026-09-23
 
 | Tool | Class |
 |------|-------|
-| `get_parse_errors` | read_only |
-| `get_script_for_node` | read_only |
-| `list_scripts` | read_only |
-| `patch_script` | mutating |
-| `read_script` | read_only |
-| `write_script` | mutating |
+| `godot_scripts_get_for_node` | read_only |
+| `godot_scripts_get_parse_errors` | read_only |
+| `godot_scripts_list` | read_only |
+| `godot_scripts_patch` | mutating |
+| `godot_scripts_read` | read_only |
+| `godot_scripts_write` | mutating |
 
 ## `shader` — Author .gdshader files, assign materials, set/verify uniform params, compile-validate.
 
@@ -337,12 +346,12 @@ updated: 2026-09-23
 
 | Tool | Class |
 |------|-------|
-| `assign_shader_material` | mutating |
-| `create_shader` | mutating |
-| `get_shader_param` | read_only |
-| `read_shader` | read_only |
-| `set_shader_param` | mutating |
-| `validate_shader` | read_only |
+| `godot_shader_assign_material` | mutating |
+| `godot_shader_create` | mutating |
+| `godot_shader_get_param` | read_only |
+| `godot_shader_read` | read_only |
+| `godot_shader_set_param` | mutating |
+| `godot_shader_validate` | read_only |
 
 ## `testing` — Assertions, test scenarios, stress fuzz, screenshot diffing.
 
@@ -350,11 +359,11 @@ updated: 2026-09-23
 
 | Tool | Class |
 |------|-------|
-| `assert_node_state` | read_only |
-| `compare_screenshots` | read_only |
-| `run_stress_test` | runtime |
-| `run_test_scenario` | runtime |
-| `run_tests` | runtime |
+| `godot_testing_assert_node_state` | read_only |
+| `godot_testing_compare_screenshots` | read_only |
+| `godot_testing_run_stress_test` | runtime |
+| `godot_testing_run_test_scenario` | runtime |
+| `godot_testing_run_tests` | runtime |
 
 ## `theme_ui` — Theme authoring: create themes, set colors/fonts/styleboxes, UI element styling.
 
@@ -362,11 +371,11 @@ updated: 2026-09-23
 
 | Tool | Class |
 |------|-------|
-| `create_theme` | mutating |
-| `get_node_theme_overrides` | read_only |
-| `set_theme_color` | mutating |
-| `set_theme_font_size` | mutating |
-| `set_theme_stylebox` | mutating |
+| `godot_theme_ui_create` | mutating |
+| `godot_theme_ui_get_node_overrides` | read_only |
+| `godot_theme_ui_set_color` | mutating |
+| `godot_theme_ui_set_font_size` | mutating |
+| `godot_theme_ui_set_stylebox` | mutating |
 
 ## `tilemap` — TileMapLayers: create, set cells, fill rects, TileSet authoring.
 
@@ -374,15 +383,15 @@ updated: 2026-09-23
 
 | Tool | Class |
 |------|-------|
-| `add_tileset_atlas_source` | mutating |
-| `create_tile` | mutating |
-| `create_tileset` | mutating |
-| `tilemap_clear` | mutating |
-| `tilemap_fill_rect` | mutating |
-| `tilemap_get_cell` | read_only |
-| `tilemap_get_used_cells` | read_only |
-| `tilemap_layers` | read_only |
-| `tilemap_set_cell` | mutating |
+| `godot_tilemap_add_tileset_atlas_source` | mutating |
+| `godot_tilemap_clear` | mutating |
+| `godot_tilemap_create_tile` | mutating |
+| `godot_tilemap_create_tileset` | mutating |
+| `godot_tilemap_fill_rect` | mutating |
+| `godot_tilemap_get_cell` | read_only |
+| `godot_tilemap_get_used_cells` | read_only |
+| `godot_tilemap_layers` | read_only |
+| `godot_tilemap_set_cell` | mutating |
 
 ## `visual_shader` — VisualShader graphs: nodes, connections, constants.
 
@@ -390,9 +399,9 @@ updated: 2026-09-23
 
 | Tool | Class |
 |------|-------|
-| `add_shader_node` | mutating |
-| `connect_shader_nodes` | mutating |
-| `create_visual_shader` | mutating |
-| `list_shader_node_types` | read_only |
-| `read_visual_shader` | read_only |
-| `set_shader_node_param` | mutating |
+| `godot_visual_shader_add_node` | mutating |
+| `godot_visual_shader_connect_nodes` | mutating |
+| `godot_visual_shader_create` | mutating |
+| `godot_visual_shader_list_node_types` | read_only |
+| `godot_visual_shader_read` | read_only |
+| `godot_visual_shader_set_node_param` | mutating |
