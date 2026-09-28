@@ -3,7 +3,7 @@ type: index
 title: "Changelog"
 description: "Release history for godot-mcp."
 created: 2026-09-19
-updated: 2026-09-23
+updated: 2026-09-28
 ---
 
 # Changelog
@@ -11,6 +11,37 @@ updated: 2026-09-23
 Full release notes live on
 [GitHub Releases](https://github.com/hybridindie/godot-mcp/releases). This page
 summarizes the recent ones.
+
+## 2026.09.28 — One-shot runtime reads, screenshot transport, probe hardening
+
+Robustness and honesty pass over the runtime-session surface, plus one new
+tool. Surface: **193 tools** (was 192; +`godot_runtime_read_property`). All
+changes additive — `contract_version` stays 1.
+
+- **Dedicated one-shot property read (#571)** — `godot_runtime_read_property`
+  (`read_only`): reads a live property once without disturbing the monitor
+  capture; mid-capture reads and stale-`request_id` polls are safe (#577).
+- **Full-screenshot transport (#563)** — raised WebSocket buffer caps on both
+  sides so full-resolution captures transfer instead of truncating.
+- **Probe runs while paused (#565)** — the runtime probe keeps processing
+  frames while the SceneTree is paused, so captures don't stall behind a
+  `get_tree().paused` game.
+- **Physical-keycode binding probe (#570)** — injected keys match
+  physical-keycode (`KEY_`) bindings, not just keycode ones.
+- **Result models are JSON-strict (#580)** — addon-produced fields on result
+  models are strictly typed; malformed bridge payloads surface as
+  `INTERNAL_ERROR` instead of passing through (#567).
+- **`ui_elements` replies gated on the pending request_id (#577)** — a stale
+  capture's late reply can no longer resolve the wrong waiter.
+- **CI hardening (#579, #583, #587)** — setup-uv pinned (no manifest fetch),
+  the e2e suite bounded with `timeout --kill-after`, stray godot processes
+  reaped; previously-unverified smokes wired into CI.
+- **Proactor `ConnectionResetError` demoted to DEBUG (#572)** — benign
+  disconnect noise no longer logs at ERROR.
+- **Timer-based filesystem auto-refresh (opt-in)** — the editor can pick up
+  external edits on a timer; off by default.
+- **Class info accepts Variant-shaped defaults (#564)** —
+  `describe_class` no longer chokes on Variant-typed property defaults.
 
 ## 2026.09.23 — Prefab workflow, snapshot verification, C# authoring
 

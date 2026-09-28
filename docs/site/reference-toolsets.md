@@ -8,7 +8,7 @@ updated: 2026-09-23
 
 # Toolsets & tools
 
-192 tools across 29 categories. Only `core` + `inspection` are enabled by default; enable the rest with `godot_enable_toolset(category)`. Class meanings: [safety classes](reference-safety-classes.md).
+193 tools across 29 categories. Only `core` + `inspection` are enabled by default; enable the rest with `godot_enable_toolset(category)`. Class meanings: [safety classes](reference-safety-classes.md).
 
 ## `analysis` — Static analysis: dependencies, signal flow, unused resources, circular deps, scene integrity.
 

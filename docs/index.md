@@ -57,7 +57,7 @@ game-specific vocabulary belongs in a separate consumer project.
 
     ---
 
-    192 tools across 29 categories, with only `core` + `inspection` exposed by
+    193 tools across 29 categories, with only `core` + `inspection` exposed by
     default. The agent enables toolsets as needed — a small surface keeps
     tool-selection sharp.
 
@@ -78,5 +78,5 @@ game-specific vocabulary belongs in a separate consumer project.
 ## Status
 
 Feature-complete across the planned ecosystem. Current release:
-[2026.09.23](https://github.com/hybridindie/godot-mcp/releases/tag/2026.09.23) —
+[2026.09.28](https://github.com/hybridindie/godot-mcp/releases/tag/2026.09.28) —
 see the [changelog](changelog.md). MIT licensed.

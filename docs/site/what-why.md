@@ -112,7 +112,7 @@ reusable for any genre and keeps the surface small.
   headless runs exist for verification).
 - **Not a game framework.** There are no gameplay tools and no game models.
 - **Not a generic MCP server for anything.** The surface is Godot-shaped by
-  design; that specificity is what makes 192 tools useful instead of 192 ways
+  design; that specificity is what makes 193 tools useful instead of 193 ways
   to say "read a file".
 
 ---
