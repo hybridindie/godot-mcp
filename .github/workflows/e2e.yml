@@ -4,6 +4,18 @@
 # This job runs them on a SELF-HOSTED runner that has a Godot editor binary —
 # closing the CI gap behind #263/#269.
 #
+# TRIGGER POLICY (2026-09-28): the e2e is TOO HEAVY for routine CI — a live
+# editor boot per run contends for the single self-hosted runner (issue #444's
+# flake source) and multiplies runner minutes. The job runs ONLY when:
+#   - manually dispatched (workflow_dispatch below), or
+#   - a PR touches areas DIRECTLY affected by live-editor behavior
+#     (the addon source, the FastAPI server/tools, or this workflow itself —
+#     the `paths:` filter on the pull_request trigger; the vendored consumers
+#     like world_forge pin by commit and do NOT inherit e2e runs).
+# Everything else is verified locally: run `workflow_dispatch` on the branch
+# (or `uv run pytest tests/integration/test_*_e2e.py` on a dev machine with
+# GODOT_BIN set) before merging changes that don't match the paths filter.
+#
 # *** TEMPORARILY DISABLED (2026-09-17) ***
 # The runner's outbound network has been failing for ~2 days (issues in this
 # order, all before any repo code executes): `actions/checkout` and
@@ -34,6 +46,12 @@ name: e2e
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - "godot/addons/godot_mcp/**"
+      - "mcp_server/**"
+      - "tests/integration/**"
+      - ".github/workflows/e2e.yml"
 
 # One in-flight live-editor run across the whole repo (issue #444): the single
 # self-hosted runner is shared, and two concurrent PRs' jobs contend for the
