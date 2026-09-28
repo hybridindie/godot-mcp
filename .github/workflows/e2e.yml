@@ -99,7 +99,27 @@ jobs:
         # The two globs match exactly the editor-dependent integration tests
         # (everything gated on GODOT_BIN / using run_godot); new e2e files are
         # picked up automatically. -p no:cacheprovider keeps the runner workspace clean.
+        # `timeout --kill-after` bounds the suite (15 min, under the 20-min job
+        # cap): a hung bridge call inside one e2e test must not wedge the whole
+        # job — and SIGKILL after the TERM grace reaps the editor child that a
+        # hard-killed pytest would otherwise leave running (issue #581: a hung
+        # run kept multiple godot instances open on the runner).
         run: >-
+          timeout --signal=TERM --kill-after=10 900
           uv run pytest -q -p no:cacheprovider
           tests/integration/test_*_e2e.py
           tests/integration/test_addon_*.py
+
+      - name: Reap stray Godot processes
+        # Defense-in-depth for the hang mode above: a job that dies at its cap
+        # (or is cancelled mid-suite) can leave editor/game children alive on the
+        # shared runner; the next job then contends with them (the #444 flake
+        # source, and the wedge observed in issue #581's verification runs).
+        if: always()
+        run: |
+          pkill -f 'godot.*--editor' 2>/dev/null || true
+          pkill -f 'godot.*remote-debug' 2>/dev/null || true
+          sleep 1
+          if pgrep -f 'godot.*(remote-debug|--editor)' >/dev/null; then
+            echo "::warning::stray godot processes survived the reaping"
+          fi
