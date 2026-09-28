@@ -4,16 +4,25 @@
 # This job runs them on a SELF-HOSTED runner that has a Godot editor binary —
 # closing the CI gap behind #263/#269.
 #
-# *** TEMPORARILY DISABLED (2026-09-17) ***
-# The runner's outbound network has been failing for ~2 days (issues in this
-# order, all before any repo code executes): `actions/checkout` and
-# `astral-sh/setup-uv` tarball downloads die on codeload.github.com (HttpClient
-# 100s timeouts, then SSL connect failures), and setup-uv's own manifest fetch
-# dies with a bare "fetch failed". Same-host curl succeeds in ~0.1s, so this is
-# runner-host network instability, not repo code — but it makes every PR show a
-# red e2e and hides real regressions. Re-enable by removing the `if:` guard on
-# the job below once the runner's network is verified (run a workflow_dispatch
-# and confirm all steps green).
+# TRIGGER POLICY (2026-09-28): the e2e is TOO HEAVY for routine CI — a live
+# editor boot per run contends for the single self-hosted runner (issue #444's
+# flake source) and multiplies runner minutes. The job runs ONLY when:
+#   - manually dispatched (workflow_dispatch below), or
+#   - a PR touches areas DIRECTLY affected by live-editor behavior
+#     (the addon source, the FastAPI server/tools, or this workflow itself —
+#     the `paths:` filter on the pull_request trigger; the vendored consumers
+#     like world_forge pin by commit and do NOT inherit e2e runs).
+# Everything else is verified locally: run `workflow_dispatch` on the branch
+# (or `uv run pytest tests/integration/test_*_e2e.py` on a dev machine with
+# GODOT_BIN set) before merging changes that don't match the paths filter.
+#
+# HISTORY: this job was `if:`-guarded off 2026-09-17 → 2026-09-30 after the
+# runner's outbound network failed (checkout/setup-uv/`uv sync` timeouts; root
+# cause was a LAN-level ARP conflict on 192.168.0.0/24, diagnosed in #581).
+# Pinning the Godot runner to the `fedora` GPU node (#598) resolved it; a
+# `workflow_dispatch` on `main` went green end-to-end on 2026-10-01. #581 is
+# closed. The remaining `if:` on the job is NOT a disable — it is the
+# fork-PR protection for the self-hosted runner (see SECURITY below).
 #
 # RUNNER REQUIREMENTS (k3s self-hosted, label `godot`):
 #   - Godot 4.7 *editor* binary (not the export-template/server build — the suites
@@ -25,15 +34,21 @@
 # single runner can carry both labels if it has Godot installed.
 #
 # SECURITY (public repo): a self-hosted runner must never execute untrusted fork
-# code. The job below is guarded so only same-repo branch PRs, manual dispatch, and
-# the nightly schedule run on the runner — fork PRs skip it. Also set the repo
-# Actions setting "Require approval for all outside collaborators" and prefer an
-# ephemeral runner (fresh pod per job) so a run can't persist state or reach the
-# co-located `godot-eval` runner's credentials.
+# code. The job below is guarded so only same-repo branch PRs and manual dispatch
+# run on the runner — fork PRs skip it. Also set the repo Actions setting "Require
+# approval for all outside collaborators" and prefer an ephemeral runner (fresh pod
+# per job) so a run can't persist state or reach the co-located `godot-eval`
+# runner's credentials.
 name: e2e
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - "godot/addons/godot_mcp/**"
+      - "mcp_server/**"
+      - "tests/integration/**"
+      - ".github/workflows/e2e.yml"
 
 # One in-flight live-editor run across the whole repo (issue #444): the single
 # self-hosted runner is shared, and two concurrent PRs' jobs contend for the
@@ -51,10 +66,10 @@ jobs:
     name: live editor (e2e + addon smoke)
     runs-on: [self-hosted, godot]
     # SECURITY (public repo + self-hosted runner): never execute untrusted fork code
-    # on the runner. Only same-repo branch PRs, manual dispatch, and the schedule run;
-    # fork PRs skip this job (it reports as skipped, non-blocking). Defense-in-depth on
-    # top of the repo setting "Require approval for all outside collaborators"; prefer
-    # an ephemeral runner so each run starts from a clean pod.
+    # on the runner. Only same-repo branch PRs and manual dispatch run; fork PRs skip
+    # this job (it reports as skipped, non-blocking). Defense-in-depth on top of the
+    # repo setting "Require approval for all outside collaborators"; prefer an
+    # ephemeral runner so each run starts from a clean pod.
     if: >-
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository
