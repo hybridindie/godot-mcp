@@ -34,11 +34,13 @@ const _RETRY_MAX := 5.0
 
 signal connection_changed(status: Status)
 signal command_received(command: String)
-## Emitted after each command completes with the command name and handler
+## Emitted after each command completes with the command name, handler
 ## execution time in milliseconds (#520: the addon only ever *responds* to
 ## commands, so a round-trip "latency" can't be measured here — one honest
-## exec_ms replaces the mislabeled latency arg).
-signal command_completed(command: String, exec_ms: float)
+## exec_ms replaces the mislabeled latency arg), and the response verdict
+## (#589: ok + the structured error code on failure) so the dock can log
+## outcomes, not just dispatch.
+signal command_completed(command: String, exec_ms: float, ok: bool, error_code: String)
 
 # _peer is untyped so tests can inject a send-recording stand-in (peer_hello
 # smoke, #537); production only ever assigns a real WebSocketPeer.
@@ -233,9 +235,12 @@ func _handle_text(text: String) -> void:
 		_peer.send_text(JSON.stringify(response))
 	# Handler execution time only (#520): the addon responds to commands, it
 	# never originates them, so there is no send-side timestamp to diff —
-	# exec_ms is the one honest number this side can measure.
+	# exec_ms is the one honest number this side can measure. #589: the
+	# response verdict rides the same signal so the dock logs outcomes.
 	var exec_ms := (Time.get_ticks_usec() - send_time) / 1000.0
-	command_completed.emit(cmd_name, exec_ms)
+	var ok := bool(response.get("ok", false))
+	var error_code := str(response.get("error", "")) if not ok else ""
+	command_completed.emit(cmd_name, exec_ms, ok, error_code)
 
 
 func _set_status(status: Status) -> void:

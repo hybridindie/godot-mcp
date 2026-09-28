@@ -137,7 +137,7 @@ cp -r godot/addons/godot_mcp /path/to/your/project/addons/
 
 After installing via any method, enable it: **Project → Project Settings → Plugins → Godot MCP → Enable**.
 
-A status panel appears at the bottom of the editor (alongside Output and Debug). It shows connection state (color dot), server/Godot version, bridge URL, active scene, selected node, enabled toolsets, and a recent-command log with timing stats. The addon connects out to the MCP server's bridge listener (`ws://127.0.0.1:9080` by default) and reconnects automatically — so editor and server can start in either order.
+A status panel appears at the bottom of the editor (alongside Output and Debug). It shows connection state (color dot), server/Godot version, bridge URL, active scene, selected node, enabled toolsets, and an outcome-bearing recent-command log (✓ success, ✗ with the error code). The addon connects out to the MCP server's bridge listener (`ws://127.0.0.1:9080` by default) and reconnects automatically — so editor and server can start in either order.
 
 ### 3. Configure your MCP client
 
@@ -217,7 +217,7 @@ cp -r godot/addons/godot_mcp /path/to/your/game/addons/
 Then enable the plugin in Project Settings.
 
 **What the addon provides:**
-- **Status dock** — read-only panel showing bridge state, project info, active scene, selected node, and recent commands
+- **Status dock** — read-only panel showing bridge state, project info, active scene, selected node, and recent command outcomes
 - **WebSocket bridge** — a client that connects out to the MCP server's listener at `ws://127.0.0.1:9080` (configurable) and reconnects with backoff
 - **Command router** — handles 80+ `cmd_*` commands that call the Godot Editor API
 - **Debugger plugin** — captures the `godot_mcp:` debugger channel for live game inspection

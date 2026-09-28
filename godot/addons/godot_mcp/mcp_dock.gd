@@ -196,10 +196,21 @@ func set_command_stats(count: int, last_exec_ms: float) -> void:
 	_last_exec_value.text = "%.1f ms" % last_exec_ms if last_exec_ms > 0.0 else PLACEHOLDER
 
 
-## Append a command to the recent log, keeping only the last MAX_LOG_ENTRIES.
-func log_command(entry: String) -> void:
+## Append a command outcome to the recent log (#589), keeping only the last
+## MAX_LOG_ENTRIES. Fed from the bridge's `command_completed` signal — entries
+## carry the response verdict, not just the dispatch: a success ends with "✓",
+## a failure ends with "✗ <ERROR_CODE>". The agent's structured errors are for
+## the agent; this line is the human's copy of the same story.
+func log_command_result(command: String, ok: bool, error_code: String) -> void:
 	var timestamp := Time.get_time_string_from_system().substr(0, 8)
-	_recent.append("[%s] %s" % [timestamp, entry])
+	var entry: String
+	if ok:
+		entry = "[%s] %s ✓" % [timestamp, command]
+	elif error_code.is_empty():
+		entry = "[%s] %s ✗" % [timestamp, command]
+	else:
+		entry = "[%s] %s ✗ %s" % [timestamp, command, error_code]
+	_recent.append(entry)
 	while _recent.size() > MAX_LOG_ENTRIES:
 		_recent.remove_at(0)
 	_log_value.text = "\n".join(_recent)
