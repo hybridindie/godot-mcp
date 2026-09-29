@@ -46,8 +46,13 @@ spec:
       labels:
         - self-hosted
         - godot
+      # Pin to the GPU workstation node (`fedora`: label gpu=true, taint
+      # dedicated=gpu:NoSchedule) — the editor-capable box. Unpinned
+      # placement landed on the brix nodes and hit CPU-contention runner
+      # abandonment (2026-09-29: all godot pools run on fedora).
       nodeSelector:
         kubernetes.io/os: linux
+        gpu: "true"
       repository: hybridindie/godot-mcp
       resources:
         limits:
@@ -62,6 +67,10 @@ spec:
         - effect: NoSchedule
           key: node.kubernetes.io/unschedulable
           operator: Exists
+        - key: dedicated
+          operator: Equal
+          value: gpu
+          effect: NoSchedule
       volumeMounts:
         - mountPath: /runner/_work/_cache
           name: cache
