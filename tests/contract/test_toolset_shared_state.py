@@ -158,3 +158,27 @@ async def test_disable_toolset_sends_list_changed_notification() -> None:
         await _wait_for(handler)
     assert handler.count >= 1
 
+
+async def test_list_changed_delivered_on_the_sessionless_protocol() -> None:
+    """The notification must reach a client that negotiated the modern
+    sessionless protocol (2026-07-28), not just the legacy handshake era.
+
+    On the sessionless protocol there is no standing server→client channel, so
+    FastMCP delivers a notification by relating it to the in-flight request's
+    response stream (`related_request_id`). That path is easy to break silently
+    in a FastMCP bump — and it is the path real clients (the ones that cache a
+    tool list and wait for a refresh) actually use. Pin it explicitly, and
+    assert the negotiated version is the modern one so this can't quietly
+    degrade into a second legacy test.
+    """
+    server, _ = _build()
+    handler = _ToolListChangedRecorder()
+    async with Client(server, mode="2026-07-28", message_handler=handler) as client:
+        assert client.protocol_version == "2026-07-28", (
+            "this test must exercise the sessionless protocol; got "
+            f"{client.protocol_version!r}"
+        )
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
+        await _wait_for(handler)
+    assert handler.count >= 1
+
