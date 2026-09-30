@@ -39,6 +39,15 @@ func _initialize() -> void:
 	dock.set_selected_node("Player")
 	_expect(failures, "selected", dock.displayed_selected(), "Player")
 
+	# #590: the undo guarantee is visible — last action + how to revert.
+	dock.set_last_action("create_node 'Player'")
+	_expect(
+		failures, "last_action", dock.displayed_last_action(),
+		"create_node 'Player' (Ctrl+Z to undo)"
+	)
+	dock.set_last_action("")
+	_expect(failures, "last_action_placeholder", dock.displayed_last_action(), "(none)")
+
 	# === Empty values fall back to a readable placeholder ===
 	dock.set_server_version("")
 	_expect(failures, "server_version_placeholder", dock.displayed_server_version(), "(unknown)")

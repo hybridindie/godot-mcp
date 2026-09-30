@@ -137,7 +137,7 @@ cp -r godot/addons/godot_mcp /path/to/your/project/addons/
 
 After installing via any method, enable it: **Project → Project Settings → Plugins → Godot MCP → Enable**.
 
-A status panel appears at the bottom of the editor (alongside Output and Debug). It shows connection state (color dot), server/Godot version, bridge URL, active scene, selected node, enabled toolsets, and an outcome-bearing recent-command log (✓ success, ✗ with the error code; reconnect attempts and server notices share the log). The addon connects out to the MCP server's bridge listener (`ws://127.0.0.1:9080` by default) and reconnects automatically — so editor and server can start in either order. If a second editor takes over the bridge, the first shows a distinct **"Replaced by another editor"** state (purple dot) rather than a misleading green, and stops reconnecting.
+A status panel appears at the bottom of the editor (alongside Output and Debug). It shows connection state (color dot), server/Godot version, bridge URL, active scene, selected node, the **last undoable action** (Ctrl+Z to revert), enabled toolsets, and an outcome-bearing recent-command log (✓ success, ✗ with the error code; reconnect attempts and server notices share the log). The addon connects out to the MCP server's bridge listener (`ws://127.0.0.1:9080` by default) and reconnects automatically — so editor and server can start in either order. If a second editor takes over the bridge, the first shows a distinct **"Replaced by another editor"** state (purple dot) rather than a misleading green, and stops reconnecting.
 
 ### 3. Configure your MCP client
 

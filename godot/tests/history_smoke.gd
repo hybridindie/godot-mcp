@@ -104,6 +104,21 @@ func _initialize() -> void:
 	_eq(failures, "registered_redo", router.has_command("cmd_redo"), true)
 	_eq(failures, "registered_history", router.has_command("cmd_list_history"), true)
 
+	# #590: history_snapshot() is the dock row's read-only feed — it names the
+	# most recent undoable action (the pointer is on Action A after the undo
+	# above) and reports emptiness without an undo available.
+	# After the redo walk + the single undo above, the pointer sits on Action B
+	# (Action C was undone), so B is the last undoable action.
+	var snap: Dictionary = router.history_snapshot()
+	_eq(failures, "snapshot.has_undo", snap.get("has_undo"), true)
+	_eq(failures, "snapshot.action", snap.get("action"), "Action B")
+	# Exhaust the history, then the snapshot reports no undoable action.
+	var ur2 := UndoRedo.new()
+	router.set_history_seam(ur2)
+	var snap_empty: Dictionary = router.history_snapshot()
+	_eq(failures, "snapshot_empty.has_undo", snap_empty.get("has_undo"), false)
+	_eq(failures, "snapshot_empty.action", snap_empty.get("action"), "")
+
 	if failures.is_empty():
 		print("HISTORY_TEST_OK")
 		quit(0)

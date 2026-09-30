@@ -47,6 +47,9 @@ var _project_value: Label
 var _scene_value: Label
 var _selected_value: Label
 var _toolsets_value: Label
+# #590: the human's view of the UndoRedo guarantee — the most recent undoable
+# action, with how to revert it. Read-only: the plugin feeds it.
+var _undo_value: Label
 
 # --- Right column widgets ---
 var _cmd_count_value: Label
@@ -93,6 +96,7 @@ func _init() -> void:
 	_scene_value = _add_field(left_col, "Scene:")
 	_selected_value = _add_field(left_col, "Selected:")
 	_toolsets_value = _add_field(left_col, "Toolsets:")
+	_undo_value = _add_field(left_col, "Last action:")
 
 	# === RIGHT COLUMN ===
 	var right_col := VBoxContainer.new()
@@ -138,6 +142,7 @@ func _init() -> void:
 	set_active_scene("")
 	set_selected_node("")
 	set_enabled_toolsets(PackedStringArray())
+	set_last_action("")
 	set_command_stats(0, 0.0)
 
 
@@ -188,6 +193,16 @@ func set_active_scene(scene_name: String) -> void:
 
 func set_selected_node(node_name: String) -> void:
 	_selected_value.text = node_name if not node_name.is_empty() else PLACEHOLDER
+
+
+## Show the most recent undoable action (#590) — "create_node 'Player' (Ctrl+Z
+## to undo)" — so the human sees what the agent just changed and how to revert,
+## without opening Editor → Undo History. An empty history reads as a placeholder.
+func set_last_action(action: String) -> void:
+	if action.is_empty():
+		_undo_value.text = PLACEHOLDER
+	else:
+		_undo_value.text = "%s (Ctrl+Z to undo)" % action
 
 
 func set_enabled_toolsets(toolsets: PackedStringArray) -> void:
@@ -273,6 +288,10 @@ func displayed_selected() -> String:
 
 func displayed_toolsets() -> String:
 	return _toolsets_value.text
+
+
+func displayed_last_action() -> String:
+	return _undo_value.text
 
 
 func displayed_command_count() -> String:
