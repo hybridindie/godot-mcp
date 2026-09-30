@@ -78,5 +78,5 @@ game-specific vocabulary belongs in a separate consumer project.
 ## Status
 
 Feature-complete across the planned ecosystem. Current release:
-[2026.09.28](https://github.com/hybridindie/godot-mcp/releases/tag/2026.09.28) —
+[2026.09.30](https://github.com/hybridindie/godot-mcp/releases/tag/2026.09.30) —
 see the [changelog](changelog.md). MIT licensed.

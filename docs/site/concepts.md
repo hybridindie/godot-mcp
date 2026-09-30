@@ -92,7 +92,7 @@ Results carry structured self-reporting that reads as ground truth:
 `godot_get_server_info` carries `contract_version` (breaking-change counter,
 currently **1**) and `min_compatible_contract`. A client is compatible when
 `min ≤ client ≤ contract`. Additive changes (new tools, optional fields) never
-bump it; removals/renames do. The CalVer build version (`2026.09.28`) moves
+bump it; removals/renames do. The CalVer build version (`2026.09.30`) moves
 every release and is *not* the compatibility signal.
 
 ---

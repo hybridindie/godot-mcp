@@ -9,7 +9,7 @@ building Godot games through the MCP tools. Two categories:
   prevention (rendering, physics, autoloads, GDScript gotchas, scene
   authoring).
 
-The skills document the surface as of **2026.09.28**. `godot-getting-started`
+The skills document the surface as of **2026.09.30**. `godot-getting-started`
 teaches how to check the live server version (`godot_health_check`) — if the
 server you're driving is older or newer, trust `godot_get_server_info()`'s
 inventory over anything the skills state, and read the live counts from

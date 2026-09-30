@@ -3,7 +3,7 @@ type: index
 title: "Changelog"
 description: "Release history for godot-mcp."
 created: 2026-09-19
-updated: 2026-09-28
+updated: 2026-09-30
 ---
 
 # Changelog
@@ -11,6 +11,36 @@ updated: 2026-09-28
 Full release notes live on
 [GitHub Releases](https://github.com/hybridindie/godot-mcp/releases). This page
 summarizes the recent ones.
+
+## 2026.09.30 — Dock feedback, peer-replacement notice, authoring docs
+
+The editor dock becomes a trustworthy supervisor's view, plus two additive
+bridge-contract changes and a documentation pass. Surface: **193 tools**
+(unchanged). Additive — `contract_version` stays 1.
+
+- **Dock logs command outcomes (#589)** — the recent-command log is fed from
+  completion, not dispatch: `✓` on success, `✗ <ERROR_CODE>` on failure, so a
+  failed command reads differently from a successful one.
+- **Replaced-editor state (#593)** — when a second editor takes over the
+  bridge, the server sends the replaced peer a `PEER_REPLACED` notice before
+  closing it; the dock shows a distinct **"Replaced by another editor"** state
+  (never a misleading green) and stops reconnecting. New additive error code
+  `PEER_REPLACED`; reconnect attempts and auth refusals now land in the dock
+  log too.
+- **Visible UndoRedo guarantee (#590)** — a "Last action" row shows the most
+  recent undoable change and how to revert (Ctrl+Z).
+- **Dirty-scene + play/probe rows (#591)** — the scene row marks unsaved edits
+  (`main.tscn ●`); a "Playing" row shows the running scene and probe state.
+- **Toolsets row fed from the server (#592)** — `cmd_toolsets_update` pushes the
+  enabled-set on connect and after every toggle, so the dock no longer shows a
+  permanent `(none)` (unknown until the first push, honestly).
+- **Dock log polish (#594)** — depth 10 → 50 (survives a 20-command batch), a
+  *Copy recent commands* button, and a session-scoped command count.
+- **Skills: correctness + authoring guides (#611, #614)** — dropped stale
+  hardcoded counts (defer to the live inventory), documented the `godot://`
+  resource surface, fixed the per-project addon guidance, and added five
+  authoring reference guides to `godot-expert` (TileSet/GridMap, VisualShader,
+  text shaders, theme/UI, particles/animation/navigation).
 
 ## 2026.09.28 — One-shot runtime reads, screenshot transport, probe hardening
 
