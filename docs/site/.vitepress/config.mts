@@ -100,6 +100,7 @@ export default withMermaid(defineConfig({
           { text: 'Value shapes', link: '/reference-value-shapes' },
           { text: 'Errors & recovery', link: '/reference-errors' },
           { text: 'Prompts & resources', link: '/reference-prompts' },
+          { text: 'Skills', link: '/reference-skills' },
           { text: 'Consumer integration', link: '/reference-consumers' },
           { text: 'Environment variables', link: '/reference-env-vars' },
           { text: 'Changelog', link: '/changelog' }
@@ -111,7 +112,8 @@ export default withMermaid(defineConfig({
           { text: 'Build a scene', link: '/guides-build-scene' },
           { text: 'Play-test & debug', link: '/guides-playtest-debug' },
           { text: 'Verify your work', link: '/guides-verify' },
-          { text: 'Ship: export, tests & CI', link: '/guides-ship' }
+          { text: 'Ship: export, tests & CI', link: '/guides-ship' },
+          { text: 'Examples', link: '/guides-examples' }
         ]
       }
     ],
