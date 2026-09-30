@@ -110,8 +110,15 @@ def _build() -> tuple[FastMCP, FakeAddonConnection]:
     return create_server(ServerConfig(), bridge=bridge), conn
 
 
+# Server→addon control pushes sent once when the peer is adopted (#521/#592).
+# They are bootstrap, not tool traffic — exclude them from "which commands did
+# this tool send" assertions.
+_BOOTSTRAP_COMMANDS = frozenset({"cmd_server_hello", "cmd_toolsets_update"})
+
+
 def _commands(conn: FakeAddonConnection) -> list[str]:
-    return [CommandEnvelope.model_validate_json(s).command for s in conn.sent]
+    commands = [CommandEnvelope.model_validate_json(s).command for s in conn.sent]
+    return [c for c in commands if c not in _BOOTSTRAP_COMMANDS]
 
 
 async def test_gated_in_asset_import_toolset() -> None:
