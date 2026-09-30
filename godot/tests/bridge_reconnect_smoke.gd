@@ -15,6 +15,9 @@ func _initialize() -> void:
 	#    _schedule_retry() the scheduled `_retry_remaining` follows: 0.5,1,2,4,5,5.
 	#    #593: each retry also emits one dock event (attempt N + the delay).
 	var bridge := Bridge.new()
+	# A retry only happens for an active (started) bridge — #593 gates the retry
+	# log on _active so a stop() mid-countdown can't log a reconnect.
+	bridge._active = true
 	var events: Array[String] = []
 	bridge.event_logged.connect(func(message: String) -> void: events.append(message))
 	var expected: Array[float] = [0.5, 1.0, 2.0, 4.0, 5.0, 5.0]
@@ -31,6 +34,18 @@ func _initialize() -> void:
 		failures.append("retry event 0: expected 'attempt 1 ... 0.5s', got %s" % events[0])
 	elif not events[5].contains("attempt 6"):
 		failures.append("retry event 5: expected 'attempt 6', got %s" % events[5])
+
+	# 1b. #593: a stopped bridge never logs a reconnect (stop() sets _active =
+	#     false; a stray retry must stay silent while the backoff still advances).
+	var b_stopped := Bridge.new()
+	var stopped_events: Array[String] = []
+	b_stopped.event_logged.connect(func(message: String) -> void: stopped_events.append(message))
+	b_stopped._active = false
+	b_stopped._schedule_retry()
+	if not stopped_events.is_empty():
+		failures.append("inactive bridge logged a reconnect: %s" % str(stopped_events))
+	if b_stopped._retry_remaining != 0.5:
+		failures.append("inactive retry should still advance the backoff, got %f" % b_stopped._retry_remaining)
 
 	# 2. While disconnected, _process counts the backoff down and re-attempts a connection
 	#    when it reaches zero (points at a dead port so no real server is touched).

@@ -181,7 +181,14 @@ func _schedule_retry() -> void:
 	# #593: one dock line per retry (never per process tick) so a flapping
 	# connection is explained, not just shown as a red dot. Reports the delay
 	# for THIS attempt, before the doubling applied to the next one.
-	event_logged.emit("reconnecting (attempt %d, next in %.1fs)" % [_retry_attempt, _retry_delay])
+	#
+	# The log is gated on _active so a retry scheduled after stop() (defensive;
+	# _process checks _active before the countdown, so this is unreachable in
+	# practice) never reports a reconnect for a bridge the operator stopped. The
+	# backoff state still advances either way, keeping this a pure state-machine
+	# step that the headless test drives directly.
+	if _active:
+		event_logged.emit("reconnecting (attempt %d, next in %.1fs)" % [_retry_attempt, _retry_delay])
 	_retry_delay = minf(_retry_delay * 2.0, _RETRY_MAX)
 
 
