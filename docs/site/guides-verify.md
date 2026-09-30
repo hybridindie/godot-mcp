@@ -8,9 +8,9 @@ updated: 2026-09-23
 
 # Verify your work
 
-"Verified" means different things at different layers. This page is the honest
-map: what each check covers, what it **misses**, and what to compose for real
-confidence.
+Ask the agent to *prove* an action landed, not just perform it. "Verified" means
+different things at different layers — this page is the honest map: what each
+check covers, what it **misses**, and what to compose for real confidence.
 
 ## The stack
 

@@ -8,9 +8,10 @@ updated: 2026-09-23
 
 # Play-test & debug
 
-The live loop against a real running game. Requires the `runtime`, `input`,
-`testing`, and `debugger` toolsets plus the `MCPRuntimeProbe` autoload in the
-game's project.
+The live loop against a real running game. You ask the agent to play, inspect,
+and break; the `godot_*` calls below are what it issues. Requires the `runtime`,
+`input`, `testing`, and `debugger` toolsets plus the `MCPRuntimeProbe` autoload
+in the game's project.
 
 ## Two run modes — pick the right one
 
