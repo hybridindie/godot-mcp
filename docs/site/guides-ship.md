@@ -8,8 +8,9 @@ updated: 2026-09-23
 
 # Ship: export, tests & CI
 
-The end of the loop: verification runs headless (no editor needed), so the
-whole build-test-ship path works in CI.
+The end of the loop: verification runs headless (no editor needed), so the whole
+build-test-ship path works in CI. You ask the agent to export or run the suite;
+the `godot_*` calls below are what it issues.
 
 ## Export a build
 

@@ -8,7 +8,9 @@ updated: 2026-09-23
 
 # Build a scene
 
-The canonical build loop, with the safety machinery visible at each step.
+The canonical build loop, with the safety machinery visible at each step. You
+prompt the agent (*"scaffold a main scene with a Player"*); the `godot_*` calls
+below are what it issues — listed so you can follow along and spot a stall.
 
 ## 1. Scaffold
 
