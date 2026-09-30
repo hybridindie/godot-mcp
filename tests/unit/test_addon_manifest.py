@@ -299,6 +299,27 @@ def test_dock_surfaces_the_undo_guarantee() -> None:
     assert "func displayed_last_action()" in dock
 
 
+def test_dock_shows_dirty_scene_and_play_state() -> None:
+    """#591: the dock reflects two states the human needs but it didn't show —
+    unsaved (dirty) scene edits, and a running play session with the agent's
+    runtime probe state. Both are fed on the existing 2s poll tick."""
+    plugin = (ADDON_DIR / "godot_mcp.gd").read_text()
+    dock = (ADDON_DIR / "mcp_dock.gd").read_text()
+
+    assert "func _update_editor_state_rows()" in plugin
+    assert "EditorInterface.get_unsaved_scenes()" in plugin
+    assert "EditorInterface.is_playing_scene()" in plugin
+    assert "is_connected_to_probe()" in plugin
+    assert "set_scene_dirty(scene, dirty)" in plugin
+    assert "set_play_state(playing, probe, scene)" in plugin
+
+    assert "func set_scene_dirty(scene_name: String, dirty: bool)" in dock
+    assert "●" in dock
+    assert "func set_play_state(playing: bool, probe_connected: bool" in dock
+    assert "probe connected" in dock
+    assert "func displayed_play_state()" in dock
+
+
 def test_router_registers_node_parity_commands() -> None:
     source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in (
