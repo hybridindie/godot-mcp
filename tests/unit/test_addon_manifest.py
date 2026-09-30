@@ -279,6 +279,26 @@ def test_replaced_peer_state_and_reconnect_logging() -> None:
     assert "func log_event(message: String)" in dock
 
 
+def test_dock_surfaces_the_undo_guarantee() -> None:
+    """#590: the dock shows the most recent undoable action + how to revert, so
+    the human sees what the agent changed without opening Undo History. The
+    router exposes a read-only snapshot; the plugin feeds it on the poll tick
+    and after each completed command; the dock renders the Ctrl+Z hint."""
+    router = (ADDON_DIR / "command_router.gd").read_text()
+    plugin = (ADDON_DIR / "godot_mcp.gd").read_text()
+    dock = (ADDON_DIR / "mcp_dock.gd").read_text()
+
+    assert "func history_snapshot() -> Dictionary" in router
+    assert "get_current_action_name()" in router.split("func history_snapshot", 1)[1]
+    assert "func _update_last_action()" in plugin
+    assert "history_snapshot()" in plugin
+    assert "set_last_action(action)" in plugin
+
+    assert "func set_last_action(action: String)" in dock
+    assert "Ctrl+Z to undo" in dock
+    assert "func displayed_last_action()" in dock
+
+
 def test_router_registers_node_parity_commands() -> None:
     source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in (
