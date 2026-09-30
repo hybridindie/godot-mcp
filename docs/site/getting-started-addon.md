@@ -54,9 +54,12 @@ GODOT_MCP_BRIDGE_URL=ws://127.0.0.1:9080 godot --path /path/to/your/game
 
 1. The **status dock** appears at the bottom of the editor (alongside
    Output/Debug): connection dot, server/Godot version, bridge URL, active
-   scene, selected node, a **Last action** row (the most recent undoable change
-   — "create_node 'Player' (Ctrl+Z to undo)" — #590), and an outcome-bearing
-   recent-command log (✓ success, ✗ with the error code — #589) with timing.
+   scene (marked `main.tscn ●` while the editor holds unsaved edits — #591),
+   selected node, a **Last action** row (the most recent undoable change —
+   "create_node 'Player' (Ctrl+Z to undo)" — #590), a **Playing** row (the
+   running scene + whether the agent's runtime probe is attached — #591), and
+   an outcome-bearing recent-command log (✓ success, ✗ with the error code —
+   #589) with timing.
    Reconnect attempts and server notices (auth refusal, a peer replacement)
    share the same log (#593), so a flapping or taken-over link explains itself.
 2. Green dot = the addon connected out to the server. The server and editor

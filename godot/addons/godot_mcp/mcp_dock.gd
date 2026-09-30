@@ -50,6 +50,9 @@ var _toolsets_value: Label
 # #590: the human's view of the UndoRedo guarantee — the most recent undoable
 # action, with how to revert it. Read-only: the plugin feeds it.
 var _undo_value: Label
+# #591: play-session + probe state (dirty state rides the Scene row via
+# set_scene_dirty). Read-only: the plugin feeds it.
+var _play_value: Label
 
 # --- Right column widgets ---
 var _cmd_count_value: Label
@@ -97,6 +100,7 @@ func _init() -> void:
 	_selected_value = _add_field(left_col, "Selected:")
 	_toolsets_value = _add_field(left_col, "Toolsets:")
 	_undo_value = _add_field(left_col, "Last action:")
+	_play_value = _add_field(left_col, "Playing:")
 
 	# === RIGHT COLUMN ===
 	var right_col := VBoxContainer.new()
@@ -143,6 +147,8 @@ func _init() -> void:
 	set_selected_node("")
 	set_enabled_toolsets(PackedStringArray())
 	set_last_action("")
+	set_scene_dirty("", false)
+	set_play_state(false, false)
 	set_command_stats(0, 0.0)
 
 
@@ -189,6 +195,34 @@ func set_project_path(path: String) -> void:
 
 func set_active_scene(scene_name: String) -> void:
 	_scene_value.text = scene_name if not scene_name.is_empty() else PLACEHOLDER
+
+
+## Show the active scene with a dirty marker (#591): "main.tscn ●" when the
+## editor holds unsaved changes (an agent mutation, or the human's own edits).
+## A dirty marker only makes sense with a named scene, so a scene-less or
+## unsaved-new scene falls back to the plain placeholder.
+func set_scene_dirty(scene_name: String, dirty: bool) -> void:
+	if scene_name.is_empty():
+		_scene_value.text = PLACEHOLDER
+	elif dirty:
+		_scene_value.text = "%s ●" % scene_name
+	else:
+		_scene_value.text = scene_name
+
+
+## Show play-session state (#591): the running scene and whether the agent's
+## runtime probe is attached ("main.tscn (probe connected)"), or not playing.
+## `scene_name` is the active scene's label — during a play session the edited
+## scene is still the source, so it names what is running.
+func set_play_state(playing: bool, probe_connected: bool, scene_name: String = "") -> void:
+	if not playing:
+		_play_value.text = PLACEHOLDER
+		return
+	var label := scene_name if not scene_name.is_empty() else "game"
+	if probe_connected:
+		_play_value.text = "%s (probe connected)" % label
+	else:
+		_play_value.text = "%s (no probe)" % label
 
 
 func set_selected_node(node_name: String) -> void:
@@ -292,6 +326,10 @@ func displayed_toolsets() -> String:
 
 func displayed_last_action() -> String:
 	return _undo_value.text
+
+
+func displayed_play_state() -> String:
+	return _play_value.text
 
 
 func displayed_command_count() -> String:

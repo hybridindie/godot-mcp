@@ -197,6 +197,8 @@ func _on_bridge_event(message: String) -> void:
 
 func _on_scene_changed(scene_root: Node) -> void:
 	_dock.set_active_scene(_scene_label(scene_root))
+	# #591: re-apply the dirty marker immediately (set_active_scene clears it).
+	_update_editor_state_rows()
 
 
 func _on_selection_changed() -> void:
@@ -222,6 +224,26 @@ func _on_refresh_timer() -> void:
 	# #590: keep the "Last action" row in step with the undo history (a redo,
 	# a manual Ctrl+Z, or an action from another source all move it).
 	_update_last_action()
+	# #591: dirty-scene + play/probe state — one poll, no new timer cost.
+	_update_editor_state_rows()
+
+
+## #591: reflect two editor states the human cares about but the dock didn't
+## show: whether the active scene has unsaved changes (an agent mutation holds
+## edits until Ctrl+S), and whether a play session is running (and if the
+## agent's runtime probe is attached). One poll on the existing 2s tick; the
+## dock stays a dumb Control fed by these setters.
+func _update_editor_state_rows() -> void:
+	var root := EditorInterface.get_edited_scene_root()
+	var scene := _scene_label(root)
+	var dirty := false
+	if root != null and not root.scene_file_path.is_empty():
+		dirty = root.scene_file_path in EditorInterface.get_unsaved_scenes()
+	_dock.set_scene_dirty(scene, dirty)
+
+	var playing := EditorInterface.is_playing_scene()
+	var probe := _debugger != null and _debugger.is_connected_to_probe()
+	_dock.set_play_state(playing, probe, scene)
 
 
 ## #590: reflect the most recent undoable action in the dock — so the human sees

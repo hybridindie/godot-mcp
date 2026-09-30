@@ -48,6 +48,22 @@ func _initialize() -> void:
 	dock.set_last_action("")
 	_expect(failures, "last_action_placeholder", dock.displayed_last_action(), "(none)")
 
+	# === #591: dirty-scene marker + play/probe row ===
+	dock.set_scene_dirty("main.tscn", false)
+	_expect(failures, "scene_clean", dock.displayed_scene(), "main.tscn")
+	dock.set_scene_dirty("main.tscn", true)
+	_expect(failures, "scene_dirty", dock.displayed_scene(), "main.tscn ●")
+	# A dirty marker only makes sense with a named scene.
+	dock.set_scene_dirty("", true)
+	_expect(failures, "scene_dirty_nameless", dock.displayed_scene(), "(none)")
+
+	dock.set_play_state(false, false)
+	_expect(failures, "play_not_playing", dock.displayed_play_state(), "(none)")
+	dock.set_play_state(true, true, "main.tscn")
+	_expect(failures, "play_with_probe", dock.displayed_play_state(), "main.tscn (probe connected)")
+	dock.set_play_state(true, false, "main.tscn")
+	_expect(failures, "play_no_probe", dock.displayed_play_state(), "main.tscn (no probe)")
+
 	# === Empty values fall back to a readable placeholder ===
 	dock.set_server_version("")
 	_expect(failures, "server_version_placeholder", dock.displayed_server_version(), "(unknown)")
