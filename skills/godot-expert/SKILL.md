@@ -437,7 +437,7 @@ godot_enable_toolset('scene_edit')
 godot_enable_toolset('scripts')
 ```
 
-If the bridge is offline: open the `godot/` project in Godot 4.4+ with the addon enabled — the status dock shows the connection state.
+If the bridge is offline: open your Godot project (with the addon installed and enabled) in Godot 4.4+ — the status dock shows the connection state. For a smoke test, the `godot/` folder of the godot-mcp checkout is a ready-to-open project.
 
 ### Common tool calls
 

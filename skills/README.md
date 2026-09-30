@@ -9,11 +9,11 @@ building Godot games through the MCP tools. Two categories:
   prevention (rendering, physics, autoloads, GDScript gotchas, scene
   authoring).
 
-The skills document the surface as of **2026.09.28** (193 tools across
-29 categories, 9 workflow prompts). `godot-getting-started` teaches how to
-check the live server version (`godot_health_check`) — if the server you're
-driving is older or newer, trust `godot_get_server_info()`'s inventory over
-the counts here.
+The skills document the surface as of **2026.09.28**. `godot-getting-started`
+teaches how to check the live server version (`godot_health_check`) — if the
+server you're driving is older or newer, trust `godot_get_server_info()`'s
+inventory over anything the skills state, and read the live counts from
+`godot_get_server_info()` / `godot_list_toolsets()` rather than from prose here.
 
 Install them once and your agent has the right guidance at the right time.
 
@@ -89,7 +89,7 @@ editor", "godot-mcp tools aren't showing up", "unknown tool from godot",
 
 **What it teaches:**
 - Checking the server version + bridge connection (`godot_health_check`, `godot_get_server_info`)
-- The toolset-gating model (enable a toolset before its tools exist — 28 gated toolsets)
+- The toolset-gating model (enable a toolset before its tools exist; `godot_list_toolsets()` lists them all)
 - The safety convention (read-only / mutating with `dry_run` / destructive
   with `confirm`)
 - Using built-in workflow prompts (`/build_scene`, `/play_test`, `/author_resource`, `/export_build`, `/batch_refactor`, etc.)
@@ -152,8 +152,8 @@ scene", "attach a script".
 6. **Scene file format (.tscn)** — ext_resource, sub_resource, node
    blocks, text vs GDScript syntax, disk vs bridge editing
 7. **Infinite background grids** — dynamic tile pool sized from viewport
-8. **MCP bridge workflow** — starting the bridge, sending commands, common
-   commands table
+8. **MCP tool workflow** — session-start checks, the common tool-calls
+   table, and round-trip economy (the bridge is managed for you)
 9. **Testing with GUT** — setup, test patterns, gotchas (no await ready,
    no `assert_contains`, autoload state leak), MCP `run_tests` tool
 10. **Quick checklist** — verify before playing a scene

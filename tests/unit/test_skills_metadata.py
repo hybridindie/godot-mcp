@@ -148,7 +148,9 @@ def test_skill_prompt_lists_cover_registered_prompts() -> None:
 
 def test_getting_started_states_current_version_and_check() -> None:
     """The skill tells the agent which version this surface documents and how to
-    verify the server it talks to matches (health_check → version)."""
+    verify the server it talks to matches (health_check → version). Both the
+    skill body and the skills README name the version — a release bump must
+    update both, so this pins both (the README previously drifted)."""
     body = _body("godot-getting-started")
     assert __version__ in body, (
         f"getting-started must name the current server version {__version__}"
@@ -156,6 +158,53 @@ def test_getting_started_states_current_version_and_check() -> None:
     assert "godot_health_check(" in body, (
         "getting-started must show the version check via godot_health_check()"
     )
+    readme = (SKILLS_DIR / "README.md").read_text(encoding="utf-8")
+    assert __version__ in readme, (
+        f"skills/README.md must name the current version {__version__}"
+    )
+
+
+def test_skills_do_not_hardcode_stale_tool_counts() -> None:
+    """The tool/category counts rot the moment a tool is added, and no test can
+    pin a *number* to the surface without the skill becoming a mirror of the
+    registry. The skills instead defer to the live inventory
+    (``godot_get_server_info`` / ``godot_list_toolsets``). Bar the old
+    hardcoded phrasings so a future edit can't silently reintroduce them."""
+    stale = [
+        "193 tools",
+        "29 categories",
+        "28 gated toolsets",
+        "175 cmd",
+        "175 `cmd",
+    ]
+    for name in (*EXPECTED_SKILLS, "README"):
+        path = SKILLS_DIR / name / "SKILL.md" if name != "README" else SKILLS_DIR / "README.md"
+        text = path.read_text(encoding="utf-8")
+        for phrase in stale:
+            assert phrase not in text, (
+                f"{path.relative_to(SKILLS_DIR.parent)} hardcodes a stale count "
+                f"('{phrase}'); defer to the live inventory instead"
+            )
+
+
+def test_getting_started_teaches_the_resource_surface() -> None:
+    """The server exposes read-only ``godot://`` context resources plus the
+    ``godot_read_resource`` fallback tool (#11). Getting-started must teach both
+    — a client that never discovers resources loses the cheap read path, and a
+    client without resource support has no way to reach them at all."""
+    body = _body("godot-getting-started")
+    assert "godot://" in body, "getting-started must mention godot:// resources"
+    assert "godot_read_resource(" in body, (
+        "getting-started must show the resources-as-tools fallback godot_read_resource()"
+    )
+    # Every context URI the server exposes must be named in the skill.
+    for uri in (
+        "godot://project/info",
+        "godot://scene/current",
+        "godot://scene/tree",
+        "godot://node/selected",
+    ):
+        assert uri in body, f"resources section must name the real URI '{uri}'"
 
 
 def test_playtest_skill_names_debugger_tools() -> None:
