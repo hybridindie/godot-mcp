@@ -341,6 +341,22 @@ def test_dock_toolsets_row_is_fed_not_dead() -> None:
     assert "set_toolsets_unknown()" in init
 
 
+def test_dock_log_polish() -> None:
+    """#594: the recent-command log is deeper (a 20-command burst must not evict
+    it), copyable (the log is what bug reports want), and the command count is
+    session-scoped (reset on reconnect), labelled honestly."""
+    dock = (ADDON_DIR / "mcp_dock.gd").read_text()
+
+    assert "const MAX_LOG_ENTRIES := 50" in dock, "log depth must hold a 20-command burst"
+    assert "func copy_log_to_clipboard()" in dock
+    assert "DisplayServer.clipboard_set" in dock
+    assert "_copy_button" in dock
+    # Session-scoped count: reset on a fresh CONNECTED transition.
+    assert '"This session:"' in dock
+    status = dock.split("func set_connection_status", 1)[1].split("\nfunc ", 1)[0]
+    assert "_command_count = 0" in status
+
+
 def test_router_registers_node_parity_commands() -> None:
     source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in (

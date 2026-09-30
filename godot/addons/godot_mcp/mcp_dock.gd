@@ -20,7 +20,10 @@ extends HBoxContainer
 ## just not serving this editor.
 enum ConnectionStatus { DISCONNECTED, CONNECTING, CONNECTED, REPLACED }
 
-const MAX_LOG_ENTRIES := 10
+# #594: 10 entries was too shallow for a burst — batch_set_property / run_commands
+# fire 20+ commands, so a single batch evicted the whole log. 50 keeps a 20-command
+# burst plus its context visible.
+const MAX_LOG_ENTRIES := 50
 const PLACEHOLDER := "(none)"
 const _UNKNOWN := "(unknown)"
 
@@ -58,6 +61,7 @@ var _play_value: Label
 var _cmd_count_value: Label
 var _last_exec_value: Label
 var _log_value: Label
+var _copy_button: Button
 
 # --- Auto-refresh toggle (issue #561): opt-in timer-based filesystem scan ---
 signal auto_refresh_toggled(enabled: bool)
@@ -65,8 +69,13 @@ var _auto_refresh_check: CheckBox
 
 # --- State ---
 var _recent: PackedStringArray = PackedStringArray()
+# #594: the count is SESSION-scoped (this editor's current bridge connection),
+# reset when a fresh connection is established — see set_connection_status. A
+# number that only ever grew across a long-lived editor said little; "commands
+# on the link you're looking at" is what a supervisor wants.
 var _command_count := 0
 var _last_command_time := ""
+var _status: ConnectionStatus = ConnectionStatus.DISCONNECTED
 
 
 func _init() -> void:
@@ -112,7 +121,8 @@ func _init() -> void:
 	var stats_title := Label.new()
 	stats_title.text = "Command Statistics"
 	right_col.add_child(stats_title)
-	_cmd_count_value = _add_field(right_col, "Total:")
+	# #594: the count is per session (reset on reconnect), so label it honestly.
+	_cmd_count_value = _add_field(right_col, "This session:")
 	_last_exec_value = _add_field(right_col, "Last exec:")
 
 	# Recent commands log
@@ -123,6 +133,14 @@ func _init() -> void:
 	_log_value.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_log_value.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	right_col.add_child(_log_value)
+	# #594: the recent-command log is what we ask users to paste into bug reports,
+	# so give them a one-click copy. The dock stays editor-free — DisplayServer's
+	# clipboard is engine-global, not Editor API.
+	_copy_button = Button.new()
+	_copy_button.text = "Copy recent commands"
+	_copy_button.tooltip_text = "Copy the recent-command log to the clipboard"
+	_copy_button.pressed.connect(_on_copy_pressed)
+	right_col.add_child(_copy_button)
 
 	# Auto-refresh toggle (issue #561): opt-in timer-based filesystem scan so
 	# external edits (agent/git/other tools) are picked up without editor
@@ -177,6 +195,13 @@ func _add_field(parent: Container, caption: String) -> Label:
 
 
 func set_connection_status(status: ConnectionStatus) -> void:
+	# #594: a fresh CONNECTED (from anything but CONNECTED) starts a new session —
+	# reset the count so it reads "commands since this editor (re)connected".
+	# REPLACED/CONNECTING/DISCONNECTED don't reset; only the reconnect itself does.
+	if status == ConnectionStatus.CONNECTED and _status != ConnectionStatus.CONNECTED:
+		_command_count = 0
+		set_command_stats(0, 0.0)
+	_status = status
 	_connection_value.text = _CONNECTION_TEXT.get(status, _UNKNOWN)
 	_status_dot.color = _CONNECTION_COLOR.get(status, Color.GRAY)
 
@@ -290,6 +315,20 @@ func log_event(message: String) -> void:
 	while _recent.size() > MAX_LOG_ENTRIES:
 		_recent.remove_at(0)
 	_log_value.text = "\n".join(_recent)
+
+
+## #594: copy the recent-command log to the system clipboard — the log is what
+## we ask users to paste into bug reports. Engine-global DisplayServer, not
+## Editor API, so the dock stays editor-free. A no-op on an empty log (and in
+## headless runs where there is no clipboard — guarded, never a crash).
+func copy_log_to_clipboard() -> void:
+	if _recent.is_empty():
+		return
+	DisplayServer.clipboard_set(_log_value.text)
+
+
+func _on_copy_pressed() -> void:
+	copy_log_to_clipboard()
 
 
 func get_recent_commands() -> PackedStringArray:
