@@ -16,7 +16,7 @@ The addon is the only part of the system that lives inside Godot. It is an
 - routes the server's `{id, command}` envelopes to 175 `cmd_*` handlers that
   call the Godot Editor API
 - shows a **read-only status dock** (connection state, project/scene/selected
-  node, recent commands with timing)
+  node, recent command outcomes with timing)
 - registers the debugger plugin that powers live play-session inspection
 
 ## Option A: use the bundled project
@@ -54,8 +54,8 @@ GODOT_MCP_BRIDGE_URL=ws://127.0.0.1:9080 godot --path /path/to/your/game
 
 1. The **status dock** appears at the bottom of the editor (alongside
    Output/Debug): connection dot, server/Godot version, bridge URL, active
-   scene, selected node, enabled toolsets, and a recent-command log with
-   timing.
+   scene, selected node, and an outcome-bearing recent-command log
+   (✓ success, ✗ with the error code — #589) with timing.
 2. Green dot = the addon connected out to the server. The server and editor
    can start in **either** order — the addon reconnects automatically.
 3. `godot_health_check()` from your agent returns

@@ -191,8 +191,12 @@ def test_script_write_kicks_a_deferred_filesystem_rescan() -> None:
     # Isolate the handler body by its signature — splitting on the bare name can
     # straddle two occurrences (Qodo #449 review).
     hook = entry.split("func _on_command_completed", 1)[1].split("\nfunc ", 1)[0]
-    # #520: the hook receives exec-only (no latency arg).
-    assert "func _on_command_completed(command: String, exec_ms: float)" in entry
+    # #520: the hook receives exec time; #589: plus the response verdict.
+    hook_sig = (
+        "func _on_command_completed(command: String, exec_ms: float, ok: bool, error_code: String)"
+    )
+    assert hook_sig in entry
+    assert "log_command_result(command, ok, error_code)" in hook
     assert "_rescan_after_script_write.call_deferred()" in hook
     rescan = entry.split("func _rescan_after_script_write", 1)[1].split("\nfunc ", 1)[0]
     assert "scan()" in rescan
@@ -211,14 +215,34 @@ def test_delete_node_invalidates_the_prop_cache() -> None:
     assert "invalidate_prop_cache" in attach_handler
 
 
-def test_bridge_command_completed_reports_exec_only() -> None:
+def test_bridge_command_completed_reports_exec_and_outcome() -> None:
     """#520: ``command_completed`` reports ONE honest number — handler exec time.
     The old 3-arg form (exec + mislabeled round-trip latency backed by a
-    never-populated ``_pending_times`` dict) is dead code and must be gone."""
+    never-populated ``_pending_times`` dict) is dead code and must be gone.
+    #589: the signal also carries the response verdict (ok + error code) so the
+    dock logs outcomes, not dispatch."""
     bridge = (ADDON_DIR / "mcp_bridge.gd").read_text()
-    assert "command_completed(command: String, exec_ms: float)" in bridge
+    assert (
+        "command_completed(command: String, exec_ms: float, ok: bool, error_code: String)" in bridge
+    )
     assert "_pending_times" not in bridge, "dead timing state must be removed"
     assert "latency_ms" not in bridge, "mislabeled latency must be removed"
+    # The verdict is read from the response envelope, not guessed.
+    assert 'bool(response.get("ok", false))' in bridge
+
+
+def test_dock_logs_outcomes_not_dispatch() -> None:
+    """#589: the dock's recent-command log is fed from ``command_completed``
+    (outcome-bearing), not ``command_received`` (dispatch) — a failed command
+    must read differently from a successful one."""
+    plugin = (ADDON_DIR / "godot_mcp.gd").read_text()
+    dock = (ADDON_DIR / "mcp_dock.gd").read_text()
+    assert "command_received.connect(_dock.log_command)" not in plugin, (
+        "the dispatch-time log wiring must be gone (#589)"
+    )
+    assert "log_command_result" in dock
+    assert "func log_command_result(command: String, ok: bool, error_code: String)" in dock
+    assert "func log_command(" not in dock, "legacy name-only log path must be gone"
 
 
 def test_router_registers_node_parity_commands() -> None:

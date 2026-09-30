@@ -62,25 +62,46 @@ func _initialize() -> void:
 	_expect(failures, "last_exec_zero", dock.displayed_last_exec(), "(none)")
 
 	# === Recent-command log keeps only the last 10 entries ===
+	# #589: log entries carry the command's OUTCOME — dispatch-time entries are
+	# gone; the log is fed from command completion (ok / error code).
 	for i in range(15):
-		dock.log_command("cmd_%d" % i)
+		dock.log_command_result("cmd_%d" % i, true, "")
 	var recent := dock.get_recent_commands()
 	if recent.size() != 10:
 		failures.append("log size: expected 10, got %d" % recent.size())
 	else:
-		# Entries are now "[HH:MM:SS] cmd_N" — check the command part.
-		if not recent[0].ends_with(" cmd_5"):
+		# Entries are now "[HH:MM:SS] cmd_N ✓" — check the command part.
+		if not recent[0].contains(" cmd_5"):
 			failures.append("log_first: expected '... cmd_5', got %s" % recent[0])
-		if not recent[9].ends_with(" cmd_14"):
+		if not recent[9].contains(" cmd_14"):
 			failures.append("log_last: expected '... cmd_14', got %s" % recent[9])
+		# Success lines end with the ✓ marker.
+		if not recent[9].ends_with("✓"):
+			failures.append("log_ok_marker: expected '... ✓', got %s" % recent[9])
 	if not dock.displayed_log().contains("cmd_14"):
 		failures.append("log label missing newest entry 'cmd_14'")
 	if dock.displayed_log().contains("cmd_4"):
 		failures.append("log label still shows evicted entry 'cmd_4'")
 
-	# === Command count increments on log_command ===
-	if dock.get_command_count() != 15:
-		failures.append("command_count: expected 15, got %d" % dock.get_command_count())
+	# === #589: failed commands carry the error code in the log line ===
+	dock.log_command_result("cmd_delete_node", false, "PRECONDITION_FAILED")
+	var last := dock.get_recent_commands()[dock.get_recent_commands().size() - 1]
+	if not last.contains("cmd_delete_node"):
+		failures.append("log_failed_cmd: expected the command name, got %s" % last)
+	if not last.contains("PRECONDITION_FAILED"):
+		failures.append("log_failed_code: expected the error code in the line, got %s" % last)
+	if not last.contains("✗"):
+		failures.append("log_fail_marker: expected the ✗ marker, got %s" % last)
+	if not dock.displayed_log().contains("✗ PRECONDITION_FAILED"):
+		failures.append("log_failed_render: displayed log must contain '✗ PRECONDITION_FAILED'")
+
+	# === #589: the log_command (dispatch-time, name-only) path is gone ===
+	if MCPDockScript.new().has_method("log_command"):
+		failures.append("legacy dispatch-time log_command must be replaced by log_command_result (#589)")
+
+	# === Command count increments on log_command_result (15 loop + 1 failed) ===
+	if dock.get_command_count() != 16:
+		failures.append("command_count: expected 16, got %d" % dock.get_command_count())
 
 	# === Timestamp format: entries start with [HH:MM:SS] ===
 	if not recent[0].begins_with("["):

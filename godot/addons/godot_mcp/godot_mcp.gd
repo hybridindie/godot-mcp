@@ -66,7 +66,8 @@ func _enter_tree() -> void:
 	# Start the WebSocket bridge and reflect its state in the dock.
 	_bridge = MCPBridge.new(router)
 	_bridge.connection_changed.connect(_on_connection_changed)
-	_bridge.command_received.connect(_dock.log_command)
+	# #589: the dock logs command OUTCOMES (fed from completion), not dispatch —
+	# a failed command must read differently from a successful one.
 	_bridge.command_completed.connect(_on_command_completed)
 	add_child(_bridge)
 	_bridge.start(_bridge_url())
@@ -214,7 +215,7 @@ func _on_refresh_timer() -> void:
 ## just supplies the live EditorFileSystem and keeps the enabled flag in sync.
 func _run_auto_refresh_tick() -> void:
 	if AutoRefreshHelper.tick(_auto_refresh_enabled, EditorInterface.get_resource_filesystem()):
-		_dock.log_command("auto-refresh: filesystem scanned")
+		_dock.log_command_result("auto-refresh: filesystem scanned", true, "")
 
 
 ## Dock toggle (issue #561): start/stop the timer. The env value seeds the
@@ -277,10 +278,13 @@ func _server_version_label() -> String:
 	return "godot-mcp %s / %s" % [_server_version, godot_ver]
 
 
-## Handle command completion: update the dock's command statistics with the
-## handler execution time from the bridge (#520: exec is the one honest number
-## the addon can measure — the latency field was dead code reporting exec).
-func _on_command_completed(command: String, exec_ms: float) -> void:
+## Handle command completion: log the outcome in the dock (#589 — the human's
+## copy of the same story the agent gets as a structured envelope), then update
+## the dock's command statistics with the handler execution time from the
+## bridge (#520: exec is the one honest number the addon can measure — the
+## latency field was dead code reporting exec).
+func _on_command_completed(command: String, exec_ms: float, ok: bool, error_code: String) -> void:
+	_dock.log_command_result(command, ok, error_code)
 	_dock.set_command_stats(_dock.get_command_count(), exec_ms)
 	if command == "cmd_write_script" or command == "cmd_patch_script":
 		# #417: a script write may introduce a new ``class_name`` global. The
