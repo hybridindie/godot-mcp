@@ -168,6 +168,11 @@ scene", "attach a script".
 | `references/scene-authoring.md` | .tscn format (ext_resource, sub_resource, node blocks), text vs GDScript syntax differences, disk vs bridge editing |
 | `references/autoload-architecture.md` | Autoload registration and lifecycle, children-rendering trap, state persistence, state machine pattern, signal contracts, entity groups |
 | `references/scene-templates.md` | Ready-to-use .tscn templates (player, enemy, projectile, main scene, WASD input actions) |
+| `references/tileset-gridmap.md` | TileSet authoring (atlas source → create_tile → set_cell), GridMap + MeshLibrary authoring, atlas/grid pitfalls |
+| `references/visual-shader.md` | VisualShader graph authoring (node ids, port-index wiring), text-vs-graph choice, read-back |
+| `references/shader-authoring.md` | Text `.gdshader` authoring, `validate_shader` before assign, `shader_type` matching, params, persistence |
+| `references/theme-styling.md` | Theme vs local override, item names, per-state styleboxes, color/size tools, override read-back |
+| `references/particles-animation.md` | Particles (amount/lifetime/gradient), Animation tracks/keyframes + AnimationTree, Navigation region/bake/agent |
 | `references/common-bugs.md` | 11 documented bugs with symptom/root cause/fix — each from real development |
 
 **When to use:** Whenever building or debugging a Godot game — especially

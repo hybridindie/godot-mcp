@@ -162,8 +162,10 @@ script (e.g., `hud.gd`) still connects to the old signal name. The editor's
 in-memory copy was updated but the on-disk file wasn't (or vice versa).
 
 **Fix:**
-1. Update every script that connects to the signal
-2. `cmd_save_all_scenes` after `cmd_write_script` to flush to disk
+1. Update every script that connects to the signal — `godot_scripts_write` flushes
+   to disk immediately, so the caller fixes are on disk as soon as they're written
+2. Save any *scene* edits with `godot_scene_edit_save_scene()` (scene mutations
+   live in memory until saved; script writes do not)
 3. Write a test that pins the signal contract:
 ```gdscript
 func test_old_signal_removed() -> void:
