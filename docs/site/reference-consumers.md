@@ -29,15 +29,18 @@ Three installable AI skills ship under
 install into any client via `scripts/install-skills.sh`:
 
 - `godot-getting-started` — bridge connection, toolset gating, safety classes,
-  honesty fields, round-trip economy
+  honesty fields, the `godot://` resources, round-trip economy
 - `godot-playtest-and-debug` — runtime play-test, input simulation,
   break-state gate, timeout semantics
-- `godot-expert` — Godot 4.x engine knowledge: 10 sections + 7 reference
-  guides + 11 documented bugs
+- `godot-expert` — Godot 4.x engine knowledge: 10 sections + 12 reference
+  guides (rendering, physics, UI, authoring, shaders, themes, …) + a
+  documented-bug list
 
-They are pinned to the live surface by `tests/unit/test_skills_metadata.py`
-(every tool reference must resolve, the toolset map must cover all toolsets),
-so a surface change without a skills update fails the suite.
+See [Skills](reference-skills.md) for what each teaches and the full guide
+index. They are pinned to the live surface by
+`tests/unit/test_skills_metadata.py` (every tool reference must resolve, the
+toolset map must cover all toolsets, every guide must be linked), so a surface
+change without a skills update fails the suite.
 
 ## The godot-agents orchestrator
 
