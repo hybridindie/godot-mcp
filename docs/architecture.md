@@ -134,6 +134,8 @@ Precondition failure (richer form, so the agent knows what to satisfy):
 | `BRIDGE_DISCONNECTED` | The addon is not reachable. |
 | `TIMEOUT` | No response within the request's timeout. |
 | `INTERNAL_ERROR` | An unexpected failure on either side (still structured, never a trace). |
+| `APPROVAL_DENIED` | The human declined a `confirm`-gated approval (issue #153). |
+| `PEER_REPLACED` | Server **notice** to an editor whose bridge was taken over by another editor (#593); not a tool failure. |
 
 This table is the source of truth for the error enum; extend it here (and in the
 contract tests) before adding a new code.

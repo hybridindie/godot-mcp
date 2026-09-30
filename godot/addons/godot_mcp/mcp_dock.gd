@@ -14,7 +14,11 @@ extends HBoxContainer
 ##   Right: command statistics (total, last handler-exec time), recent
 ##          command log (last N entries with timestamps).
 
-enum ConnectionStatus { DISCONNECTED, CONNECTING, CONNECTED }
+## REPLACED (#593) is appended last so the 0/1/2 ordering shared with
+## MCPBridge.Status is unchanged: this editor's link was taken over by another
+## editor — distinct from DISCONNECTED because the bridge is very much alive,
+## just not serving this editor.
+enum ConnectionStatus { DISCONNECTED, CONNECTING, CONNECTED, REPLACED }
 
 const MAX_LOG_ENTRIES := 10
 const PLACEHOLDER := "(none)"
@@ -24,12 +28,14 @@ const _CONNECTION_TEXT := {
 	ConnectionStatus.DISCONNECTED: "Disconnected",
 	ConnectionStatus.CONNECTING: "Connecting…",
 	ConnectionStatus.CONNECTED: "Connected",
+	ConnectionStatus.REPLACED: "Replaced by another editor",
 }
 
 const _CONNECTION_COLOR := {
 	ConnectionStatus.DISCONNECTED: Color(0.9, 0.3, 0.3),
 	ConnectionStatus.CONNECTING: Color(0.9, 0.7, 0.2),
 	ConnectionStatus.CONNECTED: Color(0.3, 0.8, 0.3),
+	ConnectionStatus.REPLACED: Color(0.8, 0.4, 0.8),
 }
 
 # --- Left column widgets ---
@@ -216,6 +222,18 @@ func log_command_result(command: String, ok: bool, error_code: String) -> void:
 	_log_value.text = "\n".join(_recent)
 	_command_count += 1
 	_last_command_time = timestamp
+
+
+## Append a bridge lifecycle notice to the same recent-commands log (#593) —
+## reconnect attempts, server notices (auth refusal, peer replacement). Shares
+## the log/ring buffer and eviction with command outcomes so the human sees one
+## chronological story, not two logs.
+func log_event(message: String) -> void:
+	var timestamp := Time.get_time_string_from_system().substr(0, 8)
+	_recent.append("[%s] %s" % [timestamp, message])
+	while _recent.size() > MAX_LOG_ENTRIES:
+		_recent.remove_at(0)
+	_log_value.text = "\n".join(_recent)
 
 
 func get_recent_commands() -> PackedStringArray:

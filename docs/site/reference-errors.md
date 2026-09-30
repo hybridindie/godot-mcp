@@ -13,7 +13,7 @@ silent, and every failure names a fix.
 
 ## The error-code enum
 
-The seven bridge-envelope codes (the `ErrorCode` enum in
+The eight bridge-envelope codes (the `ErrorCode` enum in
 `mcp_server/models/envelope.py` — what the addon can emit):
 
 | Code | Meaning | Typical cause |
@@ -25,6 +25,7 @@ The seven bridge-envelope codes (the `ErrorCode` enum in
 | `TIMEOUT` | the request outlived its timeout (may carry a readiness `reason`) | a capture that never landed; a stalled editor |
 | `INTERNAL_ERROR` | a handler failed without producing a response | a GDScript error inside the addon (see the editor's Output panel) |
 | `APPROVAL_DENIED` | the human declined an approval | n/a — retry with different intent |
+| `PEER_REPLACED` | a server **notice** to the editor that a second editor took over the bridge (not a tool failure) | two editors pointed at one server; the replaced dock shows purple and stops reconnecting (#593) |
 
 Two server-side codes appear in `ToolError` text but never cross the bridge
 (the server rejects before dispatching, or bounds the payload locally):

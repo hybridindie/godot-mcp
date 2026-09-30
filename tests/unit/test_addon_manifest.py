@@ -245,6 +245,40 @@ def test_dock_logs_outcomes_not_dispatch() -> None:
     assert "func log_command(" not in dock, "legacy name-only log path must be gone"
 
 
+def test_replaced_peer_state_and_reconnect_logging() -> None:
+    """#593: a taken-over editor must not keep showing a green 'Connected' while
+    its commands go to another editor, and a flapping link must explain itself.
+
+    Pins the wiring: the bridge holds a distinct REPLACED status and an
+    ``event_logged`` signal, maps the server's PEER_REPLACED notice onto both,
+    stops reconnecting once replaced, and logs one line per retry attempt; the
+    plugin feeds ``event_logged`` into the dock's shared log; the dock renders a
+    non-green REPLACED state and accepts event lines."""
+    bridge = (ADDON_DIR / "mcp_bridge.gd").read_text()
+    plugin = (ADDON_DIR / "godot_mcp.gd").read_text()
+    dock = (ADDON_DIR / "mcp_dock.gd").read_text()
+
+    assert "enum Status { DISCONNECTED, CONNECTING, CONNECTED, REPLACED }" in bridge
+    assert "signal event_logged(message: String)" in bridge
+    assert 'code == "PEER_REPLACED"' in bridge, "the notice must map to REPLACED"
+    assert "_set_status(Status.REPLACED)" in bridge
+    # The replaced editor stops reconnecting (no fight for the bridge).
+    replaced_block = bridge.split('if code == "PEER_REPLACED"', 1)[1].split("return", 1)[0]
+    assert "_active = false" in replaced_block
+    # One dock line per retry attempt, not per process tick.
+    retry = bridge.split("func _schedule_retry", 1)[1].split("\nfunc ", 1)[0]
+    assert "_retry_attempt += 1" in retry
+    assert "reconnecting (attempt %d" in retry
+
+    assert "event_logged.connect(_on_bridge_event)" in plugin
+    assert "func _on_bridge_event" in plugin
+    assert "log_event" in plugin
+
+    assert "ConnectionStatus.REPLACED" in dock
+    assert "Replaced by another editor" in dock
+    assert "func log_event(message: String)" in dock
+
+
 def test_router_registers_node_parity_commands() -> None:
     source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in (

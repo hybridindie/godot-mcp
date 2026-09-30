@@ -18,7 +18,10 @@ extends Node
 ## get_available_packet_count / get_packet / send_text (see .opencode/rules/addon.md).
 
 ## Mirrors MCPStatusDock.ConnectionStatus ordering so the plugin can map directly.
-enum Status { DISCONNECTED, CONNECTING, CONNECTED }
+## REPLACED (#593) is appended last so the existing 0/1/2 mapping is unchanged:
+## it means this editor's link was taken over by another editor and the server
+## sent the PEER_REPLACED notice — every command now goes to that other editor.
+enum Status { DISCONNECTED, CONNECTING, CONNECTED, REPLACED }
 
 const DEFAULT_URL := "ws://127.0.0.1:9080"
 # #563: Godot's default WebSocketPeer buffers are 64 KB (verified against the
@@ -33,6 +36,11 @@ const _RETRY_MIN := 0.5
 const _RETRY_MAX := 5.0
 
 signal connection_changed(status: Status)
+## #593: human-facing bridge lifecycle events for the dock log — reconnect
+## attempts, server notices (auth refusal, peer replacement). One line per state
+## transition, never per process tick. Fed straight into the dock's log by the
+## plugin (the dock itself stays editor-free).
+signal event_logged(message: String)
 signal command_received(command: String)
 ## Emitted after each command completes with the command name, handler
 ## execution time in milliseconds (#520: the addon only ever *responds* to
@@ -51,6 +59,9 @@ var _active := false  # whether we should keep a connection alive (start/stop)
 var _status: Status = Status.DISCONNECTED
 var _retry_delay := _RETRY_MIN
 var _retry_remaining := 0.0  # seconds until the next reconnect attempt
+# #593: consecutive reconnect attempts since the last healthy connection — reset
+# on connect and on start, surfaced in the dock's reconnect log line.
+var _retry_attempt := 0
 # Opt-in shared-token auth (issue #538): read once at start; never logged.
 var _auth_token := ""
 
@@ -68,6 +79,7 @@ func start(url: String = DEFAULT_URL, auth_token: String = "") -> int:
 	_active = true
 	_retry_delay = _RETRY_MIN
 	_retry_remaining = 0.0
+	_retry_attempt = 0
 	return _open()
 
 
@@ -132,6 +144,14 @@ func _process(delta: float) -> void:
 		WebSocketPeer.STATE_OPEN:
 			if _status != Status.CONNECTED:
 				_retry_delay = _RETRY_MIN  # connected: reset the backoff
+				# #593: name the reconnect when it followed at least one failed
+				# attempt — a recovered link is worth a dock line, a first connect
+				# is not.
+				if _retry_attempt > 0:
+					event_logged.emit("reconnected (after %d attempt%s)" % [
+						_retry_attempt, "" if _retry_attempt == 1 else "s",
+					])
+				_retry_attempt = 0
 				# #538: authenticate FIRST when a token is configured, then the
 				# identity hello (#537). Both fire on the DISCONNECTED→OPEN
 				# transition, so every (re)connection re-authenticates: after a
@@ -156,7 +176,12 @@ func _process(delta: float) -> void:
 
 
 func _schedule_retry() -> void:
+	_retry_attempt += 1
 	_retry_remaining = _retry_delay
+	# #593: one dock line per retry (never per process tick) so a flapping
+	# connection is explained, not just shown as a red dot. Reports the delay
+	# for THIS attempt, before the doubling applied to the next one.
+	event_logged.emit("reconnecting (attempt %d, next in %.1fs)" % [_retry_attempt, _retry_delay])
 	_retry_delay = minf(_retry_delay * 2.0, _RETRY_MAX)
 
 
@@ -216,9 +241,18 @@ func _handle_text(text: String) -> void:
 		# operator fixes the mismatched GODOT_MCP_BRIDGE_TOKEN.
 		if d.has("ok") and not d.has("command"):
 			if bool(d.get("ok", true)) == false:
-				push_error("godot_mcp: server refused this editor — %s: %s" % [
-					str(d.get("error", "ERROR")), str(d.get("hint", "")),
-				])
+				var code := str(d.get("error", "ERROR"))
+				var hint := str(d.get("hint", ""))
+				push_error("godot_mcp: server notice — %s: %s" % [code, hint])
+				# #593: surface the notice in the dock log too (one story, not
+				# just the Output panel), and hold a distinct REPLACED state so
+				# the dock never shows a green "Connected" on a taken-over link.
+				event_logged.emit("server: %s — %s" % [code, hint])
+				if code == "PEER_REPLACED":
+					# stop reconnecting (a fight for the bridge would flip-flop);
+					# the REPLACED status holds until the plugin is reloaded.
+					_active = false
+					_set_status(Status.REPLACED)
 				_peer.close()
 			return
 	var response: Dictionary

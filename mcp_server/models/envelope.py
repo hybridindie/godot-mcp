@@ -23,6 +23,11 @@ class ErrorCode(StrEnum):
     RESOURCE_NOT_FOUND = "RESOURCE_NOT_FOUND"
     VALIDATION_ERROR = "VALIDATION_ERROR"
     BRIDGE_DISCONNECTED = "BRIDGE_DISCONNECTED"
+    # #593: a server-initiated notice to a peer that was replaced by another
+    # editor (best-effort, delivered just before the old peer is closed). The
+    # replacement itself is not an error — the code names WHY the old peer went
+    # dark so the replaced editor's dock can stop showing a green "Connected".
+    PEER_REPLACED = "PEER_REPLACED"
     TIMEOUT = "TIMEOUT"
     INTERNAL_ERROR = "INTERNAL_ERROR"
     APPROVAL_DENIED = "APPROVAL_DENIED"  # human-in-the-loop gate (issue #153)

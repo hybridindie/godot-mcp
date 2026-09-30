@@ -69,6 +69,10 @@ func _enter_tree() -> void:
 	# #589: the dock logs command OUTCOMES (fed from completion), not dispatch —
 	# a failed command must read differently from a successful one.
 	_bridge.command_completed.connect(_on_command_completed)
+	# #593: bridge lifecycle notices (reconnect attempts, auth refusal, peer
+	# replacement) land in the same log, so a flapping or taken-over link is
+	# explained rather than perceived as a bare red dot.
+	_bridge.event_logged.connect(_on_bridge_event)
 	add_child(_bridge)
 	_bridge.start(_bridge_url())
 
@@ -182,6 +186,13 @@ func _on_connection_changed(status: MCPBridge.Status) -> void:
 	# MCPBridge.Status and MCPStatusDock.ConnectionStatus share ordering by design.
 	_dock.set_connection_status(status as MCPStatusDock.ConnectionStatus)
 	_update_button_icon(status)
+
+
+## #593: a bridge lifecycle notice (reconnect, server refusal/replacement) —
+## feed it to the dock's shared log so the human gets the same story the agent's
+## structured envelope carries.
+func _on_bridge_event(message: String) -> void:
+	_dock.log_event(message)
 
 
 func _on_scene_changed(scene_root: Node) -> void:

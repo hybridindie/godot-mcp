@@ -25,6 +25,11 @@ func _initialize() -> void:
 	_expect(failures, "connecting", dock.displayed_connection(), "Connecting…")
 	dock.set_connection_status(MCPDockScript.ConnectionStatus.DISCONNECTED)
 	_expect(failures, "disconnected", dock.displayed_connection(), "Disconnected")
+	# #593: a taken-over link is its own state — never a green "Connected".
+	dock.set_connection_status(MCPDockScript.ConnectionStatus.REPLACED)
+	_expect(
+		failures, "replaced", dock.displayed_connection(), "Replaced by another editor"
+	)
 
 	# === Project / scene / selected node ===
 	dock.set_project_path("res://demo")
@@ -94,6 +99,24 @@ func _initialize() -> void:
 		failures.append("log_fail_marker: expected the ✗ marker, got %s" % last)
 	if not dock.displayed_log().contains("✗ PRECONDITION_FAILED"):
 		failures.append("log_failed_render: displayed log must contain '✗ PRECONDITION_FAILED'")
+
+	# === #593: bridge lifecycle notices share the same log ===
+	dock.log_event("reconnecting (attempt 2, next in 2.0s)")
+	var events := dock.get_recent_commands()
+	var last_event := events[events.size() - 1]
+	if not last_event.contains("reconnecting (attempt 2"):
+		failures.append("log_event_missing: expected the reconnect line, got %s" % last_event)
+	if not last_event.begins_with("["):
+		failures.append("log_event_timestamp: expected '[HH:MM:SS] ...', got %s" % last_event)
+	# The event line is not a command outcome — it must not inflate the count.
+	# (count was 16 after the loop+failed command above; log_event leaves it.)
+	if dock.get_command_count() != 16:
+		failures.append("log_event_count: expected count unchanged at 16, got %d" % dock.get_command_count())
+	# A notice evicts the same way command outcomes do (shared ring buffer).
+	for i in range(12):
+		dock.log_event("event_%d" % i)
+	if dock.get_recent_commands().size() != 10:
+		failures.append("log_event_eviction: expected 10 entries, got %d" % dock.get_recent_commands().size())
 
 	# === #589: the log_command (dispatch-time, name-only) path is gone ===
 	if MCPDockScript.new().has_method("log_command"):

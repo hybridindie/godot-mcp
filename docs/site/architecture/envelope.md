@@ -34,7 +34,8 @@ structured data an agent can act on — never a stack trace, never silent.
    in flight concurrently without cross-talk.
 2. **Stable error codes.** Failures use the enumerated `ErrorCode` set:
    `PRECONDITION_FAILED`, `RESOURCE_NOT_FOUND`, `VALIDATION_ERROR`,
-   `BRIDGE_DISCONNECTED`, `TIMEOUT`, `INTERNAL_ERROR`, `APPROVAL_DENIED`. No
+   `BRIDGE_DISCONNECTED`, `TIMEOUT`, `INTERNAL_ERROR`, `APPROVAL_DENIED`,
+   `PEER_REPLACED` (a server→addon notice, `ok: false` with no `command`). No
    ad-hoc strings — clients match on the enum, not on prose.
 3. **`hint` is for recovery**, written for an agent with no human in the loop:
    "Enable Editable Children on 'Relic', or target a node the scene owns" —

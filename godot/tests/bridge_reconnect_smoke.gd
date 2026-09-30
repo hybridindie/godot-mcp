@@ -13,7 +13,10 @@ func _initialize() -> void:
 
 	# 1. Backoff doubles from _RETRY_MIN (0.5) and caps at _RETRY_MAX (5.0). After each
 	#    _schedule_retry() the scheduled `_retry_remaining` follows: 0.5,1,2,4,5,5.
+	#    #593: each retry also emits one dock event (attempt N + the delay).
 	var bridge := Bridge.new()
+	var events: Array[String] = []
+	bridge.event_logged.connect(func(message: String) -> void: events.append(message))
 	var expected: Array[float] = [0.5, 1.0, 2.0, 4.0, 5.0, 5.0]
 	for i in expected.size():
 		bridge._schedule_retry()
@@ -21,6 +24,13 @@ func _initialize() -> void:
 			failures.append(
 				"backoff step %d: remaining=%f expected=%f" % [i, bridge._retry_remaining, expected[i]]
 			)
+	# #593: one event per attempt, naming the attempt number and delay.
+	if events.size() != expected.size():
+		failures.append("retry events: expected %d, got %d" % [expected.size(), events.size()])
+	elif not events[0].contains("attempt 1") or not events[0].contains("0.5s"):
+		failures.append("retry event 0: expected 'attempt 1 ... 0.5s', got %s" % events[0])
+	elif not events[5].contains("attempt 6"):
+		failures.append("retry event 5: expected 'attempt 6', got %s" % events[5])
 
 	# 2. While disconnected, _process counts the backoff down and re-attempts a connection
 	#    when it reaches zero (points at a dead port so no real server is touched).
@@ -38,6 +48,19 @@ func _initialize() -> void:
 		failures.append("retry countdown did not re-attempt a connection")
 	b2.stop()
 
+	# 3. #593: a replaced peer holds the REPLACED status and stops reconnecting —
+	#    no fight for the bridge after another editor takes it over.
+	var b3 := Bridge.new()
+	b3._active = true
+	b3._peer = _NullPeer.new()
+	b3._handle_text(JSON.stringify({
+		"id": "peer_replaced", "ok": false, "error": "PEER_REPLACED", "hint": "taken over",
+	}))
+	if b3.get_status() != Bridge.Status.REPLACED:
+		failures.append("replaced: expected REPLACED, got %d" % int(b3.get_status()))
+	if b3._active:
+		failures.append("replaced: must stop the reconnect loop")
+
 	if failures.is_empty():
 		print("BRIDGE_RECONNECT_TEST_OK")
 		quit(0)
@@ -45,3 +68,10 @@ func _initialize() -> void:
 		for f in failures:
 			printerr(f)
 		quit(1)
+
+
+class _NullPeer:
+	extends RefCounted
+	## Minimal WebSocketPeer stand-in for the notice path (#593) — close() only.
+	func close() -> void:
+		pass

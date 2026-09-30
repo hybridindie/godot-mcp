@@ -12,6 +12,8 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable
 
+from pydantic import ValidationError
+
 from mcp_server.bridge import Connection
 from mcp_server.models.envelope import CommandEnvelope, ResponseEnvelope
 
@@ -70,7 +72,12 @@ class FakeAddonConnection:
         if self._send_error is not None:
             raise self._send_error
         self.sent.append(message)
-        command = CommandEnvelope.model_validate_json(message)
+        try:
+            command = CommandEnvelope.model_validate_json(message)
+        except ValidationError:
+            # A server→addon NOTICE (#593: PEER_REPLACED), not a command — the
+            # addon consumes it and never replies. Record it and stay silent.
+            return
         response = self._responder(command)
         # Auto-respond to bootstrap commands the custom responder explicitly
         # doesn't know (VALIDATION_ERROR / "Unknown command"), so tests don't

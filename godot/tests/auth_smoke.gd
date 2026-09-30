@@ -39,6 +39,10 @@ func _initialize() -> void:
 			_eq(failures, "auth.command", envelope.get("command"), "cmd_auth")
 			_eq(failures, "auth.params.token", str(envelope.get("params", {}).get("token", "")), "test-token-value")
 
+	# #593: capture the human-facing lifecycle events the dock log consumes.
+	var events: Array[String] = []
+	bridge.event_logged.connect(func(message: String) -> void: events.append(message))
+
 	# The server's refusal envelope (ok-shaped, no command) must NOT be echoed
 	# back as a response, and must be consumed with a hint log — the recorder
 	# stays at the same sent-count after handling it.
@@ -47,6 +51,29 @@ func _initialize() -> void:
 		"hint": "Bridge auth failed: token mismatch.",
 	}))
 	_eq(failures, "refusal_not_echoed", recorder.sent.size(), 1)
+	# #593: the refusal also reaches the dock's event log (not just push_error),
+	# so the human sees the same reason the Output panel holds.
+	_eq(failures, "refusal_logged", events.size(), 1)
+	if events.size() == 1 and not events[0].contains("VALIDATION_ERROR"):
+		failures.append("refusal_event: expected the code in the event, got %s" % events[0])
+	# A refusal is not a replacement: the status stays DISCONNECTED, not REPLACED.
+	if bridge.get_status() == Bridge.Status.REPLACED:
+		failures.append("refusal_must_not_mark_replaced")
+
+	# #593: the PEER_REPLACED notice is its own state — the link is alive but a
+	# second editor owns the bridge, so the dock must not show green "Connected"
+	# and the addon must stop trying to reconnect (no fight for the bridge).
+	bridge._active = true  # arm the reconnect loop so "stopped" is meaningful
+	bridge._handle_text(JSON.stringify({
+		"id": "peer_replaced", "ok": false, "error": "PEER_REPLACED",
+		"hint": "Another editor took over the bridge.",
+	}))
+	_eq(failures, "replaced_not_echoed", recorder.sent.size(), 1)
+	_eq(failures, "replaced_logged", events.size(), 2)
+	if bridge.get_status() != Bridge.Status.REPLACED:
+		failures.append("replaced_status: expected REPLACED, got %d" % int(bridge.get_status()))
+	if bridge._active:
+		failures.append("replaced_must_stop_reconnecting")
 
 	# A malformed message still behaves as before (echoes the error envelope).
 	bridge._handle_text("not json")
