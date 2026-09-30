@@ -5,7 +5,7 @@ description: Connect to and drive a Godot editor through the godot-mcp server. U
 
 # godot: getting started
 
-godot-mcp exposes the Godot editor (inspection, scene edits, scripts, runtime) over MCP. This skill documents the **2026.09.28** surface — 193 tools, 29 categories. Tools are named `godot_<toolset>_<action>`. Read this once at the start of a Godot session — it prevents the three most common failures: a version mismatch, missing tools, and unconfirmed destructive edits.
+godot-mcp exposes the Godot editor (inspection, scene edits, scripts, runtime) over MCP. This skill documents the **2026.09.28** surface. Tools are named `godot_<toolset>_<action>`. The live inventory is authoritative — `godot_get_server_info()` and `godot_list_toolsets()` report the real tools and categories, so trust them over anything written here. Read this once at the start of a Godot session — it prevents the three most common failures: a version mismatch, missing tools, and unconfirmed destructive edits.
 
 ## 1. Confirm the bridge and the version
 
@@ -16,9 +16,9 @@ godot_health_check()      # bridge connected? which URL? → also returns versio
 godot_get_server_info()   # version, contract_version, toolsets, active scene, next_steps
 ```
 
-- `godot_health_check()` returns `version` — if it isn't **2026.09.28**, this skill may be stale; rely on `godot_get_server_info()`'s toolset/tool inventory instead of the counts here.
+- `godot_health_check()` returns `version` — if it isn't **2026.09.28**, this skill may be stale; rely on `godot_get_server_info()`'s live toolset/tool inventory over anything here.
 - `godot_get_server_info()` returns `contract_version` (tool-surface compatibility, currently 1) — a client is compatible when `min_compatible_contract <= yours <= contract_version`.
-- If disconnected: open the `godot/` project in Godot 4.4+ (validated on 4.7), enable the plugin (Project Settings → Plugins → godot_mcp), and check the status dock.
+- If disconnected: open **your Godot project** with the addon enabled (addons are installed per-project; for a smoke test you can open the `godot/` folder of the godot-mcp checkout). Requires Godot 4.4+ (validated on 4.7). Enable it in Project Settings → Plugins → godot_mcp, then check the status dock.
 
 ## 2. Toolsets are gated — enable before you use
 
@@ -29,7 +29,7 @@ godot_list_toolsets()                 # what exists / what's enabled / min Godot
 godot_enable_toolset('scene_edit')    # turn on what you need, then call its tools
 ```
 
-Quick map (all 28 gated toolsets):
+Quick map of the gated toolsets (`godot_list_toolsets()` is the authoritative list):
 
 - **Scene building** — edit nodes/scenes/signals → `scene_edit` · macro edits in one round-trip → `composite` · extract a subtree into a reusable .tscn prefab (replace-with-instance) → `scene_edit_extract_scene` · 3D scenes (meshes, cameras, lights, GridMap) → `scene_3d` · UI themes → `theme_ui` · tilemaps → `tilemap` · particles → `particles` · navigation → `navigation` · physics → `physics` · animation → `animation` · audio buses → `audio` · shaders → `shader` · visual shader graphs → `visual_shader`
 - **Code & data** — GDScript files → `scripts` · C# files (read/list/write; `.cs` needs a build to be usable — check `godot_get_server_info().bridge.backend`) → `scripts` · resources (.tres) + autoloads → `resources_edit` · project files/settings/UIDs → `project` · move/rename a project file with dependency remap → `godot_project_move_file` · new project skeleton → `project_scaffold`
@@ -52,6 +52,22 @@ Read results as ground truth, not decoration: batch results carry honesty flags 
 ## 4. Use the built-in workflow prompts
 
 The server ships step-by-step recipes as MCP prompts (slash commands like `/mcp__godot-mcp__build_scene`): `toolset_discovery`, `build_scene`, `play_test`, `script_edit`, `debug_scene`, `troubleshoot`, `author_resource`, `export_build`, `batch_refactor`. Reach for them, or use the companion skills `godot-playtest-and-debug` and `godot-expert`.
+
+## 5. Read context as resources (cheaper than tool round-trips)
+
+Besides tools, the server exposes read-only **`godot://` resources** — addressable JSON snapshots of the same context. Prefer them when your client supports resources: the address *is* the context, so you don't spend a tool call re-deriving it.
+
+| Resource URI | What it holds |
+|--------------|---------------|
+| `godot://project/info` | project name, autoloads, input actions |
+| `godot://scene/current` | the active scene (path, name) |
+| `godot://scene/tree` | the full scene tree (equivalent to `get_scene_tree(max_depth=-1)`) |
+| `godot://scene/tree/{max_depth}` | the tree bounded to `max_depth` levels |
+| `godot://node/selected` | the selected node snapshot (`{"selected": null}` when none) |
+
+**Client without resource support?** Call the `godot_read_resource(uri)` tool instead — it is the resources-as-tools fallback and takes the same URIs, e.g. `godot_read_resource(uri='godot://scene/tree')`. An unknown URI returns a structured error naming the valid ones.
+
+Resources are read-only and never mutate; mutations always go through tools.
 
 ## When something fails
 
