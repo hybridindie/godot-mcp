@@ -570,5 +570,20 @@ For deeper detail on specific topics, see the reference files:
 - **[references/scene-templates.md](references/scene-templates.md)** —
   Ready-to-use .tscn templates for player, enemy, projectile, main scene,
   and WASD input actions
+- **[references/tileset-gridmap.md](references/tileset-gridmap.md)** —
+  TileSet authoring (create_tileset → atlas source → create_tile → set_cell),
+  GridMap + MeshLibrary authoring, atlas/grid pitfalls, read-back
+- **[references/visual-shader.md](references/visual-shader.md)** — VisualShader
+  graph authoring (node ids, port-index wiring, the output node), text-vs-graph
+  choice, read-back
+- **[references/shader-authoring.md](references/shader-authoring.md)** — text
+  `.gdshader` authoring, `validate_shader` before assigning, `shader_type`
+  matching, per-uniform params, persistence truth
+- **[references/theme-styling.md](references/theme-styling.md)** — Theme vs
+  local override, item names, per-state styleboxes, color/size tools,
+  `get_node_overrides` read-back
+- **[references/particles-animation.md](references/particles-animation.md)** —
+  particles (amount/lifetime/gradient), Animation tracks/keyframes and
+  AnimationTree state machines, Navigation region/bake/agent
 - **[references/common-bugs.md](references/common-bugs.md)** — 11 documented
   bugs with symptom/root cause/fix from real development

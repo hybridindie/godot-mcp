@@ -91,19 +91,40 @@ def test_skill_tool_references_exist() -> None:
     """Every godot_*() tool call shown in a skill resolves to a real tool.
 
     Guards against teaching the model tool names that don't exist (e.g. a renamed
-    or imagined tool), which would silently fail at call time.
+    or imagined tool), which would silently fail at call time. Scans every
+    markdown file under a skill (SKILL.md **and** references/) so a reference
+    guide can't teach a phantom tool either.
     """
     server: Any = create_server()
     asyncio.run(register_tool_transform(server))
     tool_names = {t.name for t in asyncio.run(list_all_tools(server))}
     unknown: dict[str, set[str]] = {}
     for skill in _skill_dirs():
-        text = (skill / "SKILL.md").read_text(encoding="utf-8")
-        refs = set(_TOOL_CALL_RE.findall(text))
-        missing = {r for r in refs if r not in tool_names}
-        if missing:
-            unknown[skill.name] = missing
+        for md in sorted(skill.rglob("*.md")):
+            text = md.read_text(encoding="utf-8")
+            refs = set(_TOOL_CALL_RE.findall(text))
+            missing = {r for r in refs if r not in tool_names}
+            if missing:
+                unknown[f"{skill.name}/{md.relative_to(skill)}"] = missing
     assert not unknown, f"Skills reference unknown tools: {unknown}"
+
+
+def test_every_reference_guide_is_linked() -> None:
+    """Every reference file under a skill is linked from its SKILL.md — an
+    unlinked guide is one the agent is told to read on demand but can never
+    find, so it may as well not exist. Guards the authoring references added
+    for #613 from drifting out of the index."""
+    for skill in _skill_dirs():
+        refs_dir = skill / "references"
+        if not refs_dir.is_dir():
+            continue
+        skill_text = (skill / "SKILL.md").read_text(encoding="utf-8")
+        unlinked = [
+            f"references/{p.name}"
+            for p in sorted(refs_dir.glob("*.md"))
+            if p.name not in skill_text
+        ]
+        assert not unlinked, f"{skill.name}/SKILL.md does not link: {unlinked}"
 
 
 # -- Drift guards (issue #381): skills stay in lockstep with the live surface --
@@ -231,12 +252,19 @@ def test_expert_skill_has_no_raw_bridge_workflow() -> None:
 def test_expert_skill_script_save_claim_is_accurate() -> None:
     """The handler writes scripts to disk immediately (FileAccess in the
     UndoRedo do-method); only unsaved *scene edits* need save_scene. The old
-    'write_script does not flush to disk' claim was wrong."""
-    body = _body("godot-expert")
-    assert "write_script" not in body and "cmd_write_script" not in body, (
-        "godot-expert must not claim write_script/cd_write_script skips the disk"
+    'write_script does not flush to disk' claim was wrong — and it had resurfaced
+    in references/scene-authoring.md, which the earlier body-only guard missed.
+    Now scans every markdown file under the skill."""
+    text = "\n".join(
+        md.read_text(encoding="utf-8") for md in sorted((SKILLS_DIR / "godot-expert").rglob("*.md"))
+    )
+    assert "does NOT flush to disk" not in text, (
+        "godot-expert still claims write_script does not flush to disk"
+    )
+    assert "cmd_write_script" not in text, (
+        "godot-expert references the raw cmd_write_script bridge command"
     )
     # The corrected rule must still teach that scene edits need an explicit save.
-    assert "godot_scene_edit_save_scene(" in body or "save_scene" in body, (
+    assert "godot_scene_edit_save_scene(" in text or "save_scene" in text, (
         "godot-expert must teach save_scene for scene edits"
     )

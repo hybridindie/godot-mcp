@@ -101,9 +101,10 @@ Use when the editor is open and connected:
 {"command": "cmd_save_scene"}
 ```
 
-**Critical:** `cmd_write_script` updates the editor's in-memory copy but
-does NOT flush to disk. Always call `cmd_save_scene` or
-`cmd_save_all_scenes` after writing scripts.
+**Critical:** script writes **do** flush to disk immediately
+(`godot_scripts_write`), but **scene edits do not** — a node/property change
+lives in the editor's in-memory scene until you call `godot_scene_edit_save_scene()`
+(or `save_all_scenes`). Save the scene, not the script.
 
 ### On disk (no editor needed)
 
