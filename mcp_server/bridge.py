@@ -157,6 +157,11 @@ class Bridge:
         # #563: the inbound message cap handed to the real listener (the injected
         # test ``serve`` ignores it — fakes have no transport limits to drop a frame).
         self._max_inbound_message_bytes = self._config.max_inbound_message_bytes
+        # #592: called (once, awaited) right after each new peer is adopted and
+        # its read loop is live, so the server can push state the addon's dock
+        # needs — today the enabled toolset set. Injected by server.py; None in
+        # unit tests that don't care.
+        self.on_peer_ready: Callable[[], Awaitable[None]] | None = None
 
     @property
     def connected(self) -> bool:
@@ -326,6 +331,14 @@ class Bridge:
             self._resolve(raw if isinstance(raw, str) else raw.decode("utf-8"))
         self._reader = asyncio.create_task(self._read_loop(conn))
         logger.debug("bridge peer connected")
+        # #592: now that the peer is live, let the server push state the addon's
+        # dock needs (the enabled toolset set). Best-effort — a failed push must
+        # never fail adoption, so errors are logged, not raised.
+        if self.on_peer_ready is not None:
+            try:
+                await self.on_peer_ready()
+            except Exception:
+                logger.warning("on_peer_ready push failed", exc_info=True)
 
     async def _auth_check(self, conn: Connection) -> tuple[bool, list[str | bytes]]:
         """Require + verify the peer's auth envelope before adoption (issue #538).

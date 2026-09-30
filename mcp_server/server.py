@@ -221,6 +221,9 @@ def create_server(
     # Gate the tool surface by category (per-session via the middleware above).
     manager = ToolsetManager(mcp, bridge=bridge, middleware=toolset_mw)
     register_toolset_tools(mcp, manager)
+    # #592: on every (re)connect push the enabled set so the addon dock's
+    # "Toolsets:" row reflects reality instead of a permanent "(none)".
+    bridge.on_peer_ready = manager.push_enabled
 
     # Comprehensive diagnostics: toolset counts, bridge state, troubleshooting.
     register_diagnostics(mcp, bridge, config, manager)

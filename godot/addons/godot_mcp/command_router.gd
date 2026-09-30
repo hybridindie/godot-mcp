@@ -63,6 +63,13 @@ var _instances: Array = []
 ## The server's package version, learned from cmd_server_hello (issue #521) and
 ## surfaced here so the plugin entry can label the dock "godot-mcp <ver> / Godot".
 var server_version := ""
+## The server's enabled toolsets, learned from cmd_toolsets_update (#592) so the
+## plugin entry can feed the dock's "Toolsets:" row. Empty until the first push.
+var enabled_toolsets := PackedStringArray()
+## False until the first cmd_toolsets_update arrives (#592): lets the dock show
+## "(unknown)" for a server that predates the push, rather than the old lie
+## "(none)" — an empty set and an unknown set are different states.
+var toolsets_known := false
 # The EditorDebuggerPlugin that captures a played game's godot_mcp channel (issue #66).
 # Set by the plugin entry; null in headless/unit contexts where there is no editor.
 var _debugger: Object = null
@@ -112,6 +119,10 @@ func _init() -> void:
 	# connection "godot-mcp <calVer> / Godot <x.y.z>". Fire-and-forget from the
 	# server (the response is ignored there); the addon stores + reflects it.
 	_handlers["cmd_server_hello"] = _cmd_server_hello
+	# Server-side toolset state for the dock's "Toolsets:" row (#592): the addon
+	# has no view of the server's gating, so the server pushes the enabled set on
+	# connect and after every toggle. Fire-and-forget, best-effort.
+	_handlers["cmd_toolsets_update"] = _cmd_toolsets_update
 	# Core: pop the current scene's undo history N steps (S4). Lives on the router
 	# (not a domain handler) because it drives EditorUndoRedoManager directly.
 	_handlers["cmd_undo"] = _cmd_undo
@@ -415,6 +426,23 @@ func _cmd_get_addon_info(_params: Dictionary) -> Dictionary:
 func _cmd_server_hello(params: Dictionary) -> Dictionary:
 	server_version = str(params.get("version", ""))
 	return _ok({"received": true})
+
+
+## The server's enabled-toolset push for the dock's "Toolsets:" row (#592): the
+## addon has no view of the server's gating, so it stores what the server sends
+## and the plugin reflects it. Fire-and-forget from the server (the response is
+## ignored there). `enabled` is a list of category names (core always present).
+func _cmd_toolsets_update(params: Dictionary) -> Dictionary:
+	var raw: Variant = params.get("enabled", [])
+	var names := PackedStringArray()
+	if typeof(raw) == TYPE_ARRAY:
+		for entry in (raw as Array):
+			var name := str(entry)
+			if not name.is_empty():
+				names.append(name)
+	enabled_toolsets = names
+	toolsets_known = true
+	return _ok({"received": true, "count": names.size()})
 
 
 # -- file system helpers (shared by scripts, shaders, resources) --------------

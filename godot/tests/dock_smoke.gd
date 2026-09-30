@@ -72,12 +72,19 @@ func _initialize() -> void:
 	dock.set_selected_node("")
 	_expect(failures, "selected_placeholder", dock.displayed_selected(), "(none)")
 
-	# === Enabled toolsets ===
+	# === Enabled toolsets (#592: fed by the server's push, not dead code) ===
+	# Before the first push the set is unknown — NOT "(none)", which was the lie.
+	if dock.displayed_toolsets() != "(unknown)":
+		failures.append("toolsets_initial_unknown: expected '(unknown)', got %s" % dock.displayed_toolsets())
 	dock.set_enabled_toolsets(PackedStringArray(["core", "scene_edit", "testing"]))
 	_expect(failures, "toolsets", dock.displayed_toolsets(), "core, scene_edit, testing")
-	# Empty toolsets shows placeholder
+	# An empty pushed set is genuinely "(none)" (the server has only core? no —
+	# core is always present, but the setter still handles empty).
 	dock.set_enabled_toolsets(PackedStringArray())
 	_expect(failures, "toolsets_empty", dock.displayed_toolsets(), "(none)")
+	# An older server that never pushes: explicit unknown.
+	dock.set_toolsets_unknown()
+	_expect(failures, "toolsets_unknown", dock.displayed_toolsets(), "(unknown)")
 
 	# === Command statistics: total, last exec (#520: no latency field — the
 	# addon can only measure handler-exec time honestly) ===
