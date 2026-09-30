@@ -90,6 +90,37 @@ async def test_peer_replacement_logs_both_paths(caplog: pytest.LogCaptureFixture
     await bridge.close()
 
 
+async def test_replaced_peer_receives_a_notice_before_close() -> None:
+    """#593: the replaced editor's dock must not keep showing a green 'Connected'
+    while its commands actually go to the other editor. Before closing the old
+    peer the server sends it an ok-shaped notice (PEER_REPLACED, no ``command``)
+    so the addon can hold a distinct state and log the reason."""
+    first = FakeAddonConnection()
+    bridge = Bridge(BridgeConfig(), connector=connector_for(first))
+    await bridge.connect()
+    await bridge.adopt_identity({"project_path": "/tmp/project_a"})
+
+    second = FakeAddonConnection()
+    bridge._connector = connector_for(second)
+    await bridge.connect()
+    try:
+        # The notice is a response-shaped envelope, not a command — it must not
+        # be parseable as a CommandEnvelope (the addon dispatches on that).
+        notices = []
+        for raw in first.sent:
+            parsed = json.loads(raw)
+            if parsed.get("ok") is False and "command" not in parsed:
+                notices.append(parsed)
+        assert notices, "the replaced peer must receive a notice before close (#593)"
+        notice = notices[-1]
+        assert notice["error"] == "PEER_REPLACED"
+        assert notice["ok"] is False
+        assert notice.get("hint"), "the notice must explain the replacement"
+        assert first.closed is True
+    finally:
+        await bridge.close()
+
+
 async def test_peer_without_hello_marks_identity_unknown() -> None:
     """Backward compatibility: an older addon (no hello) connects fine, and the
     identity reads as unknown (None), not an error."""

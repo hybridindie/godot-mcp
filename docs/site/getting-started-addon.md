@@ -55,9 +55,14 @@ GODOT_MCP_BRIDGE_URL=ws://127.0.0.1:9080 godot --path /path/to/your/game
 1. The **status dock** appears at the bottom of the editor (alongside
    Output/Debug): connection dot, server/Godot version, bridge URL, active
    scene, selected node, and an outcome-bearing recent-command log
-   (✓ success, ✗ with the error code — #589) with timing.
+   (✓ success, ✗ with the error code — #589) with timing. Reconnect attempts
+   and server notices (auth refusal, a peer replacement) share the same log
+   (#593), so a flapping or taken-over link explains itself.
 2. Green dot = the addon connected out to the server. The server and editor
-   can start in **either** order — the addon reconnects automatically.
+   can start in **either** order — the addon reconnects automatically. If a
+   second editor takes over the bridge, the first shows a distinct
+   **"Replaced by another editor"** state (purple dot) instead of a misleading
+   green — its commands now go to the other editor.
 3. `godot_health_check()` from your agent returns
    `{"bridge_connected": true, "version": "…"}`.
 

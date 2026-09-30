@@ -12,11 +12,12 @@ extends RefCounted
 ## (godot/tests/icon_cache_smoke.gd).
 
 ## MCPBridge.Status enum order (kept in sync with mcp_bridge.gd):
-## DISCONNECTED, CONNECTING, CONNECTED.
+## DISCONNECTED, CONNECTING, CONNECTED, REPLACED (#593).
 const _STATUS_COLORS := {
 	0: Color(0.9, 0.3, 0.3),
 	1: Color(0.9, 0.7, 0.2),
 	2: Color(0.3, 0.8, 0.3),
+	3: Color(0.8, 0.4, 0.8),
 }
 
 ## One dot texture per status key (and any fallback key), built lazily.

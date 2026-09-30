@@ -137,7 +137,7 @@ cp -r godot/addons/godot_mcp /path/to/your/project/addons/
 
 After installing via any method, enable it: **Project → Project Settings → Plugins → Godot MCP → Enable**.
 
-A status panel appears at the bottom of the editor (alongside Output and Debug). It shows connection state (color dot), server/Godot version, bridge URL, active scene, selected node, enabled toolsets, and an outcome-bearing recent-command log (✓ success, ✗ with the error code). The addon connects out to the MCP server's bridge listener (`ws://127.0.0.1:9080` by default) and reconnects automatically — so editor and server can start in either order.
+A status panel appears at the bottom of the editor (alongside Output and Debug). It shows connection state (color dot), server/Godot version, bridge URL, active scene, selected node, enabled toolsets, and an outcome-bearing recent-command log (✓ success, ✗ with the error code; reconnect attempts and server notices share the log). The addon connects out to the MCP server's bridge listener (`ws://127.0.0.1:9080` by default) and reconnects automatically — so editor and server can start in either order. If a second editor takes over the bridge, the first shows a distinct **"Replaced by another editor"** state (purple dot) rather than a misleading green, and stops reconnecting.
 
 ### 3. Configure your MCP client
 
@@ -516,6 +516,8 @@ All errors are **structured** — never Python tracebacks. The agent can parse t
 | `BRIDGE_DISCONNECTED` | Addon not reachable | Ensure Godot is running with the addon enabled |
 | `TIMEOUT` | No response in time | Retry; check if Godot is frozen |
 | `INTERNAL_ERROR` | Unexpected failure | Report as a bug |
+| `APPROVAL_DENIED` | A `confirm`-gated action was declined | Re-issue with approval, or adjust intent |
+| `PEER_REPLACED` | Server notice: another editor took over the bridge | Reconnect or close the replaced editor |
 
 When using MCP tools, errors surface as `ToolError` with the message in `"<ERROR_CODE>: <hint> [required=<field>]"` format.
 

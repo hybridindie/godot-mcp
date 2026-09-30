@@ -18,22 +18,25 @@ func _initialize() -> void:
 	var failures: Array[String] = []
 	var icons: RefCounted = load("res://addons/godot_mcp/mcp_status_icons.gd").new()
 
-	# First call per status builds lazily — three distinct textures.
+	# First call per status builds lazily — four distinct textures (#593 adds REPLACED).
 	var disconnected: ImageTexture = icons.texture(Status.DISCONNECTED)
 	var connecting: ImageTexture = icons.texture(Status.CONNECTING)
 	var connected: ImageTexture = icons.texture(Status.CONNECTED)
+	var replaced: ImageTexture = icons.texture(Status.REPLACED)
 	_ne(failures, "disconnected_vs_connecting", disconnected, connecting)
 	_ne(failures, "connecting_vs_connected", connecting, connected)
 	_ne(failures, "connected_vs_disconnected", connected, disconnected)
-	if disconnected == null or connecting == null or connected == null:
+	_ne(failures, "replaced_vs_connected", replaced, connected)
+	if disconnected == null or connecting == null or connected == null or replaced == null:
 		failures.append("lazy_build: every status should produce a texture")
 
 	# Repeat calls return the SAME instance (reference swap, no regeneration).
 	_eq(failures, "cache_identity_disc", icons.texture(Status.DISCONNECTED), disconnected)
 	_eq(failures, "cache_identity_conn", icons.texture(Status.CONNECTING), connecting)
 	_eq(failures, "cache_identity_conn2", icons.texture(Status.CONNECTED), connected)
-	# The cache holds exactly the three statuses.
-	_eq(failures, "cache_size", icons._textures.size(), 3)
+	_eq(failures, "cache_identity_replaced", icons.texture(Status.REPLACED), replaced)
+	# The cache holds exactly the four statuses.
+	_eq(failures, "cache_size", icons._textures.size(), 4)
 
 	# Texture pixels: the dot is opaque at the center and transparent at the
 	# corner, with the right color (behavior visually unchanged).
@@ -54,7 +57,7 @@ func _initialize() -> void:
 	var fallback: ImageTexture = icons.texture(-1)
 	_eq(failures, "fallback_cached", icons.texture(-1), fallback)
 	_eq(failures, "fallback_gray", fallback.get_image().get_pixel(8, 8), Color.GRAY)
-	_eq(failures, "cache_size_after_fallback", icons._textures.size(), 4)
+	_eq(failures, "cache_size_after_fallback", icons._textures.size(), 5)
 
 	if failures.is_empty():
 		print("ICON_CACHE_TEST_OK")

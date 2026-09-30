@@ -271,6 +271,21 @@ class Bridge:
                     with suppress(asyncio.CancelledError):
                         await old_reader
                 self._fail_pending("BRIDGE_DISCONNECTED", "Replaced by a new editor connection.")
+                # #593: tell the replaced editor WHY its link went dark, before
+                # closing it. Best-effort (a dead peer swallows the send) — the
+                # addon consumes this ok-shaped notice and logs it, so an editor
+                # that was silently replaced stops showing a green "Connected"
+                # while its next command actually reaches the other editor.
+                with suppress(Exception):
+                    await old.send(
+                        ResponseEnvelope.failure(
+                            "peer_replaced",
+                            ErrorCode.PEER_REPLACED,
+                            "Another Godot editor connected to this server and took over the "
+                            "bridge. Commands now go to that editor; reconnect this one (or "
+                            "close it) if you expected it to keep serving.",
+                        ).model_dump_json()
+                    )
                 await old.close()
                 # #537: a replaced peer is never silent — the log names both
                 # project paths (or "unknown" when the old peer predated the
