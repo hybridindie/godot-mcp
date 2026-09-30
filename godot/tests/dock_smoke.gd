@@ -98,27 +98,42 @@ func _initialize() -> void:
 	_expect(failures, "cmd_count_zero", dock.displayed_command_count(), "0")
 	_expect(failures, "last_exec_zero", dock.displayed_last_exec(), "(none)")
 
-	# === Recent-command log keeps only the last 10 entries ===
-	# #589: log entries carry the command's OUTCOME — dispatch-time entries are
-	# gone; the log is fed from command completion (ok / error code).
+	# === Recent-command log: outcomes (#589) + depth 50 (#594) ===
+	# #589: entries carry the command's OUTCOME — dispatch-time entries are gone;
+	# the log is fed from command completion (ok / error code). #594: depth is 50
+	# so a 20-command burst (batch_set_property / run_commands) no longer evicts
+	# the interesting entries.
 	for i in range(15):
 		dock.log_command_result("cmd_%d" % i, true, "")
 	var recent := dock.get_recent_commands()
-	if recent.size() != 10:
-		failures.append("log size: expected 10, got %d" % recent.size())
+	if recent.size() != 15:
+		failures.append("log size: expected 15 (no eviction under depth 50), got %d" % recent.size())
 	else:
-		# Entries are now "[HH:MM:SS] cmd_N ✓" — check the command part.
-		if not recent[0].contains(" cmd_5"):
-			failures.append("log_first: expected '... cmd_5', got %s" % recent[0])
-		if not recent[9].contains(" cmd_14"):
-			failures.append("log_last: expected '... cmd_14', got %s" % recent[9])
+		# Entries are "[HH:MM:SS] cmd_N ✓" — check the command part.
+		if not recent[0].contains(" cmd_0"):
+			failures.append("log_first: expected '... cmd_0', got %s" % recent[0])
+		if not recent[14].contains(" cmd_14"):
+			failures.append("log_last: expected '... cmd_14', got %s" % recent[14])
 		# Success lines end with the ✓ marker.
-		if not recent[9].ends_with("✓"):
-			failures.append("log_ok_marker: expected '... ✓', got %s" % recent[9])
+		if not recent[14].ends_with("✓"):
+			failures.append("log_ok_marker: expected '... ✓', got %s" % recent[14])
 	if not dock.displayed_log().contains("cmd_14"):
 		failures.append("log label missing newest entry 'cmd_14'")
-	if dock.displayed_log().contains("cmd_4"):
-		failures.append("log label still shows evicted entry 'cmd_4'")
+
+	# === #594: the log survives a 20-command burst without evicting ===
+	# (batch_set_property / run_commands fire 20+; depth 50 keeps them all.)
+	for i in range(20):
+		dock.log_command_result("cmd_burst_%d" % i, true, "")
+	if dock.get_recent_commands().size() != 35:
+		failures.append("burst depth: expected 35 entries retained, got %d" % dock.get_recent_commands().size())
+	if not dock.displayed_log().contains("cmd_burst_19"):
+		failures.append("burst newest entry missing from the log")
+
+	# === #594: eviction still applies past the 50-entry depth ===
+	for i in range(40):
+		dock.log_event("drain_%d" % i)
+	if dock.get_recent_commands().size() != 50:
+		failures.append("depth cap: expected 50 entries, got %d" % dock.get_recent_commands().size())
 
 	# === #589: failed commands carry the error code in the log line ===
 	dock.log_command_result("cmd_delete_node", false, "PRECONDITION_FAILED")
@@ -141,22 +156,40 @@ func _initialize() -> void:
 	if not last_event.begins_with("["):
 		failures.append("log_event_timestamp: expected '[HH:MM:SS] ...', got %s" % last_event)
 	# The event line is not a command outcome — it must not inflate the count.
-	# (count was 16 after the loop+failed command above; log_event leaves it.)
-	if dock.get_command_count() != 16:
-		failures.append("log_event_count: expected count unchanged at 16, got %d" % dock.get_command_count())
-	# A notice evicts the same way command outcomes do (shared ring buffer).
-	for i in range(12):
+	# (count was 36 after the 15 loop + 20 burst + 1 failed command above.)
+	if dock.get_command_count() != 36:
+		failures.append("log_event_count: expected count unchanged at 36, got %d" % dock.get_command_count())
+	# A notice evicts the same way command outcomes do, sharing the 50-deep cap.
+	for i in range(60):
 		dock.log_event("event_%d" % i)
-	if dock.get_recent_commands().size() != 10:
-		failures.append("log_event_eviction: expected 10 entries, got %d" % dock.get_recent_commands().size())
+	if dock.get_recent_commands().size() != 50:
+		failures.append("log_event_eviction: expected 50 entries, got %d" % dock.get_recent_commands().size())
 
 	# === #589: the log_command (dispatch-time, name-only) path is gone ===
 	if MCPDockScript.new().has_method("log_command"):
 		failures.append("legacy dispatch-time log_command must be replaced by log_command_result (#589)")
 
-	# === Command count increments on log_command_result (15 loop + 1 failed) ===
-	if dock.get_command_count() != 16:
-		failures.append("command_count: expected 16, got %d" % dock.get_command_count())
+	# === Command count increments on log_command_result (15 + 20 burst + 1 = 36) ===
+	if dock.get_command_count() != 36:
+		failures.append("command_count: expected 36, got %d" % dock.get_command_count())
+
+	# === #594: the count is SESSION-scoped — a fresh reconnect resets it ===
+	dock.log_command_result("cmd_after_session", true, "")
+	if dock.get_command_count() != 37:
+		failures.append("pre_reset_count: expected 37, got %d" % dock.get_command_count())
+	dock.set_connection_status(MCPDockScript.ConnectionStatus.CONNECTING)
+	dock.set_connection_status(MCPDockScript.ConnectionStatus.CONNECTED)
+	if dock.get_command_count() != 0:
+		failures.append("session_reset: expected 0 after reconnect, got %d" % dock.get_command_count())
+	if dock.displayed_command_count() != "0":
+		failures.append("session_reset_label: expected '0', got %s" % dock.displayed_command_count())
+
+	# === #594: copy button exists and the copy path is safe on empty ===
+	var empty_dock := MCPDockScript.new()
+	empty_dock.copy_log_to_clipboard()  # empty log → no-op, must not error
+	if not empty_dock.has_method("copy_log_to_clipboard"):
+		failures.append("copy_log_to_clipboard method missing (#594)")
+	empty_dock.free()
 
 	# === Timestamp format: entries start with [HH:MM:SS] ===
 	if not recent[0].begins_with("["):
