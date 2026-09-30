@@ -219,6 +219,19 @@ func _on_refresh_timer() -> void:
 	if _router != null and _router.server_version != _server_version:
 		_server_version = _router.server_version
 		_dock.set_server_version(_server_version_label())
+	# #590: keep the "Last action" row in step with the undo history (a redo,
+	# a manual Ctrl+Z, or an action from another source all move it).
+	_update_last_action()
+
+
+## #590: reflect the most recent undoable action in the dock — so the human sees
+## what the agent changed and how to revert it (Ctrl+Z), not just that a command
+## ran. Read-only (the dock is fed), refreshed on the poll tick and after each
+## successful mutation.
+func _update_last_action() -> void:
+	var snapshot: Dictionary = _router.history_snapshot() if _router != null else {}
+	var action := str(snapshot.get("action", "")) if bool(snapshot.get("has_undo", false)) else ""
+	_dock.set_last_action(action)
 
 
 ## The auto-refresh timer tick (issue #561): the decision lives in MCPAutoRefresh
@@ -297,6 +310,10 @@ func _server_version_label() -> String:
 func _on_command_completed(command: String, exec_ms: float, ok: bool, error_code: String) -> void:
 	_dock.log_command_result(command, ok, error_code)
 	_dock.set_command_stats(_dock.get_command_count(), exec_ms)
+	# #590: a mutating command has committed its UndoRedo action by the time its
+	# response arrives — surface it as "Last action" immediately, without waiting
+	# for the next poll tick.
+	_update_last_action()
 	if command == "cmd_write_script" or command == "cmd_patch_script":
 		# #417: a script write may introduce a new ``class_name`` global. The
 		# parser's global class cache only refreshes on a filesystem scan, so

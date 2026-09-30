@@ -192,6 +192,23 @@ func set_history_seam(ur: UndoRedo) -> void:
 	_history_override = ur
 
 
+## Read-only snapshot of the edited scene's undo history for the plugin's dock
+## row (#590): whether an action can be undone and, if so, its name. This is the
+## human's view of the same guarantee the agent has — the last agent action is
+## reversible with Ctrl+Z (house rule #6) — instead of opening the editor's Undo
+## History panel and guessing which entry the agent added. Not a command; the
+## plugin's own dock consumes it on the refresh tick.
+func history_snapshot() -> Dictionary:
+	var ur := _scene_history_undo_redo()
+	if ur == null:
+		return {"has_undo": false, "action": ""}
+	var has_undo := ur.has_undo()
+	return {
+		"has_undo": has_undo,
+		"action": str(ur.get_current_action_name()) if has_undo else "",
+	}
+
+
 ## Undo the last `count` editor actions on the current scene's history (S4).
 ## Succeeds with `undone == 0` on an empty history (an empty-history undo is a
 ## no-op, not an error — the caller/reversibility ledger decides what that means).
