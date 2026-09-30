@@ -213,14 +213,20 @@ def create_server(
     register_project_scaffold(mcp, bridge)
     register_safety_tools(mcp)
 
-    # Per-session toolset gating (issue #227): each client session has its own
-    # enabled-set so one client enabling a toolset doesn't expose it to another.
+    # Toolset gating (issues #227/#364): the enabled set is a *single server-global
+    # set*, not per-session — godot-mcp is a single-user local server, and the
+    # sessionless 2026-07-28 protocol real clients use made per-session isolation
+    # dead code (see ToolsetMiddleware's docstring). Every client, and the addon
+    # dock's push (#592), reads the same set.
     toolset_mw = ToolsetMiddleware()
     mcp.add_middleware(toolset_mw)
 
-    # Gate the tool surface by category (per-session via the middleware above).
+    # Gate the tool surface by category (server-global via the middleware above).
     manager = ToolsetManager(mcp, bridge=bridge, middleware=toolset_mw)
     register_toolset_tools(mcp, manager)
+    # #592: on every (re)connect push the enabled set so the addon dock's
+    # "Toolsets:" row reflects reality instead of a permanent "(none)".
+    bridge.on_peer_ready = manager.push_enabled
 
     # Comprehensive diagnostics: toolset counts, bridge state, troubleshooting.
     register_diagnostics(mcp, bridge, config, manager)

@@ -58,8 +58,8 @@ GODOT_MCP_BRIDGE_URL=ws://127.0.0.1:9080 godot --path /path/to/your/game
    selected node, a **Last action** row (the most recent undoable change —
    "create_node 'Player' (Ctrl+Z to undo)" — #590), a **Playing** row (the
    running scene + whether the agent's runtime probe is attached — #591), and
-   an outcome-bearing recent-command log (✓ success, ✗ with the error code —
-   #589) with timing.
+   the **enabled toolsets** (fed by the server, #592), and an outcome-bearing
+   recent-command log (✓ success, ✗ with the error code — #589) with timing.
    Reconnect attempts and server notices (auth refusal, a peer replacement)
    share the same log (#593), so a flapping or taken-over link explains itself.
 2. Green dot = the addon connected out to the server. The server and editor

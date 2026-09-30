@@ -43,6 +43,9 @@ def _default_base_responder(
     if command.command == "cmd_server_hello":
         # The #530/#521 handshake push; the server ignores this response.
         return ResponseEnvelope.success(command.id, {"received": True})
+    if command.command == "cmd_toolsets_update":
+        # The #592 enabled-toolset push; the server ignores this response.
+        return ResponseEnvelope.success(command.id, {"received": True})
     return None
 
 

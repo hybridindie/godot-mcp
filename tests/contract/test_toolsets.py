@@ -10,6 +10,7 @@ from fastmcp import Client, FastMCP
 from mcp_server.bridge import Bridge
 from mcp_server.config import ServerConfig
 from mcp_server.server import create_server
+from mcp_server.toolsets import ToolsetManager
 from tests.fakes import FakeAddonConnection, connector_for, make_addon_responder
 
 pytestmark = pytest.mark.asyncio
@@ -59,6 +60,45 @@ async def test_disable_toolset_hides_inspection_again() -> None:
         names = await _tool_names(client)
     assert "godot_inspection_get_scene_tree" not in names
     assert "godot_health_check" in names  # core stays
+
+
+async def test_enabled_toolsets_are_pushed_to_the_addon() -> None:
+    """#592: the dock's "Toolsets:" row is fed by the server — on peer connect and
+    after every enable/disable — so it reflects the server's gating instead of a
+    permanent "(none)". The addon stores the push; the dock renders it."""
+    import json
+
+    config = ServerConfig()
+    addon = FakeAddonConnection(make_addon_responder())
+    bridge = Bridge(config.bridge, connector=connector_for(addon))
+    server = _server(bridge=bridge)
+
+    def pushed() -> list[list[str]]:
+        return [
+            json.loads(m)["params"]["enabled"]
+            for m in addon.sent
+            if json.loads(m).get("command") == "cmd_toolsets_update"
+        ]
+
+    # The editor connects → the server pushes the current set immediately.
+    await bridge.connect()
+    assert pushed(), "the enabled set must be pushed on peer connect"
+    assert "core" in pushed()[0] and "inspection" in pushed()[0]
+    assert "scene_edit" not in pushed()[0]
+
+    # Toggling a toolset pushes again, so the dock stays live.
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
+    assert "scene_edit" in pushed()[-1]
+    await bridge.close()
+
+
+async def test_toolset_push_is_a_noop_without_a_peer() -> None:
+    """#592: with no connected editor the push is skipped, never raised — a
+    toggle must not fail because the dock isn't there to hear it."""
+    config = ServerConfig()
+    manager = ToolsetManager(FastMCP("t"), bridge=Bridge(config.bridge))
+    await manager.push_enabled()  # must not raise
 
 
 async def test_list_toolsets_reports_state() -> None:

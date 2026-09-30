@@ -50,6 +50,11 @@ Why the editor dials:
   non-loopback HTTP bind requires `GODOT_MCP_AUTH_TOKEN` (#226) — a fail-fast
   guard refuses to start otherwise.
 - **`cmd_ping` → `{pong: true}`** is the health check, both directions.
+- **Server→addon pushes:** besides commands the addon answers, the server sends
+  a few fire-and-forget control messages the addon consumes without a waiter —
+  `cmd_server_hello` (server version, #521) and `cmd_toolsets_update` (the
+  enabled toolset set, #592, so the dock's *Toolsets* row mirrors the server).
+  A replaced peer also receives a `PEER_REPLACED` notice before its link closes (#593).
 
 ## Timeouts, everywhere
 

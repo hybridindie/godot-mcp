@@ -213,6 +213,29 @@ class ToolsetManager:
             self._middleware.set_enabled(enabled)
         return self._info(category)
 
+    async def push_enabled(self) -> None:
+        """Push the current enabled-toolset set to the addon's dock (issue #592).
+
+        Fire-and-forget best-effort: the dock's ``Toolsets:`` row was dead code
+        (it always read ``(none)`` because the addon has no view of the
+        server-side gating). The server owns toolset state, so it tells the
+        addon — on peer connect and after every enable/disable. An old addon
+        without ``cmd_toolsets_update`` ignores the push (Unknown command); a
+        disconnected editor is skipped. Never raises.
+        """
+        bridge = self._bridge
+        if bridge is None or not bridge.connected:
+            return
+        try:
+            await bridge.send("cmd_toolsets_update", {"enabled": sorted(self._enabled_set())})
+        except Exception:
+            logger.warning("toolset push to addon failed (dock row may be stale)", exc_info=True)
+
+    def _enabled_set(self) -> set[str]:
+        if self._middleware is not None:
+            return self._middleware.enabled()
+        return set(self._default_enabled)
+
     def status(self, *, ctx: Any = None) -> list[ToolsetInfo]:
         if self._middleware is not None:
             enabled = self._middleware.enabled()
@@ -329,6 +352,7 @@ def register_toolset_tools(mcp: FastMCP, manager: ToolsetManager) -> None:
         """
         result = await manager.enable(category, ctx=ctx)
         await _notify_tools_changed(ctx)
+        await manager.push_enabled()  # #592: keep the addon dock's Toolsets row honest
         return result
 
     @mcp.tool(meta=READ_ONLY, tags={CORE_TAG})
@@ -336,6 +360,7 @@ def register_toolset_tools(mcp: FastMCP, manager: ToolsetManager) -> None:
         """Hide a toolset's tools again to keep the active tool surface small."""
         result = await manager.disable(category, ctx=ctx)
         await _notify_tools_changed(ctx)
+        await manager.push_enabled()  # #592: keep the addon dock's Toolsets row honest
         return result
 
 

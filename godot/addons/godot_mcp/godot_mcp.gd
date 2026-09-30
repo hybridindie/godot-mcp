@@ -221,6 +221,12 @@ func _on_refresh_timer() -> void:
 	if _router != null and _router.server_version != _server_version:
 		_server_version = _router.server_version
 		_dock.set_server_version(_server_version_label())
+	# #592: reflect the server's enabled-toolset push in the dock's Toolsets row
+	# (the server owns gating; the addon just mirrors the last push it received).
+	# Before the first push the set is unknown (an older server) — show that
+	# honestly rather than the old permanent "(none)".
+	if _router != null and _router.toolsets_known:
+		_dock.set_enabled_toolsets(_router.enabled_toolsets)
 	# #590: keep the "Last action" row in step with the undo history (a redo,
 	# a manual Ctrl+Z, or an action from another source all move it).
 	_update_last_action()

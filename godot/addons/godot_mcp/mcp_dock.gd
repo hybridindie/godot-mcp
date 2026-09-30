@@ -145,7 +145,7 @@ func _init() -> void:
 	set_project_path("")
 	set_active_scene("")
 	set_selected_node("")
-	set_enabled_toolsets(PackedStringArray())
+	set_toolsets_unknown()  # #592: not "(none)" — the server hasn't pushed yet
 	set_last_action("")
 	set_scene_dirty("", false)
 	set_play_state(false, false)
@@ -244,6 +244,13 @@ func set_enabled_toolsets(toolsets: PackedStringArray) -> void:
 		_toolsets_value.text = PLACEHOLDER
 	else:
 		_toolsets_value.text = ", ".join(toolsets)
+
+
+## The enabled-set is not yet known (#592): an older server (or pre-handshake)
+## that never pushes cmd_toolsets_update. Distinct from "(none)" — showing
+## "(none)" here was the stale-lie bug #592 fixes (the server may have several on).
+func set_toolsets_unknown() -> void:
+	_toolsets_value.text = _UNKNOWN
 
 
 func set_command_stats(count: int, last_exec_ms: float) -> void:

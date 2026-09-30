@@ -320,6 +320,27 @@ def test_dock_shows_dirty_scene_and_play_state() -> None:
     assert "func displayed_play_state()" in dock
 
 
+def test_dock_toolsets_row_is_fed_not_dead() -> None:
+    """#592: the dock's Toolsets row was dead code (always "(none)"). The server
+    pushes the enabled set on connect and after each toggle; the addon stores it
+    and the plugin feeds the dock. Before the first push the state is unknown
+    ("(unknown)"), not the old lie "(none)"."""
+    router = (ADDON_DIR / "command_router.gd").read_text()
+    plugin = (ADDON_DIR / "godot_mcp.gd").read_text()
+    dock = (ADDON_DIR / "mcp_dock.gd").read_text()
+
+    assert '_handlers["cmd_toolsets_update"] = _cmd_toolsets_update' in router
+    assert "var enabled_toolsets := PackedStringArray()" in router
+    assert "var toolsets_known := false" in router
+    assert "toolsets_known = true" in router
+    assert "_router.enabled_toolsets" in plugin
+    assert "_router.toolsets_known" in plugin
+    assert "set_toolsets_unknown()" in dock
+    # The initial default is unknown, not "(none)".
+    init = dock.split("func _init", 1)[1]
+    assert "set_toolsets_unknown()" in init
+
+
 def test_router_registers_node_parity_commands() -> None:
     source = "".join(f.read_text() for f in ADDON_DIR.rglob("*.gd"))
     for command in (
