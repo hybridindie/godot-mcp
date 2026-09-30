@@ -81,6 +81,39 @@ or Streamable HTTP:
     per-session state, and toolset grants are server-global. A reconnect keeps
     the grant — nothing to re-establish.
 
+!!! warning "Some clients don't refresh their tool list after a toggle"
+    `enable_toolset` mutates the served surface and the server emits the
+    spec-required `notifications/tools/list_changed` (it advertises
+    `tools.listChanged: true` and delivers the notification on both protocol
+    eras). But a client caches the tool list and must act on that notification
+    to pick up newly-enabled tools — and several don't. As of this writing,
+    Claude Code has open bugs where the notification is a no-op
+    ([#88483](https://github.com/anthropics/claude-code/issues/88483),
+    [#88172](https://github.com/anthropics/claude-code/issues/88172)); OpenCode
+    had the same class of bug
+    ([#48196](https://github.com/anomalyco/opencode/issues/48196)).
+
+    **If your client hits this: pre-enable the toolsets at server startup**, so
+    the *initial* `tools/list` already contains them and no refresh is needed:
+
+    ```jsonc
+    // same MCP entry — add an env block to the server command
+    {
+      "mcp": {
+        "godot": {
+          "type": "local",
+          "command": ["godot-editor-mcp"],
+          "env": { "GODOT_MCP_DEFAULT_TOOLSETS": "scene_edit,scripts,physics,runtime" }
+        }
+      }
+    }
+    ```
+
+    `GODOT_MCP_DEFAULT_TOOLSETS` takes a comma-separated category list, or
+    `all` for the full surface. It seeds the enabled set before the client's
+    first `tools/list`, so the toolsets are present from the start.
+    `enable_toolset` still works normally at runtime.
+
 ## First call, sanity check
 
 Ask the agent to run:
