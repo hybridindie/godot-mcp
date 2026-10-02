@@ -84,6 +84,7 @@ export default withMermaid(defineConfig({
         text: 'Architecture',
         items: [
           { text: 'The four-layer chain', link: '/architecture/' },
+          { text: 'The Godot addon', link: '/architecture/addon' },
           { text: 'Bridge & transport', link: '/architecture/bridge' },
           { text: 'The JSON envelope', link: '/architecture/envelope' },
           { text: 'Toolset gating', link: '/architecture/gating' },
