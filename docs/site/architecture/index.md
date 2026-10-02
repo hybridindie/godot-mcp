@@ -22,7 +22,7 @@ flowchart LR
     end
     subgraph addon["godot-mcp addon (GDScript)"]
         WS["WebSocketPeer client connects out · reconnects"]
-        RT["Command router 175 cmd_* handlers"]
+        RT["Command router cmd_* handlers"]
     end
     ED[("Live Godot project")]
     AI -->|"stdio (MCP)"| SRV
@@ -40,6 +40,7 @@ The direction of control never changed, only who dials.
 ## Pages in this section
 
 - [The four-layer transport chain](index.md) — this page
+- [The Godot addon](addon.md) — the GDScript half: dial-out client, command router, status dock, undo
 - [Bridge & transport](bridge.md) — lifecycle, backoff, timeouts, config
 - [The JSON envelope](envelope.md) — command/response shapes, error codes, id correlation
 - [Toolset gating](gating.md) — the enabled set, list_changed, version gates
@@ -76,9 +77,10 @@ that runs on the Python side. The four-layer shape lets each half evolve on its
 own Cadver/contract terms: the addon pins Godot APIs, the server pins the MCP
 protocol, and the envelope is the versioned glue.
 
-The bridge seam is also the test boundary: the entire suite (997 tests) runs
-against a fake addon connection — no sockets, no editor, deterministic — and a
-separate live-e2e suite exercises the real editor on a self-hosted runner.
+The bridge seam is also the test boundary: the entire suite runs against a fake
+addon connection — no sockets, no editor, deterministic — and a separate
+live-e2e suite exercises the real editor on a self-hosted runner (run it on a PR
+touching the addon/server, or dispatch it manually).
 
 ## The data path, end to end
 

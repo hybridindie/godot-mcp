@@ -52,6 +52,7 @@ const SECTIONS = [
     name: 'Architecture',
     sources: [
       'architecture/index.md',
+      'architecture/addon.md',
       'architecture/bridge.md',
       'architecture/envelope.md',
       'architecture/gating.md',

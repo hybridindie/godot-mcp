@@ -9,6 +9,12 @@ __pycache__/
 dist/
 build/
 
+# Godot addon release zip (built by publish.yml, not committed)
+addon_dist/
+
+# Separate nested clone of the wiki-fabric project (not part of this repo)
+wiki-fabric/
+
 # uv
 # uv.lock IS committed (reproducible dev bootstrap)
 
