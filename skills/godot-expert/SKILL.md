@@ -280,11 +280,11 @@ godot_scene_edit_set_node_property(
 
 ---
 
-## 5. GDScript 4.7 type inference
+## 5. GDScript language gotchas
 
 ### The `:=` type-inference trap
 
-**Rule:** Godot 4.7's GDScript type inference is strict. `var x := expr`
+**Rule:** Godot 4.x GDScript type inference is strict. `var x := expr`
 fails to compile when the expression's type can't be statically determined.
 
 **Common breakage:**
@@ -343,6 +343,51 @@ func test_old_signal_removed() -> void:
     for sig in sigs:
         assert_ne(sig["name"], "old_signal", "old_signal should be removed")
 ```
+
+### Godot 4.8: strings are no longer comments
+
+**Rule:** GDScript no longer treats a bare string literal as a "multiline
+comment". A dangling quoted line now raises a **standalone-expression warning**
+(and was never a documented feature). Use `#` comments.
+
+```gdscript
+# ❌ warned in 4.8 (was a silent "comment" in 4.3–4.7):
+"this was pretending to be a comment"
+var speed := 120.0
+
+# ✅ correct:
+# this is a real comment
+var speed := 120.0
+```
+
+Note: a string at the **top level** is still accepted (per the engine PR), so
+this is a warning-class migration, not a hard parse break — but it is a common
+copy-paste idiom from other languages, so clean it up when you see it. The
+editor's own parse output (`godot_scripts_get_parse_errors`) surfaces it.
+
+### Godot 4.8: a class cannot inherit from its own inner class
+
+**Rule:** A script or inner class can no longer extend an inner class **defined
+on itself** — that is cyclic inheritance and is now a hard GDScript error. The
+engine reports `Classes can not inherit from their own members.` /
+`Cyclic inheritance.`
+
+```gdscript
+# ❌ Error in 4.8 — B inherits from its own inner class:
+class B extends InnerB:
+    const InnerB = B
+
+# ❌ Also an error — a class extending an inner class of itself:
+class G extends G.InnerG:
+    class InnerG:
+        pass
+
+# ✅ Break the cycle: define the base in a separate script (or at file scope)
+# and extend that.
+```
+
+Fix by moving the base class out of the inheriting class — a separate `.gd`
+file (or a sibling/named class that isn't a member of the extender).
 
 ---
 

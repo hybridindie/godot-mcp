@@ -147,8 +147,9 @@ scene", "attach a script".
    custom WASD input actions, pause/process mode
 4. **Collision layers & masks** — bitmask convention table, layer/mask
    values per entity, CollisionShape2D resources
-5. **GDScript 4.7 type inference** — the `:=` trap, `PackedVector2Array`
-   constructor, signal rename breakage
+5. **GDScript language gotchas** — the `:=` inference trap, `PackedVector2Array`
+   constructor, signal rename breakage, and two 4.8 changes (bare strings are no
+   longer comments; a class can't inherit its own inner class)
 6. **Scene file format (.tscn)** — ext_resource, sub_resource, node
    blocks, text vs GDScript syntax, disk vs bridge editing
 7. **Infinite background grids** — dynamic tile pool sized from viewport

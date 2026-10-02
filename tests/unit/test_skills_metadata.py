@@ -240,6 +240,23 @@ def test_playtest_skill_names_debugger_tools() -> None:
         assert tool in body, f"playtest-and-debug must show {tool}"
 
 
+def test_expert_skill_covers_4_8_gdscript_changes() -> None:
+    """#588: the expert skill records the two Godot 4.8 GDScript behavior changes
+    so an agent targeting/patching a 4.8 project does the right thing — a bare
+    string literal is now a standalone-expression warning (no more ad-hoc
+    multiline comments), and a class can no longer inherit from its own inner
+    class (cyclic inheritance). Both were called out in the 4.8 readiness audit.
+    """
+    body = _body("godot-expert")
+    assert "4.8" in body, "godot-expert must note the Godot 4.8 GDScript changes"
+    assert "inner class" in body.lower(), (
+        "godot-expert must document the no-self-inner-class-inheritance change"
+    )
+    assert "comment" in body.lower(), (
+        "godot-expert must document that bare strings are no longer comments"
+    )
+
+
 def test_expert_skill_has_no_raw_bridge_workflow() -> None:
     """§8 predates the MCP server: the /tmp/bridge_cmd.py raw-bridge workflow is
     obsolete — agents call godot_* tools, never the bridge files."""
