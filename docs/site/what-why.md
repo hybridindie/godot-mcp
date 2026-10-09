@@ -100,10 +100,9 @@ them as ground truth.
 ### Game-agnostic by constitution
 
 godot-mcp ships **no** game vocabulary. No towers, no waves, no enemies. A
-consumer project (e.g. [godot-agents](https://github.com/hybridindie/godot-agents))
-layers its own domain models on top. Anything that only makes sense for one
-game belongs in that game's project, not here — this keeps the server
-reusable for any genre and keeps the surface small.
+consumer project layers its own domain models on top. Anything that only makes
+sense for one game belongs in that game's project, not here — this keeps the
+server reusable for any genre and keeps the surface small.
 
 ## What it is not
 

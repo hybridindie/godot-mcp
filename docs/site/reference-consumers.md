@@ -1,7 +1,7 @@
 ---
 type: index
 title: "Consumer integration"
-description: "Layering game-specific agents on godot-mcp — the skills, the godot-agents orchestrator, and the eval harness."
+description: "Layering game-specific agents on godot-mcp — the skills, the orchestrator pattern, and the eval harness."
 created: 2026-09-19
 updated: 2026-09-23
 ---
@@ -42,19 +42,19 @@ index. They are pinned to the live surface by
 toolset map must cover all toolsets, every guide must be linked), so a surface
 change without a skills update fails the suite.
 
-## The godot-agents orchestrator
+## The orchestrator pattern
 
-[hybridindie/godot-agents](https://github.com/hybridindie/godot-agents) is a
-LangGraph-based multi-agent system **built specifically against this server**
-(not a generic MCP client). It demonstrates the consumer pattern:
+A consumer that drives godot-mcp as one component of a larger agent system
+**built specifically against this server** (not a generic MCP client)
+demonstrates the pattern:
 
 - Typed client wrappers mirroring godot-mcp's tools verbatim, with the same
   param keys and `_ensure_or_return_error` gating
 - Honesty-field awareness: `persisted`, `undoable`, `aborted_at`,
   `rescan_pending`, `expected_timeout`, `game_not_breaked`
 - `notifications/tools/list_changed` handling (`toolset_generation`)
-- An eval harness (`godot_agent_harness`) whose live suites drive a real
-  editor through the bridge — the drift catcher between the two repos
+- A live eval harness whose suites drive a real editor through the bridge —
+  the drift catcher across the integration seam
 
 ## Layering your own game vocabulary
 

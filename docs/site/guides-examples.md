@@ -99,6 +99,5 @@ and verify — the rhythm from [Your first session](getting-started-first-sessio
 They are the **drift catchers**. Because they are real projects driving real
 tools, running the toolsets against them surfaces integration failures a unit
 test can't: a renamed parameter, a broken `.tscn` round-trip, a physics-layer
-regression. The eval harness in
-[godot-agents](https://github.com/hybridindie/godot-agents) drives the same
-projects as its live suites.
+regression. A consumer's live eval suites can drive the same projects as its
+integration checks.

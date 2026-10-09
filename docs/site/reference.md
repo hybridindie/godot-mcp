@@ -18,7 +18,7 @@ in the repo — it is the source of truth; these pages are the readable map.
 - [Errors & recovery](reference-errors.md) — the error-code enum + the recovery table
 - [Prompts & resources](reference-prompts.md) — the 9 workflow prompts + the `godot://` resources
 - [Skills](reference-skills.md) — the 3 installable AI skills + the expert reference guides
-- [Consumer integration](reference-consumers.md) — layering game-specific agents on top (skills, godot-agents)
+- [Consumer integration](reference-consumers.md) — layering game-specific agents on top (skills, orchestrator pattern)
 - [Env vars](reference-env-vars.md) — every configuration knob
 - [Changelog](changelog.md) — what shipped in each release
 
