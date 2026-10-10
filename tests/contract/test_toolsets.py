@@ -189,3 +189,49 @@ async def test_enable_gated_toolset_on_exact_minimum_succeeds() -> None:
     async with Client(_server(godot_version="4.4.0-stable"), mode="legacy") as client:
         result = await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
     assert result.structured_content["enabled"] is True
+
+
+# --- pull-based, self-sufficient enable result (issue #621) ----------------
+
+
+async def test_enable_toolset_returns_the_enabled_tools_schemas() -> None:
+    """#621: the enable result carries the enabled tools' names, descriptions, and
+    input schemas, so an agent whose client ignores ``list_changed`` (and never
+    refreshes its cached registry) can still call them immediately."""
+    async with Client(_server(), mode="legacy") as client:
+        result = await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
+    tools = {t["name"]: t for t in result.structured_content["tools"]}
+    assert "godot_scene_edit_create_node" in tools
+    entry = tools["godot_scene_edit_create_node"]
+    assert entry["description"], "each summary must carry the tool description"
+    assert entry["input_schema"]["type"] == "object"
+    assert entry["input_schema"]["properties"], "the input schema must be present"
+
+
+async def test_list_toolsets_stays_a_light_index_without_schemas() -> None:
+    """Only ``enable_toolset`` carries schemas; the every-toolset index stays light."""
+    async with Client(_server()) as client:
+        result = await client.call_tool("godot_list_toolsets", {})
+    assert all(ts["tools"] == [] for ts in result.structured_content["result"])
+
+
+# --- fire-and-forget dock push (issue #624) ---------------------------------
+
+
+async def test_toolset_push_does_not_block_on_a_silent_addon() -> None:
+    """#624: the #592 dock push is fire-and-forget. A peer that never answers
+    ``cmd_toolsets_update`` must not stall ``enable_toolset`` on the 10s request
+    timeout; no waiter is registered for the push."""
+    config = ServerConfig()
+    base = make_addon_responder()
+
+    def silent_for_push(cmd: Any) -> Any:
+        return None if cmd.command == "cmd_toolsets_update" else base(cmd)
+
+    addon = FakeAddonConnection(silent_for_push)
+    bridge = Bridge(config.bridge, connector=connector_for(addon))
+    server = _server(bridge=bridge)
+    async with Client(server, mode="legacy") as client:
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
+        assert bridge._pending == {}, "the dock push must not leave a waiter pending"
+    assert any("cmd_toolsets_update" in m for m in addon.sent)

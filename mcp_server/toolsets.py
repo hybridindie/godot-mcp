@@ -22,8 +22,9 @@ from typing import TYPE_CHECKING, Any
 
 from fastmcp import Context, FastMCP
 from fastmcp.exceptions import ToolError
+from fastmcp.server.providers.base import Provider
 from mcp_types import ToolListChangedNotification
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
     from mcp_server.subscriptions import ToolsetSubscriptionHub
@@ -169,6 +170,14 @@ def _default_enabled_from_env() -> frozenset[str]:
 DEFAULT_ENABLED: frozenset[str] = _default_enabled_from_env()
 
 
+class ToolSummary(BaseModel):
+    """One exposed tool's identity + input schema (issue #621)."""
+
+    name: str
+    description: str
+    input_schema: dict[str, Any]
+
+
 class ToolsetInfo(BaseModel):
     """One toolset's current exposure state."""
 
@@ -176,6 +185,10 @@ class ToolsetInfo(BaseModel):
     enabled: bool
     description: str
     min_godot: str | None = None  # Minimum Godot version required, or None if un-gated.
+    # Populated by ``enable_toolset`` (issue #621): the exposed tools this toggle
+    # revealed, so an agent on a client that never refreshes its cached registry
+    # can act on them directly. Empty for ``list_toolsets`` / ``disable_toolset``.
+    tools: list[ToolSummary] = Field(default_factory=list)
 
 
 class ToolsetManager:
@@ -206,7 +219,11 @@ class ToolsetManager:
             enabled = self._middleware.enabled()
             enabled.add(category)
             self._middleware.set_enabled(enabled)
-        return self._info(category)
+        info = self._info(category)
+        # #621: make the enable result self-sufficient — carry the enabled tools'
+        # schemas so an agent whose client never refreshes its registry can act now.
+        info.tools = await self._tool_summaries(category)
+        return info
 
     async def disable(self, category: str, *, ctx: Any = None) -> ToolsetInfo:
         self._check_toggleable(category)
@@ -225,14 +242,40 @@ class ToolsetManager:
         addon — on peer connect and after every enable/disable. An old addon
         without ``cmd_toolsets_update`` ignores the push (Unknown command); a
         disconnected editor is skipped. Never raises.
+
+        Uses ``Bridge.notify`` (#624), not a correlated ``send``: the push is
+        cosmetic, so a silent or slow peer must not stall the toggle waiting on a
+        reply that only feeds the dock.
         """
         bridge = self._bridge
         if bridge is None or not bridge.connected:
             return
         try:
-            await bridge.send("cmd_toolsets_update", {"enabled": sorted(self._enabled_set())})
+            await bridge.notify("cmd_toolsets_update", {"enabled": sorted(self._enabled_set())})
         except Exception:
             logger.warning("toolset push to addon failed (dock row may be stale)", exc_info=True)
+
+    async def _tool_summaries(self, category: str) -> list[ToolSummary]:
+        """Exposed tools for ``category`` — transformed names + input schema (#621).
+
+        ``Provider.list_tools`` applies the ``godot_`` naming transform, so the
+        names match what a client would call. Best-effort: the toggle already
+        succeeded, so a listing failure yields an empty list, never a failed call.
+        """
+        try:
+            tools = await Provider.list_tools(self._mcp)
+        except Exception:
+            logger.warning("could not list tools for toolset %r (#621)", category, exc_info=True)
+            return []
+        return [
+            ToolSummary(
+                name=tool.name,
+                description=tool.description or "",
+                input_schema=dict(tool.parameters or {}),
+            )
+            for tool in tools
+            if category in getattr(tool, "tags", set())
+        ]
 
     def _enabled_set(self) -> set[str]:
         if self._middleware is not None:

@@ -462,6 +462,27 @@ class Bridge:
             )
         return await self._await_response(msg_id, future, timeout)
 
+    async def notify(self, command: str, params: dict[str, Any] | None = None) -> None:
+        """Send ``command`` without awaiting a response (fire-and-forget, #624).
+
+        For best-effort server→addon pushes — the dock's toolset row (#592) — where
+        a silent or slow peer must not stall the calling tool. No waiter is
+        registered, so the addon's reply (if any) falls through the reader's
+        unmatched-id path, exactly like the ``cmd_peer_hello`` control message
+        (#537). Raises only when there is no peer or the transport drops mid-send.
+        """
+        conn = self._conn
+        if conn is None:
+            return
+        envelope = CommandEnvelope(id=self._next_id(), command=command, params=params or {})
+        try:
+            await conn.send(envelope.model_dump_json())
+        except Exception:
+            if self._conn is conn:
+                self._conn = None
+            self._fail_pending("BRIDGE_DISCONNECTED", "Editor connection lost.")
+            raise
+
     async def ping(self) -> bool:
         """Liveness probe: ``cmd_ping`` should answer ``{pong: true}``."""
         response = await self.send("cmd_ping")

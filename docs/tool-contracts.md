@@ -1363,14 +1363,21 @@ until enabled. These meta-tools are always available:
 
 | Tool | Params | Returns | Notes |
 |------|--------|---------|-------|
-| `godot_list_toolsets` | — | `[ToolsetInfo { name, enabled, description }]` | discover categories |
-| `godot_enable_toolset` | `category` | `ToolsetInfo` | expose a category's tools (fires `list_changed`) |
-| `godot_disable_toolset` | `category` | `ToolsetInfo` | hide a category again |
+| `godot_list_toolsets` | — | `[ToolsetInfo]` | discover categories (`{ name, enabled, description, min_godot, tools }`) |
+| `godot_enable_toolset` | `category` | `ToolsetInfo` | expose a category's tools (fires `list_changed`); `tools` carries the enabled tools' `name`/`description`/`input_schema` (#621) |
+| `godot_disable_toolset` | `category` | `ToolsetInfo` | hide a category again (`tools` empty) |
 
 `godot_enable_toolset`/`godot_disable_toolset` reject unknown categories and `core` with a
 structured `ToolError`. They change tool *exposure* only — never the Godot project
 — so they are `read_only`. The default-off-for-new-categories rule means the live
 surface stays small as the catalog grows (see `.opencode/rules/mcp-tools.md`).
+
+**Self-sufficient enable result (issue #621).** Most MCP clients ignore
+`notifications/tools/list_changed`, so `godot_enable_toolset` does not rely on the client
+refreshing its registry: its `ToolsetInfo.tools` carries each newly-exposed tool's exposed
+name, description, and input JSON schema, letting the agent call them immediately. A pull-based
+path that works on every client, regardless of whether it honors the notification. Listing is
+best-effort — a failure yields an empty `tools`, never a failed toggle.
 
 The initial exposure can be seeded via the `GODOT_MCP_DEFAULT_TOOLSETS` env var
 (issue #393): `all`, or a comma-separated category list (e.g. `scene_edit,runtime`).

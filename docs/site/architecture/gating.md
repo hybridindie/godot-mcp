@@ -49,6 +49,12 @@ Registering the method is what flips the advertised flag — the mcp SDK derives
 it from whether `subscriptions/listen` is served, not from FastMCP's legacy
 notification options.
 
+**Pull-based fallback (#621).** Because many clients still ignore the
+notification, `enable_toolset`'s result also carries the enabled tools' exposed
+names, descriptions, and input schemas — so an agent can call them immediately even
+when its registry never refreshes. The push that keeps the editor dock's Toolsets
+row honest is fire-and-forget (#624) and never stalls the toggle.
+
 The typed tools remain authoritative either way: calling a gated tool whose
 toolset is disabled fails with a structured gating error, and
 `_ensure_or_return_error`-style client helpers re-enable idempotently.

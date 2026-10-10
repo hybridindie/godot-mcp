@@ -348,7 +348,7 @@ With 193 tools, showing everything at once would overwhelm an agent's context wi
 |------|---------|
 | `godot_get_server_info` | Full capability snapshot: toolsets, prompts, resources, bridge state, troubleshooting |
 | `godot_list_toolsets` | Discover toolsets, their enabled state, and version requirements |
-| `godot_enable_toolset(category)` | Expose a toolset's tools (fires `tools/list_changed`) |
+| `godot_enable_toolset(category)` | Expose a toolset's tools (fires `tools/list_changed`; returns the enabled tools' schemas) |
 | `godot_disable_toolset(category)` | Hide a toolset to keep the surface small |
 | `godot_list_tools_by_safety_class` | Report which tools are `read_only` / `mutating` / `destructive` / `runtime` |
 

@@ -156,9 +156,10 @@ mcp's own `MCPServer` uses — so the modern `server/discover` advertises
 ignore the notification or never open a listen stream still need the pre-load
 workaround above.
 
-Beyond the push, [#621](https://github.com/hybridindie/godot-mcp/issues/621)
-will return the enabled tools' names and schemas from `godot_enable_toolset`, so
-the agent can use them even when its registry never refreshes.
+Beyond the push, `godot_enable_toolset` returns the enabled tools' names,
+descriptions, and input schemas
+([#621](https://github.com/hybridindie/godot-mcp/issues/621)), so the agent can
+use them even when its registry never refreshes.
 
 ## First call, sanity check
 
