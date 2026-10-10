@@ -3,7 +3,7 @@ type: index
 title: "Toolset gating"
 description: "Why 193 tools are gated, how the enabled set works, and what list_changed does."
 created: 2026-09-19
-updated: 2026-09-23
+updated: 2026-10-10
 ---
 
 # Toolset gating
@@ -38,6 +38,16 @@ Since 2026.09.17 (#491/#485), `enable_toolset`/`disable_toolset` emit
 the tool list at session start refresh on the notification. The send is
 fire-and-forget by design — the toggle already succeeded, so a delivery failure
 must not fail the tool call — but it is logged, never swallowed silently.
+
+On the sessionless `2026-07-28` protocol the spec forbids *unsolicited* change
+notifications: they reach a client only on a `subscriptions/listen` stream it
+opens. Since #620 the server registers a `ListenHandler` (backed by an
+in-memory `SubscriptionBus`, the same wiring mcp's own `MCPServer` uses) on
+FastMCP's low-level server, so it both **advertises** `tools.listChanged: true`
+in `server/discover` and **fans** each toggle out to every open listen stream.
+Registering the method is what flips the advertised flag — the mcp SDK derives
+it from whether `subscriptions/listen` is served, not from FastMCP's legacy
+notification options.
 
 The typed tools remain authoritative either way: calling a gated tool whose
 toolset is disabled fails with a structured gating error, and

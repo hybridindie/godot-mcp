@@ -3,7 +3,7 @@ type: index
 title: "Configure your MCP client"
 description: "Register godot-mcp in OpenCode, Claude, or any MCP host — stdio or HTTP."
 created: 2026-09-19
-updated: 2026-09-23
+updated: 2026-10-10
 ---
 
 # Configure your MCP client
@@ -81,17 +81,14 @@ or Streamable HTTP:
     per-session state, and toolset grants are server-global. A reconnect keeps
     the grant — nothing to re-establish.
 
-!!! warning "Some clients don't refresh their tool list after a toggle"
-    `enable_toolset` mutates the served surface and the server emits the
-    spec-required `notifications/tools/list_changed` (it advertises
-    `tools.listChanged: true` and delivers the notification on both protocol
-    eras). But a client caches the tool list and must act on that notification
-    to pick up newly-enabled tools — and several don't. As of this writing,
-    Claude Code has open bugs where the notification is a no-op
-    ([#88483](https://github.com/anthropics/claude-code/issues/88483),
-    [#88172](https://github.com/anthropics/claude-code/issues/88172)); OpenCode
-    had the same class of bug
-    ([#48196](https://github.com/anomalyco/opencode/issues/48196)).
+!!! warning "Most clients don't refresh their tool list after a toggle"
+    `godot_enable_toolset` opens the gate server-side, but the server can only
+    *announce* the change: `notifications/tools/list_changed` is a standard MCP
+    notification, and whether the client re-runs `tools/list` is a **client
+    choice** — the spec never makes re-listing a `MUST`. In practice **most MCP
+    hosts cache the tool list at session start and ignore the notification**, so
+    the newly-enabled tools never reach the model. Treat the gate as server
+    state the agent *pulls*, not a push the client must honor.
 
     **If your client hits this: pre-enable the toolsets at server startup**, so
     the *initial* `tools/list` already contains them and no refresh is needed:
@@ -113,6 +110,55 @@ or Streamable HTTP:
     `all` for the full surface. It seeds the enabled set before the client's
     first `tools/list`, so the toolsets are present from the start.
     `enable_toolset` still works normally at runtime.
+
+## Which clients refresh their tool list?
+
+Surveyed October 2026. **Supports** = receives the change and re-runs
+`tools/list` without a reconnect; **partial** = a mechanism exists but is
+capability-gated or only some code paths use it; **does not** = caches
+`tools/list` at session start.
+
+| Client | Verdict |
+|--------|---------|
+| OpenCode | **supports** — re-lists every LLM step |
+| Google Gemini CLI | **supports** (buggy refresh path) |
+| Block Goose | **supports** |
+| Cline (VS Code extension) | **supports** |
+| VS Code + Copilot Chat | **supports** (can lag to the next turn) |
+| Claude Code (CLI) | **partial** — only subscribes when the server advertises `tools.listChanged: true` (see below) |
+| Zed | **partial / conflicting** |
+| Claude Code Desktop app | **does not** |
+| OpenAI Codex CLI | **does not** |
+| Cursor (IDE + CLI) | **does not** |
+| Continue | **does not** |
+| Roo Code | **does not** |
+| Cline (CLI) | **does not** |
+| Qwen Code | **does not** |
+| LibreChat | **does not** |
+| Claude Desktop · Windsurf/Devin Desktop · Open WebUI · Jan · Msty · Chatbox | **unknown** |
+| Python / TypeScript SDK · FastMCP client | **partial** — surface the event; re-listing is the caller's job |
+
+Transport compounds this: **stdio is the best-tested path**, while
+Streamable-HTTP has seen more refresh regressions. The local stdio default is
+the safer configuration.
+
+### The advertisement gotcha
+
+A capable client (Claude Code's CLI) subscribes only when the server's
+handshake advertises `capabilities.tools.listChanged: true`. On the
+`2026-07-28` sessionless protocol MCP derives that flag from whether the server
+serves a `subscriptions/listen` stream. godot-mcp now serves it — it registers
+the mcp SDK's `ListenHandler` on FastMCP's low-level server, the same wiring
+mcp's own `MCPServer` uses — so the modern `server/discover` advertises
+`tools.listChanged: true` and a subscribing client receives
+`notifications/tools/list_changed` after `godot_enable_toolset`
+([#620](https://github.com/hybridindie/godot-mcp/issues/620)). Clients that
+ignore the notification or never open a listen stream still need the pre-load
+workaround above.
+
+Beyond the push, [#621](https://github.com/hybridindie/godot-mcp/issues/621)
+will return the enabled tools' names and schemas from `godot_enable_toolset`, so
+the agent can use them even when its registry never refreshes.
 
 ## First call, sanity check
 

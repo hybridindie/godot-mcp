@@ -18,12 +18,15 @@ from __future__ import annotations
 import logging
 import os
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastmcp import Context, FastMCP
 from fastmcp.exceptions import ToolError
 from mcp_types import ToolListChangedNotification
 from pydantic import BaseModel
+
+if TYPE_CHECKING:
+    from mcp_server.subscriptions import ToolsetSubscriptionHub
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import (
@@ -335,8 +338,19 @@ def _parse_godot_version(version_str: str) -> tuple[int, int] | None:
     return int(m.group(1)), int(m.group(2))
 
 
-def register_toolset_tools(mcp: FastMCP, manager: ToolsetManager) -> None:
-    """Register the always-on toolset introspection/management tools."""
+def register_toolset_tools(
+    mcp: FastMCP,
+    manager: ToolsetManager,
+    *,
+    hub: ToolsetSubscriptionHub | None = None,
+) -> None:
+    """Register the always-on toolset introspection/management tools.
+
+    ``hub`` (issue #620) is the server-global subscription bus: when present,
+    toggles publish ``tools/list_changed`` to every open ``subscriptions/listen``
+    stream, so clients on the sessionless protocol that can't receive an
+    unsolicited notification still refresh.
+    """
 
     @mcp.tool(meta=READ_ONLY, tags={CORE_TAG})
     async def list_toolsets(*, ctx: Context) -> list[ToolsetInfo]:
@@ -351,7 +365,7 @@ def register_toolset_tools(mcp: FastMCP, manager: ToolsetManager) -> None:
         toolset's new state. Does not change anything in the Godot project.
         """
         result = await manager.enable(category, ctx=ctx)
-        await _notify_tools_changed(ctx)
+        await _notify_tools_changed(ctx, hub)
         await manager.push_enabled()  # #592: keep the addon dock's Toolsets row honest
         return result
 
@@ -359,21 +373,21 @@ def register_toolset_tools(mcp: FastMCP, manager: ToolsetManager) -> None:
     async def disable_toolset(category: str, *, ctx: Context) -> ToolsetInfo:
         """Hide a toolset's tools again to keep the active tool surface small."""
         result = await manager.disable(category, ctx=ctx)
-        await _notify_tools_changed(ctx)
+        await _notify_tools_changed(ctx, hub)
         await manager.push_enabled()  # #592: keep the addon dock's Toolsets row honest
         return result
 
 
-async def _notify_tools_changed(ctx: Context) -> None:
+async def _notify_tools_changed(ctx: Context, hub: ToolsetSubscriptionHub | None = None) -> None:
     """Emit ``notifications/tools/list_changed`` after the enabled set changes so
     clients refresh their cached tool registry (issue #485).
 
-    Fire-and-forget by design: the toggle already succeeded, so a delivery
-    failure must not fail the tool call — but it is logged, never swallowed
-    silently. Note: OpenCode has a known bug
-    (https://github.com/anomalyco/opencode/issues/48196) where local MCP servers
-    silently fail to register tools during handshake; this notification helps
-    the moment that upstream issue is fixed.
+    Two delivery paths, both fire-and-forget: ``ctx.send_notification`` reaches
+    the in-flight request's client on the sessionless protocol via
+    ``related_request_id`` (legacy push for older clients), and ``hub`` fans the
+    event out over ``subscriptions/listen`` for clients that explicitly
+    subscribe (issue #620). The toggle already succeeded, so a delivery failure
+    must never fail the tool call — but it is logged, never swallowed silently.
     """
     try:
         await ctx.send_notification(ToolListChangedNotification())
@@ -383,3 +397,5 @@ async def _notify_tools_changed(ctx: Context) -> None:
             "(client may have disconnected); toolset toggle already applied",
             exc_info=True,
         )
+    if hub is not None:
+        await hub.publish_tools_changed()

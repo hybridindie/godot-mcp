@@ -32,6 +32,7 @@ from mcp_server.resources.context import register_resources
 from mcp_server.result_validation_middleware import ResultValidationMiddleware
 from mcp_server.runtime import GodotRunner, Runner
 from mcp_server.safety import ApprovalGate, apply_safety_annotations, register_safety_tools
+from mcp_server.subscriptions import install_toolset_subscriptions
 from mcp_server.tools.analysis import register_analysis
 from mcp_server.tools.animation import register_animation
 from mcp_server.tools.audio import register_audio
@@ -223,7 +224,11 @@ def create_server(
 
     # Gate the tool surface by category (server-global via the middleware above).
     manager = ToolsetManager(mcp, bridge=bridge, middleware=toolset_mw)
-    register_toolset_tools(mcp, manager)
+    # #620: serve subscriptions/listen on the modern protocol and fan toolset
+    # toggles out to subscribers, so the advertised tools.listChanged is true and
+    # capable clients (Claude Code CLI) actually refresh.
+    hub = install_toolset_subscriptions(mcp)
+    register_toolset_tools(mcp, manager, hub=hub)
     # #592: on every (re)connect push the enabled set so the addon dock's
     # "Toolsets:" row reflects reality instead of a permanent "(none)".
     bridge.on_peer_ready = manager.push_enabled
