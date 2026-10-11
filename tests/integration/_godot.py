@@ -8,10 +8,13 @@ testing rules permit (CI has no editor; a dev machine with Godot 4.4+ does).
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import os
 import shutil
 import socket
 import subprocess
+import time
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 
@@ -111,6 +114,40 @@ def run_godot(args: list[str], timeout: int = 120) -> subprocess.CompletedProces
     )
 
 
+async def wait_until(
+    predicate: Callable[[], Awaitable[bool] | bool],
+    *,
+    timeout: float,
+    interval: float = 0.25,
+    sleep: Callable[[float], Awaitable[None]] | None = None,
+    clock: Callable[[], float] | None = None,
+) -> bool:
+    """Poll ``predicate`` until it's true or ``timeout`` seconds elapse (issue #626).
+
+    Returns ``True`` the moment the predicate holds, ``False`` when the budget is
+    exhausted — callers ``assert`` with their own diagnostic message. Budgeting in
+    **wall-clock seconds**, not a fixed iteration count, is the point: a slow or
+    contended editor gets the whole budget regardless of machine speed, which is
+    what the ``for _ in range(N): … asyncio.sleep()`` loops raced on.
+
+    ``sleep`` and ``clock`` are injectable so unit tests are deterministic (a fake
+    sleep that advances a fake clock). ``predicate`` may be sync
+    (``lambda: bridge.connected``) or async.
+    """
+    doze = sleep or asyncio.sleep
+    now = clock or time.monotonic
+    deadline = now() + timeout
+    while True:
+        result = predicate()
+        if inspect.isawaitable(result):
+            result = await result
+        if result:
+            return True
+        if now() >= deadline:
+            return False
+        await doze(interval)
+
+
 async def serve_and_await_editor(
     bridge: object,
     attempts: int = 5,
@@ -131,8 +168,6 @@ async def serve_and_await_editor(
     so the port can't leak. ``sleep`` is injectable for deterministic tests; with
     it, poll ticks do not sleep (only the between-round backoff does).
     """
-    import asyncio
-
     doze = sleep or asyncio.sleep
     for attempt in range(attempts):
         try:

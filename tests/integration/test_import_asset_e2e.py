@@ -22,6 +22,7 @@ from tests.integration._godot import (
     GODOT_PROJECT,
     e2e_bridge_url,
     serve_and_await_editor,
+    wait_until,
 )
 
 pytestmark = pytest.mark.skipif(GODOT_BIN is None, reason="Godot binary not installed")
@@ -74,17 +75,22 @@ async def _run() -> None:
         assert imported["detected_type"] == "Texture2D"
 
         # Check import status. `cmd_import_asset` only kicks EditorFileSystem.scan()
-        # (async); the .import sidecar appears a few frames later. Poll with a bounded
-        # budget instead of asserting immediately (the inline check raced the scan).
-        for _ in range(20):
-            status = await _ok(bridge, "cmd_get_import_status", {"target_path": IMPORTED_PNG})
-            if status["imported"]:
-                break
-            await asyncio.sleep(0.5)
-        assert status["imported"] is True
+        # (async); the .import sidecar appears a few frames later. Time-budgeted poll
+        # (#626) instead of a fixed tick count, so a slow/contended editor gets the
+        # whole budget rather than racing the scan.
+        last: dict[str, Any] = {}
+
+        async def _imported() -> bool:
+            nonlocal last
+            last = await _ok(bridge, "cmd_get_import_status", {"target_path": IMPORTED_PNG})
+            return bool(last["imported"])
+
+        assert await wait_until(_imported, timeout=30.0, interval=0.5), (
+            f"{IMPORTED_PNG} never finished importing; last status={last!r}"
+        )
         # Godot imports a PNG as a CompressedTexture2D (a Texture2D subtype); accept
         # either the base or the concrete imported type.
-        assert (status.get("type") or "").endswith("Texture2D")
+        assert (last.get("type") or "").endswith("Texture2D")
 
         # Create a texture resource to use as material input.
         await _ok(

@@ -21,6 +21,7 @@ from tests.integration._godot import (
     e2e_bridge_url,
     needs_display,
     serve_and_await_editor,
+    wait_until,
 )
 
 pytestmark = [
@@ -46,30 +47,35 @@ async def _ok(bridge: Bridge, command: str, params: dict[str, Any]) -> dict[str,
 
 
 async def _wait_scene_open(bridge: Bridge) -> None:
-    for _ in range(40):
+    async def _open() -> bool:
         r = await bridge.send("cmd_get_active_scene")
-        if r.ok and (r.result or {}).get("is_open"):
-            return
-        await asyncio.sleep(0.25)
-    raise AssertionError("scene did not open")
+        return r.ok and bool((r.result or {}).get("is_open"))
+
+    assert await wait_until(_open, timeout=20.0, interval=0.25), "scene did not open"
 
 
 async def _wait_connected(bridge: Bridge) -> None:
-    for _ in range(30):
+    async def _connected() -> bool:
         state = await _ok(bridge, "cmd_get_game_scene_tree", {})
-        if state.get("connected"):
-            return
-        await asyncio.sleep(0.5)
-    raise AssertionError("probe never connected")
+        return bool(state.get("connected"))
+
+    assert await wait_until(_connected, timeout=25.0, interval=0.5), (
+        "runtime probe never connected"
+    )
 
 
 async def _wait_injected(bridge: Bridge, at_least: int) -> int:
-    for _ in range(20):
+    seen = {"injected": 0}
+
+    async def _reached() -> bool:
         stats = await _ok(bridge, "cmd_get_input_stats", {})
-        if stats["injected"] >= at_least:
-            return int(stats["injected"])
-        await asyncio.sleep(0.25)
-    raise AssertionError(f"injected count never reached {at_least}")
+        seen["injected"] = int(stats["injected"])
+        return seen["injected"] >= at_least
+
+    assert await wait_until(_reached, timeout=15.0, interval=0.25), (
+        f"injected count never reached {at_least} (last={seen['injected']})"
+    )
+    return seen["injected"]
 
 
 async def _run() -> None:
@@ -125,14 +131,14 @@ async def _run() -> None:
         # frozen game can never process. force_break first (the probe services it
         # on its own frame, as in test_runtime_session_e2e).
         await _ok(bridge, "cmd_force_break", {})
-        breaked = False
-        for _ in range(40):
+
+        async def _breaked() -> bool:
             state = await _ok(bridge, "cmd_get_debug_break_state", {})
-            if state["breaked"]:
-                breaked = True
-                break
-            await asyncio.sleep(0.2)
-        assert breaked, "force_break did not report the game entering the break loop"
+            return bool(state["breaked"])
+
+        assert await wait_until(_breaked, timeout=20.0, interval=0.2), (
+            "force_break did not report the game entering the break loop"
+        )
         for command, params in (
             ("cmd_simulate_key", {"key": "Space", "pressed": True}),
             ("cmd_simulate_mouse", {"x": 1, "y": 1, "button": "left"}),
