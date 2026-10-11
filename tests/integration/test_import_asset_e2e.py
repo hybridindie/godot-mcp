@@ -83,7 +83,16 @@ async def _run() -> None:
         async def _imported() -> bool:
             nonlocal last
             last = await _ok(bridge, "cmd_get_import_status", {"target_path": IMPORTED_PNG})
-            return bool(last["imported"])
+            if last["imported"]:
+                return True
+            # Godot coalesces scan() calls: if cmd_import_asset's scan was swallowed
+            # by the editor's still-running initial project scan, nothing is pending
+            # and the copied file sits unimported (status: scanning=false,
+            # imported=false) forever. Re-kick a scan whenever none is in flight
+            # (#626).
+            if not last.get("scanning"):
+                await _ok(bridge, "cmd_rescan_filesystem", {})
+            return False
 
         assert await wait_until(_imported, timeout=30.0, interval=0.5), (
             f"{IMPORTED_PNG} never finished importing; last status={last!r}"
