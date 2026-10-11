@@ -76,6 +76,10 @@ var toolsets_known := false
 var latest_available := ""
 ## The server version the update check ran against (#629), for the "you have X" label.
 var update_current := ""
+## Set when an import had to defer its filesystem scan because one was already in
+## flight (#628); the plugin re-issues a scan once the in-flight one finishes so the
+## copied file is imported instead of silently missed.
+var pending_rescan := false
 # The EditorDebuggerPlugin that captures a played game's godot_mcp channel (issue #66).
 # Set by the plugin entry; null in headless/unit contexts where there is no editor.
 var _debugger: Object = null

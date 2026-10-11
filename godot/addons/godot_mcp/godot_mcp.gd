@@ -234,6 +234,14 @@ func _on_refresh_timer() -> void:
 	if _router != null and _router.latest_available != _latest_available:
 		_latest_available = _router.latest_available
 		_dock.set_update_available(_router.update_current, _router.latest_available)
+	# #628: an import deferred its filesystem scan because one was already in flight
+	# (Godot coalesces scan() calls). Re-issue it once the in-flight scan finishes so
+	# the copied file actually imports.
+	if _router != null and _router.pending_rescan:
+		var fs := EditorInterface.get_resource_filesystem()
+		if not fs.is_scanning():
+			fs.scan()
+			_router.pending_rescan = false
 	# #590: keep the "Last action" row in step with the undo history (a redo,
 	# a manual Ctrl+Z, or an action from another source all move it).
 	_update_last_action()

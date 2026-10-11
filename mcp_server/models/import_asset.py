@@ -14,6 +14,10 @@ class ImportAssetResult(BaseModel):
     # #418: True when the imported .wav's loop config (import_settings.loop_mode /
     # loop_begin / loop_end) was patched into the .import sidecar and reimported.
     loop_applied: bool = False
+    # #628: True when the addon had to defer its filesystem scan because one was
+    # already in flight (Godot coalesces scan() calls); the plugin re-issues it, so
+    # the import still lands, but the sidecar may take a scan cycle longer.
+    scan_deferred: bool = False
 
 
 class CreateMaterialResult(BaseModel):

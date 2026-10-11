@@ -78,6 +78,20 @@ func _detect_type(path: String) -> String:
 
 # -- handlers ----------------------------------------------------------------
 
+## Ensure a filesystem scan will import a freshly copied file (issue #628).
+##
+## Godot coalesces scan() calls: one issued while another scan is already in
+## flight is dropped, so a new file can sit unimported indefinitely. Start a scan
+## now when none is running and return true; if a scan is in flight, return false
+## so the caller can defer (the plugin re-issues one when it finishes). `fs` is
+## duck-typed ({is_scanning, scan}) so this is verifiable headlessly.
+static func ensure_scan(fs: Object) -> bool:
+	if fs == null or fs.is_scanning():
+		return false
+	fs.scan()
+	return true
+
+
 func _cmd_import_asset(params: Dictionary) -> Dictionary:
 	var source := str(params.get("source", ""))
 	var target_path := str(params.get("target_path", ""))
@@ -102,7 +116,13 @@ func _cmd_import_asset(params: Dictionary) -> Dictionary:
 	if err != OK:
 		return _router._fail("INTERNAL_ERROR", "Failed to copy file (error %d)." % err)
 
-	EditorInterface.get_resource_filesystem().scan()
+	# #628: start a scan now if none is in flight; otherwise defer — the plugin
+	# re-issues one when the in-flight scan finishes, so the copied file imports
+	# instead of being silently missed (Godot coalesces scan() calls).
+	var fs := EditorInterface.get_resource_filesystem()
+	var scan_deferred := not ensure_scan(fs)
+	if scan_deferred:
+		_router.pending_rescan = true
 
 	var detected_type := _detect_type(target_path)
 	if import_settings.has("type"):
@@ -121,6 +141,7 @@ func _cmd_import_asset(params: Dictionary) -> Dictionary:
 		"target_path": target_path,
 		"detected_type": detected_type,
 		"loop_applied": loop_applied,
+		"scan_deferred": scan_deferred,
 	})
 
 

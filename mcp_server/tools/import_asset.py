@@ -249,6 +249,9 @@ def register_import_asset(mcp: FastMCP, bridge: Bridge) -> None:
             scan_complete=scan_complete,
             # #418: the .wav loop config landed in the .import sidecar + reimport.
             loop_applied=result.get("loop_applied", False),
+            # #628: the addon deferred its scan (one was already in flight); the
+            # plugin re-issues it, so the import still lands.
+            scan_deferred=result.get("scan_deferred", False),
         )
 
     @mcp.tool(meta=MUTATING, tags=ASSET_IMPORT)

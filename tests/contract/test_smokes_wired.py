@@ -28,6 +28,7 @@ _DEDICATED_WIRING = {
     "handshake_smoke.gd": "contract/test_addon_handshake.py",
     "helpers_smoke.gd": "contract/test_router_refactor.py",
     "threshold_smoke.gd": "contract/test_undo_threshold.py",
+    "import_rescan_smoke.gd": "integration/test_addon_import_rescan.py",
 }
 
 

@@ -74,25 +74,16 @@ async def _run() -> None:
         assert imported["target_path"] == IMPORTED_PNG
         assert imported["detected_type"] == "Texture2D"
 
-        # Check import status. `cmd_import_asset` only kicks EditorFileSystem.scan()
-        # (async); the .import sidecar appears a few frames later. Time-budgeted poll
-        # (#626) instead of a fixed tick count, so a slow/contended editor gets the
-        # whole budget rather than racing the scan.
+        # Check import status. `cmd_import_asset` starts an EditorFileSystem.scan()
+        # (async) — and the addon now guarantees that scan survives an in-flight one
+        # (#628), so the .import sidecar appears without the caller re-kicking. Poll on
+        # a time budget (#626) rather than a fixed tick count.
         last: dict[str, Any] = {}
 
         async def _imported() -> bool:
             nonlocal last
             last = await _ok(bridge, "cmd_get_import_status", {"target_path": IMPORTED_PNG})
-            if last["imported"]:
-                return True
-            # Godot coalesces scan() calls: if cmd_import_asset's scan was swallowed
-            # by the editor's still-running initial project scan, nothing is pending
-            # and the copied file sits unimported (status: scanning=false,
-            # imported=false) forever. Re-kick a scan whenever none is in flight
-            # (#626).
-            if not last.get("scanning"):
-                await _ok(bridge, "cmd_rescan_filesystem", {})
-            return False
+            return bool(last["imported"])
 
         assert await wait_until(_imported, timeout=30.0, interval=0.5), (
             f"{IMPORTED_PNG} never finished importing; last status={last!r}"
