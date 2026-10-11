@@ -12,6 +12,7 @@ import logging
 import time
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
+from typing import NamedTuple
 
 from pydantic import BaseModel
 
@@ -20,11 +21,21 @@ from mcp_server.versions import is_newer
 
 logger = logging.getLogger(__name__)
 
-GITHUB_LATEST_URL = "https://api.github.com/repos/hybridindie/godot-mcp/releases/latest"
+GITHUB_LATEST_API = "https://api.github.com/repos/hybridindie/godot-mcp/releases/latest"
+GITHUB_RELEASES_URL = "https://github.com/hybridindie/godot-mcp/releases/latest"
 PYPI_JSON_URL = "https://pypi.org/pypi/godot-editor-mcp/json"
+PYPI_PROJECT_URL = "https://pypi.org/project/godot-editor-mcp/"
 
-# Returns the latest published version tag, or None when it can't be determined.
-Fetcher = Callable[[], Awaitable[str | None]]
+
+class LatestRelease(NamedTuple):
+    """The latest published version and the URL of the source that reported it."""
+
+    version: str
+    url: str
+
+
+# Returns the latest release (version + source URL), or None when undetermined.
+Fetcher = Callable[[], Awaitable[LatestRelease | None]]
 
 
 class UpdateStatus(BaseModel):
@@ -44,29 +55,36 @@ def _utcnow_iso() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
 
 
-async def fetch_latest_release(timeout: float = 5.0) -> str | None:
+async def fetch_latest_release(timeout: float = 5.0) -> LatestRelease | None:
     """Query GitHub Releases (falling back to PyPI) for the latest version tag.
 
-    Returns ``None`` (never raises) on any network/parse failure, so a check can't
-    break a tool call.
+    Returns the version *and* the URL of whichever source answered, or ``None``
+    (never raises) on any network/parse failure, so a check can't break a tool call.
     """
     try:
         import httpx2 as httpx
-    except Exception:  # pragma: no cover - httpx2 is a core dependency
+    except Exception:  # pragma: no cover - httpx2 is a core dependency (FastMCP 4)
         logger.warning("httpx2 unavailable; cannot check for updates")
         return None
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
             try:
                 resp = await client.get(
-                    GITHUB_LATEST_URL,
+                    GITHUB_LATEST_API,
                     headers={"Accept": "application/vnd.github+json"},
                     follow_redirects=True,
                 )
                 if resp.status_code == 200:
-                    tag = (resp.json() or {}).get("tag_name")
+                    data = resp.json() or {}
+                    tag = data.get("tag_name")
                     if isinstance(tag, str) and tag:
-                        return tag
+                        html_url = data.get("html_url")
+                        url = (
+                            html_url
+                            if isinstance(html_url, str) and html_url
+                            else GITHUB_RELEASES_URL
+                        )
+                        return LatestRelease(tag, url)
             except Exception:
                 logger.debug("github latest-release lookup failed", exc_info=True)
             try:
@@ -74,7 +92,7 @@ async def fetch_latest_release(timeout: float = 5.0) -> str | None:
                 if resp.status_code == 200:
                     version = ((resp.json() or {}).get("info") or {}).get("version")
                     if isinstance(version, str) and version:
-                        return version
+                        return LatestRelease(version, PYPI_PROJECT_URL)
             except Exception:
                 logger.debug("pypi version lookup failed", exc_info=True)
     except Exception:
@@ -97,13 +115,11 @@ class UpdateChecker:
         fetcher: Fetcher | None = None,
         clock: Callable[[], float] | None = None,
         ttl_seconds: float = 3600.0,
-        url: str = GITHUB_LATEST_URL,
     ) -> None:
         self._enabled = enabled
         self._fetch: Fetcher = fetcher or fetch_latest_release
         self._clock: Callable[[], float] = clock or time.monotonic
         self._ttl = ttl_seconds
-        self._url = url
         self._cached: UpdateStatus | None = None
         self._cached_at: float = 0.0
 
@@ -132,10 +148,10 @@ class UpdateChecker:
             if fresh is not None:
                 return fresh
 
-        latest: str | None = None
+        release: LatestRelease | None = None
         error: str | None = None
         try:
-            latest = await self._fetch()
+            release = await self._fetch()
         except Exception as exc:  # a broken check must never break a tool call
             error = f"update check failed: {exc}"
             logger.warning("update check failed", exc_info=True)
@@ -143,12 +159,13 @@ class UpdateChecker:
         status = UpdateStatus(
             enabled=True,
             current=__version__,
-            latest=latest,
-            update_available=bool(latest and is_newer(latest, __version__)),
-            url=self._url if latest else None,
+            latest=release.version if release else None,
+            update_available=bool(release and is_newer(release.version, __version__)),
+            # The URL reflects whichever feed actually answered (GitHub or PyPI).
+            url=release.url if release else None,
             checked_at=_utcnow_iso(),
             error=error,
-            hint=None if latest else "Could not reach the release feed; try again later.",
+            hint=None if release else "Could not reach the release feed; try again later.",
         )
         self._cached = status
         self._cached_at = self._clock()

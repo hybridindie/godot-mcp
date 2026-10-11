@@ -12,7 +12,7 @@ from mcp_server.command_map import BARE_TO_COMMAND
 from mcp_server.config import ServerConfig
 from mcp_server.models.envelope import CommandEnvelope, ResponseEnvelope
 from mcp_server.server import create_server
-from mcp_server.updates import UpdateChecker
+from mcp_server.updates import LatestRelease, UpdateChecker
 from tests.fakes import FakeAddonConnection, connector_for, make_addon_responder
 
 pytestmark = pytest.mark.asyncio
@@ -50,8 +50,8 @@ def _server(
     return create_server(config, bridge=bridge, update_checker=checker)
 
 
-async def _newer_release() -> str | None:
-    return "9999.01.01"
+async def _newer_release() -> LatestRelease | None:
+    return LatestRelease("9999.01.01", "https://example.invalid/9999")
 
 
 async def test_get_server_info_flags_addon_version_mismatch() -> None:
