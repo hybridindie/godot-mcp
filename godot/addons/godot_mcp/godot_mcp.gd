@@ -33,6 +33,8 @@ var _router: MCPCommandRouter
 var _selection: EditorSelection
 var _refresh_timer: Timer
 var _server_version := ""
+# The last update notice reflected into the dock (#629); mirrors router.latest_available.
+var _latest_available := ""
 # Opt-in filesystem auto-refresh (issue #561): the timer fires AutoRefreshHelper.tick
 # so external edits (agent/git/other tools) are picked up without editor focus.
 # Off by default (env var or dock toggle); the env value seeds the checkbox.
@@ -227,6 +229,11 @@ func _on_refresh_timer() -> void:
 	# honestly rather than the old permanent "(none)".
 	if _router != null and _router.toolsets_known:
 		_dock.set_enabled_toolsets(_router.enabled_toolsets)
+	# #629: reflect the server's update notice in the dock (set by
+	# godot_check_for_updates when it finds a newer release).
+	if _router != null and _router.latest_available != _latest_available:
+		_latest_available = _router.latest_available
+		_dock.set_update_available(_router.update_current, _router.latest_available)
 	# #590: keep the "Last action" row in step with the undo history (a redo,
 	# a manual Ctrl+Z, or an action from another source all move it).
 	_update_last_action()

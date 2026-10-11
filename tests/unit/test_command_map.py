@@ -143,6 +143,9 @@ def test_every_bridge_tool_bare_name_resolves_or_is_exempted() -> None:
         "validate_scene_integrity", "enable_toolset", "disable_toolset",
         "get_server_info", "health_check", "list_toolsets",
         "list_tools_by_safety_class", "read_resource",
+        # version check: its only bridge traffic is a fire-and-forget dock push
+        # (cmd_update_available via bridge.notify), not a correlated route (#629)
+        "check_for_updates",
         # shells out to the Godot binary
         "get_parse_errors",
         # multi-step orchestrators (run several commands / binary runs)

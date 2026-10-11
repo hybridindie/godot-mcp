@@ -100,6 +100,9 @@ class ServerConfig(BaseModel):
     # HTTP transport auth (issue #226). Opt-in: loopback HTTP is allowed without a
     # token; a non-loopback bind requires a token or the server refuses to start.
     auth_token: str | None = None
+    # Opt-in update check (issue #629). Off by default — no silent phone-home; when
+    # set, the server may query the release feed to tell the agent it is behind.
+    check_updates: bool = False
 
     @classmethod
     def from_env(cls) -> ServerConfig:
@@ -119,6 +122,8 @@ class ServerConfig(BaseModel):
             approval_require=os.environ.get("GODOT_MCP_APPROVAL_REQUIRE", "").lower()
             in ("1", "true", "yes"),
             auth_token=os.environ.get("GODOT_MCP_AUTH_TOKEN"),
+            check_updates=os.environ.get("GODOT_MCP_CHECK_UPDATES", "").lower()
+            in ("1", "true", "yes"),
         )
 
     def validate_http_auth(self) -> None:

@@ -3,12 +3,12 @@ type: index
 title: "Toolsets & tools"
 description: "Every tool in the 193-tool surface, grouped by toolset, with safety classes."
 created: 2026-09-19
-updated: 2026-09-28
+updated: 2026-10-11
 ---
 
 # Toolsets & tools
 
-193 tools across 29 categories. Only `core` + `inspection` are enabled by default; enable the rest with `godot_enable_toolset(category)`, which returns the enabled tools' names and input schemas so a client that never refreshes its registry can still call them. Class meanings: [safety classes](reference-safety-classes.md).
+194 tools across 29 categories. Only `core` + `inspection` are enabled by default; enable the rest with `godot_enable_toolset(category)`, which returns the enabled tools' names and input schemas so a client that never refreshes its registry can still call them. Class meanings: [safety classes](reference-safety-classes.md).
 
 ## `analysis` — Static analysis: dependencies, signal flow, unused resources, circular deps, scene integrity.
 
@@ -88,10 +88,11 @@ updated: 2026-09-28
 
 ## `core` — Always-on: diagnostics, toolset management, undo, the debug_workflow recipe.
 
-12 tools.
+13 tools.
 
 | Tool | Class |
 |------|-------|
+| `godot_check_for_updates` | read_only |
 | `godot_debug_workflow` | read_only |
 | `godot_describe_class` | read_only |
 | `godot_disable_toolset` | read_only |

@@ -7,7 +7,7 @@ export default withMermaid(defineConfig({
   lang: 'en-US',
   title: 'godot-mcp',
   description:
-    'Bridge an AI agent and a live Godot editor over MCP — inspect, mutate, run, verify. 193 tools across 29 gated toolsets; the server owns safety, the addon owns Godot.',
+    'Bridge an AI agent and a live Godot editor over MCP — inspect, mutate, run, verify. 194 tools across 29 gated toolsets; the server owns safety, the addon owns Godot.',
   base: BASE,
   outDir: 'dist',
   ignoreDeadLinks: false,
@@ -149,7 +149,7 @@ export default withMermaid(defineConfig({
       text: 'Edit this page on GitHub'
     },
     footer: {
-      message: '193 tools · 29 toolsets · contract version 1',
+      message: '194 tools · 29 toolsets · contract version 1',
       copyright: 'MIT Licensed. Copyright © 2026 hybridindie'
     }
   },

@@ -72,6 +72,19 @@ func _initialize() -> void:
 	if router.server_version != "2026.09.20":
 		failures.append("server_version not stored from the hello push: %s" % router.server_version)
 
+	# #629: cmd_update_available stores the newer release for the dock's Update row.
+	var upd: Dictionary = router.handle({
+		"id": "3",
+		"command": "cmd_update_available",
+		"params": {"current": "2026.10.10", "latest": "2026.11.01", "url": "https://x"},
+	})
+	if upd.get("ok") != true:
+		failures.append("cmd_update_available not ok: %s" % str(upd))
+	if router.latest_available != "2026.11.01":
+		failures.append("latest_available not stored: %s" % router.latest_available)
+	if router.update_current != "2026.10.10":
+		failures.append("update_current not stored: %s" % router.update_current)
+
 	router = null
 
 	if failures.is_empty():

@@ -27,6 +27,7 @@ All knobs are optional; the defaults serve a local single-user setup.
 | `GODOT_MCP_APPROVAL_WEBHOOK` | unset | human-in-the-loop approval endpoint for `destructive` tools (#153); unset → auto-approve |
 | `GODOT_MCP_APPROVAL_TIMEOUT` | `30.0` | per-approval-request timeout, seconds |
 | `GODOT_MCP_APPROVAL_FAIL_OPEN` | `true` | on an unreachable/slow webhook: `true` approves, `false` denies |
+| `GODOT_MCP_CHECK_UPDATES` | unset (= off) | opt-in update check (#629): when set (`1`/`true`/`yes`) the server may query the release feed so `godot_check_for_updates` can report a newer release; unset = no network |
 
 ## Addon (read in the editor's environment)
 

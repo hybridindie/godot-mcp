@@ -18,6 +18,7 @@ godot_get_server_info()   # version, contract_version, toolsets, active scene, n
 
 - `godot_health_check()` returns `version` — if it isn't **2026.10.10**, this skill may be stale; rely on `godot_get_server_info()`'s live toolset/tool inventory over anything here.
 - `godot_get_server_info()` returns `contract_version` (tool-surface compatibility, currently 1) — a client is compatible when `min_compatible_contract <= yours <= contract_version`.
+- **Version drift & updates.** `godot_health_check()` / `godot_get_server_info()` report the connected addon's version and flag a server↔addon mismatch (`version_notice`) — if the two differ, both sides need the same release. If update checks are enabled (`GODOT_MCP_CHECK_UPDATES`), call `godot_check_for_updates()` to see whether a newer godot-mcp exists; a known update also shows up in `next_steps`.
 - If disconnected: open **your Godot project** with the addon enabled (addons are installed per-project; for a smoke test you can open the `godot/` folder of the godot-mcp checkout). Requires Godot 4.4+ (validated on 4.7). Enable it in Project Settings → Plugins → godot_mcp, then check the status dock.
 
 ## 2. Toolsets are gated — enable before you use

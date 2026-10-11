@@ -86,6 +86,15 @@ func _initialize() -> void:
 	dock.set_toolsets_unknown()
 	_expect(failures, "toolsets_unknown", dock.displayed_toolsets(), "(unknown)")
 
+	# === #629: an available godot-mcp update (server's check_for_updates) ===
+	dock.set_update_available("", "")
+	_expect(failures, "update_none", dock.displayed_update_available(), "(none)")
+	dock.set_update_available("2026.10.10", "2026.11.01")
+	_expect(
+		failures, "update_available", dock.displayed_update_available(),
+		"update available: 2026.11.01 (you have 2026.10.10)"
+	)
+
 	# === Command statistics: total, last exec (#520: no latency field — the
 	# addon can only measure handler-exec time honestly) ===
 	dock.set_command_stats(42, 15.3)

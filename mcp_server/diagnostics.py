@@ -18,6 +18,8 @@ from mcp_server.categories import CORE_TAG
 from mcp_server.config import ServerConfig
 from mcp_server.safety import READ_ONLY
 from mcp_server.toolsets import ToolsetManager
+from mcp_server.updates import UpdateChecker, UpdateStatus
+from mcp_server.versions import version_notice
 
 
 class ToolsetSummary(BaseModel):
@@ -89,6 +91,12 @@ class ServerDiagnostics(BaseModel):
     # Server↔addon drift (issue #530): a hint naming the bridge commands the
     # connected addon does not register (None when in sync or handshake absent).
     addon_drift_warning: str | None = None
+    # Server↔addon version mismatch (#629) — a direct compare that the command-drift
+    # proxy can miss (a version bump with no command change).
+    version_notice: str | None = None
+    # Update check (#629): the last result when GODOT_MCP_CHECK_UPDATES is enabled and
+    # a check has run, else None. Populated from ``godot_check_for_updates``'s cache.
+    update: UpdateStatus | None = None
     common_errors: list[dict[str, str]]
     next_steps: list[str]
 
@@ -290,9 +298,19 @@ def _bridge_command_set() -> set[str]:
     return set(BARE_TO_COMMAND.values())
 
 
-def _next_steps(bridge_connected: bool, active_scene: str | None) -> list[str]:
+def _next_steps(
+    bridge_connected: bool,
+    active_scene: str | None,
+    update: UpdateStatus | None = None,
+) -> list[str]:
     """Suggest what the agent should do based on current state."""
     steps: list[str] = []
+    if update is not None and update.update_available:
+        steps.append(
+            f"A newer godot-mcp is available: {update.latest} (you are on "
+            f"{update.current}). Update the server and the Godot addon to the same "
+            "release (pip install -U godot-editor-mcp)."
+        )
     if not bridge_connected:
         steps.append(
             "BRIDGE IS OFFLINE: Open Godot with the addon enabled, then retry. "
@@ -319,6 +337,7 @@ def register_diagnostics(
     bridge: Bridge,
     config: ServerConfig,
     manager: ToolsetManager,
+    checker: UpdateChecker | None = None,
 ) -> None:
     """Register the get_server_info diagnostics tool."""
 
@@ -336,6 +355,7 @@ def register_diagnostics(
         drift = _addon_drift_warning(
             bridge_diag.addon_commands, _bridge_command_set()
         )
+        update = checker.cached() if checker is not None else None
         return ServerDiagnostics(
             server="godot-mcp",
             version=__version__,
@@ -348,6 +368,8 @@ def register_diagnostics(
             bridge=bridge_diag,
             active_scene=active_scene,
             addon_drift_warning=drift,
+            version_notice=version_notice(__version__, bridge_diag.addon_version),
+            update=update,
             common_errors=COMMON_ERRORS,
-            next_steps=_next_steps(bridge_diag.connected, active_scene),
+            next_steps=_next_steps(bridge_diag.connected, active_scene, update),
         )

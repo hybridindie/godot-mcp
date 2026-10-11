@@ -56,6 +56,9 @@ var _undo_value: Label
 # #591: play-session + probe state (dirty state rides the Scene row via
 # set_scene_dirty). Read-only: the plugin feeds it.
 var _play_value: Label
+# #629: an available godot-mcp update (from the server's check_for_updates).
+# Read-only: the plugin feeds it.
+var _update_value: Label
 
 # --- Right column widgets ---
 var _cmd_count_value: Label
@@ -110,6 +113,7 @@ func _init() -> void:
 	_toolsets_value = _add_field(left_col, "Toolsets:")
 	_undo_value = _add_field(left_col, "Last action:")
 	_play_value = _add_field(left_col, "Playing:")
+	_update_value = _add_field(left_col, "Update:")
 
 	# === RIGHT COLUMN ===
 	var right_col := VBoxContainer.new()
@@ -164,6 +168,7 @@ func _init() -> void:
 	set_active_scene("")
 	set_selected_node("")
 	set_toolsets_unknown()  # #592: not "(none)" — the server hasn't pushed yet
+	set_update_available("", "")  # #629: no known update until the server says so
 	set_last_action("")
 	set_scene_dirty("", false)
 	set_play_state(false, false)
@@ -276,6 +281,22 @@ func set_enabled_toolsets(toolsets: PackedStringArray) -> void:
 ## "(none)" here was the stale-lie bug #592 fixes (the server may have several on).
 func set_toolsets_unknown() -> void:
 	_toolsets_value.text = _UNKNOWN
+
+
+## Show an available godot-mcp update (#629): "update available: <latest> (you
+## have <current>)". Empty when there is no known update. Read-only.
+func set_update_available(current: String, latest: String) -> void:
+	if latest.is_empty():
+		_update_value.text = PLACEHOLDER
+	elif current.is_empty():
+		_update_value.text = "update available: %s" % latest
+	else:
+		_update_value.text = "update available: %s (you have %s)" % [latest, current]
+
+
+## The rendered Update row (for tests).
+func displayed_update_available() -> String:
+	return _update_value.text
 
 
 func set_command_stats(count: int, last_exec_ms: float) -> void:

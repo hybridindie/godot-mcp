@@ -22,8 +22,8 @@ ignore the notification, the enable result also carries the enabled tools'
 names and input schemas, so even a client that never refreshes can call them
 immediately.
 
-Why gate at all? 193 tools in the context window degrade tool-selection and
-burn tokens. The default surface (`core` + `inspection` — 23 tools) is enough
+Why gate at all? 194 tools in the context window degrade tool-selection and
+burn tokens. The default surface (`core` + `inspection` — 24 tools) is enough
 to orient and inspect; the agent pulls in `scene_edit` only when it means to
 edit. `godot_list_toolsets()` is always authoritative.
 

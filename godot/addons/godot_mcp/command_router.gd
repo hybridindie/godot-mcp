@@ -70,6 +70,12 @@ var enabled_toolsets := PackedStringArray()
 ## "(unknown)" for a server that predates the push, rather than the old lie
 ## "(none)" — an empty set and an unknown set are different states.
 var toolsets_known := false
+## The latest godot-mcp release the server found, learned from cmd_update_available
+## (#629). Empty until a godot_check_for_updates finds one; the plugin reflects it
+## into the dock's "Update:" row.
+var latest_available := ""
+## The server version the update check ran against (#629), for the "you have X" label.
+var update_current := ""
 # The EditorDebuggerPlugin that captures a played game's godot_mcp channel (issue #66).
 # Set by the plugin entry; null in headless/unit contexts where there is no editor.
 var _debugger: Object = null
@@ -123,6 +129,10 @@ func _init() -> void:
 	# has no view of the server's gating, so the server pushes the enabled set on
 	# connect and after every toggle. Fire-and-forget, best-effort.
 	_handlers["cmd_toolsets_update"] = _cmd_toolsets_update
+	# Update notice (#629): fired when godot_check_for_updates finds a newer
+	# release (opt-in, server-side). Fire-and-forget; the plugin reflects
+	# `latest_available` into the dock's "Update:" row.
+	_handlers["cmd_update_available"] = _cmd_update_available
 	# Core: pop the current scene's undo history N steps (S4). Lives on the router
 	# (not a domain handler) because it drives EditorUndoRedoManager directly.
 	_handlers["cmd_undo"] = _cmd_undo
@@ -443,6 +453,14 @@ func _cmd_toolsets_update(params: Dictionary) -> Dictionary:
 	enabled_toolsets = names
 	toolsets_known = true
 	return _ok({"received": true, "count": names.size()})
+
+
+## Update notice (#629): the server found a newer godot-mcp release. Store it so
+## the dock can show "update available: <latest> (you have <current>)".
+func _cmd_update_available(params: Dictionary) -> Dictionary:
+	update_current = str(params.get("current", ""))
+	latest_available = str(params.get("latest", ""))
+	return _ok({"received": true})
 
 
 # -- file system helpers (shared by scripts, shaders, resources) --------------

@@ -13,3 +13,8 @@ class HealthStatus(BaseModel):
     transport: str
     bridge_url: str
     bridge_connected: bool
+    # The connected addon's version (from the handshake, #530) and a hint when it
+    # differs from the server's (#629). Both None when no addon is connected or it
+    # predates the handshake.
+    addon_version: str | None = None
+    version_notice: str | None = None

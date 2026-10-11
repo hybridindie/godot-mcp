@@ -68,11 +68,13 @@ from mcp_server.tools.testing import register_testing
 from mcp_server.tools.theme_ui import register_theme_ui
 from mcp_server.tools.tilemap import register_tilemap
 from mcp_server.tools.undo import register_undo
+from mcp_server.tools.updates import register_updates
 from mcp_server.tools.visual_shader import register_visual_shader
 from mcp_server.toolset_middleware import ToolsetMiddleware
 from mcp_server.toolset_protocol import SERVER_INSTRUCTIONS
 from mcp_server.toolsets import ToolsetManager, register_toolset_tools
 from mcp_server.transforms import godot_tool_transform
+from mcp_server.updates import UpdateChecker
 
 
 async def register_tool_transform(mcp: FastMCP) -> None:
@@ -93,6 +95,7 @@ def create_server(
     bridge: Bridge | None = None,
     runner: Runner | None = None,
     approval: ApprovalGate | None = None,
+    update_checker: UpdateChecker | None = None,
 ) -> FastMCP:
     """Create the FastMCP server, wiring the bridge and registering tools."""
     config = config or ServerConfig()
@@ -234,7 +237,11 @@ def create_server(
     bridge.on_peer_ready = manager.push_enabled
 
     # Comprehensive diagnostics: toolset counts, bridge state, troubleshooting.
-    register_diagnostics(mcp, bridge, config, manager)
+    # Opt-in update check (#629): off unless GODOT_MCP_CHECK_UPDATES is set (or a
+    # checker is injected for tests).
+    update_checker = update_checker or UpdateChecker(enabled=config.check_updates)
+    register_updates(mcp, bridge, update_checker)
+    register_diagnostics(mcp, bridge, config, manager, checker=update_checker)
 
     # Register workflow prompts (instruction templates for the agent).
     prompt_names = register_prompts(mcp, bridge)
