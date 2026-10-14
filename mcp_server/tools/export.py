@@ -26,7 +26,7 @@ from mcp_server.paths import ExportPath
 from mcp_server.runtime import Runner, resolve_project_dir, summarize_run
 from mcp_server.safety import (
     READ_ONLY,
-    RUNTIME,
+    RUNTIME_WRITES_DISK,
     enforce_preconditions,
     require_godot_binary,
 )
@@ -75,7 +75,7 @@ def register_export(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner: 
         """
         return ExportInfoResult(**await route(bridge, "cmd_get_export_info", {}))
 
-    @mcp.tool(meta=RUNTIME, tags=EXPORT, task=True)
+    @mcp.tool(meta=RUNTIME_WRITES_DISK, tags=EXPORT, task=True)
     @enforce_preconditions
     async def export_project(
         preset: str,

@@ -27,7 +27,14 @@ from mcp_server.models.batch import (
 )
 from mcp_server.output import paginate
 from mcp_server.paths import ResPath
-from mcp_server.safety import MUTATING, READ_ONLY, enforce_preconditions, require_active_scene
+from mcp_server.safety import (
+    DESTRUCTIVE,
+    MUTATING,
+    READ_ONLY,
+    enforce_preconditions,
+    require_active_scene,
+    require_confirmation,
+)
 from mcp_server.tools._route import route
 
 DEFAULT_PAGE_LIMIT = 200
@@ -89,24 +96,30 @@ def register_batch(mcp: FastMCP, bridge: Bridge) -> None:
             params["type"] = node_type
         return BatchSetResult(**await route(bridge, "cmd_batch_set_property", params))
 
-    @mcp.tool(meta=MUTATING, tags=BATCH)
+    @mcp.tool(meta=DESTRUCTIVE, tags=BATCH)
     @enforce_preconditions
     async def cross_scene_set_property(
         scenes: list[str],
         node_type: str,
         property: str,
         value: Any,
+        confirm: bool = False,
         dry_run: bool = False,
     ) -> CrossSceneResult:
         """Set ``property`` to ``value`` on every ``node_type`` node across the given
         ``scenes`` (``res://*.tscn`` files), editing them on disk and re-scanning. The
         currently-edited scene is skipped (reported as an error). Each scene's result lists
         the ``modified`` count and any ``error``. ``dry_run`` reports counts without saving.
+
+        Destructive: rewrites scene files on disk with no UndoRedo, so it requires
+        ``confirm=True``.
         ``value`` accepts JSON for the target Godot type — Vector2/3 as
         ``{"x":1,"y":2}``/``[1,2]``, Color as ``{"r":1,"g":0,"b":0,"a":1}`` or
         ``"#ff0000"``, Rect2 as ``{"position":{...},"size":{...}}``, NodePath/StringName
         as a string, primitives as-is. See docs/tool-contracts.md#value-shapes.
         """
+        if not dry_run:
+            require_confirmation(confirm, "cross_scene_set_property")
         params = {
             "scenes": scenes,
             "type": node_type,

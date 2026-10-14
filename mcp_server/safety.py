@@ -58,6 +58,24 @@ MUTATING = _meta(SafetyClass.MUTATING)
 DESTRUCTIVE = _meta(SafetyClass.DESTRUCTIVE)
 RUNTIME = _meta(SafetyClass.RUNTIME)
 
+# RUNTIME tools that write disk or execute code must still pass the approval gate
+# (issue #638) — `export_project` writes arbitrary output, `evaluate_expression`
+# runs arbitrary GDScript in the game. These meta flags mark them so.
+RUNTIME_WRITES_DISK = {**_meta(SafetyClass.RUNTIME), "writes_disk": "true"}
+RUNTIME_EXECUTES_CODE = {**_meta(SafetyClass.RUNTIME), "executes_code": "true"}
+
+
+def approval_gated(safety_class: str, meta: dict[str, Any] | None) -> bool:
+    """Whether a tool call must pass the human-approval gate (issue #330/#638).
+
+    ``mutating``/``destructive`` always are; a ``runtime`` tool is too when it
+    carries the ``writes_disk``/``executes_code`` meta flag.
+    """
+    if safety_class in (SafetyClass.MUTATING.value, SafetyClass.DESTRUCTIVE.value):
+        return True
+    meta = meta or {}
+    return bool(meta.get("writes_disk") or meta.get("executes_code"))
+
 
 # --- standard MCP annotations (issue #220) ---------------------------------
 #
@@ -272,7 +290,10 @@ class ApprovalGate:
 
     webhook_url: str | None = None
     timeout: float = 30.0
-    fail_open: bool = True
+    # Fail-closed by default (issue #638): if a configured webhook is unreachable,
+    # a destructive/runtime-write call is DENIED, not silently allowed. Opt into
+    # fail-open only when the webhook is a non-critical advisory.
+    fail_open: bool = False
     poster: ApprovalPoster = field(default=post_approval)
     clock: Callable[[], float] = field(default=time.time)
     require_approval: bool = False

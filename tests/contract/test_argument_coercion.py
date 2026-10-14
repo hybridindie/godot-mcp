@@ -68,6 +68,7 @@ async def test_create_resource_accepts_stringified_properties() -> None:
                 "type": "StandardMaterial3D",
                 "resource_path": "res://materials3d/mat_wall.tres",
                 "properties": '{"albedo_color": "#ff6a2b"}',
+                "confirm": True,
             },
         )
     assert result.is_error is False

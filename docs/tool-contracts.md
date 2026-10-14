@@ -129,7 +129,7 @@ webhook. Configure via environment:
 |---------|---------|---------|
 | `GODOT_MCP_APPROVAL_WEBHOOK` | unset | Approval endpoint URL. Unset → auto-approve (current behavior). |
 | `GODOT_MCP_APPROVAL_TIMEOUT` | `30.0` | Per-request timeout, seconds. |
-| `GODOT_MCP_APPROVAL_FAIL_OPEN` | `true` | On an unreachable/slow webhook: `true` approves, `false` denies. |
+| `GODOT_MCP_APPROVAL_FAIL_OPEN` | `false` | On an unreachable/slow webhook: `false` **denies** (fail closed, #638), `true` approves. |
 
 When a webhook is set, the server `POST`s an **`ApprovalRequest`** before the action runs
 and expects an **`ApprovalResponse`**:
@@ -426,7 +426,7 @@ Node parity (issue #31), also in `scene_edit`:
 | `godot_scene_edit_move_node` | `node_path, new_parent_path, index=-1` | `MoveNodeResult { node_path, moved, persisted, reason?, hint? }` | `mutating` |
 | `godot_scene_edit_add_to_group` / `godot_scene_edit_remove_from_group` | `node_path, group` | `GroupResult { node_path, group, in_group, changed }` | `mutating` |
 | `godot_scene_edit_list_signal_connections` | `node_path` | `SignalConnectionList { node_path, connections: [{signal, target_path, method, persistent}] }` | `read_only` |
-| `godot_scene_edit_disconnect_signal` | `source_path, signal_name, target_path, method_name` | `DisconnectSignalResult { …, disconnected }` | `mutating` |
+| `godot_scene_edit_disconnect_signal` | `source_path, signal_name, target_path, method_name, confirm=False, dry_run=False` | `DisconnectSignalResult { …, disconnected }` | `destructive` |
 
 `godot_scene_edit_duplicate_node` adds with a readable name (`Box2`). `godot_scene_edit_move_node` rejects moving the root or
 into a descendant. Group membership is persistent (saved into the scene). All reversible via
@@ -443,7 +443,7 @@ the editor's undo. The `mutating` tools also accept `dry_run: bool = False` and 
   | `godot_scene_edit_open_scene` | `scene_path` | `OpenSceneResult { scene_path, opened, already_open }` | `mutating` |
   | `godot_scene_edit_close_scene` | `scene_path="", confirm=False` | `CloseSceneResult { scene_path, closed }` | **`destructive`** |
   | `godot_scene_edit_reload_scene` | `scene_path, confirm=False` | `ReloadSceneResult { scene_path, reloaded }` | **`destructive`** |
-  | `godot_scene_edit_rescan_filesystem` | — | `RescanFilesystemResult { scanned, scanning }` | `read_only` |
+  | `godot_scene_edit_rescan_filesystem` | — | `RescanFilesystemResult { scanned, scanning }` | `runtime` |
   | `godot_scene_edit_save_all_scenes` | — | `SaveAllScenesResult { saved, count }` | `mutating` |
   | `godot_scene_edit_list_open_scenes` | — | `ListOpenScenesResult { scenes[{path}] }` | `read_only` |
   | `godot_scene_edit_select_nodes` | `node_paths: str[]` | `SelectNodesResult { scene_path, selected[], count }` | `mutating` |
@@ -519,14 +519,15 @@ property's declared Godot type.
 | Tool | Params | Returns | Class |
 |------|--------|---------|-------|
 | `godot_resources_edit_read_resource_file` | `resource_path` | `ResourceContent { resource_path, type, script?, properties }` | `read_only` |
-| `godot_resources_edit_create_resource` | `type, resource_path, properties?` | `CreateResourceResult { resource_path, type, created }` | `mutating` |
+| `godot_resources_edit_create_resource` | `type, resource_path, properties?, confirm=False, dry_run=False` | `CreateResourceResult { resource_path, type, created }` | `destructive` |
 | `godot_resources_edit_set_resource_property` | `resource_path, property, value` | `SetResourcePropertyResult { resource_path, property, value }` | `mutating` |
-| `godot_resources_edit_register_autoload` | `name, path` | `RegisterAutoloadResult { name, path, registered }` | `mutating` |
-| `godot_resources_edit_unregister_autoload` | `name` | `UnregisterAutoloadResult { name, unregistered }` | `mutating` |
+| `godot_resources_edit_register_autoload` | `name, path, confirm=False, dry_run=False` | `RegisterAutoloadResult { name, path, registered }` | `destructive` |
+| `godot_resources_edit_unregister_autoload` | `name, confirm=False, dry_run=False` | `UnregisterAutoloadResult { name, unregistered }` | `destructive` |
 
-`godot_resources_edit_set_resource_property` is undo-reversible; `godot_resources_edit_create_resource` is a file write (not undo-tracked);
-`godot_resources_edit_register_autoload`/`godot_resources_edit_unregister_autoload` persist to project settings. Mutating tools accept
-`dry_run: bool = False` and echo it in the result (sending no change when true).
+`godot_resources_edit_set_resource_property` is undo-reversible (`mutating`). `godot_resources_edit_create_resource`
+is a file write (not undo-tracked) and `godot_resources_edit_register_autoload`/`unregister_autoload`
+persist to project settings — all three are **`destructive`** (issue #638): they accept
+`dry_run: bool = False` (preview, no change) and require `confirm=True` to run.
 
 #### External asset import (issue #108) — category: `asset_import` (gated off by default)
 
@@ -551,7 +552,7 @@ Import external files (local paths or HTTP URLs) into a Godot project and assemb
 | `godot_project_get_filesystem_tree` | `directory="res://", max_depth=-1` | `FilesystemTree { tree: FsEntry{name,path,type,children} }` | `read_only` |
 | `godot_project_search_files` | `directory="res://", name_glob="", content="", max_results=200` | `SearchResult { matches[], truncated }` | `read_only` |
 | `godot_project_get_setting` | `name` | `SettingValue { name, value, exists }` | `read_only` |
-| `godot_project_set_setting` | `name, value, dry_run=False` | `SetSettingResult { name, value, set, dry_run }` | `mutating` |
+| `godot_project_set_setting` | `name, value, confirm=False, dry_run=False` | `SetSettingResult { name, value, set, dry_run }` | `destructive` |
 | `godot_project_resolve_uid` | `value` (a `res://` path or `uid://…`) | `UidResolution { uid?, path? }` | `read_only` |
 | `godot_project_delete_resource_file` | `path, confirm=False, dry_run=False` | `DeleteResourceFileResult { path, deleted, had_uid, tab_closed, dry_run }` | `destructive` |
 | `godot_project_move_file` | `path, new_path, dry_run=False` | `MoveResourceFileResult { old_path, new_path, updated_refs: [MovedRef{file,count}], moved, undoable, hint?, dry_run }` | `mutating` |
@@ -1046,7 +1047,7 @@ follow-up #68.)
 | `godot_input_play_sequence` | `events[], delay_ms=0` | `SimInputResult { count = len(events) }` |
 | `godot_input_get_stats` | — | `InputStatsResult { playing, connected, injected }` (read_only) |
 | `godot_input_record` | `include_motion=False` | `RecordResult { recording }` |
-| `godot_input_stop_recording` | `timeout_ms=2000` | `RecordingResult { ready, connected, events[] }` (read_only) |
+| `godot_input_stop_recording` | `timeout_ms=2000` | `RecordingResult { ready, connected, events[] }` (runtime) |
 
 `key` is a Godot key name ("A", "Space", "Enter"). `godot_input_simulate_mouse` sends motion when
 `button` is empty, else a button event (left/right/middle/wheel_up/wheel_down).
@@ -1095,13 +1096,15 @@ injected-key probe matches physical-keycode bindings (#570). An unknown action i
 
 Drive Godot's export pipeline. List/info are `read_only` (read `export_presets.cfg` via
 the addon's `ConfigFile`); `godot_export_project` is `runtime` (runs a Godot process, like the
-runtime loop — see the note in [`architecture.md`](architecture.md)).
+runtime loop — see the note in [`architecture.md`](architecture.md)). Because it writes an
+arbitrary output file it carries the `writes_disk` flag and is **approval-gated** (issue #638),
+and its `output_path` is confined to the project dir unless `confirm=True` (issue #637).
 
 | Tool | Params | Returns |
 |------|--------|---------|
 | `godot_export_list_presets` | — | `ExportPresetsResult { presets[], has_config }` |
 | `godot_export_get_info` | — | `ExportInfoResult { has_config, preset_count, preset_names, config_path }` |
-| `godot_export_project` | `preset, output_path, debug=False, timeout_seconds=300` | `ExportResult { exported, preset, output_path, exit_code, timed_out, duration_seconds, errors[], warnings[], output[], command }` |
+| `godot_export_project` | `preset, output_path, debug=False, confirm=False, timeout_seconds=300` | `ExportResult { exported, preset, output_path, exit_code, timed_out, duration_seconds, errors[], warnings[], output[], command }` |
 
 `godot_export_list_presets` returns each preset's `{index, name, platform, runnable,
 export_path}`. `godot_export_project` validates the preset name, then runs `godot --headless
@@ -1156,7 +1159,7 @@ Operate over many nodes/scenes. Finds/deps are `read_only`; writes are `mutating
 |------|--------|---------|
 | `godot_batch_find_nodes_by_type` | `node_type, parent_path=".", recursive=True` | `FindNodesResult { type, nodes[], count }` |
 | `godot_batch_set_property` | `property, value, node_paths?, node_type?, dry_run=False` | `BatchSetResult { property, applied[], skipped[], count, dry_run, undoable, hint?, persistence[] }` |
-| `godot_batch_cross_scene_set_property` | `scenes[], node_type, property, value, dry_run=False` | `CrossSceneResult { results[], total_modified, scenes, dry_run }` |
+| `godot_batch_cross_scene_set_property` | `scenes[], node_type, property, value, confirm=False, dry_run=False` | `CrossSceneResult { results[], total_modified, scenes, dry_run }` |
 | `godot_batch_get_dependencies` | `path` | `DependenciesResult { path, dependencies[], count }` |
 
 `godot_batch_find_nodes_by_type` matches by class (incl. derived) under `parent_path` in the open
@@ -1176,7 +1179,8 @@ disk: it loads each (`GEN_EDIT_STATE_MAIN`), sets the property on every `node_ty
 re-packs and saves, and re-scans — the **currently-edited** scene is skipped (its
 in-memory copy would clobber the change; reported as an `error`), and each scene's
 `{modified, error}` is reported so skips are explicit (this path is not UndoRedo-wrapped —
-closed files). `godot_batch_get_dependencies` lists what a `res://` resource/scene depends on (each
+closed files). It is **`destructive`** (issue #638): it rewrites scene files with no undo,
+so it requires `confirm=True`. `godot_batch_get_dependencies` lists what a `res://` resource/scene depends on (each
 `{raw, path, type}` parsed from `ResourceLoader.get_dependencies`). `dry_run` on the writes
 returns the plan/counts without changing anything.
 
@@ -1207,7 +1211,7 @@ Control breakpoints, step execution, and inspect the paused call stack in a runn
 | `godot_debugger_evaluate_expression` | `expression, frame=0` | `EvaluationResult { expression, value, evaluated }` |
 | `godot_debugger_get_frame_variables` | `frame=0` | `FrameVarsResult { frame, locals[], members[], globals[] }` |
 
-Step tools send `step`/`next`/`out`/ `continue` via `EditorDebuggerSession.send_message` and require the game to be paused (`session.is_breaked()`). `godot_debugger_get_stack_frames` returns the current call stack from the debugger protocol (`get_stack_dump` → `stack_dump`); an empty `frames:[]` carries a `hint` — the poll-and-cache reply is async, so empty means "not yet received", not "empty call stack" (#411). `godot_debugger_evaluate_expression` evaluates a GDScript expression at the given frame (`evaluate` → `evaluation_return`) and echoes `evaluated` so a null `value` is distinguishable from "no reply yet" (#411). `godot_debugger_get_frame_variables` fetches locals, members, and globals (`get_stack_frame_vars` → `stack_frame_vars`). All three are captured via the poll-and-cache pattern on `MCPDebugger`, so the first call after a break may return empty data until the async reply arrives.
+Step tools send `step`/`next`/`out`/ `continue` via `EditorDebuggerSession.send_message` and require the game to be paused (`session.is_breaked()`). `godot_debugger_get_stack_frames` returns the current call stack from the debugger protocol (`get_stack_dump` → `stack_dump`); an empty `frames:[]` carries a `hint` — the poll-and-cache reply is async, so empty means "not yet received", not "empty call stack" (#411). `godot_debugger_evaluate_expression` evaluates a GDScript expression at the given frame (`evaluate` → `evaluation_return`) and echoes `evaluated` so a null `value` is distinguishable from "no reply yet" (#411) — it runs arbitrary code in the game process, so it carries the `executes_code` flag and is **approval-gated** (issue #638). `godot_debugger_get_frame_variables` fetches locals, members, and globals (`get_stack_frame_vars` → `stack_frame_vars`). All three are captured via the poll-and-cache pattern on `MCPDebugger`, so the first call after a break may return empty data until the async reply arrives.
 
 #### Profiling (issue #38) — category: `profiling` (gated off by default)
 
@@ -1252,10 +1256,12 @@ and stops the run. `godot_testing_run_stress_test` fuzzes the running game with 
 `godot_testing_compare_screenshots` does a per-pixel diff (via `pypng`) of two base64 PNGs — e.g. from
 `godot_editor_capture_screenshot` or saved baselines — with a per-channel `tolerance`.
 
-#### Runtime inspection (issue #35) — `runtime` toolset, `read_only`
+#### Runtime inspection (issue #35) — `runtime` toolset (reads are `read_only`)
 
 Inspect a *running* game on the #66 rails (the third piece, `godot_runtime_get_game_scene_tree`, shipped
-with #66). Requires a play session + the runtime probe.
+with #66). Requires a play session + the runtime probe. `godot_runtime_monitor_property` is
+**`runtime`** (not `read_only`) — starting a sampling monitor is a side effect on the
+play session (issue #638).
 
 | Tool | Params | Returns |
 |------|--------|---------|

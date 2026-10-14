@@ -29,7 +29,7 @@ from mcp_server.models.debugger import (
     StepResult,
 )
 from mcp_server.paths import ResPath
-from mcp_server.safety import RUNTIME
+from mcp_server.safety import RUNTIME, RUNTIME_EXECUTES_CODE
 from mcp_server.tools._route import route
 
 DEBUGGER = {DEBUGGER_TAG}
@@ -136,11 +136,14 @@ def register_debugger(mcp: FastMCP, bridge: Bridge) -> None:
         """
         return StackFramesResult(**await route(bridge, "cmd_get_stack_frames"))
 
-    @mcp.tool(meta=RUNTIME, tags=DEBUGGER)
+    @mcp.tool(meta=RUNTIME_EXECUTES_CODE, tags=DEBUGGER)
     async def evaluate_expression(expression: str, frame: int = 0) -> EvaluationResult:
         """Evaluate a GDScript expression in the context of the given ``frame``.
         ``frame`` 0 is the top of the stack (the currently executing function).
         The game must be paused.
+
+        Runs arbitrary code in the game process, so it is approval-gated (issue
+        #638): a configured approval webhook / guard must approve it first.
         """
         return EvaluationResult(
             **await route(

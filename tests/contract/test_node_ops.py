@@ -228,6 +228,7 @@ async def test_list_and_disconnect_signals() -> None:
                 "signal_name": "timeout",
                 "target_path": ".",
                 "method_name": "queue_free",
+                "confirm": True,
             },
         )
     assert tool.meta is not None and tool.meta.get("safety_class") == "read_only"

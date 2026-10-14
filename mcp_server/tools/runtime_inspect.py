@@ -25,7 +25,7 @@ from mcp_server.models.runtime_inspect import (
     ReadPropertyResult,
     UiElementsResult,
 )
-from mcp_server.safety import READ_ONLY
+from mcp_server.safety import READ_ONLY, RUNTIME
 from mcp_server.tools._route import poll_ready, route
 
 RUNTIME_SET = {RUNTIME_TAG}
@@ -34,7 +34,7 @@ RUNTIME_SET = {RUNTIME_TAG}
 def register_runtime_inspect(mcp: FastMCP, bridge: Bridge) -> None:
     """Register the runtime inspection tools."""
 
-    @mcp.tool(meta=READ_ONLY, tags=RUNTIME_SET)
+    @mcp.tool(meta=RUNTIME, tags=RUNTIME_SET)
     async def monitor_property(
         node_path: str,
         property: str,
@@ -46,6 +46,9 @@ def register_runtime_inspect(mcp: FastMCP, bridge: Bridge) -> None:
         absolute path from ``get_game_scene_tree``, e.g. "/root/Main/Player"). The probe
         captures ``samples`` readings, one per frame; collect them with
         ``get_property_samples``. Requires a play session + runtime probe.
+
+        ``runtime`` (not read-only): it starts a sampling monitor — a side effect on
+        the play session (issue #638).
 
         Push-on-change (#536): with ``on_change_only=True`` (default) the probe queues
         a sample only when the value changed since the last sample — exact match for

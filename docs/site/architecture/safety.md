@@ -17,9 +17,26 @@ class change is pinned by contract tests.
 | Class | Risk | Extra params | Examples |
 |-------|------|--------------|----------|
 | `read_only` | None | none | `get_scene_tree`, `scripts_read`, `shader_validate` |
-| `mutating` | Reversible change (UndoRedo) | `dry_run: bool = False` | `create_node`, `set_node_property`, `attach_script` |
-| `destructive` | Deletes/overwrites; maybe irreversible | `dry_run` **and** `confirm: bool = True` | `delete_node`, `reload_scene`, `close_scene`, `remove_audio_bus`, `delete_resource_file` |
-| `runtime` | Controls game execution | varies | `play_scene`, `run_and_capture`, `export_project` |
+| `mutating` | Reversible/additive change (UndoRedo) | `dry_run: bool = False` | `create_node`, `set_node_property`, `attach_script`, `set_resource_property` |
+| `destructive` | Removes/overwrites existing data, or an irreversible disk/project write | `dry_run` **and** `confirm: bool = True` | `delete_node`, `reload_scene`, `close_scene`, `remove_audio_bus`, `delete_resource_file`, `create_resource`, `set_setting`, `cross_scene_set_property`, `register_autoload`/`unregister_autoload`, `disconnect_signal` |
+| `runtime` | Controls/side-effects game execution | varies | `play_scene`, `run_and_capture`, `export_project`, `monitor_property`, `stop_recording`, `rescan_filesystem`, `evaluate_expression` |
+
+### Classification rule
+
+The class follows the effect, not the verb (issue #638):
+
+- **Reversible, additive editor edit** (UndoRedo restores it) → `mutating`.
+- **Removes/overwrites existing data, or writes disk/project state the undo
+  stack does not cover** → `destructive`. That includes resource/scene file
+  writes (`create_resource`, `cross_scene_set_property`), `ProjectSettings`
+  persistence (`set_setting`, `register_autoload`/`unregister_autoload`), and
+  breaking a signal connection (`disconnect_signal`) — even where the editor
+  happens to undo-track the step, the agent must opt in.
+- **Side-effecting observation** (starts/stops a recorder, starts sampling,
+  triggers a reimport) → `runtime`, not `read_only`.
+
+A contract test (`tests/contract/test_safety_classification.py`) pins the class
+of every tool the audit touched, so a misclassification fails CI.
 
 Two knobs do the work:
 
@@ -32,6 +49,16 @@ Two knobs do the work:
   `PRECONDITION_FAILED: This call discards unsaved changes. Set confirm=True
   to proceed. [required=confirm]`. The server enforces this; the addon honors
   the flag defensively too.
+
+**What `confirm` does and does not protect against.** `confirm` is an *accident
+guard*: the agent sets it itself, so it stops a tool being called by reflex
+without deliberation — it is **not** human oversight. Real human-in-the-loop
+oversight is the opt-in **approval gate** (`GODOT_MCP_APPROVAL_WEBHOOK`, or the
+elicitation guard with `GODOT_MCP_APPROVAL_REQUIRE`): `mutating`/`destructive`
+calls — and `runtime` tools flagged `writes_disk`/`executes_code`
+(`export_project`, `evaluate_expression`) — are routed to it. With a webhook
+configured, an **unreachable** webhook now fails **closed** (denies) by default
+(issue #638); set `GODOT_MCP_APPROVAL_FAIL_OPEN=true` to opt into fail-open.
 
 ## Preconditions
 

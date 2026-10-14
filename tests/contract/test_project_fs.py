@@ -119,7 +119,7 @@ async def test_set_setting_safety_and_dry_run() -> None:
     async with Client(server) as client:
         await client.call_tool("godot_enable_toolset", {"category": "project"})
         tool = next(t for t in await client.list_tools() if t.name == "godot_project_set_setting")
-        assert tool.meta is not None and tool.meta.get("safety_class") == "mutating"
+        assert tool.meta is not None and tool.meta.get("safety_class") == "destructive"
         dry = await client.call_tool(
             "godot_project_set_setting", {"name": "x/y", "value": 1, "dry_run": True}
         )
@@ -160,7 +160,11 @@ async def test_set_setting_unknown_key_fails_structured() -> None:
         await client.call_tool("godot_enable_toolset", {"category": "project"})
         bad = await client.call_tool(
             "godot_project_set_setting",
-            {"name": "application/config/main_scene", "value": "res://a.tscn"},
+            {
+                "name": "application/config/main_scene",
+                "value": "res://a.tscn",
+                "confirm": True,
+            },
             raise_on_error=False,
         )
         assert bad.is_error
@@ -170,7 +174,7 @@ async def test_set_setting_unknown_key_fails_structured() -> None:
         # The known key still behaves as today.
         good = await client.call_tool(
             "godot_project_set_setting",
-            {"name": "application/config/name", "value": "demo"},
+            {"name": "application/config/name", "value": "demo", "confirm": True},
         )
     assert good.structured_content["set"] is True
 

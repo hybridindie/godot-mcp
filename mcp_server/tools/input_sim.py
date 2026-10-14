@@ -154,13 +154,16 @@ def register_input_sim(mcp: FastMCP, bridge: Bridge) -> None:
         params = {"include_motion": include_motion}
         return RecordResult(**await route(bridge, "cmd_record_input", params))
 
-    @mcp.tool(meta=READ_ONLY, tags=INPUT)
+    @mcp.tool(meta=RUNTIME, tags=INPUT)
     async def stop_recording(
         timeout_ms: TimeoutMs = DEFAULT_INPUT_RECORDING_TIMEOUT_MS,
     ) -> RecordingResult:
         """Stop recording and return the captured ``events`` (in the
         ``play_input_sequence`` format). Polls the addon up to ``timeout_ms`` for the
         buffered sequence.
+
+        ``runtime`` (not read-only): it stops an active recording — a side effect on
+        the play session (issue #638).
         """
         await route(bridge, "cmd_stop_recording", {})
         result = await poll_ready(bridge, "cmd_get_recording", {}, timeout_ms)

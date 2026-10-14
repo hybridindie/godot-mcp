@@ -86,7 +86,7 @@ async def test_request_payload_carries_context() -> None:
     assert req.timestamp == 123.0
 
 
-async def test_unreachable_webhook_fails_open_by_default() -> None:
+async def test_unreachable_webhook_can_fail_open() -> None:
     poster, _ = _poster(raises=TimeoutError("boom"))
     gate = ApprovalGate(webhook_url="http://hook", poster=poster, fail_open=True)
     await gate.require(

@@ -94,7 +94,7 @@ async def test_create_resource_safety_and_dry_run() -> None:
         tool = next(
             t for t in await client.list_tools() if t.name == "godot_resources_edit_create_resource"
         )
-        assert tool.meta is not None and tool.meta.get("safety_class") == "mutating"
+        assert tool.meta is not None and tool.meta.get("safety_class") == "destructive"
         dry = await client.call_tool(
             "godot_resources_edit_create_resource",
             {"type": "RectangleShape2D", "resource_path": "res://s.tres", "dry_run": True},
@@ -112,9 +112,12 @@ async def test_set_resource_property_and_autoloads() -> None:
             {"resource_path": "res://s.tres", "property": "size", "value": {"x": 1, "y": 2}},
         )
         reg = await client.call_tool(
-            "godot_resources_edit_register_autoload", {"name": "Game", "path": "res://game.gd"}
+            "godot_resources_edit_register_autoload",
+            {"name": "Game", "path": "res://game.gd", "confirm": True},
         )
-        unreg = await client.call_tool("godot_resources_edit_unregister_autoload", {"name": "Game"})
+        unreg = await client.call_tool(
+            "godot_resources_edit_unregister_autoload", {"name": "Game", "confirm": True}
+        )
     assert s.structured_content["value"] == {"x": 1, "y": 2}
     assert reg.structured_content["registered"] is True
     assert unreg.structured_content["unregistered"] is True

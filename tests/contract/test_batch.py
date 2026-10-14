@@ -96,7 +96,7 @@ async def test_gated_with_safety_classes() -> None:
     }
     assert expected <= set(tools)
     assert tools["godot_batch_set_property"].meta["safety_class"] == "mutating"
-    assert tools["godot_batch_cross_scene_set_property"].meta["safety_class"] == "mutating"
+    assert tools["godot_batch_cross_scene_set_property"].meta["safety_class"] == "destructive"
     assert tools["godot_batch_find_nodes_by_type"].meta["safety_class"] == "read_only"
     assert tools["godot_batch_get_dependencies"].meta["safety_class"] == "read_only"
 
@@ -127,6 +127,7 @@ async def test_cross_scene_and_dependencies() -> None:
                 "node_type": "Camera2D",
                 "property": "enabled",
                 "value": True,
+                "confirm": True,
             },
         )
         deps = await client.call_tool("godot_batch_get_dependencies", {"path": "res://main.tscn"})

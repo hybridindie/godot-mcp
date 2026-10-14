@@ -297,7 +297,9 @@ async def test_close_scene_requires_active_scene() -> None:
 
 
 async def test_rescan_filesystem_is_registered_read_only() -> None:
-    """#486: a non-destructive rescan tool exists in the scene_edit toolset."""
+    """#486: a rescan tool exists in the scene_edit toolset. #638: it is
+    ``runtime`` (a scan can trigger asset reimport — a side effect), not
+    ``read_only``."""
     server, _ = _build()
     async with Client(server, mode="legacy") as client:
         assert "godot_scene_edit_rescan_filesystem" not in {
@@ -306,8 +308,7 @@ async def test_rescan_filesystem_is_registered_read_only() -> None:
         await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         tools = {t.name: t for t in await client.list_tools()}
         tool = tools["godot_scene_edit_rescan_filesystem"]
-    # Non-destructive: a scan never discards editor state (it reads the disk).
-    assert tool.meta is not None and tool.meta.get("safety_class") == "read_only"
+    assert tool.meta is not None and tool.meta.get("safety_class") == "runtime"
 
 
 async def test_rescan_filesystem_reports_scanning_and_no_confirm() -> None:

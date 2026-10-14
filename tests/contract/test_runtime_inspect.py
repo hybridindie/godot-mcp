@@ -71,13 +71,14 @@ async def test_gated_read_only_in_runtime_toolset() -> None:
         assert "godot_runtime_find_ui_elements" not in {t.name for t in await client.list_tools()}
         await client.call_tool("godot_enable_toolset", {"category": "runtime"})
         tools = {t.name: t for t in await client.list_tools()}
-    expected = {
-        "godot_runtime_monitor_property",
+    read_only = {
         "godot_runtime_get_property_samples",
         "godot_runtime_find_ui_elements",
     }
-    assert expected <= set(tools)
-    assert all(tools[n].meta["safety_class"] == "read_only" for n in expected)
+    assert read_only <= set(tools)
+    assert all(tools[n].meta["safety_class"] == "read_only" for n in read_only)
+    # monitor_property starts a sampling monitor — a side effect → runtime (#638).
+    assert tools["godot_runtime_monitor_property"].meta["safety_class"] == "runtime"
 
 
 async def test_monitor_and_collect_samples() -> None:

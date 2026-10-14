@@ -28,6 +28,7 @@ from mcp_server.safety import (
     DESTRUCTIVE,
     MUTATING,
     READ_ONLY,
+    RUNTIME,
     enforce_preconditions,
     require_active_scene,
     require_bridge_connected,
@@ -76,16 +77,16 @@ def register_scene_session(
             dry_run, ReloadSceneResult, preview, bridge, "cmd_reload_scene", params
         )
 
-    @mcp.tool(meta=READ_ONLY, tags=SCENE_EDIT)
+    @mcp.tool(meta=RUNTIME, tags=SCENE_EDIT)
     @enforce_preconditions
     async def rescan_filesystem() -> RescanFilesystemResult:
         """Trigger a filesystem scan so external file edits are picked up.
 
-        Non-destructive: the scan reads the disk and refreshes the editor's view
-        — it discards no editor state. Call this after external edits to
-        ``.tscn``/``.gd`` files (by other tools/agents/git) so the editor sees
-        them; ``scanning`` in the response reports whether the async scan is
-        still in flight.
+        ``runtime`` (not read-only): the scan refreshes the editor's view and can
+        trigger asset reimport — a side effect, not a pure read (issue #638). Call
+        this after external edits to ``.tscn``/``.gd`` files (by other
+        tools/agents/git) so the editor sees them; ``scanning`` in the response
+        reports whether the async scan is still in flight.
         """
         require_bridge_connected(bridge)
         return RescanFilesystemResult(**await route(bridge, "cmd_rescan_filesystem", {}))

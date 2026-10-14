@@ -129,7 +129,8 @@ async def test_record_input_safety_classes() -> None:
         await client.call_tool("godot_enable_toolset", {"category": "input"})
         tools = {t.name: t for t in await client.list_tools()}
     assert tools["godot_input_record"].meta["safety_class"] == "runtime"
-    assert tools["godot_input_stop_recording"].meta["safety_class"] == "read_only"
+    # stop_recording stops an active recording — a side effect, not a pure read (#638).
+    assert tools["godot_input_stop_recording"].meta["safety_class"] == "runtime"
 
 
 async def test_input_sim_refused_while_game_paused_at_break() -> None:

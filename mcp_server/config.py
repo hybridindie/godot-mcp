@@ -111,10 +111,12 @@ class ServerConfig(BaseModel):
     godot_project_dir: str | None = None
     # Human-in-the-loop approval (issue #14/#153). Opt-in: with no webhook,
     # destructive tools run as before (so evals/headless are never blocked).
-    # ``fail_open`` decides whether an unreachable webhook approves or denies.
+    # ``fail_open`` decides whether an unreachable webhook approves or denies;
+    # it defaults to **False** (fail closed) per issue #638 — set
+    # GODOT_MCP_APPROVAL_FAIL_OPEN=true to opt into fail-open.
     approval_webhook: str | None = None
     approval_timeout: float = 30.0
-    approval_fail_open: bool = True
+    approval_fail_open: bool = False
     # Guard-pattern approval (issue #346). Opt-in: with no webhook, a
     # mutating/destructive tool returns an InputRequiredResult (an elicitation
     # the client fulfils and re-calls) instead of raising. Durable + stateless;
@@ -147,8 +149,8 @@ class ServerConfig(BaseModel):
             godot_project_dir=os.environ.get("GODOT_MCP_PROJECT_DIR"),
             approval_webhook=os.environ.get("GODOT_MCP_APPROVAL_WEBHOOK"),
             approval_timeout=float(os.environ.get("GODOT_MCP_APPROVAL_TIMEOUT", 30.0)),
-            approval_fail_open=os.environ.get("GODOT_MCP_APPROVAL_FAIL_OPEN", "true").lower()
-            != "false",
+            approval_fail_open=os.environ.get("GODOT_MCP_APPROVAL_FAIL_OPEN", "false").lower()
+            in ("1", "true", "yes"),
             approval_require=os.environ.get("GODOT_MCP_APPROVAL_REQUIRE", "").lower()
             in ("1", "true", "yes"),
             auth_token=os.environ.get("GODOT_MCP_AUTH_TOKEN"),

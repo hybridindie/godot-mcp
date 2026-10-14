@@ -22,7 +22,13 @@ from mcp_server.models.resource_files import (
     UnregisterAutoloadResult,
 )
 from mcp_server.paths import ResPath
-from mcp_server.safety import MUTATING, READ_ONLY
+from mcp_server.safety import (
+    DESTRUCTIVE,
+    MUTATING,
+    READ_ONLY,
+    enforce_preconditions,
+    require_confirmation,
+)
 from mcp_server.tools._route import route, run_or_preview
 
 RESOURCES_EDIT = {RESOURCES_EDIT_TAG}
@@ -39,16 +45,23 @@ def register_resource_files(mcp: FastMCP, bridge: Bridge) -> None:
         params = {"resource_path": resource_path}
         return ResourceContent(**await route(bridge, "cmd_read_resource", params))
 
-    @mcp.tool(meta=MUTATING, tags=RESOURCES_EDIT)
+    @mcp.tool(meta=DESTRUCTIVE, tags=RESOURCES_EDIT)
+    @enforce_preconditions
     async def create_resource(
         type: str,
         resource_path: ResPath,
         properties: dict[str, Any] | None = None,
+        confirm: bool = False,
         dry_run: bool = False,
     ) -> CreateResourceResult:
         """Create a resource of ``type`` at ``resource_path`` (``.tres``/``.res``), setting
         ``properties`` (coerced to each property's Godot type), and save it.
+
+        Destructive: writes/overwrites the file on disk and is not UndoRedo-tracked
+        (``ResourceSaver.save``), so it requires ``confirm=True`` (``dry_run`` previews).
         """
+        if not dry_run:
+            require_confirmation(confirm, "create_resource")
         params = {"type": type, "resource_path": resource_path, "properties": properties or {}}
         preview = {"resource_path": resource_path, "type": type, "created": False}
         return await run_or_preview(
@@ -72,22 +85,37 @@ def register_resource_files(mcp: FastMCP, bridge: Bridge) -> None:
             dry_run, SetResourcePropertyResult, preview, bridge, "cmd_set_resource_property", params
         )
 
-    @mcp.tool(meta=MUTATING, tags=RESOURCES_EDIT)
+    @mcp.tool(meta=DESTRUCTIVE, tags=RESOURCES_EDIT)
+    @enforce_preconditions
     async def register_autoload(
-        name: str, path: ResPath, dry_run: bool = False
+        name: str, path: ResPath, confirm: bool = False, dry_run: bool = False
     ) -> RegisterAutoloadResult:
         """Register an autoload singleton ``name`` pointing at the script/scene ``path``
         (persisted to project settings).
+
+        Destructive: writes project settings to disk (``ProjectSettings.save``) with no
+        UndoRedo, so it requires ``confirm=True`` (``dry_run`` previews).
         """
+        if not dry_run:
+            require_confirmation(confirm, "register_autoload")
         params = {"name": name, "path": path}
         preview = {"name": name, "path": path, "registered": False}
         return await run_or_preview(
             dry_run, RegisterAutoloadResult, preview, bridge, "cmd_register_autoload", params
         )
 
-    @mcp.tool(meta=MUTATING, tags=RESOURCES_EDIT)
-    async def unregister_autoload(name: str, dry_run: bool = False) -> UnregisterAutoloadResult:
-        """Remove the autoload singleton ``name`` from project settings."""
+    @mcp.tool(meta=DESTRUCTIVE, tags=RESOURCES_EDIT)
+    @enforce_preconditions
+    async def unregister_autoload(
+        name: str, confirm: bool = False, dry_run: bool = False
+    ) -> UnregisterAutoloadResult:
+        """Remove the autoload singleton ``name`` from project settings.
+
+        Destructive: writes project settings to disk with no UndoRedo, so it requires
+        ``confirm=True`` (``dry_run`` previews).
+        """
+        if not dry_run:
+            require_confirmation(confirm, "unregister_autoload")
         params = {"name": name}
         preview = {"name": name, "unregistered": False}
         return await run_or_preview(

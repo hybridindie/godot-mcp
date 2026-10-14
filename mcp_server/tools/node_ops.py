@@ -22,7 +22,14 @@ from mcp_server.models.node_ops import (
     SignalConnectionList,
 )
 from mcp_server.models.persistence import persistence_fields as _persistence
-from mcp_server.safety import MUTATING, READ_ONLY, enforce_preconditions, require_node_exists
+from mcp_server.safety import (
+    DESTRUCTIVE,
+    MUTATING,
+    READ_ONLY,
+    enforce_preconditions,
+    require_confirmation,
+    require_node_exists,
+)
 from mcp_server.tools._persistence import node_probe, parent_of_probe
 from mcp_server.tools._route import route, run_or_preview
 
@@ -141,20 +148,24 @@ def register_node_ops(mcp: FastMCP, bridge: Bridge) -> None:
         params = {"node_path": node_path}
         return SignalConnectionList(**await route(bridge, "cmd_list_signal_connections", params))
 
-    @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
+    @mcp.tool(meta=DESTRUCTIVE, tags=SCENE_EDIT)
     @enforce_preconditions
     async def disconnect_signal(
         source_path: str,
         signal_name: str,
         target_path: str,
         method_name: str,
+        confirm: bool = False,
         dry_run: bool = False,
     ) -> DisconnectSignalResult:
         """Disconnect ``signal_name`` on the source node from ``method_name`` on the
-        target node. Reversible via undo.
+        target node. Undo-tracked, but destructive (it removes a connection) so it
+        requires ``confirm=True`` (``dry_run`` previews).
         """
         await require_node_exists(bridge, source_path)
         await require_node_exists(bridge, target_path)
+        if not dry_run:
+            require_confirmation(confirm, "disconnect_signal")
         params = {
             "source_path": source_path,
             "signal_name": signal_name,

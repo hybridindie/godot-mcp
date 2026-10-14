@@ -32,7 +32,7 @@ from fastmcp.tools.base import InputRequiredToolResult
 from mcp.types import ElicitRequest, ElicitRequestFormParams, InputRequiredResult
 
 from mcp_server.models.envelope import ErrorCode
-from mcp_server.safety import ApprovalGate, PreconditionError, SafetyClass
+from mcp_server.safety import ApprovalGate, PreconditionError, approval_gated
 from mcp_server.subcommand_policy import effective_safety_class
 
 logger = logging.getLogger(__name__)
@@ -49,11 +49,6 @@ _APPROVE_SCHEMA: dict[str, Any] = {
     "properties": {"approve": {"type": "boolean", "title": "Approve"}},
     "required": ["approve"],
 }
-
-
-def _is_gated_safety_class(value: str) -> bool:
-    """mutating and destructive tools are gated; read_only and runtime are not."""
-    return value in (SafetyClass.MUTATING.value, SafetyClass.DESTRUCTIVE.value)
 
 
 def _build_input_required(
@@ -140,7 +135,9 @@ class ApprovalMiddleware(Middleware):
             )
         except Exception:
             safety_class = (tool.meta or {}).get("safety_class") or ""
-        if not _is_gated_safety_class(safety_class):
+        # Gate by class, plus RUNTIME tools that write disk or execute code
+        # (writes_disk/executes_code meta, issue #638).
+        if not approval_gated(safety_class, tool.meta):
             return await call_next(context)
 
         # Webhook path (issue #153): POST + raise on denial. The webhook is
