@@ -13,22 +13,33 @@ types — they are exempt in the enumerating contract test.
 from __future__ import annotations
 
 import posixpath
+import re
 from typing import Annotated
 
 from pydantic import AfterValidator
 
 RES_SCHEME = "res://"
+# A Windows drive prefix (``C:``/``c:``) — ``posixpath`` doesn't see it as
+# absolute, but a backslash path on Windows can escape the project.
+_WINDOWS_DRIVE = re.compile(r"^[A-Za-z]:")
 
 
 def escapes_res_root(path: str) -> bool:
     """True when a ``res://`` path escapes the project root (path traversal).
 
     Strips the scheme and normalizes: a result that climbs above root (``..``) or
-    is absolute (``res:///etc/...``) escapes. ``res://a/../b.gd`` stays inside and
-    is fine. This is the single containment predicate shared by the annotated
-    types and the ``_route`` preflight validators (#205, #217, #637).
+    is absolute (``res:///etc/...``) escapes. A backslash separator (``\\``) or a
+    Windows drive prefix (``C:``) is also rejected — ``posixpath`` treats neither
+    as an escape, but both can traverse on Windows. ``res://a/../b.gd`` stays
+    inside and is fine. This is the single containment predicate shared by the
+    annotated types and the ``_route`` preflight validators (#205, #217, #637).
     """
-    norm = posixpath.normpath(path[len(RES_SCHEME) :])
+    if "\\" in path:
+        return True
+    rest = path[len(RES_SCHEME) :]
+    if _WINDOWS_DRIVE.match(rest):
+        return True
+    norm = posixpath.normpath(rest)
     return norm == ".." or norm.startswith("../") or posixpath.isabs(norm)
 
 

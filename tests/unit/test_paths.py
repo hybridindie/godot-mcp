@@ -16,6 +16,9 @@ from mcp_server.paths import ensure_export_path, ensure_res_path, escapes_res_ro
         "res://..",
         "res://a/../../b.gd",
         "res:///etc/x.gd",  # scheme + absolute
+        "res://..\\..\\evil.gd",  # Windows backslash traversal
+        "res://C:/evil.gd",  # Windows drive prefix
+        "res://c:evil.gd",
     ],
 )
 def test_ensure_res_path_rejects_non_contained(bad: str) -> None:
@@ -40,6 +43,8 @@ def test_escapes_res_root_matches_route_predicate() -> None:
     assert escapes_res_root("res://../x") is True
     assert escapes_res_root("res://../") is True
     assert escapes_res_root("res:///abs") is True
+    assert escapes_res_root("res://..\\x") is True  # Windows separator
+    assert escapes_res_root("res://C:/x") is True  # Windows drive
     assert escapes_res_root("res://a/../b") is False
     assert escapes_res_root("res://scenes/main.tscn") is False
 
