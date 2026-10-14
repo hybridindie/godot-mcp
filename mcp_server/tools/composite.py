@@ -24,6 +24,7 @@ from mcp_server.models.composite import (
     ComposeNodeResult,
 )
 from mcp_server.models.run_commands import RunCommandsResult
+from mcp_server.paths import ResPath
 from mcp_server.safety import (
     MUTATING,
     enforce_preconditions,
@@ -102,7 +103,7 @@ def register_composite(
         node_type: str,
         node_name: str,
         properties: dict[str, Any] | None = None,
-        script_path: str | None = None,
+        script_path: ResPath | None = None,
         children: list[dict[str, Any]] | None = None,
         save: bool = False,
         dry_run: bool = False,

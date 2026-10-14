@@ -21,6 +21,7 @@ from mcp_server.models.resource_files import (
     SetResourcePropertyResult,
     UnregisterAutoloadResult,
 )
+from mcp_server.paths import ResPath
 from mcp_server.safety import MUTATING, READ_ONLY
 from mcp_server.tools._route import route, run_or_preview
 
@@ -31,7 +32,7 @@ def register_resource_files(mcp: FastMCP, bridge: Bridge) -> None:
     """Register the resource-file + autoload tools."""
 
     @mcp.tool(meta=READ_ONLY, tags=RESOURCES_EDIT)
-    async def read_resource_file(resource_path: str) -> ResourceContent:
+    async def read_resource_file(resource_path: ResPath) -> ResourceContent:
         """Read a resource file (`.tres`/`.res`): its type, attached script, and
         editable properties. (Distinct from the read-only ``godot://`` resources.)
         """
@@ -41,7 +42,7 @@ def register_resource_files(mcp: FastMCP, bridge: Bridge) -> None:
     @mcp.tool(meta=MUTATING, tags=RESOURCES_EDIT)
     async def create_resource(
         type: str,
-        resource_path: str,
+        resource_path: ResPath,
         properties: dict[str, Any] | None = None,
         dry_run: bool = False,
     ) -> CreateResourceResult:
@@ -56,7 +57,7 @@ def register_resource_files(mcp: FastMCP, bridge: Bridge) -> None:
 
     @mcp.tool(meta=MUTATING, tags=RESOURCES_EDIT)
     async def set_resource_property(
-        resource_path: str, property: str, value: Any, dry_run: bool = False
+        resource_path: ResPath, property: str, value: Any, dry_run: bool = False
     ) -> SetResourcePropertyResult:
         """Set a property on the resource file at ``resource_path`` and re-save it.
         Reversible via the editor's undo.
@@ -73,7 +74,7 @@ def register_resource_files(mcp: FastMCP, bridge: Bridge) -> None:
 
     @mcp.tool(meta=MUTATING, tags=RESOURCES_EDIT)
     async def register_autoload(
-        name: str, path: str, dry_run: bool = False
+        name: str, path: ResPath, dry_run: bool = False
     ) -> RegisterAutoloadResult:
         """Register an autoload singleton ``name`` pointing at the script/scene ``path``
         (persisted to project settings).

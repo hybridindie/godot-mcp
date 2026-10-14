@@ -31,6 +31,7 @@ from mcp_server.models.tilemap import (
     TileSetSourceResult,
     TileUsedCellsResult,
 )
+from mcp_server.paths import ResPath
 from mcp_server.safety import (
     MUTATING,
     READ_ONLY,
@@ -201,7 +202,7 @@ def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
     @enforce_preconditions
     async def create_tileset(
         node_path: str = "",
-        save_path: str = "",
+        save_path: ResPath = "",
         tile_size: list[int] | None = None,
         dry_run: bool = False,
     ) -> TileSetResult:
@@ -234,10 +235,10 @@ def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
     @mcp.tool(meta=MUTATING, tags=TILEMAP)
     @enforce_preconditions
     async def add_tileset_atlas_source(
-        texture_path: str,
+        texture_path: ResPath,
         region_size: list[int],
         node_path: str = "",
-        tileset_path: str = "",
+        tileset_path: ResPath = "",
         source_id: TileSourceIdOpt = None,
         dry_run: bool = False,
     ) -> TileSetSourceResult:
@@ -281,7 +282,7 @@ def register_tilemap(mcp: FastMCP, bridge: Bridge) -> None:
         source_id: TileSourceId,
         atlas_coords: list[int],
         node_path: str = "",
-        tileset_path: str = "",
+        tileset_path: ResPath = "",
         size: list[int] | None = None,
         dry_run: bool = False,
     ) -> TileCreateResult:

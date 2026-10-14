@@ -29,6 +29,7 @@ from mcp_server.models.scripts import (
     WriteScriptResult,
 )
 from mcp_server.output import paginate
+from mcp_server.paths import ResPath
 from mcp_server.runtime import Runner, resolve_project_dir
 from mcp_server.safety import (
     MUTATING,
@@ -54,14 +55,14 @@ def register_scripts(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
     """Register the script read/patch tools."""
 
     @mcp.tool(meta=READ_ONLY, tags=SCRIPTS)
-    async def read_script(script_path: str) -> ScriptContent:
+    async def read_script(script_path: ResPath) -> ScriptContent:
         """Read the full text of the script at ``script_path`` (a ``res://`` path,
         ``.gd`` or ``.cs``)."""
         return ScriptContent(**await route(bridge, "cmd_read_script", {"script_path": script_path}))
 
     @mcp.tool(meta=READ_ONLY, tags=SCRIPTS)
     async def list_scripts(
-        directory: str = "res://",
+        directory: ResPath = "res://",
         offset: Annotated[int, Field(ge=0)] = 0,
         limit: Annotated[int, Field(ge=1, le=1000)] = DEFAULT_PAGE_LIMIT,
         language: str = "gd",
@@ -101,7 +102,7 @@ def register_scripts(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
 
     @mcp.tool(meta=MUTATING, tags=SCRIPTS, output_schema=WriteScriptResult.model_json_schema())
     async def write_script(
-        script_path: str, content: str, dry_run: bool = False
+        script_path: ResPath, content: str, dry_run: bool = False
     ) -> WriteScriptResult:
         """Create or overwrite the script at ``script_path`` (``res://``, ``.gd`` or
         ``.cs``) with ``content``. Reversible via the editor's undo. ``dry_run=True``
@@ -145,7 +146,7 @@ def register_scripts(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
 
     @mcp.tool(meta=MUTATING, tags=SCRIPTS)
     async def patch_script(
-        script_path: str, find: str, replace: str, dry_run: bool = False
+        script_path: ResPath, find: str, replace: str, dry_run: bool = False
     ) -> PatchScriptResult:
         """Replace every occurrence of ``find`` with ``replace`` in the script
         (``.gd`` or ``.cs``). Errors if ``find`` isn't present. Reversible via undo;
@@ -164,7 +165,7 @@ def register_scripts(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
 
     @mcp.tool(meta=READ_ONLY, tags=SCRIPTS)
     @enforce_preconditions
-    async def get_parse_errors(script_path: str) -> ParseCheckResult:
+    async def get_parse_errors(script_path: ResPath) -> ParseCheckResult:
         """Parse-check ``script_path`` and return structured errors (message + line),
         or an empty list when it parses cleanly. Use after writing/patching a script.
 

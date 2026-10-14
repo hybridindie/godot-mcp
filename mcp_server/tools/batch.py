@@ -26,6 +26,7 @@ from mcp_server.models.batch import (
     FindNodesResult,
 )
 from mcp_server.output import paginate
+from mcp_server.paths import ResPath
 from mcp_server.safety import MUTATING, READ_ONLY, enforce_preconditions, require_active_scene
 from mcp_server.tools._route import route
 
@@ -116,7 +117,7 @@ def register_batch(mcp: FastMCP, bridge: Bridge) -> None:
         return CrossSceneResult(**await route(bridge, "cmd_cross_scene_set_property", params))
 
     @mcp.tool(meta=READ_ONLY, tags=BATCH)
-    async def get_dependencies(path: str) -> DependenciesResult:
+    async def get_dependencies(path: ResPath) -> DependenciesResult:
         """List the resources the resource/scene at ``path`` (a ``res://`` file) depends on
         — each as ``{raw, path, type}``. Use it to understand impact before refactoring.
         """

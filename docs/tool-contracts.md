@@ -32,6 +32,14 @@ Every `@mcp.tool()`:
   `mcp_server/constraints.py` (timeouts, sample/result counts, depths, delays, TileMap ids),
   so absurd input is rejected before the bridge round-trip and the bounds show in the schema
   (issue #221). Pass-through geometry/identifiers (coordinates, node/port ids) stay unbounded.
+- **Confines file paths** (issue #637): every `res://` file/directory parameter is typed
+  `mcp_server.paths.ResPath`, which rejects a missing scheme, an absolute filesystem path,
+  and a `res://../` escape at the schema boundary. `run_commands` sub-commands (which bypass
+  the argument schema) are re-checked by the same predicate in `tools/_route.py`. Node paths
+  (`Player/Gun`) are **not** `res://` paths and are exempt. `export_project.output_path` is
+  confined to the project dir — a target outside it is refused unless `confirm=True`. An
+  enumerating contract test pins that every `*path*`/`directory` param is a containment type
+  or a documented node-path exemption, so a new tool cannot skip it.
 - **Bounds large reads** (issue #222): list-shaped tools (`godot_batch_find_nodes_by_type`, `godot_scripts_list`)
   paginate with `offset`/`limit` and report `total`/`returned`/`truncated`/`next_offset`;
   reads that can be huge (the scene tree, `godot://scene/tree`) are capped at

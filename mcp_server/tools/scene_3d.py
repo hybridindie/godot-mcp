@@ -32,6 +32,7 @@ from mcp_server.models.scene_3d import (
     MeshLibraryItemResult,
     MeshLibraryResult,
 )
+from mcp_server.paths import ResPath
 from mcp_server.safety import (
     MUTATING,
     READ_ONLY,
@@ -245,7 +246,7 @@ def register_scene_3d(mcp: FastMCP, bridge: Bridge) -> None:
     @enforce_preconditions
     async def create_mesh_library(
         node_path: str = "",
-        save_path: str = "",
+        save_path: ResPath = "",
         dry_run: bool = False,
     ) -> MeshLibraryResult:
         """Create a new MeshLibrary resource — the prerequisite for placing cells with
@@ -276,9 +277,9 @@ def register_scene_3d(mcp: FastMCP, bridge: Bridge) -> None:
     @enforce_preconditions
     async def add_mesh_library_item(
         node_path: str = "",
-        library_path: str = "",
+        library_path: ResPath = "",
         mesh_type: str = "",
-        mesh_path: str = "",
+        mesh_path: ResPath = "",
         item_id: int | None = None,
         name: str = "",
         properties: dict[str, Any] | None = None,

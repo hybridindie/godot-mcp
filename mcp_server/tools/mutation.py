@@ -35,6 +35,7 @@ from mcp_server.models.mutation import (
     SetEditableChildrenResult,
     SetPropertyResult,
 )
+from mcp_server.paths import ResPath
 from mcp_server.safety import (
     DESTRUCTIVE,
     MUTATING,
@@ -203,7 +204,7 @@ def register_mutation(
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
     @enforce_preconditions
     async def attach_script(
-        node_path: str, script_path: str, dry_run: bool = False
+        node_path: str, script_path: ResPath, dry_run: bool = False
     ) -> AttachScriptResult:
         """Attach the existing script at ``script_path`` (a ``res://`` path) to the
         node at ``node_path``.
@@ -265,7 +266,7 @@ def register_mutation(
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
     @enforce_preconditions
     async def create_scene(
-        root_type: str, scene_path: str, dry_run: bool = False
+        root_type: str, scene_path: ResPath, dry_run: bool = False
     ) -> CreateSceneResult:
         """Create a new scene file at ``scene_path`` (``res://…​.tscn``) with a root
         node of ``root_type``, and open it for editing.
@@ -284,7 +285,7 @@ def register_mutation(
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
     @enforce_preconditions
     async def instance_scene(
-        parent_path: str, scene_path: str, name: str = "", dry_run: bool = False
+        parent_path: str, scene_path: ResPath, name: str = "", dry_run: bool = False
     ) -> InstanceSceneResult:
         """Instance a saved scene (``scene_path``, a ``res://…​.tscn``) as a child of
         ``parent_path``. This is the core Godot authoring move for composing scenes
@@ -312,7 +313,7 @@ def register_mutation(
     @enforce_preconditions
     async def extract_scene(
         node_path: str,
-        scene_path: str,
+        scene_path: ResPath,
         replace_with_instance: bool = False,
         save_current: bool = False,
         dry_run: bool = False,

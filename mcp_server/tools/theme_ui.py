@@ -24,6 +24,7 @@ from mcp_server.models.theme_ui import (
     ThemeResult,
     ThemeStyleboxResult,
 )
+from mcp_server.paths import ResPath
 from mcp_server.safety import MUTATING, READ_ONLY, enforce_preconditions, require_node_exists
 from mcp_server.tools._persistence import node_probe
 from mcp_server.tools._route import route, run_or_preview
@@ -37,7 +38,7 @@ def register_theme_ui(mcp: FastMCP, bridge: Bridge) -> None:
     @mcp.tool(meta=MUTATING, tags=THEME_UI)
     @enforce_preconditions
     async def create_theme(
-        node_path: str, save_path: str = "", dry_run: bool = False
+        node_path: str, save_path: ResPath = "", dry_run: bool = False
     ) -> ThemeResult:
         """Create a new Theme and assign it to the Control at ``node_path``. If
         ``save_path`` (a ``res://*.tres``) is given, the theme is also saved there as a

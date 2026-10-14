@@ -82,6 +82,17 @@ preflight, and an unknown `cmd_*` is refused — a batch containing a delete is
 presented to the approval gate as `destructive`, not as the outer tool's
 `mutating` class.
 
+### Path containment
+
+Every file-path parameter is a `ResPath` (a contained `res://` path) — the
+server rejects a missing scheme, an absolute filesystem path, or a `res://../`
+escape at the schema boundary, before the bridge round-trip (#637). The addon's
+own `begins_with("res://")` check is not trusted for this. `run_commands`
+sub-commands, which bypass the argument schema, are re-checked by the same
+preflight predicate. Node paths (`Player/Gun`) are not `res://` paths and are
+exempt. `export_project`'s `output_path` is confined to the project dir: a target
+outside it is refused unless `confirm=True`.
+
 ## Honesty as safety
 
 The most dangerous failure mode is a result that reads like success but isn't.

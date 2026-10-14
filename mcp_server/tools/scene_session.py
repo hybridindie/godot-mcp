@@ -23,6 +23,7 @@ from mcp_server.models.scene_session import (
     SaveAllScenesResult,
     SelectNodesResult,
 )
+from mcp_server.paths import ResPath
 from mcp_server.safety import (
     DESTRUCTIVE,
     MUTATING,
@@ -45,7 +46,7 @@ def register_scene_session(
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
     @enforce_preconditions
-    async def open_scene(scene_path: str, dry_run: bool = False) -> OpenSceneResult:
+    async def open_scene(scene_path: ResPath, dry_run: bool = False) -> OpenSceneResult:
         """Open an existing scene file for editing.
 
         If the scene is already open, returns ``already_open=True``.
@@ -60,7 +61,7 @@ def register_scene_session(
     @mcp.tool(meta=DESTRUCTIVE, tags=SCENE_EDIT)
     @enforce_preconditions
     async def reload_scene(
-        scene_path: str, confirm: bool = False, dry_run: bool = False
+        scene_path: ResPath, confirm: bool = False, dry_run: bool = False
     ) -> ReloadSceneResult:
         """Reload the scene at ``scene_path`` from disk, discarding unsaved changes.
 
@@ -92,7 +93,7 @@ def register_scene_session(
     @mcp.tool(meta=DESTRUCTIVE, tags=SCENE_EDIT)
     @enforce_preconditions
     async def close_scene(
-        scene_path: str = "", confirm: bool = False, dry_run: bool = False
+        scene_path: ResPath = "", confirm: bool = False, dry_run: bool = False
     ) -> CloseSceneResult:
         """Close a scene tab, discarding any unsaved changes.
 

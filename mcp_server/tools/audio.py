@@ -28,6 +28,7 @@ from mcp_server.models.audio import (
     AudioBusResult,
     AudioPlayerResult,
 )
+from mcp_server.paths import ResPath
 from mcp_server.safety import (
     DESTRUCTIVE,
     MUTATING,
@@ -52,7 +53,7 @@ def register_audio(mcp: FastMCP, bridge: Bridge) -> None:
         parent_path: str,
         player_type: str = DEFAULT_AUDIO_PLAYER_TYPE,
         name: str = "",
-        stream_path: str = "",
+        stream_path: ResPath = "",
         properties: dict[str, Any] | None = None,
         dry_run: bool = False,
     ) -> AudioPlayerResult:

@@ -32,6 +32,7 @@ from mcp_server.models.analysis import (
     UnusedResourcesResult,
     ValidateSceneIntegrityResult,
 )
+from mcp_server.paths import ResPath
 from mcp_server.runtime import resolve_project_dir
 from mcp_server.safety import READ_ONLY, PreconditionError, enforce_preconditions
 
@@ -97,7 +98,7 @@ def register_analysis(mcp: FastMCP, bridge: Bridge, config: ServerConfig) -> Non
 
     @mcp.tool(meta=READ_ONLY, tags=ANALYSIS)
     @enforce_preconditions
-    async def analyze_dependencies(resource_path: str) -> AnalyzeDependenciesResult:
+    async def analyze_dependencies(resource_path: ResPath) -> AnalyzeDependenciesResult:
         """Parse a resource file and extract all ``res://`` / ``uid://`` references.
         Recurse into sub-dependencies (depth-limited). Returns the resource's inferred
         type, its direct/indirect references, and which project files refer to it.
@@ -120,7 +121,7 @@ def register_analysis(mcp: FastMCP, bridge: Bridge, config: ServerConfig) -> Non
 
     @mcp.tool(meta=READ_ONLY, tags=ANALYSIS)
     @enforce_preconditions
-    async def validate_scene_integrity(scene_path: str) -> ValidateSceneIntegrityResult:
+    async def validate_scene_integrity(scene_path: ResPath) -> ValidateSceneIntegrityResult:
         """Check a scene file for broken ``ext_resource`` paths, missing
         scripts, and broken signal connections. Returns errors (blocking) and warnings
         (non-blocking). ``valid`` is true only when there are zero errors.
@@ -131,7 +132,7 @@ def register_analysis(mcp: FastMCP, bridge: Bridge, config: ServerConfig) -> Non
 
     @mcp.tool(meta=READ_ONLY, tags=ANALYSIS)
     @enforce_preconditions
-    async def cross_scene_find_refs(target_path: str) -> CrossSceneRefsResult:
+    async def cross_scene_find_refs(target_path: ResPath) -> CrossSceneRefsResult:
         """Scan all project files for references to ``target_path``. Returns which
         scenes, resources, and scripts mention it.
         """

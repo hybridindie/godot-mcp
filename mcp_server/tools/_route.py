@@ -16,7 +16,6 @@ already shapes addon-side precondition envelopes into ``ToolError``.
 from __future__ import annotations
 
 import asyncio
-import posixpath
 from typing import Any, TypeVar
 
 from fastmcp.exceptions import ToolError
@@ -26,6 +25,7 @@ from mcp_server.bridge import Bridge
 from mcp_server.defaults import (
     DEFAULT_POLL_INTERVAL_SECONDS,
 )
+from mcp_server.paths import escapes_res_root
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -53,12 +53,12 @@ _SCRIPT_MUTATIONS: set[str] = {
 def _escapes_res_root(script_path: str) -> bool:
     """True when a ``res://`` path escapes the project root (path traversal).
 
-    Strips the scheme and normalizes: a result that climbs above root (``..``) or
-    is absolute (``res:///etc/...``) escapes. ``res://a/../b.gd`` stays inside and
-    is fine. Containment is enforced here (the safety layer), not in the addon.
+    Delegates to :func:`mcp_server.paths.escapes_res_root` — the single
+    containment predicate shared with the ``ResPath`` annotated type (#637).
+    ``res://a/../b.gd`` stays inside and is fine; containment is enforced in the
+    safety layer, not the addon.
     """
-    norm = posixpath.normpath(script_path[len("res://") :])
-    return norm == ".." or norm.startswith("../") or posixpath.isabs(norm)
+    return escapes_res_root(script_path)
 
 
 async def _validate_script_path(
@@ -130,12 +130,58 @@ async def _validate_move_resource_file(
     )
 
 
+# File-authoring commands and their ``res://`` path params (issue #637). A direct
+# tool call already enforces containment via the ``ResPath`` annotated type; this
+# table covers ``run_commands`` sub-commands, which bypass the tool argument
+# schema and would otherwise reach the addon's ``begins_with("res://")`` check
+# (which accepts ``res://../x`` and ``res:///etc``).
+_RES_CONTAINED_PARAMS: dict[str, tuple[str, ...]] = {
+    "cmd_create_resource": ("resource_path",),
+    "cmd_set_resource_property": ("resource_path",),
+    "cmd_register_autoload": ("path",),
+    "cmd_create_shader": ("shader_path",),
+    "cmd_assign_shader_material": ("shader_path",),
+    "cmd_create_visual_shader": ("path",),
+    "cmd_add_shader_node": ("shader_path",),
+    "cmd_connect_shader_nodes": ("shader_path",),
+    "cmd_set_shader_node_param": ("shader_path",),
+    "cmd_create_scene": ("scene_path",),
+    "cmd_instance_scene": ("scene_path",),
+    "cmd_extract_scene": ("scene_path",),
+    "cmd_create_theme": ("save_path",),
+    "cmd_create_tileset": ("save_path",),
+    "cmd_add_tileset_atlas_source": ("texture_path", "tileset_path"),
+    "cmd_create_tile": ("tileset_path",),
+    "cmd_create_mesh_library": ("save_path",),
+    "cmd_add_mesh_library_item": ("library_path", "mesh_path"),
+    "cmd_import_asset": ("target_path",),
+    "cmd_create_material_from_textures": ("path",),
+}
+
+
+async def _validate_res_contained(
+    bridge: Bridge, command: str, params: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Fail a file-authoring command whose ``res://`` path param escapes (issue #637).
+
+    Empty values are skipped (``""`` means "not specified" for several commands).
+    """
+    for field in _RES_CONTAINED_PARAMS.get(command, ()):
+        value = params.get(field, "")
+        if isinstance(value, str) and value:
+            failure = _containment_failure(value, field)
+            if failure is not None:
+                return failure
+    return None
+
+
 # Each validator returns a PARAM_ERROR dict on failure, else None. Property
 # names are deliberately not validated server-side — the addon has better context.
 _VALIDATORS = (
     _validate_script_path,
     _validate_delete_resource_path,
     _validate_move_resource_file,
+    _validate_res_contained,
 )
 
 

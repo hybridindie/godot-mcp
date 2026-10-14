@@ -27,6 +27,7 @@ from mcp_server.models.import_asset import (
     ImportAssetResult,
     ImportStatusResult,
 )
+from mcp_server.paths import ResPath
 from mcp_server.safety import MUTATING, READ_ONLY
 from mcp_server.tools._route import route
 
@@ -182,7 +183,7 @@ def register_import_asset(mcp: FastMCP, bridge: Bridge) -> None:
     @mcp.tool(meta=MUTATING, tags=ASSET_IMPORT)
     async def import_asset(
         source: str,
-        target_path: str,
+        target_path: ResPath,
         options: dict[str, Any] | None = None,
         dry_run: bool = False,
         wait_for_scan: bool = False,
@@ -263,7 +264,7 @@ def register_import_asset(mcp: FastMCP, bridge: Bridge) -> None:
         ao: str = "",
         emission: str = "",
         emission_enabled: str = "",
-        path: str = "",
+        path: ResPath = "",
         dry_run: bool = False,
     ) -> CreateMaterialResult:
         """Assemble a PBR material from texture paths and save it as a ``.tres``.
@@ -311,7 +312,7 @@ def register_import_asset(mcp: FastMCP, bridge: Bridge) -> None:
 
     @mcp.tool(meta=READ_ONLY, tags=ASSET_IMPORT)
     async def get_import_status(
-        target_path: str, wait_ms: Annotated[int, Field(ge=0, le=600_000)] = 0
+        target_path: ResPath, wait_ms: Annotated[int, Field(ge=0, le=600_000)] = 0
     ) -> ImportStatusResult:
         """Check whether ``target_path`` has been imported by the Godot editor.
 

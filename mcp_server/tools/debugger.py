@@ -28,6 +28,7 @@ from mcp_server.models.debugger import (
     StackFramesResult,
     StepResult,
 )
+from mcp_server.paths import ResPath
 from mcp_server.safety import RUNTIME
 from mcp_server.tools._route import route
 
@@ -43,7 +44,7 @@ def register_debugger(mcp: FastMCP, bridge: Bridge) -> None:
     """Register the debugger breakpoint and step control tools."""
 
     @mcp.tool(meta=RUNTIME, tags=DEBUGGER)
-    async def set_breakpoint(path: str, line: int) -> BreakpointResult:
+    async def set_breakpoint(path: ResPath, line: int) -> BreakpointResult:
         """Set a breakpoint at ``line`` in ``path`` (a ``res://`` script path).
         The game must be running from the editor so the debugger session is active.
 
@@ -56,7 +57,7 @@ def register_debugger(mcp: FastMCP, bridge: Bridge) -> None:
         return BreakpointResult(**await route(bridge, "cmd_set_breakpoint", params))
 
     @mcp.tool(meta=RUNTIME, tags=DEBUGGER)
-    async def remove_breakpoint(path: str, line: int) -> BreakpointResult:
+    async def remove_breakpoint(path: ResPath, line: int) -> BreakpointResult:
         """Remove a previously-set breakpoint at ``line`` in ``path``."""
         params = {"path": path, "line": line}
         return BreakpointResult(**await route(bridge, "cmd_remove_breakpoint", params))

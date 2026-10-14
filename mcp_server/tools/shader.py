@@ -26,6 +26,7 @@ from mcp_server.models.shader import (
     ShaderResult,
     ShaderValidateResult,
 )
+from mcp_server.paths import ResPath
 from mcp_server.runtime import Runner, resolve_project_dir
 from mcp_server.safety import (
     MUTATING,
@@ -63,7 +64,7 @@ def register_shader(
     @mcp.tool(meta=MUTATING, tags=SHADER)
     @enforce_preconditions
     async def create_shader(
-        shader_path: str, code: str = DEFAULT_SHADER_CODE, dry_run: bool = False
+        shader_path: ResPath, code: str = DEFAULT_SHADER_CODE, dry_run: bool = False
     ) -> ShaderResult:
         """Create or overwrite a ``.gdshader`` file at ``shader_path`` (must be
         ``res://``) with ``code`` (defaults to a minimal canvas_item shader). Undoable —
@@ -78,7 +79,7 @@ def register_shader(
     @mcp.tool(meta=MUTATING, tags=SHADER)
     @enforce_preconditions
     async def assign_shader_material(
-        node_path: str, shader_path: str, dry_run: bool = False
+        node_path: str, shader_path: ResPath, dry_run: bool = False
     ) -> ShaderMaterialResult:
         """Create a ShaderMaterial wrapping the shader at ``shader_path`` and assign it to
         the node at ``node_path`` (``material`` for CanvasItem, ``material_override`` for
@@ -157,7 +158,7 @@ def register_shader(
         return ShaderParamReadResult(**await route(bridge, "cmd_get_shader_param", params))
 
     @mcp.tool(meta=READ_ONLY, tags=SHADER)
-    async def read_shader(shader_path: str) -> ShaderReadResult:
+    async def read_shader(shader_path: ResPath) -> ShaderReadResult:
         """Read the GLSL-like source of the ``.gdshader`` file at ``shader_path``.
         Errors with RESOURCE_NOT_FOUND if the file does not exist.
         """
@@ -166,7 +167,7 @@ def register_shader(
 
     @mcp.tool(meta=READ_ONLY, tags=SHADER)
     @enforce_preconditions
-    async def validate_shader(shader_path: str) -> ShaderValidateResult:
+    async def validate_shader(shader_path: ResPath) -> ShaderValidateResult:
         """Compile-check the ``.gdshader`` at ``shader_path`` and return structured
         errors (message + source/line when the engine prints them).
 

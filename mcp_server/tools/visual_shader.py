@@ -22,6 +22,7 @@ from mcp_server.models.visual_shader import (
     SetShaderNodeParamResult,
     VisualShaderGraph,
 )
+from mcp_server.paths import ResPath
 from mcp_server.safety import MUTATING, READ_ONLY
 from mcp_server.tools._route import route, run_or_preview
 
@@ -38,7 +39,7 @@ def register_visual_shader(mcp: FastMCP, bridge: Bridge) -> None:
 
     @mcp.tool(meta=MUTATING, tags=VISUAL_SHADER)
     async def create_visual_shader(
-        name: str, type: str = "3d", path: str = "", dry_run: bool = False
+        name: str, type: str = "3d", path: ResPath = "", dry_run: bool = False
     ) -> CreateVisualShaderResult:
         """Create a VisualShader resource with the given ``name`` and ``type``
         (``"2d"`` | ``"3d"`` | ``"particles"`` | ``"sky"`` | ``"fog"``).
@@ -60,7 +61,7 @@ def register_visual_shader(mcp: FastMCP, bridge: Bridge) -> None:
 
     @mcp.tool(meta=MUTATING, tags=VISUAL_SHADER)
     async def add_shader_node(
-        shader_path: str,
+        shader_path: ResPath,
         node_type: str,
         node_id: int,
         position: list[float] | None = None,
@@ -92,7 +93,7 @@ def register_visual_shader(mcp: FastMCP, bridge: Bridge) -> None:
 
     @mcp.tool(meta=MUTATING, tags=VISUAL_SHADER)
     async def connect_shader_nodes(
-        shader_path: str,
+        shader_path: ResPath,
         from_node: int,
         from_port: int,
         to_node: int,
@@ -121,7 +122,7 @@ def register_visual_shader(mcp: FastMCP, bridge: Bridge) -> None:
 
     @mcp.tool(meta=MUTATING, tags=VISUAL_SHADER)
     async def set_shader_node_param(
-        shader_path: str,
+        shader_path: ResPath,
         node_id: int,
         property: str,
         value: Any,
@@ -166,7 +167,7 @@ def register_visual_shader(mcp: FastMCP, bridge: Bridge) -> None:
         )
 
     @mcp.tool(meta=READ_ONLY, tags=VISUAL_SHADER)
-    async def read_visual_shader(shader_path: str) -> VisualShaderGraph:
+    async def read_visual_shader(shader_path: ResPath) -> VisualShaderGraph:
         """Read the VisualShader graph at ``shader_path`` (a ``res://*.tres``): its
         ``mode`` plus every ``node`` ({id, type, position, parameters}) and
         ``connection`` ({from_node, from_port, to_node, to_port}). The inverse of

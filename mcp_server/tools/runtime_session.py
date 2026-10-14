@@ -28,6 +28,7 @@ from mcp_server.models.runtime_session import (
     GameSceneTreeResult,
     PlayResult,
 )
+from mcp_server.paths import ResPath
 from mcp_server.safety import READ_ONLY, RUNTIME
 from mcp_server.tools._route import route
 
@@ -38,7 +39,7 @@ def register_runtime_session(mcp: FastMCP, bridge: Bridge) -> None:
     """Register the play-control + live-inspection tools."""
 
     @mcp.tool(meta=RUNTIME, tags=RUNTIME_SET)
-    async def play_scene(scene_path: str = "") -> PlayResult:
+    async def play_scene(scene_path: ResPath = "") -> PlayResult:
         """Run the game from the editor: play ``scene_path`` (a ``res://*.tscn``) or the
         project's main scene when omitted. The game connects to the editor debugger, so
         runtime inspection/input tools can reach it.

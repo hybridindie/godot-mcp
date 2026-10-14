@@ -26,6 +26,7 @@ from mcp_server.models.project_fs import (
     SettingValue,
     UidResolution,
 )
+from mcp_server.paths import ResPath
 from mcp_server.safety import (
     DESTRUCTIVE,
     MUTATING,
@@ -44,7 +45,7 @@ def register_project_fs(mcp: FastMCP, bridge: Bridge) -> None:
 
     @mcp.tool(meta=READ_ONLY, tags=PROJECT)
     async def get_filesystem_tree(
-        directory: str = "res://", max_depth: MaxDepth = -1
+        directory: ResPath = "res://", max_depth: MaxDepth = -1
     ) -> FilesystemTree:
         """Get the project's file tree under ``directory`` ({name, path, type, children}).
         ``max_depth`` limits levels (-1 = unlimited, 0 = the directory only). Hidden
@@ -55,7 +56,7 @@ def register_project_fs(mcp: FastMCP, bridge: Bridge) -> None:
 
     @mcp.tool(meta=READ_ONLY, tags=PROJECT)
     async def search_files(
-        directory: str = "res://",
+        directory: ResPath = "res://",
         name_glob: str = "",
         content: str = "",
         max_results: MaxResults = DEFAULT_SEARCH_MAX_RESULTS,
@@ -108,7 +109,7 @@ def register_project_fs(mcp: FastMCP, bridge: Bridge) -> None:
     @mcp.tool(meta=DESTRUCTIVE, tags=PROJECT)
     @enforce_preconditions
     async def delete_resource_file(
-        path: str, confirm: bool = False, dry_run: bool = False
+        path: ResPath, confirm: bool = False, dry_run: bool = False
     ) -> DeleteResourceFileResult:
         """Delete the ``res://`` file at ``path`` (and its ``.uid`` sidecar). The inverse
         of the file-creating tools (create_scene, create_resource, create_tileset,
@@ -133,7 +134,7 @@ def register_project_fs(mcp: FastMCP, bridge: Bridge) -> None:
 
     @mcp.tool(meta=MUTATING, tags=PROJECT)
     async def move_resource_file(
-        path: str, new_path: str, dry_run: bool = False
+        path: ResPath, new_path: ResPath, dry_run: bool = False
     ) -> MoveResourceFileResult:
         """Move/rename the ``res://`` file at ``path`` to ``new_path``, rewriting every
         project file that references it (issue #532) — the agent-safe way to rename
