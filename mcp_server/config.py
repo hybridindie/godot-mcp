@@ -28,8 +28,12 @@ BRIDGE_URL_ENV = "GODOT_MCP_BRIDGE_URL"
 # Opt-in shared secret for the bridge handshake (issue #538). Unset = no auth
 # (zero-config local dev); when set, both sides must agree.
 BRIDGE_TOKEN_ENV = "GODOT_MCP_BRIDGE_TOKEN"
+# HTTP Host/Origin protection (issue #636). Unset = "auto" (protect loopback);
+# set "false" to opt out, or "true"/"strict" to validate every request.
+HOST_ORIGIN_PROTECTION_ENV = "GODOT_MCP_HTTP_HOST_ORIGIN_PROTECTION"
 
 Transport = Literal["stdio", "http"]
+HostOriginProtection = bool | Literal["auto"]
 
 
 def _parse_transport(value: str | None) -> Transport:
@@ -39,6 +43,26 @@ def _parse_transport(value: str | None) -> Transport:
     if value == "http":
         return "http"
     return "stdio"
+
+
+def _parse_host_origin_protection(value: str | None) -> HostOriginProtection:
+    """Parse the HTTP Host/Origin protection setting (issue #636).
+
+    Unset / empty / ``auto`` → ``"auto"`` (the safe default: validate a
+    loopback-bound server). ``false``/``0``/``no``/``off`` → ``False`` (opt out).
+    ``true``/``1``/``yes``/``on``/``strict`` → ``True`` (validate every request).
+    An unrecognized value falls back to the safe default rather than failing.
+    """
+    if value is None:
+        return "auto"
+    normalized = value.strip().lower()
+    if normalized in ("", "auto"):
+        return "auto"
+    if normalized in ("false", "0", "no", "off"):
+        return False
+    if normalized in ("true", "1", "yes", "on", "strict"):
+        return True
+    return "auto"
 
 
 class BridgeConfig(BaseModel):
@@ -100,6 +124,12 @@ class ServerConfig(BaseModel):
     # HTTP transport auth (issue #226). Opt-in: loopback HTTP is allowed without a
     # token; a non-loopback bind requires a token or the server refuses to start.
     auth_token: str | None = None
+    # HTTP DNS-rebinding protection (issue #636). FastMCP's HostOriginGuardMiddleware
+    # ships off; default "auto" validates the Host header (and a browser Origin) for
+    # a loopback-bound server — a foreign Host yields 421, a foreign Origin 403,
+    # before any code-executing tool is reachable. ``False`` opts out; ``True``
+    # validates every request ("strict"). See HOST_ORIGIN_PROTECTION_ENV.
+    http_host_origin_protection: HostOriginProtection = "auto"
     # Opt-in update check (issue #629). Off by default — no silent phone-home; when
     # set, the server may query the release feed to tell the agent it is behind.
     check_updates: bool = False
@@ -122,6 +152,9 @@ class ServerConfig(BaseModel):
             approval_require=os.environ.get("GODOT_MCP_APPROVAL_REQUIRE", "").lower()
             in ("1", "true", "yes"),
             auth_token=os.environ.get("GODOT_MCP_AUTH_TOKEN"),
+            http_host_origin_protection=_parse_host_origin_protection(
+                os.environ.get(HOST_ORIGIN_PROTECTION_ENV)
+            ),
             check_updates=os.environ.get("GODOT_MCP_CHECK_UPDATES", "").lower()
             in ("1", "true", "yes"),
         )

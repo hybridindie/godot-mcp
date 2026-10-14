@@ -107,7 +107,11 @@ async def _default_serve(
     # #563: max_size must exceed the largest frame the addon sends — the library
     # default (1 MiB) silently drops full-screenshot responses (over the wire the
     # addon sees a closed connection and just reconnects; the tool times out).
-    return await serve(_on_connect, host, port, max_size=max_size)
+    # #636: origins=[None] rejects any handshake carrying a browser Origin (a page
+    # the user visits can reach ws://127.0.0.1:9080 — WebSockets are exempt from
+    # same-origin policy). The Godot addon's WebSocketPeer sends no Origin, so it
+    # still connects.
+    return await serve(_on_connect, host, port, max_size=max_size, origins=[None])
 
 
 class Bridge:

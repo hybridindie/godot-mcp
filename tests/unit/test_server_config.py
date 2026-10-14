@@ -66,6 +66,23 @@ def test_no_dead_permission_mode_field() -> None:
     assert "permission_mode" not in ServerConfig.model_fields
 
 
+def test_http_host_origin_protection_defaults_to_auto() -> None:
+    """#636: FastMCP's HTTP Host/Origin guard ships off; we default it on ("auto",
+    which validates Host + browser Origin for a loopback-bound server)."""
+    assert ServerConfig().http_host_origin_protection == "auto"
+    assert ServerConfig.from_env().http_host_origin_protection == "auto"
+
+
+def test_http_host_origin_protection_env_opt_out(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GODOT_MCP_HTTP_HOST_ORIGIN_PROTECTION", "false")
+    assert ServerConfig.from_env().http_host_origin_protection is False
+
+
+def test_http_host_origin_protection_env_strict(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GODOT_MCP_HTTP_HOST_ORIGIN_PROTECTION", "strict")
+    assert ServerConfig.from_env().http_host_origin_protection is True
+
+
 def test_from_env_ignores_permission_mode_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GODOT_MCP_PERMISSION_MODE", "deny")
     config = ServerConfig.from_env()

@@ -18,6 +18,7 @@ All knobs are optional; the defaults serve a local single-user setup.
 | `GODOT_MCP_HTTP_HOST` | `127.0.0.1` | HTTP bind host |
 | `GODOT_MCP_HTTP_PORT` | `9090` | HTTP bind port (`/mcp` is FastMCP's mount path) |
 | `GODOT_MCP_AUTH_TOKEN` | unset | Bearer token; **required** for non-loopback HTTP binds (fail-fast, #226) |
+| `GODOT_MCP_HTTP_HOST_ORIGIN_PROTECTION` | `auto` | HTTP Host/Origin (DNS-rebinding) guard (#636): `auto` validates the `Host` header + browser `Origin` for a loopback-bound server (foreign `Host` → `421`, foreign `Origin` → `403`); `false` opts out; `true`/`strict` validates every request |
 | `GODOT_MCP_BRIDGE_URL` | `ws://127.0.0.1:9080` | bridge listen (server) / connect (addon) URL |
 | `GODOT_MCP_BRIDGE_TOKEN` | unset | opt-in shared secret for the bridge handshake (#538) — when set, the addon must send the matching token as its first message or the peer is refused at the handshake; never logged |
 | `GODOT_MCP_PROJECT_DIR` | unset | explicit project dir; else the connected editor's project is used |
@@ -81,6 +82,26 @@ TOKEN=$(openssl rand -hex 32)
 GODOT_MCP_BRIDGE_TOKEN=$TOKEN uv run godot-editor-mcp          # server
 GODOT_MCP_BRIDGE_TOKEN=$TOKEN godot --editor --path ./game     # the editor's env
 ```
+
+### Listener hardening (#636)
+
+Browsers do **not** apply the same-origin policy to WebSockets, and DNS
+rebinding can make a page the user visits resolve to `127.0.0.1`. Both listeners
+are hardened by default:
+
+- **Bridge WebSocket**: the listener accepts only Origin-less handshakes
+  (`origins=[None]`) — the Godot addon's `WebSocketPeer` sends no `Origin`, so a
+  browser page is rejected at the handshake (`403`) before it can reach the
+  bridge. A bad-or-missing-token peer is also refused *before* it can displace
+  the authenticated editor (#635).
+- **HTTP transport**: FastMCP's `HostOriginGuardMiddleware` is enabled by default
+  (`GODOT_MCP_HTTP_HOST_ORIGIN_PROTECTION=auto`), so a non-loopback `Host` header
+  is refused (`421`) and a foreign browser `Origin` is refused (`403`) before any
+  code-executing tool (`write_script`, `run_and_capture`, `export_project`) is
+  reachable. Opt out with `GODOT_MCP_HTTP_HOST_ORIGIN_PROTECTION=false`.
+
+Neither guard replaces the auth token — a non-loopback HTTP bind still requires
+`GODOT_MCP_AUTH_TOKEN`.
 
 ## Logging
 

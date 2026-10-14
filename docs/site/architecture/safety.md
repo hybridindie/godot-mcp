@@ -65,7 +65,12 @@ Reasoning:
 
 The classes apply **in every transport mode**; transport-level auth (the
 `GODOT_MCP_AUTH_TOKEN` gate on non-loopback HTTP binds) is a second, separate
-layer that gates *who can connect at all*.
+layer that gates *who can connect at all*. Listener hardening (#636) is the
+third: the bridge refuses browser-`Origin` WebSocket handshakes and the HTTP
+transport's Host/Origin guard is on by default, so a visited web page (WebSocket
+same-origin exemption, DNS rebinding) can't reach the code-executing tools —
+while a *local* process still only needs the bridge/token, since loopback is
+single-user by design.
 
 ### Batch tools don't bypass the gates
 

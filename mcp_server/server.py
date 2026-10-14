@@ -16,6 +16,7 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import fastmcp
 import fastmcp_tasks  # noqa: F401  — importing enables Client-side task support (issue #315)
 from fastmcp import FastMCP
 from fastmcp_tasks import TasksExtension
@@ -90,6 +91,17 @@ logger = logging.getLogger(__name__)
 SERVER_NAME = "godot-mcp"
 
 
+def _apply_http_host_origin_protection(config: ServerConfig) -> None:
+    """Push the HTTP Host/Origin guard default into FastMCP's global settings (#636).
+
+    ``run(transport="http")`` and ``http_app()`` both fall back to
+    ``fastmcp.settings.http_host_origin_protection`` when no explicit value is
+    passed, so setting it here makes the godot-mcp default ("auto": protect the
+    loopback-bound server) effective on every HTTP path.
+    """
+    fastmcp.settings.http_host_origin_protection = config.http_host_origin_protection
+
+
 def create_server(
     config: ServerConfig | None = None,
     bridge: Bridge | None = None,
@@ -99,6 +111,8 @@ def create_server(
 ) -> FastMCP:
     """Create the FastMCP server, wiring the bridge and registering tools."""
     config = config or ServerConfig()
+    # #636: default the HTTP Host/Origin guard on before any HTTP app is built.
+    _apply_http_host_origin_protection(config)
     bridge = bridge or Bridge(config.bridge)
     runner = runner or GodotRunner(config)
     # Human-in-the-loop approval gate (issue #153); no-op unless a webhook is set.

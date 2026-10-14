@@ -56,6 +56,24 @@ Why the editor dials:
   enabled toolset set, #592, so the dock's *Toolsets* row mirrors the server).
   A replaced peer also receives a `PEER_REPLACED` notice before its link closes (#593).
 
+## Threat model
+
+Loopback is reachable by more than the editor, so the listeners are hardened by
+default (#636):
+
+- **A browser page.** WebSockets are exempt from the same-origin policy, and DNS
+  rebinding lets an attacker's hostname resolve to `127.0.0.1`. The bridge
+  therefore accepts only **Origin-less** handshakes (`origins=[None]`) — the
+  Godot addon's `WebSocketPeer` sends no `Origin`, so a page is refused at the
+  handshake; the HTTP transport's Host/Origin guard is likewise on by default
+  (`GODOT_MCP_HTTP_HOST_ORIGIN_PROTECTION=auto`; foreign `Host` → `421`, foreign
+  `Origin` → `403`).
+- **Another local process.** Any local process can connect. The bridge is
+  localhost-only; for shared/remote setups the opt-in token (#538) is the gate,
+  and a bad/missing token is refused **before** it can displace the authenticated
+  editor (#635). A non-loopback HTTP bind still requires `GODOT_MCP_AUTH_TOKEN`
+  (#226).
+
 ## Timeouts, everywhere
 
 A request that outlives its timeout resolves to a `TIMEOUT` envelope — it does
@@ -92,6 +110,7 @@ immediately — it does not wait for an editor that isn't coming.
 | `GODOT_MCP_TRANSPORT` | `stdio` | `stdio` or `http` |
 | `GODOT_MCP_HTTP_HOST` / `_PORT` | `127.0.0.1:9090` | HTTP bind |
 | `GODOT_MCP_AUTH_TOKEN` | unset | Bearer token — **required** for non-loopback HTTP binds (#226) |
+| `GODOT_MCP_HTTP_HOST_ORIGIN_PROTECTION` | `auto` | HTTP Host/Origin (DNS-rebinding) guard (#636) — `auto` protects loopback, `false` opts out |
 | `GODOT_MCP_BRIDGE_TOKEN` | unset | opt-in shared secret for the bridge handshake (#538) — set on both sides; the addon authenticates as its first message; a mismatch is refused at the handshake; never logged |
 | `GODOT_MCP_PROJECT_DIR` | unset | explicit project dir (else the connected editor's) |
 
