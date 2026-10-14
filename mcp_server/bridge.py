@@ -253,19 +253,31 @@ class Bridge:
     async def _handle_peer(self, conn: Connection) -> None:
         """Per-connection handler for the real listener: adopt the peer and stay until it
         disconnects, so ``websockets`` keeps the connection open for the read loop."""
-        await self._attach(conn)
-        reader = self._reader
+        reader = await self._attach(conn)
         if reader is not None:
             await reader
 
-    async def _attach(self, conn: Connection) -> None:
+    async def _attach(self, conn: Connection) -> asyncio.Task[None] | None:
         """Adopt ``conn`` as the active peer, replacing and failing out any previous one,
         and start its response reader.
 
-        Serialised by ``_attach_lock`` so concurrent editor connections can't interleave,
-        and the replaced peer's reader is **fully stopped** (awaited after cancel) before
-        the new one adopts ``self._conn`` — otherwise a dying read loop could resolve a
-        future the new peer now owns (#276 review)."""
+        Authentication runs **first** (issue #635): an unauthenticated peer is refused
+        before it can touch the active peer, so a bad/missing token can never evict the
+        real editor. Only then are replacement and adoption performed as one atomic step
+        under ``_attach_lock`` — two concurrent authed peers serialize, and the loser is
+        cleanly replaced (never two readers owning the same futures). The replaced peer's
+        reader is **fully stopped** (awaited after cancel) before the new one adopts
+        ``self._conn``. Returns the new reader task, or ``None`` when the peer was refused.
+        """
+        # Count every attempt (auth'd or refused) — the e2e asserts on this for a
+        # refused peer, which never flips ``connected`` (#538).
+        self.peer_attempts += 1
+        # Auth handshake (issue #538) BEFORE any disruption of the current peer.
+        pre_auth: list[str | bytes] = []
+        if self._config.auth_token is not None:
+            ok, pre_auth = await self._auth_check(conn)
+            if not ok:
+                return None
         async with self._attach_lock:
             if self._conn is not None:
                 old, old_reader = self._conn, self._reader
@@ -309,27 +321,17 @@ class Bridge:
             # itself is logged at replacement time (above), the new identity
             # lands when its hello arrives.
             self._peer_identity = None
-            # ...and it must authenticate again (#538): auth state never leaks
-            # from one connection to the next.
-            self._authed = False
-        self.peer_attempts += 1
-        # Bridge auth handshake (issue #538): with a token configured, the peer's
-        # FIRST message must authenticate it. A refusal happens here — at the
-        # handshake, structured, never as a per-command error — and the peer is
-        # dropped immediately (the addon's reconnect/backoff loop then retries,
-        # showing the refusal reason in the dock log).
-        pre_auth: list[str | bytes] = []
-        if self._config.auth_token is not None:
-            ok, pre_auth = await self._auth_check(conn)
-            if not ok:
-                return
-        self._conn = conn
-        # Control messages the handshake consumed ahead of the auth envelope
-        # (e.g. the #537 peer hello pipelined alongside it) still belong to the
-        # read loop — replay them so identity handling isn't skipped.
-        for raw in pre_auth:
-            self._resolve(raw if isinstance(raw, str) else raw.decode("utf-8"))
-        self._reader = asyncio.create_task(self._read_loop(conn))
+            # Auth state never leaks from one connection to the next (#538): a peer
+            # that reached here authenticated (token mode) or the mode is token-free.
+            self._authed = self._config.auth_token is not None
+            # Atomic adoption: only now does this peer own the bridge.
+            self._conn = conn
+            # Control messages the handshake consumed ahead of the auth envelope
+            # (e.g. the #537 peer hello pipelined alongside it) still belong to the
+            # read loop — replay them so identity handling isn't skipped.
+            for raw in pre_auth:
+                self._resolve(raw if isinstance(raw, str) else raw.decode("utf-8"))
+            self._reader = asyncio.create_task(self._read_loop(conn))
         logger.debug("bridge peer connected")
         # #592: now that the peer is live, let the server push state the addon's
         # dock needs (the enabled toolset set). Best-effort — a failed push must
@@ -339,6 +341,7 @@ class Bridge:
                 await self.on_peer_ready()
             except Exception:
                 logger.warning("on_peer_ready push failed", exc_info=True)
+        return self._reader
 
     async def _auth_check(self, conn: Connection) -> tuple[bool, list[str | bytes]]:
         """Require + verify the peer's auth envelope before adoption (issue #538).
@@ -398,7 +401,6 @@ class Bridge:
                 with suppress(Exception):
                     await conn.close()
                 return False, []
-            self._authed = True
             logger.info("bridge peer authenticated")
             return True, skipped
 
@@ -454,9 +456,12 @@ class Bridge:
             self._pending.pop(msg_id, None)
             if not future.done():
                 future.cancel()
+            # #635: fail the wider pending set only when THIS conn is still the
+            # active peer; a stale send (replaced mid-flight) must not fail the
+            # new peer's requests.
             if self._conn is conn:
                 self._conn = None
-            self._fail_pending("BRIDGE_DISCONNECTED", "Editor connection lost.")
+                self._fail_pending("BRIDGE_DISCONNECTED", "Editor connection lost.")
             return ResponseEnvelope.failure(
                 msg_id, ErrorCode.BRIDGE_DISCONNECTED, "Lost connection to Godot while sending."
             )
@@ -478,9 +483,10 @@ class Bridge:
         try:
             await conn.send(envelope.model_dump_json())
         except Exception:
+            # #635: only fail the active peer's pendings when THIS conn is still it.
             if self._conn is conn:
                 self._conn = None
-            self._fail_pending("BRIDGE_DISCONNECTED", "Editor connection lost.")
+                self._fail_pending("BRIDGE_DISCONNECTED", "Editor connection lost.")
             raise
 
     async def ping(self) -> bool:
@@ -527,9 +533,12 @@ class Bridge:
             raise
         except Exception:
             logger.debug("bridge reader stopped; editor disconnected")
+            # #635: only tear down the bridge when THIS conn is still the active
+            # peer — a stale peer's disconnect must not fail the active peer's
+            # in-flight requests.
             if self._conn is conn:
                 self._conn = None
-            self._fail_pending("BRIDGE_DISCONNECTED", "Editor connection lost.")
+                self._fail_pending("BRIDGE_DISCONNECTED", "Editor connection lost.")
 
     def _resolve(self, raw: str) -> None:
         try:
