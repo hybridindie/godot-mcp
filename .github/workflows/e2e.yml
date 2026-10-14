@@ -1,6 +1,7 @@
-# Live-editor end-to-end suites — the coverage the GitHub-hosted `ci` job can't
-# provide. The e2e (`test_*_e2e.py`) and addon-smoke (`test_addon_*.py`) tests are
-# gated `skipif(GODOT_BIN is None)`, so on `ubuntu-latest` they silently skip.
+# Live-editor end-to-end suites — the coverage the `ci` job can't provide (it runs
+# on the self-hosted runner but without a Godot editor). The e2e
+# (`test_*_e2e.py`) and addon-smoke (`test_addon_*.py`) tests are gated
+# `skipif(GODOT_BIN is None)`, so in `ci` they silently skip.
 # This job runs them on a SELF-HOSTED runner that has a Godot editor binary —
 # closing the CI gap behind #263/#269.
 #
