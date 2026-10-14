@@ -28,6 +28,21 @@ class SubCommandResult(BaseModel):
     hint: str | None = None
 
 
+class SubCommandPlan(BaseModel):
+    """A sub-command resolved back to the tool that backs it (issue #634).
+
+    The batch's outer tool is ``mutating``, so each entry is mapped to its
+    exposed tool to inherit that tool's toolset (gating), path preflight, and
+    safety class (destructive needs ``confirm``). ``tool`` is ``None`` when the
+    command backs no registered tool (an unknown ``cmd_*``).
+    """
+
+    command: str
+    tool: str | None = None
+    toolset: str | None = None
+    safety_class: str | None = None
+
+
 class RunCommandsResult(BaseModel):
     """Result of a ``run_commands`` batch executed in one editor frame.
 
@@ -40,12 +55,17 @@ class RunCommandsResult(BaseModel):
     the index of the failing sub-command and ``skipped_count``/``hint`` make the
     trailing work explicit (default ``stop_on_error=True`` means trailing
     commands — e.g. ``save_scene`` — silently never ran before this field).
+
+    #634: ``plan`` resolves every entry back to its exposed tool, toolset, and
+    safety class (empty when the batch failed policy validation before a plan
+    could be produced).
     """
 
     results: list[SubCommandResult] = []
     ok_all: bool
     count: int
     planned: list[str] = []
+    plan: list[SubCommandPlan] = []
     dry_run: bool = False
     aborted_at: int | None = None
     skipped_count: int = 0

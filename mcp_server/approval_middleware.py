@@ -33,6 +33,7 @@ from mcp.types import ElicitRequest, ElicitRequestFormParams, InputRequiredResul
 
 from mcp_server.models.envelope import ErrorCode
 from mcp_server.safety import ApprovalGate, PreconditionError, SafetyClass
+from mcp_server.subcommand_policy import effective_safety_class
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +131,15 @@ class ApprovalMiddleware(Middleware):
             return await call_next(context)
         if tool is None:
             return await call_next(context)
-        safety_class: str = (tool.meta or {}).get("safety_class") or ""
+        # #634: a run_commands batch is approved at the severity of its most
+        # dangerous entry (a batch containing a delete is destructive), not the
+        # outer tool's mutating class. Every other tool keeps its own class.
+        try:
+            safety_class: str = await effective_safety_class(
+                context.fastmcp_context.fastmcp, tool, args
+            )
+        except Exception:
+            safety_class = (tool.meta or {}).get("safety_class") or ""
         if not _is_gated_safety_class(safety_class):
             return await call_next(context)
 

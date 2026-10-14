@@ -11,7 +11,7 @@ to the addon ``cmd_*`` handler, return a typed model.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
@@ -31,8 +31,12 @@ from mcp_server.safety import (
     require_bridge_connected,
     require_node_exists,
 )
+from mcp_server.subcommand_policy import guard_batch
 from mcp_server.tools._persistence import node_probe
 from mcp_server.tools._route import run_or_preview
+
+if TYPE_CHECKING:
+    from mcp_server.toolset_middleware import ToolsetMiddleware
 
 COMPOSITE = {COMPOSITE_TAG}
 
@@ -81,8 +85,15 @@ def _child_to_addon(child: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def register_composite(mcp: FastMCP, bridge: Bridge) -> None:
-    """Register the composite/macro tools (gated under the ``composite`` toolset)."""
+def register_composite(
+    mcp: FastMCP, bridge: Bridge, toolset_mw: ToolsetMiddleware
+) -> None:
+    """Register the composite/macro tools (gated under the ``composite`` toolset).
+
+    ``toolset_mw`` is the server-global gating middleware: ``run_commands``
+    resolves each sub-command to its toolset and refuses entries whose toolset is
+    disabled, matching the surface it would have if called directly (#634).
+    """
 
     @mcp.tool(meta=MUTATING, tags=COMPOSITE)
     @enforce_preconditions
@@ -202,6 +213,7 @@ def register_composite(mcp: FastMCP, bridge: Bridge) -> None:
     async def run_commands(
         commands: list[dict[str, Any]],
         stop_on_error: bool = True,
+        confirm: bool = False,
         dry_run: bool = False,
     ) -> RunCommandsResult:
         """Execute a sequence of bridge commands in ONE round-trip (the addon runs
@@ -217,6 +229,12 @@ def register_composite(mcp: FastMCP, bridge: Bridge) -> None:
         ``stop_on_error=True`` (default) the batch halts at the first failure;
         set it False to run them all. Read-only and mutating commands may be
         mixed, but order is preserved — do not rely on it for unordered writes.
+
+        Safety is enforced per entry, not by this tool's own class: a sub-command
+        from a disabled toolset is refused (enable it first), a **destructive**
+        sub-command requires ``confirm=True``, and each entry's params go through
+        the server path preflight. ``plan`` names the resolved tool/toolset/safety
+        class for every entry (populated on ``dry_run`` too).
         """
         require_bridge_connected(bridge)
         normalized = [
@@ -233,14 +251,25 @@ def register_composite(mcp: FastMCP, bridge: Bridge) -> None:
                 "PARAM_ERROR: run_commands cannot be nested inside run_commands. "
                 "[required=commands]"
             )
+        # #634: the batch is not a safety bypass — resolve each entry to its own
+        # tool and enforce its toolset gate, destructive confirm, and path preflight.
+        plans = await guard_batch(
+            mcp,
+            bridge,
+            toolset_mw.enabled(),
+            normalized,
+            confirm=confirm,
+            dry_run=dry_run,
+        )
         params: dict[str, Any] = {"commands": normalized, "stop_on_error": stop_on_error}
         preview = {
             "results": [],
             "ok_all": True,
             "count": len(normalized),
             "planned": [c["command"] for c in normalized],
+            "plan": plans,
         }
-        return await run_or_preview(
+        result = await run_or_preview(
             dry_run,
             RunCommandsResult,
             preview,
@@ -248,3 +277,5 @@ def register_composite(mcp: FastMCP, bridge: Bridge) -> None:
             "cmd_run_commands",
             params,
         )
+        result.plan = plans
+        return result

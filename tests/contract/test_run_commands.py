@@ -5,6 +5,9 @@ executes the sub-commands in a single frame and returns one envelope per command
 These pin the typed I/O, the gated/mutating safety class, stop-on-error vs
 continue, and that ``dry_run`` previews without sending the batch — driven by a
 fake addon peer, no live editor.
+
+Issue #634 adds the per-entry safety contract: a batch is not a way around the
+toolset gate, the destructive ``confirm`` gate, or the server path preflight.
 """
 
 from __future__ import annotations
@@ -16,7 +19,9 @@ from fastmcp import Client, FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.config import ServerConfig
+from mcp_server.models.approval import ApprovalRequest, ApprovalResponse
 from mcp_server.models.envelope import CommandEnvelope, ResponseEnvelope
+from mcp_server.safety import ApprovalGate
 from mcp_server.server import create_server
 from tests.fakes import FakeAddonConnection, connector_for
 
@@ -66,14 +71,21 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
     return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected command")
 
 
-def _build() -> tuple[FastMCP, FakeAddonConnection]:
+def _build(approval: ApprovalGate | None = None) -> tuple[FastMCP, FakeAddonConnection]:
     conn = FakeAddonConnection(responder=_responder)
     bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
-    return create_server(ServerConfig(), bridge=bridge), conn
+    return create_server(ServerConfig(), bridge=bridge, approval=approval), conn
 
 
 def _commands(conn: FakeAddonConnection) -> list[str]:
     return [CommandEnvelope.model_validate_json(s).command for s in conn.sent]
+
+
+async def _enable(client: Any, *categories: str) -> None:
+    """Enable the given toolsets (the batch's sub-commands are gated per their
+    own toolset, #634)."""
+    for category in categories:
+        await client.call_tool("godot_enable_toolset", {"category": category})
 
 
 async def test_run_commands_is_gated_mutating() -> None:
@@ -91,7 +103,7 @@ async def test_run_commands_is_gated_mutating() -> None:
 async def test_run_commands_executes_batch_in_one_round_trip() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("godot_enable_toolset", {"category": "composite"})
+        await _enable(client, "composite", "scene_edit")
         result = await client.call_tool(
             "godot_composite_run_commands",
             {
@@ -114,7 +126,7 @@ async def test_run_commands_executes_batch_in_one_round_trip() -> None:
 async def test_run_commands_stop_on_error_truncates() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("godot_enable_toolset", {"category": "composite"})
+        await _enable(client, "composite", "scene_edit")
         result = await client.call_tool(
             "godot_composite_run_commands",
             {
@@ -141,7 +153,7 @@ async def test_run_commands_stop_on_error_truncates() -> None:
 async def test_run_commands_continue_on_error_reports_no_abort() -> None:
     server, _ = _build()
     async with Client(server) as client:
-        await client.call_tool("godot_enable_toolset", {"category": "composite"})
+        await _enable(client, "composite", "scene_edit")
         result = await client.call_tool(
             "godot_composite_run_commands",
             {
@@ -164,7 +176,7 @@ async def test_run_commands_continue_on_error_reports_no_abort() -> None:
 async def test_run_commands_dry_run_sends_nothing() -> None:
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("godot_enable_toolset", {"category": "composite"})
+        await _enable(client, "composite", "scene_edit")
         result = await client.call_tool(
             "godot_composite_run_commands",
             {
@@ -204,7 +216,7 @@ async def test_run_commands_resolves_trimmed_tool_names() -> None:
     # cmd_set_layers. The documented bare form is the exposed name minus "godot_".
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("godot_enable_toolset", {"category": "composite"})
+        await _enable(client, "composite", "physics", "particles", "scripts", "editor")
         result = await client.call_tool(
             "godot_composite_run_commands",
             {
@@ -253,7 +265,7 @@ async def test_run_commands_resolves_reordered_read_names() -> None:
     #  read_shader -> read_shader, get_shader_param -> get_shader_param).
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("godot_enable_toolset", {"category": "composite"})
+        await _enable(client, "composite", "audio", "shader")
         result = await client.call_tool(
             "godot_composite_run_commands",
             {
@@ -281,7 +293,7 @@ async def test_run_commands_maps_create_node_node_name() -> None:
     # type name (the reported "create_node ignores node_name" symptom).
     server, conn = _build()
     async with Client(server) as client:
-        await client.call_tool("godot_enable_toolset", {"category": "composite"})
+        await _enable(client, "composite", "scene_edit")
         result = await client.call_tool(
             "godot_composite_run_commands",
             {
@@ -331,3 +343,139 @@ async def test_run_commands_unknown_bare_name_fails_with_suggestion() -> None:
     assert result.is_error
     assert "set_layers" in str(result.content)  # suggests the real bare name
     assert "cmd_set_layerz" not in _commands(conn)  # nothing sent to the addon
+
+
+# ---------------------------------------------------------------- safety (#634)
+#
+# A run_commands batch must not be a safety bypass: each sub-command is resolved
+# back to its exposed tool and inherits that tool's toolset (gating), path
+# preflight, and safety class (destructive needs confirm + approval). The outer
+# tool being ``mutating`` is not a license to smuggle a destructive command.
+
+
+async def test_run_commands_destructive_subcommand_without_confirm_refused() -> None:
+    server, conn = _build()
+    async with Client(server) as client:
+        await _enable(client, "composite", "scene_edit")
+        result = await client.call_tool(
+            "godot_composite_run_commands",
+            {"commands": [{"command": "cmd_delete_node", "params": {"node_path": "Player"}}]},
+            raise_on_error=False,
+        )
+    assert result.is_error
+    assert "confirm" in str(result.content).lower()
+    assert "cmd_run_commands" not in _commands(conn)  # nothing sent
+
+
+async def test_run_commands_destructive_subcommand_with_confirm_runs() -> None:
+    server, conn = _build()
+    async with Client(server) as client:
+        await _enable(client, "composite", "scene_edit")
+        result = await client.call_tool(
+            "godot_composite_run_commands",
+            {
+                "commands": [{"command": "cmd_delete_node", "params": {"node_path": "Player"}}],
+                "confirm": True,
+            },
+        )
+    assert result.structured_content["ok_all"] is True
+    assert "cmd_run_commands" in _commands(conn)
+
+
+async def test_run_commands_gated_toolset_subcommand_refused() -> None:
+    # Only ``composite`` is enabled; cmd_create_node belongs to ``scene_edit``.
+    server, conn = _build()
+    async with Client(server) as client:
+        await _enable(client, "composite")
+        result = await client.call_tool(
+            "godot_composite_run_commands",
+            {"commands": [{"command": "cmd_create_node", "params": {"parent_path": "."}}]},
+            raise_on_error=False,
+        )
+    assert result.is_error
+    assert "not enabled" in str(result.content)
+    assert "scene_edit" in str(result.content)
+    assert "cmd_run_commands" not in _commands(conn)
+
+
+async def test_run_commands_path_traversal_subcommand_refused() -> None:
+    server, conn = _build()
+    async with Client(server) as client:
+        await _enable(client, "composite", "scripts")
+        result = await client.call_tool(
+            "godot_composite_run_commands",
+            {
+                "commands": [
+                    {
+                        "command": "cmd_write_script",
+                        "params": {"script_path": "res://../evil.gd", "content": "extends Node"},
+                    }
+                ]
+            },
+            raise_on_error=False,
+        )
+    assert result.is_error
+    assert "res://" in str(result.content)
+    assert "cmd_run_commands" not in _commands(conn)
+
+
+async def test_run_commands_unknown_cmd_refused() -> None:
+    server, conn = _build()
+    async with Client(server) as client:
+        await _enable(client, "composite")
+        result = await client.call_tool(
+            "godot_composite_run_commands",
+            {"commands": [{"command": "cmd_not_a_real_command", "params": {}}]},
+            raise_on_error=False,
+        )
+    assert result.is_error
+    assert "not_a_real_command" in str(result.content)
+    assert "cmd_run_commands" not in _commands(conn)
+
+
+async def test_run_commands_dry_run_reports_resolved_policy() -> None:
+    server, conn = _build()
+    async with Client(server) as client:
+        await _enable(client, "composite", "scene_edit")
+        result = await client.call_tool(
+            "godot_composite_run_commands",
+            {
+                "commands": [
+                    {"command": "cmd_create_node", "params": {"parent_path": ".", "name": "A"}}
+                ],
+                "dry_run": True,
+            },
+        )
+    data = result.structured_content
+    assert data["dry_run"] is True
+    assert "cmd_run_commands" not in _commands(conn)
+    plan = data["plan"]
+    assert plan[0]["command"] == "cmd_create_node"
+    assert plan[0]["tool"] == "godot_scene_edit_create_node"
+    assert plan[0]["toolset"] == "scene_edit"
+    assert plan[0]["safety_class"] == "mutating"
+
+
+async def test_run_commands_batch_with_destructive_entry_is_destructive_to_webhook() -> None:
+    # A batch containing a destructive entry must be classified destructive at
+    # the approval boundary — not mutating — so the webhook sees the real risk.
+    seen: dict[str, Any] = {}
+
+    async def approve(url: str, request: ApprovalRequest, timeout: float) -> ApprovalResponse:
+        seen["safety_class"] = request.safety_class
+        seen["action"] = request.action
+        return ApprovalResponse(approved=True)
+
+    gate = ApprovalGate(webhook_url="http://hook", poster=approve)
+    server, conn = _build(approval=gate)
+    async with Client(server) as client:
+        await _enable(client, "composite", "scene_edit")
+        await client.call_tool(
+            "godot_composite_run_commands",
+            {
+                "commands": [{"command": "cmd_delete_node", "params": {"node_path": "Player"}}],
+                "confirm": True,
+            },
+        )
+    assert seen["safety_class"] == "destructive"
+    assert "cmd_run_commands" in _commands(conn)

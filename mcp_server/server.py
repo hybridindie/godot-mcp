@@ -208,7 +208,15 @@ def create_server(
     register_testing(mcp, bridge, config, runner)
     register_profiling(mcp, bridge)
     register_batch(mcp, bridge)
-    register_composite(mcp, bridge)
+    # Toolset gating (issues #227/#364): the enabled set is a *single server-global
+    # set*, not per-session — godot-mcp is a single-user local server, and the
+    # sessionless 2026-07-28 protocol real clients use made per-session isolation
+    # dead code (see ToolsetMiddleware's docstring). Every client, and the addon
+    # dock's push (#592), reads the same set.
+    toolset_mw = ToolsetMiddleware()
+    # run_commands resolves each sub-command to its toolset and refuses entries
+    # whose toolset is disabled (#634), so it needs the same gating source.
+    register_composite(mcp, bridge, toolset_mw)
     register_debugger(mcp, bridge)
     register_analysis(mcp, bridge, config)
     register_export(mcp, bridge, config, runner)
@@ -217,12 +225,6 @@ def create_server(
     register_project_scaffold(mcp, bridge)
     register_safety_tools(mcp)
 
-    # Toolset gating (issues #227/#364): the enabled set is a *single server-global
-    # set*, not per-session — godot-mcp is a single-user local server, and the
-    # sessionless 2026-07-28 protocol real clients use made per-session isolation
-    # dead code (see ToolsetMiddleware's docstring). Every client, and the addon
-    # dock's push (#592), reads the same set.
-    toolset_mw = ToolsetMiddleware()
     mcp.add_middleware(toolset_mw)
 
     # Gate the tool surface by category (server-global via the middleware above).

@@ -926,7 +926,7 @@ support `dry_run`; `save=True` also saves the scene (a file write after the undo
 | `godot_composite_compose_node` | `parent_path, node_type, node_name, properties?, script_path?, children?, save=False, dry_run=False` | `ComposeNodeResult { node_path, created, children[], script_attached, properties_set[], saved }` | `mutating` |
 | `godot_composite_batch_create_nodes` | `parent_path, node_type, names[], properties?, save=False, dry_run=False` | `BatchCreateNodesResult { created[], count, saved, undoable, hint? }` | `mutating` |
 | `godot_composite_apply_node_edits` | `edits[] ({node_path, properties}), save=False, dry_run=False` | `ApplyNodeEditsResult { edited[], skipped[], count, saved, undoable, hint?, persistence[] }` | `mutating` |
-| `godot_composite_run_commands` | `commands[] ({command, params}), stop_on_error=True, dry_run=False` | `RunCommandsResult { results[] ({command, ok, result?, error?, hint?}), ok_all, count, planned[], dry_run, aborted_at?, skipped_count?, hint? }` | `mutating` |
+| `godot_composite_run_commands` | `commands[] ({command, params}), stop_on_error=True, confirm=False, dry_run=False` | `RunCommandsResult { results[] ({command, ok, result?, error?, hint?}), ok_all, count, planned[], plan[] ({command, tool, toolset, safety_class}), dry_run, aborted_at?, skipped_count?, hint? }` | `mutating` |
 
 Every result model also carries `dry_run` (true on a preview), as for all `dry_run`-aware tools.
 
@@ -947,6 +947,17 @@ Every result model also carries `dry_run` (true on a preview), as for all `dry_r
   #461: a halt is **never silent** — the result then carries `aborted_at` (index of
   the failing sub-command), `skipped_count`, and a `hint` naming the consequence
   ("the scene may be unsaved"); `stop_on_error=False` leaves all three unset.
+- **Per-entry safety (#634).** The batch is not a safety bypass: each entry is
+  resolved back to the tool that backs it and inherits that tool's policy. A
+  sub-command whose toolset is disabled is refused (enable it first — the hint uses
+  the same wording as the toolset middleware); a **destructive** sub-command
+  (`delete_node`, `delete_resource_file`, `remove_audio_bus*`, …) requires
+  `confirm=True` on the batch; each entry's params go through the server path
+  preflight (so a `res://../` traversal is refused); an unknown `cmd_*` that backs
+  no registered tool is refused. A batch containing a destructive entry is presented
+  to the approval gate as `destructive` (the webhook/guard sees the real risk, not
+  the outer `mutating` class). `plan` names the resolved `tool`/`toolset`/
+  `safety_class` for every entry and is populated on `dry_run` too.
 - These are game-agnostic, generic Godot operations — no game vocabulary (see the
   game-agnostic scope rule in `AGENTS.md`).
 

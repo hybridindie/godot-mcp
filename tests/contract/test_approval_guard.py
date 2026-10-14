@@ -49,6 +49,19 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
             )
         case "cmd_delete_node":
             return ResponseEnvelope.success(cmd.id, {"node_path": p["node_path"], "deleted": True})
+        case "cmd_run_commands":
+            commands = p.get("commands", [])
+            return ResponseEnvelope.success(
+                cmd.id,
+                {
+                    "results": [
+                        {"command": c.get("command", ""), "ok": True, "result": {}}
+                        for c in commands
+                    ],
+                    "ok_all": True,
+                    "count": len(commands),
+                },
+            )
     return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected command")
 
 
@@ -201,6 +214,55 @@ async def test_guard_request_state_carries_tool_and_params() -> None:
     # The params being approved are visible in the message (the human knows what
     # they are approving — the issue's "params being approved" requirement).
     assert "Player" in captured["message"]
+
+
+async def test_batch_with_destructive_entry_is_classified_destructive() -> None:
+    """A run_commands batch containing a destructive sub-command must be presented
+    to the approver as destructive (issue #634), not as the outer tool's mutating
+    class — the human is approving a delete."""
+    gate = ApprovalGate(require_approval=True)
+    server, conn = _build(approval=gate)
+    captured: dict[str, Any] = {}
+
+    async def handler(message: str, response_type: Any, params: Any, ctx: Any) -> ElicitResult:
+        captured["message"] = message
+        return ElicitResult(action="accept", content=response_type(approve=True))
+
+    async with Client(server, mode="auto", elicitation_handler=handler) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
+        await client.call_tool("godot_enable_toolset", {"category": "composite"})
+        await client.call_tool(
+            "godot_composite_run_commands",
+            {
+                "commands": [{"command": "cmd_delete_node", "params": {"node_path": "Player"}}],
+                "confirm": True,
+            },
+        )
+    assert "destructive" in captured["message"]
+    assert "cmd_run_commands" in _commands(conn)
+
+
+async def test_batch_of_read_only_entries_stays_mutating() -> None:
+    """A batch of read-only sub-commands is still the outer mutating tool — the
+    destructive escalation must not leak onto harmless batches."""
+    seen: dict[str, Any] = {}
+
+    async def approve(url: str, request: Any, timeout: float) -> Any:
+        from mcp_server.models.approval import ApprovalResponse
+
+        seen["safety_class"] = request.safety_class
+        return ApprovalResponse(approved=True)
+
+    gate = ApprovalGate(webhook_url="http://hook", poster=approve)
+    server, _ = _build(approval=gate)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "inspection"})
+        await client.call_tool("godot_enable_toolset", {"category": "composite"})
+        await client.call_tool(
+            "godot_composite_run_commands",
+            {"commands": [{"command": "cmd_get_scene_tree", "params": {}}]},
+        )
+    assert seen["safety_class"] == "mutating"
 
 
 async def test_read_only_tool_is_not_gated() -> None:

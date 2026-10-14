@@ -67,6 +67,16 @@ The classes apply **in every transport mode**; transport-level auth (the
 `GODOT_MCP_AUTH_TOKEN` gate on non-loopback HTTP binds) is a second, separate
 layer that gates *who can connect at all*.
 
+### Batch tools don't bypass the gates
+
+A macro/batch tool is a convenience, not a privilege escalation. `run_commands`
+resolves each sub-command back to the tool that backs it and enforces that
+tool's policy per entry (#634): a sub-command from a disabled toolset is
+refused, a destructive entry needs `confirm=True`, params go through the path
+preflight, and an unknown `cmd_*` is refused — a batch containing a delete is
+presented to the approval gate as `destructive`, not as the outer tool's
+`mutating` class.
+
 ## Honesty as safety
 
 The most dangerous failure mode is a result that reads like success but isn't.
