@@ -67,10 +67,16 @@ async def test_opt_out_disables_protection() -> None:
 
 
 async def test_create_server_applies_the_setting_to_fastmcp() -> None:
-    """``run(transport='http')`` builds its app from ``fastmcp.settings``, so the
-    config must be pushed there — not only passed to ``http_app()``."""
-    _http_app(ServerConfig())
-    assert fastmcp.settings.http_host_origin_protection == "auto"
-    _http_app(ServerConfig(http_host_origin_protection=False))
-    value: bool | str = fastmcp.settings.http_host_origin_protection
-    assert value is False
+    """``http_app()`` (and ``run(transport='http')`` without an explicit value)
+    read ``fastmcp.settings``, so the config must be pushed there — not only
+    passed to ``http_app()``. Restores the global so the assertion can't leak
+    into another test."""
+    prior = fastmcp.settings.http_host_origin_protection
+    try:
+        _http_app(ServerConfig())
+        assert fastmcp.settings.http_host_origin_protection == "auto"
+        _http_app(ServerConfig(http_host_origin_protection=False))
+        value: bool | str = fastmcp.settings.http_host_origin_protection
+        assert value is False
+    finally:
+        fastmcp.settings.http_host_origin_protection = prior

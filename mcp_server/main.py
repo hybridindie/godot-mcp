@@ -28,7 +28,14 @@ def main() -> None:
     server = create_server(config)
     try:
         if config.transport == "http":
-            server.run(transport="http", host=config.host, port=config.port)
+            # #636: pass the Host/Origin guard explicitly so the live server does
+            # not depend on the global default having been set in create_server.
+            server.run(
+                transport="http",
+                host=config.host,
+                port=config.port,
+                host_origin_protection=config.http_host_origin_protection,
+            )
         else:
             server.run(transport="stdio")
     except KeyboardInterrupt:
