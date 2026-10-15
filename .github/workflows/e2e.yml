@@ -27,7 +27,10 @@
 #
 # RUNNER REQUIREMENTS (k3s self-hosted, label `godot`):
 #   - Godot 4.7 *editor* binary (not the export-template/server build — the suites
-#     need `--editor`). Runs fully headless via `--headless` (dummy display/audio).
+#     need `--editor`). The editor runs headless via `--headless` (dummy audio), but
+#     the *play-session* suites need a display: `xvfb-run` provides a virtual one
+#     (#672), without which those tests skip.
+#   - `xvfb` installed (provides `xvfb-run`) — required for play-session e2e (#672).
 #   - Python 3.11+ and uv available (or installed by the steps below).
 #   - The binary path is `$GODOT_BIN` — set the `GODOT_BIN` repo/org Actions
 #     variable, or bake it at the default path below in the runner image.
@@ -115,16 +118,25 @@ jobs:
         # The two globs match exactly the editor-dependent integration tests
         # (everything gated on GODOT_BIN / using run_godot); new e2e files are
         # picked up automatically. -p no:cacheprovider keeps the runner workspace clean.
+        # #672: run under a virtual display (xvfb) so the *play-session* tests —
+        # gated on $DISPLAY via _has_display — actually execute instead of silently
+        # skipping (the coverage gap this closes). Fail loudly if the runner lacks
+        # xvfb rather than falling back to a silent skip.
         # `timeout --kill-after` bounds the suite (15 min, under the 20-min job
         # cap): a hung bridge call inside one e2e test must not wedge the whole
         # job — and SIGKILL after the TERM grace reaps the editor child that a
         # hard-killed pytest would otherwise leave running (issue #581: a hung
         # run kept multiple godot instances open on the runner).
-        run: >-
-          timeout --signal=TERM --kill-after=10 900
-          uv run pytest -q -p no:cacheprovider
-          tests/integration/test_*_e2e.py
-          tests/integration/test_addon_*.py
+        run: |
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            echo "::error::xvfb-run not found on the runner; the play-session e2e would silently skip. Install xvfb (issue #672)."
+            exit 1
+          fi
+          xvfb-run -a --server-args="-screen 0 1280x1024x24" \
+            timeout --signal=TERM --kill-after=10 900 \
+            uv run pytest -q -p no:cacheprovider \
+            tests/integration/test_*_e2e.py \
+            tests/integration/test_addon_*.py
 
       - name: Reap stray Godot processes
         # Defense-in-depth for the hang mode above: a job that dies at its cap

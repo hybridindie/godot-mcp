@@ -78,6 +78,21 @@ def test_e2e_bridge_url_is_loopback_ephemeral_and_free() -> None:
         probe.bind(("127.0.0.1", port))  # free at allocation time: a listener can take it
 
 
+def test_e2e_workflow_provides_a_display() -> None:
+    """#672: the play-session e2e is gated on $DISPLAY and silently skips without
+    one. The workflow must run the suites under a virtual display (xvfb) and fail
+    loudly if the runner lacks it — never fall back to a silent skip."""
+    workflow = yaml.safe_load(
+        (_REPO_ROOT / ".github" / "workflows" / "e2e.yml").read_text(encoding="utf-8")
+    )
+    steps = [s for job in workflow["jobs"].values() for s in job.get("steps", [])]
+    runs = "\n".join(str(s.get("run", "")) for s in steps)
+    assert "xvfb-run" in runs, "play-session e2e must run under a virtual display (#672)"
+    assert "command -v xvfb-run" in runs and "exit 1" in runs, (
+        "the workflow must fail loudly when xvfb is missing, not skip silently"
+    )
+
+
 async def test_serve_and_await_editor_retries_serve_on_bind_conflict() -> None:
     # Another process holds the port (a concurrent job's listener): the wait must
     # retry the whole serve/connect path with backoff, not die on the first
