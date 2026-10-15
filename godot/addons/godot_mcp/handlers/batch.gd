@@ -31,12 +31,19 @@ func _parse_dependency(dep: String) -> Dictionary:
 
 
 func _cross_scene_one(
-	path: String, type_name: String, property: String, value: Variant, dry_run: bool, current: String
+	path: String, type_name: String, property: String, value: Variant, dry_run: bool
 ) -> Dictionary:
 	if not path.begins_with("res://") or not (path.ends_with(".tscn") or path.ends_with(".scn")):
 		return {"scene": path, "modified": 0, "error": "not a res:// scene file"}
-	if path == current:
-		return {"scene": path, "modified": 0, "error": "scene is currently being edited; use batch_set_property"}
+	# #645: refuse ANY scene open in a tab (not just the active one). The editor
+	# holds its own in-memory copy of an open scene; editing the file on disk would
+	# be silently overwritten by that tab's next save (the two copies diverge).
+	if path in EditorInterface.get_open_scenes():
+		return {
+			"scene": path, "modified": 0,
+			"error": "scene is open in a tab; close it (or edit the open scene with "
+				+ "set_node_property) before a cross-scene edit",
+		}
 	if not ResourceLoader.exists(path):
 		return {"scene": path, "modified": 0, "error": "not found"}
 	var packed: Variant = ResourceLoader.load(path, "PackedScene")
@@ -45,9 +52,16 @@ func _cross_scene_one(
 	var root: Node = packed.instantiate(PackedScene.GEN_EDIT_STATE_MAIN)
 	if root == null:
 		return {"scene": path, "modified": 0, "error": "could not instantiate"}
-	var targets: Array = root.find_children("*", type_name, true, false)
+	# #645: only nodes OWNED by the scene root persist on save; a node inside an
+	# instanced sub-scene (owner != root) is dropped — counting it as `modified`
+	# would misreport. So filter find_children's set to this scene's own nodes.
+	var candidates: Array = root.find_children("*", type_name, true, false)
 	if root.is_class(type_name):
-		targets.push_front(root)
+		candidates.push_front(root)
+	var targets: Array = []
+	for node in candidates:
+		if node == root or node.owner == root:
+			targets.append(node)
 	var modified := 0
 	for node in targets:
 		var prop_type := _router._helpers.property_type(node, property)
@@ -58,10 +72,12 @@ func _cross_scene_one(
 		modified += 1
 	var error := ""
 	if not dry_run and modified > 0:
-		var repacked := PackedScene.new()
-		if repacked.pack(root) != OK:
+		# #645: repack the CACHED resource and save it, so the resource cache
+		# reflects the change — a fresh PackedScene would leave the cache serving
+		# the old version.
+		if packed.pack(root) != OK:
 			error = "pack failed"
-		elif ResourceSaver.save(repacked, path) != OK:
+		elif ResourceSaver.save(packed, path) != OK:
 			error = "save failed"
 		else:
 			EditorInterface.get_resource_filesystem().update_file(path)
@@ -221,12 +237,10 @@ func _cmd_cross_scene_set_property(params: Dictionary) -> Dictionary:
 		return _router._fail("VALIDATION_ERROR", "'type' and 'property' are required.")
 	var value: Variant = params.get("value")
 	var dry_run := bool(params.get("dry_run", false))
-	var current := EditorInterface.get_edited_scene_root()
-	var current_path := current.scene_file_path if current != null else ""
 	var results: Array = []
 	var total := 0
 	for raw in scenes:
-		var res := _cross_scene_one(str(raw), type_name, property, value, dry_run, current_path)
+		var res := _cross_scene_one(str(raw), type_name, property, value, dry_run)
 		results.append(res)
 		total += int(res.get("modified", 0))
 	return _router._ok({"results": results, "total_modified": total, "scenes": results.size(), "dry_run": dry_run})

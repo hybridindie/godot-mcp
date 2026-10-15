@@ -1176,8 +1176,11 @@ tools — `godot_batch_set_property`, `godot_composite_batch_create_nodes`, and
 honesty shape (issue #523), so a consumer reads one contract.
 `godot_batch_cross_scene_set_property` edits scene **files** on
 disk: it loads each (`GEN_EDIT_STATE_MAIN`), sets the property on every `node_type` node,
-re-packs and saves, and re-scans — the **currently-edited** scene is skipped (its
-in-memory copy would clobber the change; reported as an `error`), and each scene's
+re-packs and saves, and re-scans — a scene **open in any tab** (active or background) is
+refused with a hint (its in-memory copy would overwrite the on-disk change; edit the open
+scene directly instead), only nodes **owned** by the scene are changed (an instanced
+sub-scene's internals are dropped on save, so they aren't counted), and the **cached**
+resource is re-packed and saved so the resource cache reflects the change. Each scene's
 `{modified, error}` is reported so skips are explicit (this path is not UndoRedo-wrapped —
 closed files). It is **`destructive`** (issue #638): it rewrites scene files with no undo,
 so it requires `confirm=True`. `godot_batch_get_dependencies` lists what a `res://` resource/scene depends on (each
