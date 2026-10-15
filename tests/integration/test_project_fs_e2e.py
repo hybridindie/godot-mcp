@@ -126,6 +126,9 @@ async def _run() -> None:
         assert bad.ok is False and bad.error == "VALIDATION_ERROR"
     finally:
         await bridge.close()
+        # #647: the write_script .uid sidecar can outlive the delete — clean it up.
+        for name in ("tmp_e2e_delete.gd", "tmp_e2e_delete.gd.uid"):
+            (GODOT_PROJECT / name).unlink(missing_ok=True)
 
 
 # #422: deleting a .tscn that is open in the editor leaves a stale in-memory tab;
