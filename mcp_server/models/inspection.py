@@ -135,7 +135,8 @@ class NodeProperty(BaseModel):
 class NodeGroups(BaseModel):
     """A node's group memberships (issue #216), editor-internal groups excluded.
 
-    Inverts ``add_to_group`` / ``remove_from_group`` and lets ``delete_node`` restore
+    Inverts ``add_to_group`` / ``remove_from_group`` and lets
+    ``godot_scene_edit_delete_node`` restore
     membership.
     """
 

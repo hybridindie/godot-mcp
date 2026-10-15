@@ -133,8 +133,9 @@ def register_inspection(mcp: FastMCP, bridge: Bridge) -> None:
         Call this to decide, when no scene is open, whether to OPEN an existing scene
         (a modification / enhancement / bugfix of something already there) or CREATE a
         net-new one:
-          - no scenes at all -> the project is empty; create_scene(root_type, path).
-          - exactly one scene -> open_scene(that path).
+          - no scenes at all -> the project is empty; godot_scene_edit_create_scene(
+            root_type=…, scene_path=…) to start one (enable the scene_edit toolset first).
+          - exactly one scene -> godot_scene_edit_open_scene(scene_path=that path).
           - several scenes -> open the one the request targets, or ask which to use.
         Returns an empty ``scenes`` list for a project with no scenes yet (not an error).
         """

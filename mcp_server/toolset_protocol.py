@@ -68,7 +68,7 @@ MANDATORY_PROTOCOL = (
     "godot_list_toolsets() reports as disabled.\n"
     "4. Only after a toolset is enabled can you call the tools in it.\n\n"
     "WARNING: calling a gated tool whose toolset is disabled fails with "
-    "'ToolError: unknown tool'. There is NO fallback."
+    "\"Tool '<name>' is not enabled\". There is NO fallback."
 )
 
 DECISION_TREE = (
@@ -107,7 +107,7 @@ SERVER_VS_ADDON = (
     "SERVER VS ADDON BOUNDARY:\n"
     "Some tools run in the Python server (godot_list_toolsets, godot_enable_toolset, "
     "godot_get_server_info) and never message Godot. Most tools send commands to the Godot "
-    "addon via a WebSocket bridge. 'ToolError: unknown tool' means the toolset is not "
+    "addon via a WebSocket bridge. \"Tool '<name>' is not enabled\" means the toolset is not "
     "enabled OR you confused a server-side tool with an addon tool — call "
     "godot_enable_toolset first."
 )
@@ -116,7 +116,8 @@ SAFETY_CONVENTION = (
     "SAFETY CONVENTION (every mutating tool):\n"
     "- Mutating tools accept dry_run=True — they report what WOULD change and perform "
     "nothing. Preview first when unsure.\n"
-    "- Destructive tools (delete/overwrite, e.g. delete_node, reload_scene) require "
+    "- Destructive tools (delete/overwrite, e.g. godot_scene_edit_delete_node, "
+    "godot_scene_edit_reload_scene) require "
     "confirm=True or they refuse to run; they also support dry_run.\n"
     "- Read-only tools never mutate and need neither flag."
 )

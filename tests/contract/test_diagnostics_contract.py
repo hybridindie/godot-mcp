@@ -67,7 +67,7 @@ def test_diagnostics_contains_common_errors(server: FastMCP) -> None:
     result_text = asyncio.run(_call_tool(server, "godot_get_server_info"))
     assert "BRIDGE_DISCONNECTED" in result_text
     assert "PRECONDITION_FAILED" in result_text
-    assert "ToolError: unknown tool" in result_text
+    assert "is not enabled" in result_text
 
 
 def test_diagnostics_contains_next_steps(server: FastMCP) -> None:

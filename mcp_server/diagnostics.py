@@ -226,9 +226,10 @@ def _addon_drift_warning(
 
 COMMON_ERRORS: list[dict[str, str]] = [
     {
-        "symptom": "ToolError: unknown tool",
+        "symptom": "Tool '<name>' is not enabled",
         "cause": "The toolset containing that tool is not enabled.",
-        "fix": 'Call enable_toolset("scene_edit") or the relevant category before using the tool.',
+        "fix": "Call godot_list_toolsets, then godot_enable_toolset(\"scene_edit\") (or the "
+        "relevant category) before using the tool.",
     },
     {
         "symptom": "BRIDGE_DISCONNECTED",
@@ -238,11 +239,13 @@ COMMON_ERRORS: list[dict[str, str]] = [
     {
         "symptom": "PRECONDITION_FAILED: required=active_scene",
         "cause": "No .tscn scene is open in the editor.",
-        "fix": "Open a scene file in Godot, or call create_scene() to make one.",
+        "fix": "Open a scene file in Godot, or call godot_scene_edit_create_scene("
+        "root_type=…, scene_path=…) to make one (enable the scene_edit toolset first).",
     },
     {
         "symptom": "PRECONDITION_FAILED: required=confirm",
-        "cause": "Destructive tool (delete_node, reload_scene) needs explicit confirmation.",
+        "cause": "Destructive tool (godot_scene_edit_delete_node, "
+        "godot_scene_edit_reload_scene) needs explicit confirmation.",
         "fix": "Add confirm=True to the call, or use dry_run=True to preview first.",
     },
     {
