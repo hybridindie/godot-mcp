@@ -101,6 +101,17 @@ async def _run() -> None:
         child_types = [c["type"] for c in tree["children"]]
         assert "Node2D" in child_types  # our played scene root
 
+        # #670: a second request with a DISTINCT id returns its own ready tree —
+        # the poll serves the reply for THIS request, never the previous call's.
+        second: dict[str, Any] = {}
+        for _ in range(30):
+            second = await _ok(bridge, "cmd_get_game_scene_tree", {"request_id": "e2e-tree-2"})
+            if second.get("ready") and second.get("tree"):
+                break
+            await asyncio.sleep(0.5)
+        assert second.get("tree") is not None, "second scene-tree request never became ready"
+        assert second["tree"]["type"] == "Window"
+
         # force_break must pause WITHOUT the game cooperating: this played scene
         # has no script calling check_force_break(), so only the probe's own
         # _process servicing (issue #392) can bring the debugger to a halt.

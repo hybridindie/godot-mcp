@@ -65,7 +65,12 @@ func _capture(message: String, data: Array) -> bool:
 			EngineDebugger.send_message("godot_mcp:game_output", [_output_snapshot()])
 			return true
 		"get_scene_tree":
-			EngineDebugger.send_message("godot_mcp:scene_tree", [_serialize_tree()])
+			# #670: echo the request_id so the editor serves a reply only to the
+			# poll that asked for it (never the previous call's tree).
+			EngineDebugger.send_message("godot_mcp:scene_tree", [{
+				"request_id": str(_payload(data).get("request_id", "")),
+				"tree": _serialize_tree(),
+			}])
 			return true
 		"simulate_key":
 			_inject_key(_payload(data))
@@ -98,7 +103,11 @@ func _capture(message: String, data: Array) -> bool:
 			_record_stop()
 			return true
 		"get_performance":
-			EngineDebugger.send_message("godot_mcp:performance", [_performance_snapshot()])
+			# #670: echo the request_id (same request-scoping as get_scene_tree).
+			EngineDebugger.send_message("godot_mcp:performance", [{
+				"request_id": str(_payload(data).get("request_id", "")),
+				"monitors": _performance_snapshot(),
+			}])
 			return true
 		"capture_frame":
 			# Deferred one rendered frame: an inline texture read-back can return the

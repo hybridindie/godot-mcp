@@ -75,7 +75,7 @@ func _cmd_is_playing(_params: Dictionary) -> Dictionary:
 
 
 
-func _cmd_get_game_scene_tree(_params: Dictionary) -> Dictionary:
+func _cmd_get_game_scene_tree(params: Dictionary) -> Dictionary:
 	# #527: the play-session guard lives in mcp_guards.gd. Note this handler
 	# intentionally reports a playing-but-probe-not-connected SOFT result
 	# ({playing, connected: false, tree: null, probe_never_connected}) instead
@@ -87,10 +87,26 @@ func _cmd_get_game_scene_tree(_params: Dictionary) -> Dictionary:
 	if _router._debugger == null:
 		return _router._fail("INTERNAL_ERROR", "Debugger plugin is unavailable.")
 	if _router._debugger.is_connected_to_probe():
-		var tree: Variant = _router._debugger.get_cached_scene_tree()
-		_router._debugger.request_scene_tree()  # refresh the cache for the next call
-		return _router._ok({"playing": true, "connected": true, "tree": tree})
+		# #670: request-scoped — serve the cached tree only when it answers THIS
+		# request_id; else dispatch once and report pending (the server polls).
+		var request_id := str(params.get("request_id", ""))
+		var cached: Variant = _router._debugger.get_cached_scene_tree()
+		if cached is Dictionary:
+			var cid := str((cached as Dictionary).get("request_id", ""))
+			if cid == request_id or not (cached as Dictionary).has("request_id"):
+				return _router._ok({
+					"ready": true, "playing": true, "connected": true,
+					"tree": (cached as Dictionary).get("tree", null),
+				})
+		if _router._debugger.get_scene_tree_request() != request_id:
+			_router._debugger.begin_scene_tree_request(request_id)
+			_router._debugger.request_scene_tree(request_id)
+		return _router._ok({
+			"ready": false, "playing": true, "connected": true,
+			"tree": null, "reason": "scene_tree_pending",
+		})
 	return _router._ok({
+		"ready": true,
 		"playing": true,
 		"connected": false,
 		"tree": null,

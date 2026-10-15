@@ -45,6 +45,11 @@ var _frame_vars_expected: int = 0  # count from stack_frame_vars (Tier 2)
 var _frame_vars_locals: Array = []
 var _frame_vars_members: Array = []
 var _frame_vars_globals: Array = []
+# #670: request ids for the probe-backed reads, so a handler serves the reply for
+# THIS request — never the previous call's cached value. The probe echoes the id;
+# we store a reply only when it matches the in-flight request.
+var _scene_tree_request := "__none__"
+var _performance_request := "__none__"
 
 
 ## Debugger protocol capture names we claim so _capture receives raw messages.
@@ -60,12 +65,19 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 		"godot_mcp:ready":
 			_probe_ready = true
 			_session_id = session_id
-			request_scene_tree()  # warm the cache as soon as the probe announces itself
 			return true
 		"godot_mcp:pong":
 			return true
 		"godot_mcp:scene_tree":
-			_scene_tree = data[0] if not data.is_empty() else null
+			# #670: the probe echoes the request_id; store only when it matches the
+			# in-flight request (a legacy probe sends no id — tag it with the pending
+			# id so the stored shape is uniform).
+			var tree_payload: Variant = data[0] if not data.is_empty() else null
+			if tree_payload is Dictionary and (tree_payload as Dictionary).has("request_id"):
+				if str((tree_payload as Dictionary).get("request_id", "")) == _scene_tree_request:
+					_scene_tree = tree_payload
+			else:
+				_scene_tree = {"request_id": _scene_tree_request, "tree": tree_payload}
 			return true
 		"godot_mcp:input_ack":
 			_input_acks += 1
@@ -98,7 +110,13 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 			_recorded_input = data[0] if not data.is_empty() else null
 			return true
 		"godot_mcp:performance":
-			_performance = data[0] if not data.is_empty() else null
+			# #670: same request-id gate as scene_tree.
+			var perf_payload: Variant = data[0] if not data.is_empty() else null
+			if perf_payload is Dictionary and (perf_payload as Dictionary).has("request_id"):
+				if str((perf_payload as Dictionary).get("request_id", "")) == _performance_request:
+					_performance = perf_payload
+			else:
+				_performance = {"request_id": _performance_request, "monitors": perf_payload}
 			return true
 		"godot_mcp:game_frame":
 			_game_frame = data[0] if not data.is_empty() else null
@@ -208,6 +226,7 @@ func _on_stopped() -> void:
 	_session_active = false
 	_probe_ready = false
 	_scene_tree = null
+	_scene_tree_request = "__none__"
 	_input_acks = 0
 	_property_samples = null
 	_read_property = null
@@ -216,6 +235,7 @@ func _on_stopped() -> void:
 	_ui_pending = "__none__"
 	_recorded_input = null
 	_performance = null
+	_performance_request = "__none__"
 	_game_frame = null
 	_frame_request_id = "__none__"
 	_stack_frames = null
@@ -249,14 +269,15 @@ func dispose() -> void:
 	_probe_ready = false
 
 
-## Ask the running game's probe to (re)send the scene tree. The reply lands in the cache
-## on a later frame via _capture; callers read get_cached_scene_tree().
-func request_scene_tree() -> void:
+## Ask the running game's probe to (re)send the scene tree for ``request_id``. The
+## reply lands in the cache on a later frame via _capture; callers read
+## get_cached_scene_tree() and serve it only when its request_id matches.
+func request_scene_tree(request_id: String = "__none__") -> void:
 	if not _session_active or _session_id < 0:
 		return
 	var session := get_session(_session_id)
 	if session != null and session.is_active():
-		session.send_message("godot_mcp:get_scene_tree", [])
+		session.send_message("godot_mcp:get_scene_tree", [{"request_id": request_id}])
 
 
 ## True once a play session is live AND its probe has announced itself.
@@ -266,6 +287,18 @@ func is_connected_to_probe() -> bool:
 
 func get_cached_scene_tree() -> Variant:
 	return _scene_tree
+
+
+## #670: request_id of the in-flight scene-tree read (so repeated polls don't
+## re-dispatch and a stale reply can't be served to a new request).
+func get_scene_tree_request() -> String:
+	return _scene_tree_request
+
+
+## Mark a new scene-tree request as in-flight and drop any prior (stale) tree.
+func begin_scene_tree_request(request_id: String) -> void:
+	_scene_tree_request = request_id
+	_scene_tree = null
 
 
 ## Send a godot_mcp:* message to the running game's probe (fire-and-forget).
@@ -335,6 +368,23 @@ func clear_recorded_input() -> void:
 
 func get_performance() -> Variant:
 	return _performance
+
+
+## #670: request_id of the in-flight performance read.
+func get_performance_request() -> String:
+	return _performance_request
+
+
+## Mark a new performance read as in-flight and drop any prior (stale) snapshot.
+func begin_performance_request(request_id: String) -> void:
+	_performance_request = request_id
+	_performance = null
+
+
+## Ask the running game's probe for a fresh Performance snapshot for ``request_id``
+## (the reply echoes the id; _capture gates the cache on it).
+func request_performance(request_id: String) -> void:
+	send_to_probe("godot_mcp:get_performance", [{"request_id": request_id}])
 
 
 ## request_id of the in-flight game frame capture (so the router dispatches a

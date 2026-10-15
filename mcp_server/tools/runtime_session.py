@@ -22,7 +22,11 @@ from fastmcp.utilities.types import Image
 from mcp_server.bridge import Bridge
 from mcp_server.categories import RUNTIME_TAG
 from mcp_server.constraints import TimeoutMs
-from mcp_server.defaults import DEFAULT_CAPTURE_TIMEOUT_MS, DEFAULT_POLL_INTERVAL_SECONDS
+from mcp_server.defaults import (
+    DEFAULT_CAPTURE_TIMEOUT_MS,
+    DEFAULT_POLL_INTERVAL_SECONDS,
+    DEFAULT_RUNTIME_INSPECT_TIMEOUT_MS,
+)
 from mcp_server.models.runtime_session import (
     GameOutputResult,
     GameSceneTreeResult,
@@ -71,7 +75,9 @@ def register_runtime_session(mcp: FastMCP, bridge: Bridge) -> None:
         return PlayResult(**await route(bridge, "cmd_is_playing", {}))
 
     @mcp.tool(meta=READ_ONLY, tags=RUNTIME_SET)
-    async def get_game_scene_tree() -> GameSceneTreeResult:
+    async def get_game_scene_tree(
+        timeout_ms: TimeoutMs = DEFAULT_RUNTIME_INSPECT_TIMEOUT_MS,
+    ) -> GameSceneTreeResult:
         """Get the *running* game's live scene tree ({name, type, path, children}).
         Requires an active play session with the godot-mcp runtime probe autoload; if the
         probe isn't connected, returns ``connected=false`` with a ``hint`` to add it.
@@ -81,7 +87,27 @@ def register_runtime_session(mcp: FastMCP, bridge: Bridge) -> None:
         WHEN NOT TO USE: The editor is idle with no play session — use
         get_scene_tree() to read the static scene structure instead.
         """
-        return GameSceneTreeResult(**await route(bridge, "cmd_get_game_scene_tree", {}))
+        # #670: a per-invocation request_id (constant across the poll loop) so the
+        # addon serves the tree for THIS request — never the previous call's cached
+        # tree (mirrors find_ui_elements). Poll until the probe's reply lands.
+        params = {"request_id": uuid.uuid4().hex}
+        deadline = asyncio.get_event_loop().time() + timeout_ms / 1000
+        result: dict[str, Any] = {}
+        while True:
+            result = await route(bridge, "cmd_get_game_scene_tree", params)
+            # Terminal: ready reply, a soft not-connected result, or a legacy addon
+            # that already returned a tree (no `ready` field).
+            if (
+                result.get("ready")
+                or result.get("connected") is False
+                or result.get("tree") is not None
+            ):
+                break
+            remaining = deadline - asyncio.get_event_loop().time()
+            if remaining <= 0:
+                break
+            await asyncio.sleep(min(DEFAULT_POLL_INTERVAL_SECONDS, remaining))
+        return GameSceneTreeResult(**result)
 
     @mcp.tool(meta=READ_ONLY, tags=RUNTIME_SET)
     async def capture_game_screenshot(

@@ -8,6 +8,8 @@ runtime probe (live monitors are most meaningful during a play session).
 
 from __future__ import annotations
 
+import uuid
+
 from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
@@ -52,5 +54,8 @@ def register_profiling(mcp: FastMCP, bridge: Bridge) -> None:
         WHEN NOT TO USE: The game is NOT running and you want to check the editor's
         own performance — use get_editor_performance() instead.
         """
-        result = await poll_ready(bridge, "cmd_get_performance_monitors", {}, timeout_ms)
+        # #670: per-invocation request_id so the addon serves the monitors for THIS
+        # request, never the previous call's cached snapshot (find_ui pattern).
+        params = {"request_id": uuid.uuid4().hex}
+        result = await poll_ready(bridge, "cmd_get_performance_monitors", params, timeout_ms)
         return GamePerformanceResult(**result)
