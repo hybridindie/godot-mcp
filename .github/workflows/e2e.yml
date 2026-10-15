@@ -47,11 +47,14 @@ name: e2e
 
 on:
   workflow_dispatch:
+  # #651: nightly on main so merges that only touch tests/docs still get a live run.
+  schedule:
+    - cron: "0 6 * * *"
   pull_request:
     paths:
       - "godot/addons/godot_mcp/**"
       - "mcp_server/**"
-      - "tests/integration/**"
+      - "tests/**"
       - ".github/workflows/e2e.yml"
 
 # One in-flight live-editor run across the whole repo (issue #444): the single
@@ -135,8 +138,11 @@ jobs:
           xvfb-run -a --server-args="-screen 0 1280x1024x24" \
             timeout --signal=TERM --kill-after=10 900 \
             uv run pytest -q -p no:cacheprovider \
-            tests/integration/test_*_e2e.py \
-            tests/integration/test_addon_*.py
+            tests/integration \
+            tests/contract/test_addon_guards.py \
+            tests/contract/test_addon_handshake.py \
+            tests/contract/test_router_refactor.py \
+            tests/contract/test_undo_threshold.py
 
       - name: Reap stray Godot processes
         # Defense-in-depth for the hang mode above: a job that dies at its cap

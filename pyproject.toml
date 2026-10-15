@@ -14,9 +14,9 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    # #651: advertise only the interpreter CI actually tests (the ci job runs
+    # 3.11). Add 3.12/3.13 here once a CI matrix covers them.
     "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
     "Topic :: Games/Entertainment",
     "Topic :: Software Development :: Libraries",
     "Topic :: Software Development :: Testing",
