@@ -12,6 +12,8 @@ extends Node
 ## to break at a chosen point in their own loop instead.
 
 const MAX_DEPTH := 32
+# #641: share the editor's JSON coercion (single implementation of the shapes).
+const Coerce := preload("type_coerce.gd")
 
 var force_break_pending: bool = false  ## Set true by the editor via force_break message.
 
@@ -363,7 +365,7 @@ func _process(_delta: float) -> void:
 		_monitor_remaining = 0
 	else:
 		var sample_start := Time.get_ticks_usec()
-		var value := _json_safe(node.get(_monitor_property))
+		var value := Coerce.to_json(node.get(_monitor_property))
 		if _should_queue_sample(value, Engine.get_process_frames()):
 			_monitor_samples.append({
 				"frame": Engine.get_process_frames(),
@@ -389,7 +391,7 @@ func _should_queue_sample(value: Variant, frame: int) -> bool:
 
 
 ## Value equality for the #536 change test: floats compare within `epsilon`
-## (recursively for the dict/array shapes _json_safe emits), everything else
+## (recursively for the dict/array shapes Coerce.to_json emits), everything else
 ## compares exactly. A float inside a Vector2/Color dict differs when any
 ## component exceeds epsilon. Mismatched types are always a difference — GDScript
 ## raises on `==` between mismatched operand types (e.g. int vs String), so the
@@ -441,7 +443,7 @@ func _evaluate(d: Dictionary) -> Dictionary:
 	if expr.has_execute_failed():
 		result["error"] = "evaluation failed: %s" % expr.get_error_text()
 		return result
-	result["value"] = _json_safe(value)
+	result["value"] = Coerce.to_json(value)
 	return result
 
 
@@ -466,7 +468,7 @@ func _read_property(d: Dictionary) -> Dictionary:
 		}
 	return {
 		"request_id": request_id, "node_path": node_path, "property": property,
-		"value": _json_safe(node.get(property)), "error": "", "ready": true,
+		"value": Coerce.to_json(node.get(property)), "error": "", "ready": true,
 	}
 
 
@@ -625,21 +627,6 @@ func _button_name(index: int) -> String:
 		if _MOUSE_BUTTONS[name] == index:
 			return name
 	return ""
-
-
-## Minimal JSON-safe conversion for monitored property values (common Godot types).
-func _json_safe(value: Variant) -> Variant:
-	match typeof(value):
-		TYPE_VECTOR2, TYPE_VECTOR2I:
-			return {"x": value.x, "y": value.y}
-		TYPE_VECTOR3, TYPE_VECTOR3I:
-			return {"x": value.x, "y": value.y, "z": value.z}
-		TYPE_COLOR:
-			return {"r": value.r, "g": value.g, "b": value.b, "a": value.a}
-		TYPE_BOOL, TYPE_INT, TYPE_FLOAT, TYPE_STRING:
-			return value
-		_:
-			return str(value)
 
 
 # --- game output capture (issue #534) ----------------------------------------

@@ -150,6 +150,87 @@ func _test_roundtrip() -> void:
 		_failures.append("rect2 roundtrip")
 
 
+## Round-trip a value through to_json → from_json → to_json and compare the JSON
+## shapes (float-tolerant). Avoids exact `==` on composite floats.
+func _check_roundtrip(name: String, value: Variant, type: int) -> void:
+	var back: Variant = Coerce.from_json(Coerce.to_json(value), type)
+	if typeof(back) != type:
+		_failures.append("%s roundtrip: wrong type %s" % [name, str(Coerce.variant_type_name(typeof(back)))])
+		return
+	if not _json_equal(Coerce.to_json(back), Coerce.to_json(value)):
+		_failures.append("%s roundtrip: %s" % [name, str(Coerce.to_json(back))])
+
+
+func _test_to_json_extended_shapes() -> void:
+	_check("transform2d", Coerce.to_json(Transform2D(Vector2(1, 0), Vector2(0, 1), Vector2(5, 6))), {
+		"x": {"x": 1.0, "y": 0.0},
+		"y": {"x": 0.0, "y": 1.0},
+		"origin": {"x": 5.0, "y": 6.0},
+	})
+	_check("quaternion", Coerce.to_json(Quaternion(0, 0, 0, 1)), {
+		"x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0,
+	})
+	_check("aabb", Coerce.to_json(AABB(Vector3(1, 2, 3), Vector3(4, 5, 6))), {
+		"position": {"x": 1.0, "y": 2.0, "z": 3.0},
+		"size": {"x": 4.0, "y": 5.0, "z": 6.0},
+	})
+	_check("plane", Coerce.to_json(Plane(Vector3(0, 1, 0), 2.0)), {
+		"normal": {"x": 0.0, "y": 1.0, "z": 0.0}, "d": 2.0,
+	})
+	_check("packed_vec2", Coerce.to_json(PackedVector2Array([Vector2(1, 2)])), [{"x": 1.0, "y": 2.0}])
+	_check("packed_vec3", Coerce.to_json(PackedVector3Array([Vector3(1, 2, 3)])), [
+		{"x": 1.0, "y": 2.0, "z": 3.0}
+	])
+	_check("packed_color", Coerce.to_json(PackedColorArray([Color(1, 0, 0, 1)])), [
+		{"r": 1.0, "g": 0.0, "b": 0.0, "a": 1.0}
+	])
+	_check("packed_byte", Coerce.to_json(PackedByteArray([1, 2, 255])), [1, 2, 255])
+	# Non-finite floats have no JSON literal — explicit string sentinels (#641).
+	_check("nan_sentinel", Coerce.to_json(NAN), "__nan__")
+	_check("inf_sentinel", Coerce.to_json(INF), "__inf__")
+	_check("ninf_sentinel", Coerce.to_json(-INF), "__-inf__")
+
+
+func _test_from_json_extended() -> void:
+	# #641 acceptance: setting a Transform3D via dict works.
+	var t3: Variant = Coerce.from_json(
+		{
+			"basis": {
+				"x": {"x": 1, "y": 0, "z": 0},
+				"y": {"x": 0, "y": 1, "z": 0},
+				"z": {"x": 0, "y": 0, "z": 1},
+			},
+			"origin": {"x": 1, "y": 2, "z": 3},
+		},
+		TYPE_TRANSFORM3D,
+	)
+	if typeof(t3) != TYPE_TRANSFORM3D:
+		_failures.append("transform3d dict: wrong type %s" % str(typeof(t3)))
+	elif not (t3 as Transform3D).origin.is_equal_approx(Vector3(1, 2, 3)):
+		_failures.append("transform3d dict origin: %s" % str(t3))
+
+	_check_roundtrip("quaternion", Quaternion(0.1, 0.2, 0.3, 0.9), TYPE_QUATERNION)
+	_check_roundtrip("aabb", AABB(Vector3(1, 2, 3), Vector3(4, 5, 6)), TYPE_AABB)
+	_check_roundtrip(
+		"transform2d", Transform2D(Vector2(0.5, 0), Vector2(0, 0.5), Vector2(3, 4)), TYPE_TRANSFORM2D
+	)
+	_check_roundtrip(
+		"transform3d", Transform3D(Basis.from_euler(Vector3(0.1, 0.2, 0.3)), Vector3(4, 5, 6)),
+		TYPE_TRANSFORM3D
+	)
+	_check_roundtrip("basis", Basis.from_euler(Vector3(0.1, 0.2, 0.3)), TYPE_BASIS)
+	_check_roundtrip("plane", Plane(Vector3(0.0, 0.6, 0.8), 2.0), TYPE_PLANE)
+	_check_roundtrip("packed_byte", PackedByteArray([1, 2, 255]), TYPE_PACKED_BYTE_ARRAY)
+	_check_roundtrip("packed_vec2", PackedVector2Array([Vector2(1, 2), Vector2(3, 4)]), TYPE_PACKED_VECTOR2_ARRAY)
+	_check_roundtrip("packed_vec3", PackedVector3Array([Vector3(1, 2, 3)]), TYPE_PACKED_VECTOR3_ARRAY)
+	_check_roundtrip("packed_color", PackedColorArray([Color(0.1, 0.2, 0.3, 1.0)]), TYPE_PACKED_COLOR_ARRAY)
+	# NaN/INF sentinels restore to non-finite floats.
+	if not is_nan(Coerce.from_json("__nan__", TYPE_FLOAT)):
+		_failures.append("nan sentinel did not restore")
+	if not is_inf(Coerce.from_json("__inf__", TYPE_FLOAT)):
+		_failures.append("inf sentinel did not restore")
+
+
 func _initialize() -> void:
 	_test_to_json_shapes()
 	_test_to_json_object_fallback()
@@ -157,6 +238,8 @@ func _initialize() -> void:
 	_test_from_json_string_forms()
 	_test_object_from_json()
 	_test_roundtrip()
+	_test_to_json_extended_shapes()
+	_test_from_json_extended()
 
 	if _failures.is_empty():
 		print("TYPE_COERCE_TEST_OK")

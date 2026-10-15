@@ -406,6 +406,12 @@ func property_type(obj: Object, property: String) -> int:
 		# object whose id was reused (#540).
 		cache = {}
 		for prop_entry in obj.get_property_list():
+			# #641: group/category/subgroup entries are headings, not settable
+			# properties (their type is TYPE_NIL and set() silently no-ops) — skip
+			# them so property_type reports "no property" instead of accepting them.
+			var usage := int(prop_entry.get("usage", 0))
+			if usage & (PROPERTY_USAGE_GROUP | PROPERTY_USAGE_CATEGORY | PROPERTY_USAGE_SUBGROUP):
+				continue
 			cache[prop_entry["name"]] = int(prop_entry["type"])
 		_prop_cache[obj_id] = {"obj": weakref(obj), "props": cache}
 		_prune_prop_cache()
