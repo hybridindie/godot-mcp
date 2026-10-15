@@ -217,25 +217,17 @@ def register_composite(
         confirm: bool = False,
         dry_run: bool = False,
     ) -> RunCommandsResult:
-        """Execute a sequence of bridge commands in ONE round-trip (the addon runs
-        them in a single editor frame). The editor drains commands serially —
-        ~one frame of latency each — so batching N independent commands here is
-        the main throughput lever for scripted harnesses.
+        """Execute a sequence of bridge commands in ONE round-trip (one editor
+        frame; the editor drains serially, so batching N independent commands is the
+        main throughput lever). ``commands`` is ``[{command, params}]``; ``command``
+        is the bare tool name or the addon ``cmd_*`` form. Each sub-mutation wraps its
+        own UndoRedo action; ``ok_all`` is true only if every command succeeded;
+        ``stop_on_error`` (default true) halts at the first failure.
 
-        ``commands`` is a list of ``{command, params}``; ``command`` may be the
-        bare tool name (``set_node_property``) or the addon form
-        (``cmd_set_node_property``). Each sub-mutation still wraps its own
-        UndoRedo action. Returns one envelope per command under ``results``;
-        ``ok_all`` is True only if every command succeeded. With
-        ``stop_on_error=True`` (default) the batch halts at the first failure;
-        set it False to run them all. Read-only and mutating commands may be
-        mixed, but order is preserved — do not rely on it for unordered writes.
-
-        Safety is enforced per entry, not by this tool's own class: a sub-command
-        from a disabled toolset is refused (enable it first), a **destructive**
-        sub-command requires ``confirm=True``, and each entry's params go through
-        the server path preflight. ``plan`` names the resolved tool/toolset/safety
-        class for every entry (populated on ``dry_run`` too).
+        Safety is per-entry, not this tool's class: a disabled-toolset entry is
+        refused (enable it first), a destructive entry needs ``confirm=True``, and
+        each entry's params go through the server path preflight. ``plan`` names the
+        resolved tool/toolset/safety class (populated on ``dry_run`` too).
         """
         require_bridge_connected(bridge)
         normalized = [
