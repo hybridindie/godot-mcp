@@ -79,7 +79,7 @@ Resources are read-only and never mutate; mutations always go through tools.
 
 ## Working efficiently
 
-- **Enable only what the task needs, right before you need it** — the exposed surface stays small on purpose; don't pre-enable everything.
+- **Enable only what the task needs, right before you need it** — the exposed surface stays small on purpose; don't pre-enable everything. Enable a whole workflow in **one call** with `godot_enable_toolset("author,playtest")` — `author`/`playtest`/`ship` are bundles that expand to their member toolsets (a bundle is just a preset, not a new category), and you can comma-separate any mix of toolsets and bundles.
 - **Batch round-trips**: independent editor operations belong in one `godot_composite_run_commands` call (one editor frame for N commands) instead of N tool calls. Same for bulk property sets (`godot_batch_set_property`) and same-shape node creation (`godot_composite_batch_create_nodes`). Each entry still carries its own tool's policy: enable the sub-command's toolset first, and pass `confirm=true` if the batch contains a destructive sub-command.
 - **Verify before you build**: `godot_debug_workflow()` in `core` is one call returning parse errors + scene tree + headless run + bridge state — cheaper than four separate diagnostics calls.
 - **`dry_run` first on unfamiliar mutations** — the preview includes the projected honesty flags (`undoable`, persistence verdicts).

@@ -170,6 +170,43 @@ def _default_enabled_from_env() -> frozenset[str]:
 DEFAULT_ENABLED: frozenset[str] = _default_enabled_from_env()
 
 
+# Named bundles (issue #653): a curated set of toolsets for a common workflow, so
+# an agent enables a whole phase in ONE call instead of one per category. Bundles
+# are just presets over TOOLSETS — not a new gating unit — and are game-agnostic
+# (they describe editor workflows, no game vocabulary). Expand with
+# ``enable_toolsets(["author", "playtest"])``.
+BUNDLES: dict[str, tuple[str, ...]] = {
+    # Build + edit a scene and its assets.
+    "author": (
+        SCENE_EDIT_TAG,
+        SCRIPTS_TAG,
+        RESOURCES_EDIT_TAG,
+        PROJECT_TAG,
+        SHADER_TAG,
+        VISUAL_SHADER_TAG,
+        THEME_UI_TAG,
+        TILEMAP_TAG,
+        SCENE_3D_TAG,
+        PARTICLES_TAG,
+        PHYSICS_TAG,
+        ANIMATION_TAG,
+        NAVIGATION_TAG,
+        AUDIO_TAG,
+    ),
+    # Run, drive, and observe the game.
+    "playtest": (
+        RUNTIME_TAG,
+        INPUT_TAG,
+        INPUT_MAP_TAG,
+        TESTING_TAG,
+        DEBUGGER_TAG,
+        PROFILING_TAG,
+    ),
+    # Package and ship.
+    "ship": (EXPORT_TAG, PROJECT_SCAFFOLD_TAG),
+}
+
+
 class ToolSummary(BaseModel):
     """One exposed tool's identity + input schema (issue #621)."""
 
@@ -232,6 +269,71 @@ class ToolsetManager:
             enabled.discard(category)
             self._middleware.set_enabled(enabled)
         return self._info(category)
+
+    def _expand(self, names: list[str]) -> list[str]:
+        """Expand bundle names + individual toolsets to a deduped, ordered list.
+
+        Accepts a bare toolset, ``core`` (rejected later by the toggle check), or a
+        bundle name. Raises a structured ``ToolError`` on a miss.
+        """
+        out: list[str] = []
+        for name in names:
+            members = BUNDLES.get(name)
+            if members is not None:
+                for member in members:
+                    if member not in out:
+                        out.append(member)
+                continue
+            if name != CORE_TAG and name not in TOOLSETS:
+                known = ", ".join(sorted(set(TOOLSETS) | set(BUNDLES)))
+                raise ToolError(f"Unknown toolset or bundle '{name}'. Available: {known}.")
+            if name not in out:
+                out.append(name)
+        return out
+
+    async def enable_many(self, names: list[str], *, ctx: Any = None) -> ToolsetInfo:
+        """Enable every toolset named (or in every bundle named) in one call (#653).
+
+        A single name keeps the exact per-toolset result; multiple names return one
+        combined ``ToolsetInfo`` whose ``tools`` carries every enabled member tool's
+        schema, so one call replaces N ``enable_toolset`` calls.
+        """
+        expanded = self._expand(names)
+        if len(expanded) == 1:
+            return await self.enable(expanded[0], ctx=ctx)
+        for category in expanded:
+            self._check_toggleable(category)
+            await self._require_godot_version(category)
+        if self._middleware is not None:
+            enabled = self._middleware.enabled()
+            enabled.update(expanded)
+            self._middleware.set_enabled(enabled)
+        tools: list[ToolSummary] = []
+        for category in expanded:
+            tools.extend(await self._tool_summaries(category))
+        return ToolsetInfo(
+            name=",".join(expanded),
+            enabled=True,
+            description=f"{len(expanded)} toolsets enabled.",
+            tools=tools,
+        )
+
+    async def disable_many(self, names: list[str], *, ctx: Any = None) -> ToolsetInfo:
+        """Disable every toolset named (or in every bundle named) in one call (#653)."""
+        expanded = self._expand(names)
+        if len(expanded) == 1:
+            return await self.disable(expanded[0], ctx=ctx)
+        for category in expanded:
+            self._check_toggleable(category)
+        if self._middleware is not None:
+            enabled = self._middleware.enabled()
+            enabled.difference_update(expanded)
+            self._middleware.set_enabled(enabled)
+        return ToolsetInfo(
+            name=",".join(expanded),
+            enabled=False,
+            description=f"{len(expanded)} toolsets disabled.",
+        )
 
     async def push_enabled(self) -> None:
         """Push the current enabled-toolset set to the addon's dock (issue #592).
@@ -404,18 +506,25 @@ def register_toolset_tools(
 
     @mcp.tool(meta=READ_ONLY, tags={CORE_TAG})
     async def enable_toolset(category: str, *, ctx: Context) -> ToolsetInfo:
-        """Expose a toolset's tools (e.g. "scene_edit") for this session. Returns the
-        toolset's new state. Does not change anything in the Godot project.
+        """Expose a toolset's tools for this session. ``category`` is a toolset name
+        (e.g. "scene_edit"), a **bundle** — ``author`` (build scenes/scripts/assets),
+        ``playtest`` (run/drive/observe the game), ``ship`` (export) — or a
+        comma-separated list of either (issue #653). A bundle/list enables all its
+        members in ONE call and returns a combined result whose ``tools`` carries
+        every enabled member tool's schema. Does not change the Godot project.
         """
-        result = await manager.enable(category, ctx=ctx)
+        names = [n.strip() for n in category.split(",") if n.strip()]
+        result = await manager.enable_many(names, ctx=ctx)
         await _notify_tools_changed(ctx, hub)
         await manager.push_enabled()  # #592: keep the addon dock's Toolsets row honest
         return result
 
     @mcp.tool(meta=READ_ONLY, tags={CORE_TAG})
     async def disable_toolset(category: str, *, ctx: Context) -> ToolsetInfo:
-        """Hide a toolset's tools again to keep the active tool surface small."""
-        result = await manager.disable(category, ctx=ctx)
+        """Hide a toolset's tools again to keep the active tool surface small. Accepts
+        a toolset name, a bundle, or a comma-separated list of either (issue #653)."""
+        names = [n.strip() for n in category.split(",") if n.strip()]
+        result = await manager.disable_many(names, ctx=ctx)
         await _notify_tools_changed(ctx, hub)
         await manager.push_enabled()  # #592: keep the addon dock's Toolsets row honest
         return result

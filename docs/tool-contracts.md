@@ -1404,6 +1404,15 @@ until enabled. These meta-tools are always available:
 | `godot_enable_toolset` | `category` | `ToolsetInfo` | expose a category's tools (fires `list_changed`); `tools` carries the enabled tools' `name`/`description`/`input_schema` (#621) |
 | `godot_disable_toolset` | `category` | `ToolsetInfo` | hide a category again (`tools` empty) |
 
+**Bundles & batch (issue #653).** `category` also accepts a **bundle** — `author`
+(scene/scripts/assets authoring), `playtest` (run/drive/observe the game), `ship`
+(export) — or a **comma-separated list** of toolsets/bundles (e.g.
+`"author,playtest"`). A bundle/list enables all its members in ONE call and returns
+one combined `ToolsetInfo` whose `tools` carries every member tool's schema; a single
+name keeps the exact per-toolset result. Bundles are presets over the existing
+categories — one call replaces N `enable_toolset` calls (the build → script → play
+loop needs four categories, covered by `"author,playtest"`).
+
 `godot_enable_toolset`/`godot_disable_toolset` reject unknown categories and `core` with a
 structured `ToolError`. They change tool *exposure* only — never the Godot project
 — so they are `read_only`. The default-off-for-new-categories rule means the live
