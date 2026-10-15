@@ -44,3 +44,12 @@ def test_asset_edits_pass_the_scene_context() -> None:
     assert not problems, (
         "asset edits must route to the scene history (#640):\n" + "\n".join(problems)
     )
+
+
+def test_asset_create_registers_redo() -> None:
+    """#683: an asset-create action that removes the file on undo must also register
+    a do, or it can't be redone. Pin the visual-shader create's both sides."""
+    src = (_ADDON / "handlers/visual_shader.gd").read_text(encoding="utf-8")
+    block = src.split('create_action("Create visual shader"', 1)[1].split("commit_action()", 1)[0]
+    assert "add_do_method" in block, "visual shader create needs a do method to be redoable (#683)"
+    assert "add_undo_method" in block

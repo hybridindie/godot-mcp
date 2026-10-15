@@ -72,6 +72,9 @@ func _cmd_create_visual_shader(params: Dictionary) -> Dictionary:
 
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Create visual shader", UndoRedo.MERGE_DISABLE, _router.asset_action_context())
+	# #683: register BOTH sides so redo recreates the file after an undo removed it
+	# (a fresh create with only an undo can't be redone). Capture the saved bytes.
+	ur.add_do_method(_router, "_write_file_bytes", path, FileAccess.get_file_as_bytes(path))
 	ur.add_undo_method(_router, "_remove_file_with_uid", path)
 	ur.commit_action()
 
