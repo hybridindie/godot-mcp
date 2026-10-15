@@ -166,6 +166,16 @@ class Bridge:
         # needs — today the enabled toolset set. Injected by server.py; None in
         # unit tests that don't care.
         self.on_peer_ready: Callable[[], Awaitable[None]] | None = None
+        # #644: addon commands whose tool safety_class is mutating/destructive. A
+        # TIMEOUT on one of these means the editor (single-threaded, drains serially)
+        # may still run it AFTER the caller gave up — so the timeout envelope is
+        # flagged `may_have_applied` to stop a blind retry double-applying. Set from
+        # the registry at server build (empty until then / in bare unit tests).
+        self._mutating_commands: frozenset[str] = frozenset()
+
+    def set_mutating_commands(self, commands: frozenset[str]) -> None:
+        """Record which addon commands are mutating/destructive (issue #644)."""
+        self._mutating_commands = commands
 
     @property
     def connected(self) -> bool:
@@ -469,7 +479,32 @@ class Bridge:
             return ResponseEnvelope.failure(
                 msg_id, ErrorCode.BRIDGE_DISCONNECTED, "Lost connection to Godot while sending."
             )
-        return await self._await_response(msg_id, future, timeout)
+        response = await self._await_response(msg_id, future, timeout)
+        return self._flag_may_have_applied(command, response)
+
+    def _flag_may_have_applied(
+        self, command: str, response: ResponseEnvelope
+    ) -> ResponseEnvelope:
+        """#644: a TIMEOUT on a mutating command may still apply — say so.
+
+        The addon drains commands serially on the editor main thread, so a command
+        that outlived the server timeout runs later; its late reply is dropped
+        (unmatched id). Without a flag an agent would retry and double-apply. The
+        timeout envelope therefore carries ``result.may_have_applied`` plus a hint
+        to re-read state before retrying.
+        """
+        if (
+            not response.ok
+            and response.error == ErrorCode.TIMEOUT.value
+            and command in self._mutating_commands
+        ):
+            response.result = {"may_have_applied": True}
+            response.hint = (
+                (response.hint or "")
+                + " The command may still have applied — the editor runs commands "
+                "serially, so re-read state before retrying."
+            ).strip()
+        return response
 
     async def notify(self, command: str, params: dict[str, Any] | None = None) -> None:
         """Send ``command`` without awaiting a response (fire-and-forget, #624).

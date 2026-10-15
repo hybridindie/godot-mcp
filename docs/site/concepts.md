@@ -103,6 +103,7 @@ Results carry structured self-reporting that reads as ground truth:
 | `persisted` + `reason` + `hint` | most mutations | whether a scene save will keep the change; `instanced_child_not_editable`, `node_not_owned`, `embedded_in_other_resource`, `group_from_base_scene` are the reason tokens |
 | `undoable` | `batch_set_property` | `false` above 20 nodes — undo will **not** revert the batch |
 | `aborted_at`, `skipped_count`, `hint` | `run_commands` | which sub-command stopped the batch and how many never ran |
+| `may_have_applied` | any mutating/`destructive` tool, on `TIMEOUT` | the timed-out mutation may still run on the editor (it drains commands serially) — re-read state before retrying, don't double-apply (#644) |
 | `rescan_pending` | `get_parse_errors` | the editor's rescan hadn't flushed; a fresh-class_name error may be stale cache |
 | `reason` (readiness) | poll-based tools | why the tool is still pending (`capture_pending`, `scan_in_flight`, …) |
 | `scanning` | `asset_import_get_status`, `rescan_filesystem` | the editor's filesystem scan is in flight |

@@ -33,6 +33,7 @@ from mcp_server.resources.context import register_resources
 from mcp_server.result_validation_middleware import ResultValidationMiddleware
 from mcp_server.runtime import GodotRunner, Runner
 from mcp_server.safety import ApprovalGate, apply_safety_annotations, register_safety_tools
+from mcp_server.subcommand_policy import mutating_commands
 from mcp_server.subscriptions import install_toolset_subscriptions
 from mcp_server.tools.analysis import register_analysis
 from mcp_server.tools.animation import register_animation
@@ -143,6 +144,12 @@ def create_server(
             await apply_safety_annotations(mcp)
         except Exception:
             logger.warning("failed to apply safety annotations", exc_info=True)
+        # #644: tell the bridge which addon commands are mutating, so a timeout on
+        # one is flagged may_have_applied (the editor runs commands serially).
+        try:
+            bridge.set_mutating_commands(await mutating_commands(mcp))
+        except Exception:
+            logger.warning("failed to compute mutating commands (#644)", exc_info=True)
         try:
             mcp.add_transform(await godot_tool_transform(mcp))
         except Exception:
