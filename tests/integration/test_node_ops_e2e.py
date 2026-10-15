@@ -29,6 +29,12 @@ pytestmark = pytest.mark.skipif(GODOT_BIN is None, reason="Godot binary not inst
 BRIDGE_URL = e2e_bridge_url()
 SCRATCH = "res://tmp_e2e_nodeops.tscn"
 SCRATCH_FILE = GODOT_PROJECT / "tmp_e2e_nodeops.tscn"
+# #642: a reusable sub-scene (with a distinguishable internal node) and the main
+# scene that instances + moves it.
+SUB = "res://tmp_e2e_nodeops_sub.tscn"
+SUB_FILE = GODOT_PROJECT / "tmp_e2e_nodeops_sub.tscn"
+INST_SCENE = "res://tmp_e2e_nodeops_inst.tscn"
+INST_SCENE_FILE = GODOT_PROJECT / "tmp_e2e_nodeops_inst.tscn"
 
 
 async def _ok(bridge: Bridge, command: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -124,3 +130,79 @@ def test_live_node_parity() -> None:
         except subprocess.TimeoutExpired:
             editor.kill()
         SCRATCH_FILE.unlink(missing_ok=True)
+
+
+async def _run_instance_ownership() -> None:
+    bridge = Bridge(BridgeConfig(url=BRIDGE_URL))
+    if not await serve_and_await_editor(bridge):
+        raise AssertionError("the addon never connected to the bridge")
+
+    try:
+        # A reusable sub-scene with a distinguishable internal node.
+        await _ok(bridge, "cmd_create_scene", {"root_type": "Node2D", "scene_path": SUB})
+        await _wait_scene_open(bridge)
+        await _ok(
+            bridge,
+            "cmd_create_node",
+            {"parent_path": ".", "node_type": "Node2D", "name": "SubChild"},
+        )
+        await _ok(bridge, "cmd_save_scene", {})
+
+        # The main scene instances the sub-scene, then moves the instance into a
+        # holder — the move triggers own_recursive over the instance.
+        await _ok(bridge, "cmd_create_scene", {"root_type": "Node2D", "scene_path": INST_SCENE})
+        await _wait_scene_open(bridge)
+        await _ok(
+            bridge, "cmd_create_node", {"parent_path": ".", "node_type": "Node2D", "name": "Holder"}
+        )
+        await _ok(
+            bridge,
+            "cmd_instance_scene",
+            {"parent_path": ".", "scene_path": SUB, "name": "Inst"},
+        )
+        await _ok(bridge, "cmd_move_node", {"node_path": "Inst", "new_parent_path": "Holder"})
+        await _ok(bridge, "cmd_save_scene", {})
+
+        saved = INST_SCENE_FILE.read_text()
+        # #642: the instance's INTERNAL nodes must not be serialised as local nodes
+        # (that duplicates/corrupts the instanced scene on reload). The sub-scene's
+        # internal node name must not appear in the host scene at all.
+        assert "SubChild" not in saved, (
+            "instanced internals were serialised into the host scene (#642):\n" + saved
+        )
+        # Exactly one instance reference (the moved instance).
+        assert saved.count("instance=") == 1, saved
+
+        # Undo the move: ownership must return cleanly (still one instance, no
+        # leaked internals) — the undo path calls own_recursive too.
+        await _ok(bridge, "cmd_undo", {})
+        await _ok(bridge, "cmd_save_scene", {})
+        undone = INST_SCENE_FILE.read_text()
+        assert "SubChild" not in undone, (
+            "undo of move serialised instanced internals (#642):\n" + undone
+        )
+        assert undone.count("instance=") == 1, undone
+    finally:
+        await bridge.close()
+
+
+def test_live_instance_ownership_preserved() -> None:
+    """#642: duplicate/move must not rewrite ownership inside an instanced sub-scene."""
+    assert GODOT_BIN is not None
+    editor = subprocess.Popen(
+        [GODOT_BIN, "--headless", "--editor", "--path", str(GODOT_PROJECT)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        env={**os.environ, "GODOT_MCP_BRIDGE_URL": BRIDGE_URL},
+    )
+    try:
+        asyncio.run(_run_instance_ownership())
+    finally:
+        editor.terminate()
+        try:
+            editor.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            editor.kill()
+        for f in (SUB_FILE, INST_SCENE_FILE):
+            f.unlink(missing_ok=True)
+            f.with_name(f.name + ".uid").unlink(missing_ok=True)
