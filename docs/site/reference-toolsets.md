@@ -266,6 +266,10 @@ updated: 2026-10-11
 
 ## `runtime` — Headless run + output capture; live play session lifecycle.
 
+> **Compatibility (#648):** `godot_runtime_get_game_output` needs Godot **4.5+**
+> (its `Logger`/`OS.add_logger` capture). On the 4.4 floor the probe guards that
+> API — everything else works, but the output ring stays empty.
+
 11 tools.
 
 | Tool | Class |
