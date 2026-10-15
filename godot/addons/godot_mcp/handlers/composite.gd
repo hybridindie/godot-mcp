@@ -264,6 +264,8 @@ func _cmd_apply_node_edits(params: Dictionary) -> Dictionary:
 		if not undoable:
 			for item in to_apply:
 				item["node"].set(item["property"], item["value"])
+			# #643: no UndoRedo commit here, so mark the scene dirty explicitly.
+			EditorInterface.mark_scene_as_unsaved()
 		else:
 			var undo_redo := EditorInterface.get_editor_undo_redo()
 			undo_redo.create_action("Apply %d node edits" % to_apply.size())

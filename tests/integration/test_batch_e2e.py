@@ -98,6 +98,23 @@ async def _run() -> None:
         assert big["undoable"] is False, big
         assert "UndoRedo threshold" in big["hint"] and "Undo will not revert" in big["hint"]
 
+        # #643: the over-threshold path skips UndoRedo, so it must mark the scene
+        # unsaved itself — else the tab looks clean and closing discards the edits.
+        # Save first so the scene is clean, then re-run an over-threshold batch.
+        await _ok(bridge, "cmd_save_scene", {})
+        clean = await _ok(bridge, "cmd_get_active_scene", {})
+        assert clean.get("dirty") is False, f"saved scene should be clean: {clean}"
+        rerun = await _ok(
+            bridge,
+            "cmd_batch_set_property",
+            {"type": "Node", "property": "process_mode", "value": 1},
+        )
+        assert rerun["undoable"] is False, rerun
+        dirty = await _ok(bridge, "cmd_get_active_scene", {})
+        assert dirty.get("dirty") is True, (
+            "an over-threshold batch must mark the scene unsaved (#643)"
+        )
+
         # #461: run_commands names its early stop instead of burying it — a
         # failing command at index 0 halts the batch and the skipped tail is
         # counted (stop_on_error defaults to True).

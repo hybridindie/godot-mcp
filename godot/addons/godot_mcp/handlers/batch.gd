@@ -184,6 +184,10 @@ func _cmd_batch_set_property(params: Dictionary) -> Dictionary:
 		if not undoable:
 			for item in to_apply:
 				item["node"].set(property, item["value"])
+			# #643: this path bypasses UndoRedo (no action commit, so no dirty
+			# marker) — mark the scene unsaved ourselves or the tab looks clean
+			# and closing it discards the edits without a prompt.
+			EditorInterface.mark_scene_as_unsaved()
 		else:
 			var ur := EditorInterface.get_editor_undo_redo()
 			ur.create_action("Batch set %s on %d nodes" % [property, to_apply.size()])
