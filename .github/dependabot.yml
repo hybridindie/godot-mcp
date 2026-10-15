@@ -1,0 +1,9 @@
+# Keep SHA-pinned GitHub Actions current (issue #649). Dependabot opens a PR
+# when a pinned action's upstream tag moves, so the pins in .github/workflows/
+# don't freeze on an old (or vulnerable) commit.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

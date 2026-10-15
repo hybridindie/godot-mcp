@@ -12,22 +12,61 @@ on:
 permissions:
   contents: read
 
+# Publishing builds exactly the tagged commit (`inputs.tag` on a manual dispatch,
+# else the release's `github.ref`) and only after the checks pass (#649). A
+# missing tag fails at checkout. Third-party actions are SHA-pinned; Dependabot
+# (.github/dependabot.yml) keeps them fresh.
 jobs:
+  test:
+    # Release gate: never publish a commit whose tests / lint / types fail.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@f98e06938123ccabd21905ea5d0069192241f9f1  # v8.3.1
+        with:
+          version: "0.11.29"
+
+      - name: Zero-skip scan (suite health)
+        run: ./.opencode/hooks/check-no-skipped-tests.sh
+
+      - name: Lint (ruff check)
+        run: uv run ruff check .
+
+      - name: Type check (mypy)
+        run: uv run mypy
+
+      - name: Tests (pytest)
+        run: uv run pytest -q
+
   build:
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
       actions: write  # upload-artifact
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.3.1
+        uses: astral-sh/setup-uv@f98e06938123ccabd21905ea5d0069192241f9f1  # v8.3.1
         with:
           # Pinned (issue #579) — skips the flaky manifest fetch (see ci.yml).
           version: "0.11.29"
@@ -48,13 +87,13 @@ jobs:
           zip -r ../addon_dist/godot_mcp_addon.zip addons/godot_mcp/
 
       - name: Upload Python dist artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
           name: dist
           path: dist/
 
       - name: Upload Godot addon zip artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
           name: addon_dist
           path: addon_dist/
@@ -68,13 +107,13 @@ jobs:
       actions: read   # download-artifact
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
         with:
           name: dist
           path: dist/
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # release/v1
         with:
           # Stable releases go to PyPI as-is; if a prerelease (b1, rc1) is ever
           # cut again, pip install --pre picks those up — PyPI accepts
@@ -89,19 +128,19 @@ jobs:
       actions: read   # download-artifact
     steps:
       - name: Download Python dist artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
         with:
           name: dist
           path: dist/
 
       - name: Download Godot addon zip
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
         with:
           name: addon_dist
           path: addon_dist/
 
       - name: Upload to GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2
         with:
           files: |
             dist/*.whl
@@ -116,7 +155,7 @@ jobs:
       actions: read  # download-artifact
     steps:
       - name: Download Godot addon zip
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
         with:
           name: addon_dist
           path: addon_dist/
@@ -153,13 +192,16 @@ jobs:
       contents: read
       packages: write  # Push to ghcr.io
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          # The image must be built from the tagged commit, not the default branch.
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f  # v3
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f  # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -175,7 +217,7 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Build and push image
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc  # v7
         with:
           context: .
           file: infra/Dockerfile
