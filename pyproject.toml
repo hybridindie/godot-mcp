@@ -25,7 +25,7 @@ classifiers = [
 dependencies = [
     # The MCP framework (PrefectHQ/fastmcp). FastMCP 4 stable (issue #403) — GA
     # is built on MCP SDK v2 and the 2026-07-28 sessionless protocol revision
-    # (migration plan: docs/mcp-2026-07-28-migration.md). b3 carried the guard
+    # (MCP SDK v2, the 2026-07-28 sessionless protocol). b3 carried the guard
     # pattern (InputRequiredResult / request_state) and tool-title defaults our
     # surface relies on; stable adds the beta-period correctness work (task
     # snapshots, response caching, auth hardening) with breaking changes we
@@ -76,7 +76,7 @@ build-backend = "hatchling.build"
 
 # FastMCP 4 stable pinning (issue #403): fastmcp is a thin wrapper over
 # fastmcp-slim at the same version, and background tasks live in fastmcp-tasks.
-# All three ride the same 4.0.1 stable release now, so the constraint block is
+# All three ride the same 4.1.0 stable release now, so the constraint block is
 # belt-and-suspenders rather than a prerelease-resolution workaround (its
 # original purpose at the b3 pin, issue #311) — kept so the slim/tasks pins can
 # never drift below the wrapper pin.
@@ -87,7 +87,7 @@ constraint-dependencies = ["fastmcp-slim==4.1.0", "fastmcp-tasks==4.1.0"]
 packages = ["mcp_server"]
 
 [tool.pytest.ini_options]
-# Contract -> Integration -> Unit (see .claude/rules/testing.md).
+# Contract -> Integration -> Unit (see .opencode/rules/testing.md).
 testpaths = ["tests"]
 asyncio_mode = "auto"
 # Forbidden skips are a blocking gate; surface them loudly.

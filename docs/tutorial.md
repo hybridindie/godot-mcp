@@ -164,7 +164,7 @@ For each prompt below, paste it into your MCP client chat. The LLM will use the 
 - `godot_inspection_get_active_scene` → check if a scene is open
 
 **Example response:**
-> Project `godot-mcp-demo` on Godot 4.6.3. No scene is currently open.
+> Project `godot-mcp-demo` on Godot 4.7. No scene is currently open.
 
 ---
 

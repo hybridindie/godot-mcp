@@ -37,7 +37,8 @@ from mcp_server.server import create_server
 from tests.contract.test_describe_class import NODE2D, _class_responder
 from tests.fakes import FakeAddonConnection, connector_for
 
-pytestmark = pytest.mark.asyncio
+# asyncio_mode = "auto" (pyproject) marks the async tests; an explicit module-level
+# pytest.mark.asyncio also tagged the sync ones (issue #656).
 
 READ_REPLY = {
     "ready": True,

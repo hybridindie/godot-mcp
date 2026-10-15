@@ -17,7 +17,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import pytest
 from fastmcp import Client, FastMCP
 
 from mcp_server.bridge import Bridge
@@ -26,7 +25,8 @@ from mcp_server.models.envelope import CommandEnvelope, ResponseEnvelope
 from mcp_server.server import create_server
 from tests.fakes import FakeAddonConnection, connector_for
 
-pytestmark = pytest.mark.asyncio
+# asyncio_mode = "auto" (pyproject) marks the async tests; an explicit module-level
+# pytest.mark.asyncio also tagged the sync ones (issue #656).
 
 _OUTPUT: dict[str, Any] = {
     "next_seq": 7,
