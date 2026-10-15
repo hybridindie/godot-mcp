@@ -1207,11 +1207,11 @@ Control breakpoints, step execution, and inspect the paused call stack in a runn
 | `godot_debugger_step_over` | — | `StepResult { stepped }` |
 | `godot_debugger_step_out` | — | `StepResult { stepped }` |
 | `godot_debugger_continue_execution` | — | `ContinueResult { running }` |
-| `godot_debugger_get_stack_frames` | — | `StackFramesResult { frames[], hint }` |
-| `godot_debugger_evaluate_expression` | `expression, frame=0` | `EvaluationResult { expression, value, evaluated }` |
-| `godot_debugger_get_frame_variables` | `frame=0` | `FrameVarsResult { frame, locals[], members[], globals[] }` |
+| `godot_debugger_get_stack_frames` | — | **`UNSUPPORTED`** on Godot 4.7 (#677) |
+| `godot_debugger_evaluate_expression` | `expression, timeout_ms=2000` | `EvaluationResult { expression, value, evaluated, error }` |
+| `godot_debugger_get_frame_variables` | — | **`UNSUPPORTED`** on Godot 4.7 (#677) |
 
-Step tools send `step`/`next`/`out`/ `continue` via `EditorDebuggerSession.send_message` and require the game to be paused (`session.is_breaked()`). `godot_debugger_get_stack_frames` returns the current call stack from the debugger protocol (`get_stack_dump` → `stack_dump`); an empty `frames:[]` carries a `hint` — the poll-and-cache reply is async, so empty means "not yet received", not "empty call stack" (#411). `godot_debugger_evaluate_expression` evaluates a GDScript expression at the given frame (`evaluate` → `evaluation_return`) and echoes `evaluated` so a null `value` is distinguishable from "no reply yet" (#411) — it runs arbitrary code in the game process, so it carries the `executes_code` flag and is **approval-gated** (issue #638). `godot_debugger_get_frame_variables` fetches locals, members, and globals (`get_stack_frame_vars` → `stack_frame_vars`). All three are captured via the poll-and-cache pattern on `MCPDebugger`, so the first call after a break may return empty data until the async reply arrives.
+Step tools send `step`/`next`/`out`/ `continue` via `EditorDebuggerSession.send_message` and require the game to be paused (`session.is_breaked()`). **`godot_debugger_get_stack_frames` and `godot_debugger_get_frame_variables` are `UNSUPPORTED` on Godot 4.7** (#677): the paused-frame call stack / variable set is delivered by the editor's internal `ScriptEditorDebugger` over the debugger protocol, which is **not** routed to editor debugger plugins — a plugin never receives `stack_dump`/`stack_frame_vars`. They return a structured `UNSUPPORTED` error rather than a silent empty result. `godot_debugger_evaluate_expression` runs in the **running game** via the runtime probe's `Expression` path (#677) — it evaluates in the game's global scope (base instance = the scene root) and is **not** frame-scoped; `error` is set (with `value` null) on a parse/execute failure, never a silent null. It runs arbitrary code in the game process, so it carries the `executes_code` flag and is **approval-gated** (issue #638).
 
 #### Profiling (issue #38) — category: `profiling` (gated off by default)
 

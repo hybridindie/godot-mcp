@@ -113,31 +113,46 @@ async def test_two_evaluations_return_their_own_value() -> None:
     assert peer.polls[ids[0]] >= 2  # polled the pending reply until ready
 
 
-async def test_stack_frames_are_request_scoped() -> None:
-    server, conn, _ = _build()
+async def test_stack_frames_reports_unsupported() -> None:
+    # #677: the paused-frame stack is not exposed to editor debugger plugins on
+    # Godot 4.7 — the addon returns a structured UNSUPPORTED error, never a
+    # silent empty list.
+    def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_get_stack_frames":
+            return ResponseEnvelope.failure(cmd.id, "UNSUPPORTED", "not exposed to plugins")
+        return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
+
+    conn = FakeAddonConnection(responder=responder)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    server = create_server(ServerConfig(), bridge=bridge)
     async with Client(server) as client:
         await client.call_tool("godot_enable_toolset", {"category": "debugger"})
-        first = await client.call_tool("godot_debugger_get_stack_frames", {})
-        second = await client.call_tool("godot_debugger_get_stack_frames", {})
-    ids = _ids(conn, "cmd_get_stack_frames")
-    assert len(set(ids)) == 2
-    assert first.structured_content["frames"][0]["file"] == ids[0]
-    assert second.structured_content["frames"][0]["file"] == ids[-1]
+        result = await client.call_tool(
+            "godot_debugger_get_stack_frames", {}, raise_on_error=False
+        )
+    assert result.is_error
+    assert "UNSUPPORTED" in str(result.content)
 
 
-async def test_frame_variables_are_request_scoped() -> None:
-    server, conn, _ = _build()
+async def test_frame_variables_reports_unsupported() -> None:
+    def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
+        if cmd.command == "cmd_get_frame_variables":
+            return ResponseEnvelope.failure(cmd.id, "UNSUPPORTED", "not exposed to plugins")
+        return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
+
+    conn = FakeAddonConnection(responder=responder)
+    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
+    server = create_server(ServerConfig(), bridge=bridge)
     async with Client(server) as client:
         await client.call_tool("godot_enable_toolset", {"category": "debugger"})
-        first = await client.call_tool("godot_debugger_get_frame_variables", {})
-        second = await client.call_tool("godot_debugger_get_frame_variables", {})
-    ids = _ids(conn, "cmd_get_frame_variables")
-    assert len(set(ids)) == 2
-    assert first.structured_content["locals"][0]["name"] == ids[0]
-    assert second.structured_content["locals"][0]["name"] == ids[-1]
+        result = await client.call_tool(
+            "godot_debugger_get_frame_variables", {}, raise_on_error=False
+        )
+    assert result.is_error
+    assert "UNSUPPORTED" in str(result.content)
 
 
-# --- addon source pins ------------------------------------------------------
+# --- addon/probe source pins (the GDScript side) ----------------------------
 
 
 def _addon_src(name: str) -> str:
@@ -146,17 +161,23 @@ def _addon_src(name: str) -> str:
     return (Path("godot/addons/godot_mcp") / name).read_text(encoding="utf-8")
 
 
-def test_addon_tags_debugger_replies_with_the_request_id() -> None:
+def test_probe_evaluates_in_game() -> None:
+    """#677: evaluation runs in the game via Expression (the editor debugger's
+    paused-frame eval protocol is not plugin-accessible)."""
+    src = _addon_src("mcp_runtime_probe.gd")
+    assert '"evaluate":' in src
+    assert "Expression.new()" in src
+    assert "godot_mcp:evaluation" in src  # reply channel echoes request_id
+
+
+def test_addon_evaluation_is_probe_backed() -> None:
     src = _addon_src("mcp_debugger.gd")
-    for var in ("_evaluation_request", "_stack_request", "_frame_vars_request"):
-        assert var in src, f"{var} missing (#671)"
-    for capture in ('"evaluation_return":', '"stack_dump":'):
-        block = src.split(capture, 1)[1].split("return true", 1)[0]
-        assert "request_id" in block, f"{capture} must tag the reply with request_id"
+    assert '"godot_mcp:evaluation"' in src  # capture case
+    assert "godot_mcp:evaluate" in src  # probe request
+    assert "_evaluation_request" in src  # request-scoped
 
 
-def test_handlers_read_the_request_id() -> None:
+def test_handlers_report_unsupported_for_stack_and_vars() -> None:
     src = _addon_src("handlers/debugger.gd")
-    assert src.count('params.get("request_id"') >= 3, (
-        "evaluate/stack/frame_vars handlers must read request_id (#671)"
-    )
+    assert src.count("UNSUPPORTED") >= 2, "stack + frame-vars handlers must report UNSUPPORTED"
+    assert 'params.get("request_id"' in src, "evaluate handler must read request_id"

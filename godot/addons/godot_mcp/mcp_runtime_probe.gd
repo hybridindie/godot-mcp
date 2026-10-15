@@ -109,6 +109,12 @@ func _capture(message: String, data: Array) -> bool:
 				"monitors": _performance_snapshot(),
 			}])
 			return true
+		"evaluate":
+			# #677: expression evaluation runs in the game via Expression (the editor
+			# debugger's paused-frame eval protocol is not exposed to plugins). Echo
+			# the request_id so the editor serves the reply to the right poll.
+			EngineDebugger.send_message("godot_mcp:evaluation", [_evaluate(_payload(data))])
+			return true
 		"capture_frame":
 			# Deferred one rendered frame: an inline texture read-back can return the
 			# previous frame (or stall); the grab runs in _process and replies when done.
@@ -410,6 +416,33 @@ func _values_equal(a: Variant, b: Variant, epsilon: float) -> bool:
 				return false
 		return true
 	return a == b
+
+
+## #677: evaluate a GDScript expression in the running game via Expression.
+## The editor debugger's paused-frame eval protocol is not exposed to editor
+## debugger plugins on Godot 4.7, so evaluation runs in-game instead (the base
+## instance is the scene root; it is not frame-scoped). Returns the JSON-safe
+## value, or an `error` string on parse/execute failure — never silent.
+func _evaluate(d: Dictionary) -> Dictionary:
+	var expression := str(d.get("expression", ""))
+	var request_id := str(d.get("request_id", ""))
+	var result := {
+		"request_id": request_id, "expression": expression,
+		"value": null, "evaluated": true, "error": "",
+	}
+	if expression.is_empty():
+		result["error"] = "empty expression"
+		return result
+	var expr := Expression.new()
+	if expr.parse(expression) != OK:
+		result["error"] = "parse error: %s" % expr.get_error_text()
+		return result
+	var value: Variant = expr.execute([], get_tree().root, false)
+	if expr.has_execute_failed():
+		result["error"] = "evaluation failed: %s" % expr.get_error_text()
+		return result
+	result["value"] = _json_safe(value)
+	return result
 
 
 ## #571 one-shot read: resolve the node, read the property once, reply now.
