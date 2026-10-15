@@ -49,8 +49,8 @@ func _exit_tree() -> void:
 	# stale registered logger would keep sinking into a dead ring (duplicate
 	# entries across sessions, and a leaked OS-level logger). Remove it in the
 	# same EngineDebugger-active gate we registered it under.
-	if _output_logger != null and EngineDebugger.is_active():
-		OS.remove_logger(_output_logger)
+	if _output_logger != null and EngineDebugger.is_active() and OS.has_method("remove_logger"):
+		OS.call("remove_logger", _output_logger)
 		_output_logger = null
 	_output_lock.lock()
 	_output_ring.clear()
@@ -645,44 +645,27 @@ var _output_lock: Mutex = Mutex.new()
 var _output_ring: Array = []
 var _output_seq := 0
 var _output_dropped := 0
-var _output_logger: Logger = null
-
-
-class MCPOutputLogger extends Logger:
-	## Relays into the probe's ring via a Callable so the inner class stays
-	## decoupled from the probe's state. Called from arbitrary threads — the
-	## probe side guards with its mutex.
-	var _sink: Callable
-
-	func _init(sink: Callable) -> void:
-		_sink = sink
-
-	func _log_message(message: String, error: bool) -> void:
-		_sink.call(message, "error" if error else "stdout")
-
-	func _log_error(
-		function: String, file: String, line: int, code: String, rationale: String,
-		editor_notify: bool, error_type: int, script_backtraces: Array
-	) -> void:
-		var kind := "error"
-		if error_type == Logger.ERROR_TYPE_WARNING:
-			kind = "warning"
-		# `rationale` carries the human text for push_error/push_warning/script
-		# errors; `code` is the engine-side message. Prefer whichever is present.
-		var text := rationale
-		if text.is_empty():
-			text = code
-		if text.is_empty():
-			text = "%s @ %s:%d" % [function, file, line]
-		_sink.call(text, kind)
+# #648: typed Object, not Logger — a `: Logger` annotation would fail to parse on
+# the 4.4 floor (Logger is 4.5+). Null on 4.4 / when output capture is unavailable.
+var _output_logger: Object = null
 
 
 ## Register the output logger in _ready (EngineDebugger-active gate lives in
 ## _ready; the logger is registered alongside it so captures start as early
 ## as the probe itself).
+##
+## #648: `Logger` + `OS.add_logger` are Godot 4.5+. On the 4.4 floor this returns
+## immediately (the logger script is never `load()`ed, so it is never parsed, and
+## `OS.call` avoids a compile-time reference to the 4.5 API) — the probe still
+## parses and every other feature works; output capture degrades to an empty ring.
 func _register_output_logger() -> void:
-	_output_logger = MCPOutputLogger.new(_on_output_line)
-	OS.add_logger(_output_logger)
+	if not OS.has_method("add_logger"):
+		return
+	var logger_script: Variant = load("res://addons/godot_mcp/mcp_output_logger.gd")
+	if logger_script == null:
+		return
+	_output_logger = logger_script.new(_on_output_line)
+	OS.call("add_logger", _output_logger)
 
 
 ## Logger sink (any thread): append {seq, kind, text, time_ms} into the ring,
