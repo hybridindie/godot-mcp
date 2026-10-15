@@ -21,9 +21,11 @@ from mcp_server.categories import COMPOSITE_TAG
 from mcp_server.models.composite import (
     ApplyNodeEditsResult,
     BatchCreateNodesResult,
+    ChildSpec,
     ComposeNodeResult,
+    NodeEdit,
 )
-from mcp_server.models.run_commands import RunCommandsResult
+from mcp_server.models.run_commands import RunCommandEntry, RunCommandsResult
 from mcp_server.paths import ResPath
 from mcp_server.safety import (
     MUTATING,
@@ -72,17 +74,12 @@ def _map_batch_params(command: str, params: dict[str, Any]) -> dict[str, Any]:
     return map_params(resolved.removeprefix("cmd_"), params)
 
 
-def _child_to_addon(child: dict[str, Any]) -> dict[str, Any]:
-    """Map a caller child spec to the addon's shape (``node_name`` -> ``name``).
-
-    Uses ``.get`` for every key: a missing ``node_type`` passes "" through to the
-    addon, which returns a structured ``VALIDATION_ERROR`` rather than a KeyError
-    surfacing as an opaque internal failure.
-    """
+def _child_to_addon(child: ChildSpec) -> dict[str, Any]:
+    """Map a caller child spec to the addon's shape (``node_name`` -> ``name``)."""
     return {
-        "node_type": child.get("node_type", ""),
-        "name": child.get("node_name") or child.get("name", ""),
-        "properties": child.get("properties", {}),
+        "node_type": child.node_type,
+        "name": child.node_name,
+        "properties": child.properties,
     }
 
 
@@ -104,7 +101,7 @@ def register_composite(
         node_name: str,
         properties: dict[str, Any] | None = None,
         script_path: ResPath | None = None,
-        children: list[dict[str, Any]] | None = None,
+        children: list[ChildSpec] | None = None,
         save: bool = False,
         dry_run: bool = False,
     ) -> ComposeNodeResult:
@@ -130,7 +127,7 @@ def register_composite(
         preview = {
             "node_path": node_path,
             "created": False,
-            "children": [c.get("node_name") or c.get("name", "") for c in (children or [])],
+            "children": [c.node_name for c in (children or [])],
             "script_attached": bool(script_path),
             "properties_set": list((properties or {}).keys()),
             "saved": False,
@@ -182,7 +179,7 @@ def register_composite(
     @mcp.tool(meta=MUTATING, tags=COMPOSITE)
     @enforce_preconditions
     async def apply_node_edits(
-        edits: list[dict[str, Any]],
+        edits: list[NodeEdit],
         save: bool = False,
         dry_run: bool = False,
     ) -> ApplyNodeEditsResult:
@@ -191,7 +188,7 @@ def register_composite(
         property are reported under ``skipped``. ``save=True`` also saves the scene.
         """
         await require_active_scene(bridge)
-        params: dict[str, Any] = {"edits": edits, "save": save}
+        params: dict[str, Any] = {"edits": [e.model_dump() for e in edits], "save": save}
         preview = {
             "edited": [],
             "skipped": [],
@@ -212,7 +209,7 @@ def register_composite(
     @mcp.tool(meta=MUTATING, tags=COMPOSITE)
     @enforce_preconditions
     async def run_commands(
-        commands: list[dict[str, Any]],
+        commands: list[RunCommandEntry],
         stop_on_error: bool = True,
         confirm: bool = False,
         dry_run: bool = False,
@@ -232,8 +229,8 @@ def register_composite(
         require_bridge_connected(bridge)
         normalized = [
             {
-                "command": _normalize_command(str(c.get("command", ""))),
-                "params": _map_batch_params(str(c.get("command", "")), c.get("params", {})),
+                "command": _normalize_command(c.command),
+                "params": _map_batch_params(c.command, c.params),
             }
             for c in commands
         ]

@@ -13,6 +13,22 @@ from pydantic import BaseModel, Field
 from mcp_server.models.persistence import TargetPersistence
 
 
+class ChildSpec(BaseModel):
+    """One child for ``compose_node`` (issue #691: a typed shape so the schema
+    guides client generation instead of a bare ``object``)."""
+
+    node_type: str
+    node_name: str = ""
+    properties: dict[str, Any] = Field(default_factory=dict)
+
+
+class NodeEdit(BaseModel):
+    """One ``{node_path, properties}`` entry for ``apply_node_edits`` (issue #691)."""
+
+    node_path: str
+    properties: dict[str, Any] = Field(default_factory=dict)
+
+
 class ComposeNodeResult(BaseModel):
     """Outcome of ``compose_node`` (create a node with properties/script/children)."""
 

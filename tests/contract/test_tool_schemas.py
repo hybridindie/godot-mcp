@@ -58,3 +58,19 @@ async def test_closed_vocab_uses_an_enum() -> None:
     params = tools["godot_scripts_list"].parameters or {}
     language = params["properties"]["language"]
     assert language.get("enum") == ["gd", "cs"], language
+
+
+@pytest.mark.asyncio
+async def test_structured_dict_params_get_a_schema() -> None:
+    """#691: the known-shape dict params resolve to typed models, so their fields
+    appear in the published schema (not a bare ``object``)."""
+    tools = {godot_tool_name(_original_handler_name(t), t.tags): t for t in await _tools()}
+    expected = {
+        "godot_composite_run_commands": ("commands", "RunCommandEntry"),
+        "godot_composite_compose_node": ("children", "ChildSpec"),
+        "godot_composite_apply_node_edits": ("edits", "NodeEdit"),
+        "godot_asset_import_asset": ("options", "ImportOptions"),
+    }
+    for name, (_prop, model) in expected.items():
+        schema = tools[name].parameters or {}
+        assert model in schema.get("$defs", {}), f"{name} is missing the {model} schema (#691)"
