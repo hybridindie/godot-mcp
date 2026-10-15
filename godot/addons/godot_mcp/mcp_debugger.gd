@@ -50,6 +50,12 @@ var _frame_vars_globals: Array = []
 # we store a reply only when it matches the in-flight request.
 var _scene_tree_request := "__none__"
 var _performance_request := "__none__"
+# #671: the engine debugger replies (evaluation_return, stack_dump,
+# stack_frame_vars) carry no id, so we tag them with the in-flight request id:
+# a handler serves the cache only when it matches the caller's request.
+var _evaluation_request := "__none__"
+var _stack_request := "__none__"
+var _frame_vars_request := "__none__"
 
 
 ## Debugger protocol capture names we claim so _capture receives raw messages.
@@ -126,10 +132,13 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 			return true
 		# Tier 2 debugger: raw Godot debugger protocol replies (issue #110)
 		"stack_dump":
-			_stack_frames = data[0] if not data.is_empty() else null
+			# #671: tag the reply with the in-flight request so a handler never
+			# serves the previous call's stack (the engine reply carries no id).
+			_stack_frames = {"request_id": _stack_request, "frames": data[0] if not data.is_empty() else []}
 			return true
 		"evaluation_return":
-			_evaluation_result = data[0] if not data.is_empty() else null
+			# #671: tag with the in-flight evaluation request.
+			_evaluation_result = {"request_id": _evaluation_request, "value": data[0] if not data.is_empty() else null}
 			return true
 		"stack_frame_vars":
 			# The count message tells us how many variables to expect; reset accumulators.
@@ -155,6 +164,7 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 				var total := _frame_vars_locals.size() + _frame_vars_members.size() + _frame_vars_globals.size()
 				if total >= _frame_vars_expected:
 					_frame_vars = {
+						"request_id": _frame_vars_request,
 						"locals": _frame_vars_locals.duplicate(),
 						"members": _frame_vars_members.duplicate(),
 						"globals": _frame_vars_globals.duplicate(),
@@ -239,8 +249,11 @@ func _on_stopped() -> void:
 	_game_frame = null
 	_frame_request_id = "__none__"
 	_stack_frames = null
+	_stack_request = "__none__"
 	_evaluation_result = null
+	_evaluation_request = "__none__"
 	_frame_vars = null
+	_frame_vars_request = "__none__"
 	_frame_vars_expected = 0
 	_frame_vars_locals = []
 	_frame_vars_members = []
@@ -415,12 +428,49 @@ func get_cached_stack_frames() -> Variant:
 	return _stack_frames
 
 
+## #671: request_id of the in-flight stack read.
+func get_stack_request() -> String:
+	return _stack_request
+
+
+## Mark a new stack read in-flight and drop the prior (stale) reply.
+func begin_stack_request(request_id: String) -> void:
+	_stack_request = request_id
+	_stack_frames = null
+
+
 func get_cached_evaluation() -> Variant:
 	return _evaluation_result
 
 
+## #671: request_id of the in-flight evaluation.
+func get_evaluation_request() -> String:
+	return _evaluation_request
+
+
+## Mark a new evaluation in-flight and drop the prior (stale) reply.
+func begin_evaluation_request(request_id: String) -> void:
+	_evaluation_request = request_id
+	_evaluation_result = null
+
+
 func get_cached_frame_vars() -> Variant:
 	return _frame_vars
+
+
+## #671: request_id of the in-flight frame-vars read.
+func get_frame_vars_request() -> String:
+	return _frame_vars_request
+
+
+## Mark a new frame-vars read in-flight and reset the accumulator.
+func begin_frame_vars_request(request_id: String) -> void:
+	_frame_vars_request = request_id
+	_frame_vars = null
+	_frame_vars_expected = 0
+	_frame_vars_locals = []
+	_frame_vars_members = []
+	_frame_vars_globals = []
 
 
 ## Ask the editor debugger for the current call stack. Reply lands in

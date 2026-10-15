@@ -13,11 +13,14 @@ Gated in the ``debugger`` toolset.
 from __future__ import annotations
 
 import asyncio
+import uuid
 
 from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import DEBUGGER_TAG
+from mcp_server.constraints import TimeoutMs
+from mcp_server.defaults import DEFAULT_RUNTIME_INSPECT_TIMEOUT_MS
 from mcp_server.models.debugger import (
     BreakpointResult,
     ClearBreakpointsResult,
@@ -30,7 +33,7 @@ from mcp_server.models.debugger import (
 )
 from mcp_server.paths import ResPath
 from mcp_server.safety import RUNTIME, RUNTIME_EXECUTES_CODE
-from mcp_server.tools._route import route
+from mcp_server.tools._route import poll_ready, route
 
 DEBUGGER = {DEBUGGER_TAG}
 
@@ -130,35 +133,54 @@ def register_debugger(mcp: FastMCP, bridge: Bridge) -> None:
     # Tier 2: stack / eval --------------------------------------------------
 
     @mcp.tool(meta=RUNTIME, tags=DEBUGGER)
-    async def get_stack_frames() -> StackFramesResult:
+    async def get_stack_frames(
+        timeout_ms: TimeoutMs = DEFAULT_RUNTIME_INSPECT_TIMEOUT_MS,
+    ) -> StackFramesResult:
         """Get the current GDScript call stack while the game is paused.
         Returns a list of frames, each with ``file``, ``line``, and ``func``.
+
+        #671: the engine's ``stack_dump`` reply is asynchronous; the server sends a
+        per-invocation request id and polls until the reply for THAT request lands,
+        so two successive calls never return each other's stack.
         """
-        return StackFramesResult(**await route(bridge, "cmd_get_stack_frames"))
+        params = {"request_id": uuid.uuid4().hex}
+        result = await poll_ready(bridge, "cmd_get_stack_frames", params, timeout_ms)
+        return StackFramesResult(**result)
 
     @mcp.tool(meta=RUNTIME_EXECUTES_CODE, tags=DEBUGGER)
-    async def evaluate_expression(expression: str, frame: int = 0) -> EvaluationResult:
+    async def evaluate_expression(
+        expression: str,
+        frame: int = 0,
+        timeout_ms: TimeoutMs = DEFAULT_RUNTIME_INSPECT_TIMEOUT_MS,
+    ) -> EvaluationResult:
         """Evaluate a GDScript expression in the context of the given ``frame``.
         ``frame`` 0 is the top of the stack (the currently executing function).
         The game must be paused.
 
         Runs arbitrary code in the game process, so it is approval-gated (issue
         #638): a configured approval webhook / guard must approve it first.
+
+        #671: the ``evaluation_return`` reply is asynchronous; a per-invocation
+        request id lets the server poll until the reply for THIS expression lands,
+        so two successive evaluations each return their own value.
         """
-        return EvaluationResult(
-            **await route(
-                bridge,
-                "cmd_evaluate_expression",
-                {"expression": expression, "frame": frame},
-            )
-        )
+        params = {"expression": expression, "frame": frame, "request_id": uuid.uuid4().hex}
+        result = await poll_ready(bridge, "cmd_evaluate_expression", params, timeout_ms)
+        return EvaluationResult(**result)
 
     @mcp.tool(meta=RUNTIME, tags=DEBUGGER)
-    async def get_frame_variables(frame: int = 0) -> FrameVarsResult:
+    async def get_frame_variables(
+        frame: int = 0,
+        timeout_ms: TimeoutMs = DEFAULT_RUNTIME_INSPECT_TIMEOUT_MS,
+    ) -> FrameVarsResult:
         """Get local, member, and global variables for ``frame``.
         Returns three arrays under ``locals``, ``members``, and ``globals``.
         The game must be paused.
+
+        #671: the ``stack_frame_vars`` reply is asynchronous and multi-message; a
+        per-invocation request id lets the server poll until the accumulation for
+        THIS request completes.
         """
-        return FrameVarsResult(
-            **await route(bridge, "cmd_get_frame_variables", {"frame": frame})
-        )
+        params = {"frame": frame, "request_id": uuid.uuid4().hex}
+        result = await poll_ready(bridge, "cmd_get_frame_variables", params, timeout_ms)
+        return FrameVarsResult(**result)

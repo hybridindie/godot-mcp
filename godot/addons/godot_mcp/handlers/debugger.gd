@@ -173,7 +173,7 @@ func _cmd_continue(_params: Dictionary) -> Dictionary:
 
 # Tier 2: stack / eval ------------------------------------------------------
 
-func _cmd_get_stack_frames(_params: Dictionary) -> Dictionary:
+func _cmd_get_stack_frames(params: Dictionary) -> Dictionary:
 	var guard := _router._require_debug_session()
 	if not guard["ok"]:
 		return guard
@@ -187,17 +187,21 @@ func _cmd_get_stack_frames(_params: Dictionary) -> Dictionary:
 			"break_state",
 		)
 
-	var frames: Variant = debugger.get_cached_stack_frames()
-	debugger.request_stack_frames()  # refresh cache for next call
-	if frames == null:
-		# The reply is async (poll-and-cache): an empty list right after a break
-		# usually means the stack_dump hasn't arrived yet, NOT a live game. Warn
-		# so an agent doesn't read [] as "the stack is empty" (#411).
-		return _router._ok({
-			"frames": [],
-			"hint": "No stack dump cached yet; the game may still be delivering it. Retry after a beat — frames:[] while the game is frozen at a break means 'not yet received', not 'empty call stack'.",
-		})
-	return _router._ok({"frames": frames})
+	# #671: request-scoped — serve the cached stack only when it answers THIS
+	# request_id; else dispatch once and report pending (the server polls).
+	var request_id := str(params.get("request_id", ""))
+	var cached: Variant = debugger.get_cached_stack_frames()
+	if cached is Dictionary and str((cached as Dictionary).get("request_id", "")) == request_id:
+		return _router._ok({"ready": true, "frames": (cached as Dictionary).get("frames", [])})
+	if debugger.get_stack_request() != request_id:
+		debugger.begin_stack_request(request_id)
+		debugger.request_stack_frames()
+	return _router._ok({
+		"ready": false,
+		"frames": [],
+		"reason": "stack_pending",
+		"hint": "No stack dump yet for this request; the game may still be delivering it (the server polls until it arrives).",
+	})
 
 
 func _cmd_evaluate_expression(params: Dictionary) -> Dictionary:
@@ -219,15 +223,28 @@ func _cmd_evaluate_expression(params: Dictionary) -> Dictionary:
 			"break_state",
 		)
 
+	# #671: request-scoped — serve the cached value only when it answers THIS
+	# request_id; else dispatch once and report pending (the server polls).
+	var request_id := str(params.get("request_id", ""))
 	var cached: Variant = debugger.get_cached_evaluation()
-	debugger.request_evaluation(expression, frame)  # refresh cache for next call
-	var value: Variant = null
-	if cached is Dictionary:
-		value = (cached as Dictionary).get("value", null)
-	# value:null alone is ambiguous (evaluated-to-null vs. no reply yet vs.
-	# unevaluable frame) — echo whether an evaluation was actually received
-	# so an agent can tell the difference (#411).
-	return _router._ok({"expression": expression, "value": value, "evaluated": cached != null})
+	if cached is Dictionary and str((cached as Dictionary).get("request_id", "")) == request_id:
+		return _router._ok({
+			"ready": true,
+			"expression": expression,
+			"value": (cached as Dictionary).get("value", null),
+			"evaluated": true,
+		})
+	if debugger.get_evaluation_request() != request_id:
+		debugger.begin_evaluation_request(request_id)
+		debugger.request_evaluation(expression, frame)
+	# value:null with evaluated:false means "no reply for this request yet" (#411).
+	return _router._ok({
+		"ready": false,
+		"expression": expression,
+		"value": null,
+		"evaluated": false,
+		"reason": "evaluation_pending",
+	})
 
 
 func _cmd_get_frame_variables(params: Dictionary) -> Dictionary:
@@ -246,14 +263,27 @@ func _cmd_get_frame_variables(params: Dictionary) -> Dictionary:
 			"break_state",
 		)
 
+	# #671: request-scoped — serve the accumulation only when it answers THIS
+	# request_id; else dispatch once and report pending (the server polls).
+	var request_id := str(params.get("request_id", ""))
 	var cached: Variant = debugger.get_cached_frame_vars()
-	debugger.request_frame_variables(frame)  # refresh cache for next call
-	if cached == null:
-		return _router._ok({"frame": frame, "locals": [], "members": [], "globals": []})
-	var d: Dictionary = cached as Dictionary
+	if cached is Dictionary and str((cached as Dictionary).get("request_id", "")) == request_id:
+		var d: Dictionary = cached as Dictionary
+		return _router._ok({
+			"ready": true,
+			"frame": frame,
+			"locals": d.get("locals", []),
+			"members": d.get("members", []),
+			"globals": d.get("globals", []),
+		})
+	if debugger.get_frame_vars_request() != request_id:
+		debugger.begin_frame_vars_request(request_id)
+		debugger.request_frame_variables(frame)
 	return _router._ok({
+		"ready": false,
 		"frame": frame,
-		"locals": d.get("locals", []),
-		"members": d.get("members", []),
-		"globals": d.get("globals", []),
+		"locals": [],
+		"members": [],
+		"globals": [],
+		"reason": "frame_vars_pending",
 	})

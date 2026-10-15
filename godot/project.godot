@@ -17,6 +17,10 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 config/name="godot-mcp"
 config/features=PackedStringArray("4.7")
 
+[autoload]
+
+GodotMcpProbe="*res://addons/godot_mcp/mcp_runtime_probe.gd"
+
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/godot_mcp/plugin.cfg")
