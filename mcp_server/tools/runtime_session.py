@@ -34,7 +34,7 @@ from mcp_server.models.runtime_session import (
 )
 from mcp_server.paths import ResPath
 from mcp_server.safety import READ_ONLY, RUNTIME
-from mcp_server.tools._route import route
+from mcp_server.tools._route import poll_ready, route
 
 RUNTIME_SET = {RUNTIME_TAG}
 
@@ -91,22 +91,24 @@ def register_runtime_session(mcp: FastMCP, bridge: Bridge) -> None:
         # addon serves the tree for THIS request — never the previous call's cached
         # tree (mirrors find_ui_elements). Poll until the probe's reply lands.
         params = {"request_id": uuid.uuid4().hex}
-        deadline = asyncio.get_event_loop().time() + timeout_ms / 1000
-        result: dict[str, Any] = {}
-        while True:
-            result = await route(bridge, "cmd_get_game_scene_tree", params)
-            # Terminal: ready reply, a soft not-connected result, or a legacy addon
-            # that already returned a tree (no `ready` field).
-            if (
+
+        def terminal(result: dict[str, Any]) -> bool:
+            # Ready reply, a soft not-connected result, or a legacy addon that
+            # already returned a tree (no `ready` field).
+            return bool(
                 result.get("ready")
                 or result.get("connected") is False
                 or result.get("tree") is not None
-            ):
-                break
-            remaining = deadline - asyncio.get_event_loop().time()
-            if remaining <= 0:
-                break
-            await asyncio.sleep(min(DEFAULT_POLL_INTERVAL_SECONDS, remaining))
+            )
+
+        result = await poll_ready(
+            bridge,
+            "cmd_get_game_scene_tree",
+            params,
+            timeout_ms,
+            terminal=terminal,
+            raise_on_timeout=False,
+        )
         return GameSceneTreeResult(**result)
 
     @mcp.tool(meta=READ_ONLY, tags=RUNTIME_SET)
