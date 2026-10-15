@@ -131,15 +131,25 @@ def create_server(
         # (#276). Best-effort: if the port can't be bound (another server owns it), boot
         # anyway and report disconnected via health_check rather than failing — but log
         # it so the conflict is diagnosable.
-        try:
-            await bridge.serve()
-            logger.info("bridge listening for the editor", extra={"url": config.bridge.url})
-        except OSError:
-            logger.warning(
-                "bridge could not bind %s (another server may own it); continuing",
-                config.bridge.url,
-                exc_info=True,
-            )
+        # #655: retry a bind failure with backoff (a port can be briefly held by a
+        # just-closed listener); if it still fails, record the cause on the bridge
+        # so godot_health_check surfaces it instead of a silent permanent gap.
+        for attempt in range(1, 4):
+            try:
+                await bridge.serve()
+                bridge.bind_error = None
+                logger.info("bridge listening for the editor", extra={"url": config.bridge.url})
+                break
+            except OSError as exc:
+                bridge.bind_error = str(exc)
+                logger.warning(
+                    "bridge could not bind %s (attempt %d/3; another server may own it): %s",
+                    config.bridge.url,
+                    attempt,
+                    exc,
+                )
+                if attempt < 3:
+                    await asyncio.sleep(float(attempt))
         try:
             await apply_safety_annotations(mcp)
         except Exception:

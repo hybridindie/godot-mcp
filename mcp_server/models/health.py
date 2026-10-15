@@ -18,3 +18,7 @@ class HealthStatus(BaseModel):
     # predates the handshake.
     addon_version: str | None = None
     version_notice: str | None = None
+    # #655: set when the bridge listener could not bind its port (e.g. another
+    # server owns it) — the cause of a permanently-disconnected bridge, surfaced
+    # instead of leaving the agent to guess.
+    bridge_bind_error: str | None = None

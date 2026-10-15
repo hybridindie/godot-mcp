@@ -172,6 +172,10 @@ class Bridge:
         # flagged `may_have_applied` to stop a blind retry double-applying. Set from
         # the registry at server build (empty until then / in bare unit tests).
         self._mutating_commands: frozenset[str] = frozenset()
+        # #655: the last bind failure (e.g. another server owns the port), or None.
+        # Surfaced in godot_health_check so a permanently-disconnected bridge is
+        # diagnosable instead of a silent gap.
+        self.bind_error: str | None = None
 
     def set_mutating_commands(self, commands: frozenset[str]) -> None:
         """Record which addon commands are mutating/destructive (issue #644)."""
@@ -426,8 +430,12 @@ class Bridge:
         so teardown still completes (server dropped, pending requests failed) instead of
         escaping as a traceback — the process is already on its way down."""
         if self._reader is not None:
-            self._reader.cancel()
-            self._reader = None
+            # #655: cancel AND await the reader so its teardown completes before we
+            # proceed — a still-running read loop could otherwise touch freed state.
+            reader, self._reader = self._reader, None
+            reader.cancel()
+            with suppress(asyncio.CancelledError):
+                await reader
         if self._conn is not None:
             with suppress(asyncio.CancelledError):
                 await self._conn.close()
