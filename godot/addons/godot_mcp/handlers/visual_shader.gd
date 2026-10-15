@@ -71,7 +71,7 @@ func _cmd_create_visual_shader(params: Dictionary) -> Dictionary:
 	EditorInterface.get_resource_filesystem().update_file(path)
 
 	var ur := EditorInterface.get_editor_undo_redo()
-	ur.create_action("Create visual shader")
+	ur.create_action("Create visual shader", UndoRedo.MERGE_DISABLE, _router.asset_action_context())
 	ur.add_undo_method(_router, "_remove_file_with_uid", path)
 	ur.commit_action()
 

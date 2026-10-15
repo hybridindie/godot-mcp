@@ -106,7 +106,7 @@ func _cmd_write_script(params: Dictionary) -> Dictionary:
 	var existed := FileAccess.file_exists(path)
 	var old := FileAccess.get_file_as_string(path) if existed else ""
 	var ur := EditorInterface.get_editor_undo_redo()
-	ur.create_action("Write script %s" % path)
+	ur.create_action("Write script %s" % path, UndoRedo.MERGE_DISABLE, _router.asset_action_context())
 	ur.add_do_method(_router, "_write_file_text", path, content)
 	if existed:
 		ur.add_undo_method(_router, "_write_file_text", path, old)
@@ -149,7 +149,7 @@ func _cmd_patch_script(params: Dictionary) -> Dictionary:
 		return _router._fail("VALIDATION_ERROR", "'find' text was not found in the script.")
 	var patched := content.replace(find, str(params.get("replace", "")))
 	var ur := EditorInterface.get_editor_undo_redo()
-	ur.create_action("Patch script %s" % path)
+	ur.create_action("Patch script %s" % path, UndoRedo.MERGE_DISABLE, _router.asset_action_context())
 	ur.add_do_method(_router, "_write_file_text", path, patched)
 	ur.add_undo_method(_router, "_write_file_text", path, content)
 	ur.commit_action()
