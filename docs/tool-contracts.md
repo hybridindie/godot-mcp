@@ -307,7 +307,7 @@ states return an empty model (`is_open=False` / `tree=None` / `selected=None`), 
 | Tool | Params | Returns | Bridge command |
 |------|--------|---------|----------------|
 | `godot_inspection_get_project_info` | — | `ProjectInfo { name, godot_version, main_scene?, autoloads, input_actions }` | `cmd_get_project_info` |
-| `godot_inspection_get_active_scene` | — | `ActiveScene { is_open, path?, name? }` | `cmd_get_active_scene` |
+| `godot_inspection_get_active_scene` | — | `ActiveScene { is_open, path?, name?, dirty }` | `cmd_get_active_scene` |
 | `godot_inspection_list_scenes` | — | `ScenesResult { scenes: [SceneEntry { path, is_main, is_open, is_active }], main_scene? }` | `cmd_list_scenes` |
 | `godot_inspection_get_scene_tree` | `max_depth: int = -1, lightweight: bool = False` | `SceneTree { tree: SceneNode? }` | `cmd_get_scene_tree` |
 | `godot_inspection_get_selected_node` | — | `SelectedNode { selected: NodeInfo? }` | `cmd_get_selected_node` |
@@ -1332,7 +1332,7 @@ history returns zero-values, not an error.
 
 | Tool | Params | Returns | Notes |
 |------|--------|---------|-------|
-| `godot_health_check` | — | `HealthStatus { server, version, transport, bridge_url, bridge_connected, addon_version?, version_notice? }` | liveness ping — call first; `version` is the CalVer build (see § contract versioning); `version_notice` flags a server↔addon version mismatch (#629) |
+| `godot_health_check` | — | `HealthStatus { server, version, transport, bridge_url, bridge_connected, addon_version?, version_notice?, bridge_bind_error? }` | liveness ping — call first; `version` is the CalVer build (see § contract versioning); `version_notice` flags a server↔addon version mismatch (#629); `bridge_bind_error` is set when the listener could not bind its port (#655) |
 | `godot_get_server_info` | — | `ServerDiagnostics { server, version, contract_version, min_compatible_contract, transport, toolsets[], prompts[], resources[], bridge{connected, url, godot_version?, project_name?, project_path?, addon_version?, addon_commands?, backend?{csharp_supported, csharp_project, csharp_build}}, active_scene?, addon_drift_warning?, version_notice?, update?, common_errors[], next_steps[] }` | capability snapshot — call first |
 | `godot_check_for_updates` | — | `UpdateStatus { enabled, current, latest?, update_available, url?, checked_at?, error?, hint? }` | opt-in (`GODOT_MCP_CHECK_UPDATES`, off by default → `enabled: false`); when on, queries the release feed and reports a newer version; on finding one it also notifies the editor dock (#629) |
 | `godot_debug_workflow` | `scene="", timeout_seconds=5.0, expected_timeout=False` | `DebugWorkflowResult { bridge{}, scene_tree?, run?, parse{ok, errors[], skipped_reason}, findings[], suggestions[] }` | one-call comprehensive check; `expected_timeout=True` suppresses the timeout/NON-ZERO-EXIT findings for games that never self-quit (#490) |

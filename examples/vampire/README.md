@@ -12,7 +12,7 @@ A complete Vampire Survivors-style game for comprehensive MCP toolset testing.
 - **Particles**: Blood burst on enemy death, sparkle on XP pickup
 - **Audio**: (Placeholder — can be tested with MCP audio toolset)
 - **TileMap**: Grass tile background (placeholder asset)
-- **Debugger Demo**: A `DebuggerDemo` node with auto-ticking logic and a `breakpoint` on input — useful for demonstrating the MCP debugger tools (`get_stack_frames`, `evaluate_expression`, `step_into`, etc.)
+- **Debugger Demo**: A `DebuggerDemo` node with auto-ticking logic and a `breakpoint` on input — useful for demonstrating the MCP debugger tools (`force_break`, `evaluate_expression`, `step_into`, etc.)
 
 ## MCP Toolset Coverage
 
@@ -43,7 +43,7 @@ A complete Vampire Survivors-style game for comprehensive MCP toolset testing.
 - **Area weapon**: Pulses damage around player every second
 - **Level up**: Choose upgrade from menu (pauses game)
 - **Death**: Shows score, wave, and time; click Restart
-- **Debugger Demo**: Press `Space` or click in the game window to trigger a built-in `breakpoint` in `DebuggerDemo` (use MCP `get_stack_frames` / `evaluate_expression` / `step_into` while paused)
+- **Debugger Demo**: Press `Space` or click in the game window to trigger a built-in `breakpoint` in `DebuggerDemo` (use MCP `evaluate_expression` / `step_into` while paused)
 
 ## Project Structure
 
@@ -88,7 +88,7 @@ The `DebuggerDemo` node (child of `Main`) auto-ticks every 2 seconds and increme
 
 With the game paused at the breakpoint:
 1. **Enable the `debugger` toolset** via MCP: `enable_toolset("debugger")`
-2. **Get call stack**: `get_stack_frames()` → see the stack from `_trigger_debuggable_action` up to `_input`
+2. **Evaluate an expression** (runs in the game's global scope — the paused-frame stack/vars are UNSUPPORTED on 4.7, #677)
 3. **Evaluate expressions**: `evaluate_expression("_counters['a'] * 2 + _history.size()")` → inspect live state
 4. **Step through code**: `step_into()` or `step_over()` → observe line-by-line execution
 5. **Continue**: `continue_execution()` → resume the game

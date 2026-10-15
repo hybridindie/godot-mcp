@@ -230,14 +230,19 @@ def test_getting_started_teaches_the_resource_surface() -> None:
 
 def test_playtest_skill_names_debugger_tools() -> None:
     """The debugger recipe names the real breakpoint/stepping tools instead of
-    a vague 'set a breakpoint'."""
+    a vague 'set a breakpoint'. #677: get_stack_frames/get_frame_variables are
+    UNSUPPORTED on Godot 4.7, so the skill must use evaluate_expression (in-game),
+    not the paused-frame tools."""
     body = _body("godot-playtest-and-debug")
     for tool in (
         "godot_debugger_set_breakpoint(",
         "godot_debugger_force_break(",
-        "godot_debugger_get_stack_frames(",
+        "godot_debugger_evaluate_expression(",
     ):
         assert tool in body, f"playtest-and-debug must show {tool}"
+    assert "godot_debugger_get_stack_frames(" not in body, (
+        "the skill must not recommend the UNSUPPORTED paused-frame tools (#677)"
+    )
 
 
 def test_expert_skill_covers_4_8_gdscript_changes() -> None:

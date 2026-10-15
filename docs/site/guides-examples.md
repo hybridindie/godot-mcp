@@ -62,9 +62,9 @@ sparkle), and a `DebuggerDemo` node that trips a real `breakpoint` on input.
 
 **Debugger showcase:** press `Space` (or click in the game window) to hit the
 built-in breakpoint, then drive the `debugger` toolset while paused —
-`godot_debugger_get_stack_frames()`, `godot_debugger_get_frame_variables()`,
-`godot_debugger_evaluate_expression(expression=…)`, `godot_debugger_step_into()`,
-then `godot_debugger_continue_execution()`. See
+`godot_debugger_evaluate_expression(expression=…)` (in the running game's global
+scope; the paused-frame stack/vars are not exposed on 4.7, #677),
+`godot_debugger_step_into()`, then `godot_debugger_continue_execution()`. See
 [Play-test & debug](guides-playtest-debug.md) for the full loop.
 
 **Toolset coverage** (from its README): `scene_edit`, `physics`, `scripts`,

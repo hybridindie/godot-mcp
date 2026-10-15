@@ -117,8 +117,8 @@ input in Godot", "why does my Godot game crash", "debug the running scene",
 - Simulating keyboard/mouse/action input; recording and replaying input macros
 - Asserting live node state; scenarios, stress fuzz, screenshot diffing
 - Debugging failures (crash on play, parse errors, input does nothing)
-- The debugger: `force_break`, breakpoints, stack frames, frame variables,
-  stepping (`step_into/over/out`), expression evaluation, continue
+- The debugger: `force_break`, breakpoints, stepping (`step_into/over/out`), and
+  in-game expression evaluation (`evaluate_expression`, not frame-scoped on 4.7)
 
 **When to use:** When testing a running game, reproducing a bug, or
 diagnosing runtime behavior.
