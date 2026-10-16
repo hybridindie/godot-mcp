@@ -3,7 +3,7 @@ type: index
 title: "Why & how it works"
 description: "The problem godot-mcp solves, why it's built this way, and the ideas every other page assumes."
 created: 2026-09-19
-updated: 2026-10-11
+updated: 2026-10-16
 ---
 
 # Why & how it works
@@ -85,6 +85,11 @@ Failures never cross as stack traces:
 `error` is from a fixed enum; `hint` tells the agent what to do next; `required`
 names the precondition to satisfy. The server shapes these into FastMCP
 `ToolError`s, so the agent sees the same structured failure on every transport.
+
+Almost every response is JSON like the above. The one exception is a screenshot: the
+same round-trip returns PNG bytes that the server hands the model as an image, so the
+agent can *look at* the editor viewport or the running game — see
+[Seeing the scene](guides-playtest-debug.md#see-the-scene-screenshots).
 
 ### 4. Naming: `godot_<toolset>_<action>`
 

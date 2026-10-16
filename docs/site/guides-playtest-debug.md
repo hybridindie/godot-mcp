@@ -3,7 +3,7 @@ type: index
 title: "Play-test & debug"
 description: "The live loop — play, inspect, simulate input, assert, break and step through the debugger."
 created: 2026-09-19
-updated: 2026-10-12
+updated: 2026-10-16
 ---
 
 # Play-test & debug
@@ -70,6 +70,28 @@ on the probe's next frame (no game cooperation needed). Once stopped, it can ste
 over/into/out, evaluate an expression in the running game (`evaluate_expression` — global
 scope, not frame-scoped), and continue. The paused-frame stack / variable dump
 (`get_stack_frames`, `get_frame_variables`) is **not available on Godot 4.7** (#677).
+
+## See the scene (screenshots)
+
+You: *"Take a screenshot so you can see the current layout."*
+
+The assistant can **look at** the scene, not just read it — for clients that accept images.
+Two captures, and you pick by what you want to see:
+
+| Tool | Shows | Needs |
+|------|-------|-------|
+| `godot_editor_capture_screenshot` | the **editor viewport** — the scene tab, layout, and gizmos you're looking at | the `editor` toolset; the editor must be drawing a frame |
+| `godot_runtime_capture_game_screenshot` | the **running game's rendered frame** — the actual pixels the player sees | a live play session (`runtime`) + the probe |
+
+Both come back as a base64 PNG image block over the *same* bridge round-trip: the addon grabs
+`get_viewport().get_texture().get_image()` and returns it, and the server hands it to the model
+as an image. Honest caveats — if the editor window isn't drawing (minimized or unfocused) the
+editor capture reports `editor_not_drawing`; a capture taken while the game is **paused at a
+breakpoint shows the frozen frame**, not a fresh one. Captures are `read_only`.
+
+Use it to answer *"does this actually look right?"* — layout, HUD placement, a sprite that
+isn't showing — then diff two frames with `godot_testing_compare_screenshots` to catch a
+regression.
 
 ## Debugging failures
 

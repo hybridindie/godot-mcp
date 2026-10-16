@@ -86,7 +86,7 @@ godot_profiling_get_performance_monitors(scope='game')  # FPS, draw calls, memor
 godot_runtime_stop_scene()
 ```
 
-`godot_editor_capture_screenshot()` (the `editor` toolset) provides base64 PNGs for the diff tool.
+Vision-capable clients can also *look at* the scene: `godot_editor_capture_screenshot()` (the `editor` toolset) grabs the editor viewport, and `godot_runtime_capture_game_screenshot()` grabs the running game's rendered frame — both base64 PNGs, and both usable as inputs to the diff tool.
 
 ## Debugging failures
 

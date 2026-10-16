@@ -116,7 +116,7 @@ anything you don't like.
 
 - **It asks before destroying.** Deleting or overwriting needs your OK first; previews are free.
 - **Everything is undoable.** The assistant's changes sit on the same undo stack as yours — Ctrl+Z works.
-- **It can't see your screen.** It talks to the editor, not to you — so answer its questions and keep an eye on the editor.
+- **It can't see *your* screen** — but a vision-capable assistant can screenshot the editor or the running game to *look at* the scene. It still can't watch you, so answer its questions and keep an eye on the editor.
 - **Better assistants go further.** Claude Code and Codex can run the setup and chain many steps; a small local model may need more back-and-forth.
 
 ## If something's off
