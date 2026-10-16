@@ -15,16 +15,27 @@ from tests.integration._godot import (
     GODOT_BIN,
     GODOT_PROJECT,
     e2e_bridge_url,
-    serve_and_await_editor,
+    serve_and_launch_editor,
+    stop_editor,
 )
 
 pytestmark = pytest.mark.skipif(GODOT_BIN is None, reason="Godot binary not installed")
 
-# Ephemeral per-run port (issue #444): no fixed port, so a concurrent
-# job's (or an orphaned) editor can never connect to this test's listener.
-BRIDGE_URL = e2e_bridge_url()
+# Ephemeral per-test port (issue #444); chosen inside each test, not at import, so
+# the port isn't held free for minutes before it's bound (#712).
 SCRATCH = "res://tmp_e2e_physics.tscn"
 SCRATCH_FILE = GODOT_PROJECT / "tmp_e2e_physics.tscn"
+SCRATCH_3D_FILE = GODOT_PROJECT / "e2e_physics3d_scratch.tscn"
+
+
+def _launch_editor(url: str) -> subprocess.Popen[bytes]:
+    assert GODOT_BIN is not None
+    return subprocess.Popen(
+        [GODOT_BIN, "--headless", "--editor", "--path", str(GODOT_PROJECT)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        env={**os.environ, "GODOT_MCP_BRIDGE_URL": url},
+    )
 
 
 async def _ok(bridge: Bridge, command: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -51,9 +62,10 @@ async def _wait_scene_open(bridge: Bridge) -> None:
 
 
 async def _run() -> None:
-    bridge = Bridge(BridgeConfig(url=BRIDGE_URL))
-    if not await serve_and_await_editor(bridge):
-        raise AssertionError("the addon never connected to the bridge")
+    assert GODOT_BIN is not None
+    url = e2e_bridge_url()
+    bridge = Bridge(BridgeConfig(url=url))
+    editor = await serve_and_launch_editor(bridge, lambda: _launch_editor(url))
 
     try:
         await _ok(bridge, "cmd_create_scene", {"root_type": "Node2D", "scene_path": SCRATCH})
@@ -122,25 +134,12 @@ async def _run() -> None:
         assert bad_ray.ok is False and bad_ray.error == "VALIDATION_ERROR"
     finally:
         await bridge.close()
+        stop_editor(editor)
+        SCRATCH_FILE.unlink(missing_ok=True)
 
 
 def test_live_physics() -> None:
-    assert GODOT_BIN is not None
-    editor = subprocess.Popen(
-        [GODOT_BIN, "--headless", "--editor", "--path", str(GODOT_PROJECT)],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        env={**os.environ, "GODOT_MCP_BRIDGE_URL": BRIDGE_URL},
-    )
-    try:
-        asyncio.run(_run())
-    finally:
-        editor.terminate()
-        try:
-            editor.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            editor.kill()
-        SCRATCH_FILE.unlink(missing_ok=True)
+    asyncio.run(_run())
 
 
 async def _run_3d_dimension() -> None:
@@ -149,9 +148,10 @@ async def _run_3d_dimension() -> None:
     #     mismatch -> structured VALIDATION_ERROR, nothing created;
     # (b) an explicit CollisionShape3D + BoxShape3D actually collides
     #     (shape lands on the node, ok:true is truthful).
-    bridge = Bridge(BridgeConfig(url=BRIDGE_URL))
-    if not await serve_and_await_editor(bridge):
-        raise AssertionError("the addon never connected to the bridge")
+    assert GODOT_BIN is not None
+    url = e2e_bridge_url()
+    bridge = Bridge(BridgeConfig(url=url))
+    editor = await serve_and_launch_editor(bridge, lambda: _launch_editor(url))
     scene = "res://e2e_physics3d_scratch.tscn"
     try:
         await _ok(bridge, "cmd_create_scene", {"root_type": "Node3D", "scene_path": scene})
@@ -213,22 +213,9 @@ async def _run_3d_dimension() -> None:
         )
     finally:
         await bridge.close()
+        stop_editor(editor)
+        SCRATCH_3D_FILE.unlink(missing_ok=True)
 
 
 def test_live_physics_3d_dimension_mismatch() -> None:
-    assert GODOT_BIN is not None
-    editor = subprocess.Popen(
-        [GODOT_BIN, "--headless", "--editor", "--path", str(GODOT_PROJECT)],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        env={**os.environ, "GODOT_MCP_BRIDGE_URL": BRIDGE_URL},
-    )
-    try:
-        asyncio.run(_run_3d_dimension())
-    finally:
-        editor.terminate()
-        try:
-            editor.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            editor.kill()
-        (GODOT_PROJECT / "e2e_physics3d_scratch.tscn").unlink(missing_ok=True)
+    asyncio.run(_run_3d_dimension())

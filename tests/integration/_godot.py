@@ -192,3 +192,44 @@ async def serve_and_await_editor(
     # listener here or its port leaks and breaks the rest of the suite (#276 review).
     await bridge.close()  # type: ignore[attr-defined]
     return False
+
+
+def stop_editor(proc: subprocess.Popen[bytes], *, timeout: float = 10.0) -> None:
+    """Terminate an editor process and guarantee it is reaped (#712).
+
+    ``terminate`` → ``wait`` → ``kill`` → ``wait`` again, so a process that has to
+    be killed cannot linger — holding the shared ``godot/`` project — into the next
+    test and breaking its editor's boot/connect.
+    """
+    if proc.poll() is not None:
+        return
+    proc.terminate()
+    try:
+        proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait(timeout=timeout)
+
+
+async def serve_and_launch_editor(
+    bridge: object,
+    launch: Callable[[], subprocess.Popen[bytes]],
+    *,
+    timeout: float = 60.0,
+    poll: float = 0.5,
+) -> subprocess.Popen[bytes]:
+    """Bind the bridge listener, THEN launch the editor, THEN await the addon (#712).
+
+    Ordering is the point. ``e2e_bridge_url()`` frees the ephemeral port as soon as
+    it has chosen it; if the editor is launched first and the listener binds later,
+    another process on a busy machine can take that port in the gap, ``serve()``
+    then fails on a port it can never rebind, and the run reports "the addon never
+    connected". Binding first claims the port before it can be stolen. Returns the
+    editor process; the caller owns teardown via :func:`stop_editor`.
+    """
+    await bridge.serve()  # type: ignore[attr-defined]
+    proc = launch()
+    if not await wait_until(lambda: bridge.connected, timeout=timeout, interval=poll):  # type: ignore[attr-defined]
+        stop_editor(proc)
+        raise AssertionError("the addon never connected to the bridge")
+    return proc
