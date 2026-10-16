@@ -27,6 +27,9 @@ class ActiveScene(BaseModel):
     is_open: bool
     path: str | None = None
     name: str | None = None
+    # #643: the editor's dirty marker — False once saved. An over-threshold batch
+    # (no UndoRedo) marks the scene unsaved so this reflects those edits.
+    dirty: bool = False
 
 
 class SceneEntry(BaseModel):
@@ -132,7 +135,8 @@ class NodeProperty(BaseModel):
 class NodeGroups(BaseModel):
     """A node's group memberships (issue #216), editor-internal groups excluded.
 
-    Inverts ``add_to_group`` / ``remove_from_group`` and lets ``delete_node`` restore
+    Inverts ``add_to_group`` / ``remove_from_group`` and lets
+    ``godot_scene_edit_delete_node`` restore
     membership.
     """
 

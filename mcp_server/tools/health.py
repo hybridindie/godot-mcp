@@ -34,6 +34,7 @@ def build_health(
         bridge_connected=bridge.connected,
         addon_version=addon_version,
         version_notice=notice,
+        bridge_bind_error=bridge.bind_error,
     )
 
 

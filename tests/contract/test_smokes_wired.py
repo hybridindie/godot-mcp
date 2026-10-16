@@ -11,10 +11,14 @@ each smoke script must be referenced by some test module under tests/.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any, cast
+
+import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GODOT_TESTS = REPO_ROOT / "godot" / "tests"
 TESTS_DIR = REPO_ROOT / "tests"
+_E2E = REPO_ROOT / ".github" / "workflows" / "e2e.yml"
 
 # Smokes driven by their own dedicated test file (run_godot in a contract or
 # integration test, not the SMOKES parametrization).
@@ -62,3 +66,60 @@ def test_dedicated_wiring_files_exist() -> None:
         assert (TESTS_DIR / test_file).exists(), (
             f"{name} maps to missing test file {test_file}"
         )
+
+
+# --- #651: every Godot-backed test must be selected by the e2e workflow -----
+
+
+def _e2e() -> dict[str, Any]:
+    return cast("dict[str, Any]", yaml.safe_load(_E2E.read_text(encoding="utf-8")))
+
+
+def _e2e_run_text() -> str:
+    jobs = _e2e()["jobs"]
+    return "\n".join(
+        str(step.get("run", "")) for job in jobs.values() for step in job.get("steps", [])
+    )
+
+
+def _godot_backed_tests() -> list[Path]:
+    # The marker definitions (helpers) and this checker itself mention the gate
+    # strings but are not Godot-backed tests.
+    exclude = {TESTS_DIR / "integration" / "_godot.py", Path(__file__).resolve()}
+    out: list[Path] = []
+    for path in sorted(TESTS_DIR.rglob("*.py")):
+        if path.resolve() in exclude:
+            continue
+        src = path.read_text(encoding="utf-8")
+        if "pytest.mark.skipif(GODOT_BIN is None" in src or "needs_display" in src:
+            out.append(path)
+    return out
+
+
+def test_e2e_runs_every_godot_backed_test() -> None:
+    """A Godot-gated test the e2e workflow doesn't select silently skips in `ci`,
+    so the zero-skips gate doesn't hold there (#651). Every Godot-backed test must
+    be under a path the e2e job selects (`tests/integration` wholesale, or its
+    exact path for the contract smokes)."""
+    runs = _e2e_run_text()
+    uncovered = [
+        path.relative_to(REPO_ROOT).as_posix()
+        for path in _godot_backed_tests()
+        if not (
+            path.relative_to(TESTS_DIR).as_posix().startswith("integration/")
+            or path.relative_to(REPO_ROOT).as_posix() in runs
+        )
+    ]
+    assert not uncovered, (
+        "Godot-backed tests not selected by e2e.yml (they skip silently in ci, "
+        f"#651): {uncovered}"
+    )
+
+
+def test_e2e_has_a_nightly_schedule() -> None:
+    """#651: nightly e2e on main, so merges touching only tests/docs still get a
+    live run (the path filter would otherwise skip them)."""
+    raw = _E2E.read_text(encoding="utf-8")
+    assert "schedule:" in raw and "cron:" in raw, (
+        "e2e.yml must have a `schedule:` (cron) trigger for a nightly run (#651)"
+    )

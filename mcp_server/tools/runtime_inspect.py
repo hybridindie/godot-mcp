@@ -42,29 +42,15 @@ def register_runtime_inspect(mcp: FastMCP, bridge: Bridge) -> None:
         on_change_only: bool = True,
         epsilon: float = 0.0001,
     ) -> MonitorResult:
-        """Start watching ``property`` on the running game's node at ``node_path`` (an
-        absolute path from ``get_game_scene_tree``, e.g. "/root/Main/Player"). The probe
-        captures ``samples`` readings, one per frame; collect them with
-        ``get_property_samples``. Requires a play session + runtime probe.
+        """Start watching ``property`` on the running game's node at ``node_path``
+        (an absolute path from get_game_scene_tree). The probe captures ``samples``
+        readings; collect them with get_property_samples. ``on_change_only`` (default)
+        queues a sample only when the value changed (float ``epsilon``-tolerant, also
+        inside Vector2/3), so a static property yields fewer deduped entries.
 
-        ``runtime`` (not read-only): it starts a sampling monitor — a side effect on
-        the play session (issue #638).
-
-        Push-on-change (#536): with ``on_change_only=True`` (default) the probe queues
-        a sample only when the value changed since the last sample — exact match for
-        non-floats, ``epsilon``-tolerant for floats (also inside Vector2/3, Color
-        dicts). A static property then yields one sample instead of N duplicates, and
-        the capture still ends after ``samples`` frames, so ``get_property_samples``
-        may return fewer, deduped entries. ``on_change_only=False`` restores the
-        legacy every-frame sampling.
-
-        IF THIS FAILS with "No play session":
-          -> Call play_scene(scene_path) first.
-        IF THIS FAILS with "probe not connected":
-          -> Register MCPRuntimeProbe as autoload (get_project_info() to check).
-        IF THIS FAILS with "node not found":
-          -> The node_path is wrong for the LIVE tree. Use get_game_scene_tree()
-             (not get_scene_tree()) to see running node paths.
+        ``runtime``: starting the monitor is a side effect on the play session.
+        Requires a play session + runtime probe; for a single current value use
+        read_property instead.
         """
         params = {
             "node_path": node_path,

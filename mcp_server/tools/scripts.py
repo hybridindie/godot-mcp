@@ -11,7 +11,7 @@ errors. All in the gated ``scripts`` toolset.
 from __future__ import annotations
 
 import asyncio
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
@@ -65,7 +65,7 @@ def register_scripts(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
         directory: ResPath = "res://",
         offset: Annotated[int, Field(ge=0)] = 0,
         limit: Annotated[int, Field(ge=1, le=1000)] = DEFAULT_PAGE_LIMIT,
-        language: str = "gd",
+        language: Literal["gd", "cs"] = "gd",
     ) -> ScriptList:
         """List script files under ``directory`` (recursive, ``res://`` path) for a
         backend: ``language="gd"`` (default) lists ``.gd``, ``"cs"`` lists ``.cs``
@@ -74,11 +74,11 @@ def register_scripts(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
         Paginated: ``scripts`` is a window of ``total`` files starting at ``offset``
         (default page ``limit`` 200). When ``truncated``, pass ``next_offset`` to page on.
         """
-        if language not in ("gd", "cs"):
-            raise ToolError(
-                f"VALIDATION_ERROR: language must be 'gd' or 'cs'. Got: '{language}'"
-                " [required=language]"
+        result = ScriptList(
+            **await route(
+                bridge, "cmd_list_scripts", {"directory": directory, "language": language}
             )
+        )
         result = ScriptList(
             **await route(
                 bridge, "cmd_list_scripts", {"directory": directory, "language": language}

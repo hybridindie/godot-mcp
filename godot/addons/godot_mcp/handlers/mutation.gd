@@ -164,14 +164,21 @@ func _cmd_set_node_property(params: Dictionary) -> Dictionary:
 	ur.add_undo_property(node, property, old_value)
 	ur.commit_action()
 	var read_back: Variant = node.get(property)
-	# The echo is the agent's only verifier: a null read-back after a non-null
-	# write means the engine rejected the assignment (e.g. a dimension/type
-	# mismatch) — report that, never set:true (issue #414).
-	if read_back == null and new_value != null:
+	# The echo is the agent's only verifier (#641): compare the value that landed
+	# to the coerced value. A mismatch means the engine rejected or altered the
+	# assignment (wrong type/dimension, a no-op) — report it with the expected type,
+	# never set:true on the old value (#414).
+	if not Coerce.values_equal(read_back, new_value):
 		return _router._fail(
 			"VALIDATION_ERROR",
-			"Setting '%s' did not land (reads back null after the set). The value may be "
-				+ "incompatible with the property's expected type." % property,
+			("Setting '%s' did not land: read back %s, expected %s (%s). The value may be "
+			+ "incompatible with the property's expected type.")
+				% [
+					property,
+					str(Coerce.to_json(read_back)),
+					str(Coerce.to_json(new_value)),
+					Coerce.variant_type_name(prop_type),
+				],
 			"value",
 		)
 	return _router._ok(_router._helpers.with_persistence({

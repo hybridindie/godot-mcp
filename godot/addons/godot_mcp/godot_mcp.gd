@@ -368,4 +368,8 @@ func _on_command_completed(command: String, exec_ms: float, ok: bool, error_code
 
 
 func _rescan_after_script_write() -> void:
-	EditorInterface.get_resource_filesystem().scan()
+	# #647: guard re-entrancy — a scan may already be in flight (cf. #628); a
+	# second scan() stacks and the engine logs "scan already in progress".
+	var fs := EditorInterface.get_resource_filesystem()
+	if fs != null and not fs.is_scanning():
+		fs.scan()

@@ -12,6 +12,8 @@ extends Node
 ## to break at a chosen point in their own loop instead.
 
 const MAX_DEPTH := 32
+# #641: share the editor's JSON coercion (single implementation of the shapes).
+const Coerce := preload("type_coerce.gd")
 
 var force_break_pending: bool = false  ## Set true by the editor via force_break message.
 
@@ -47,8 +49,8 @@ func _exit_tree() -> void:
 	# stale registered logger would keep sinking into a dead ring (duplicate
 	# entries across sessions, and a leaked OS-level logger). Remove it in the
 	# same EngineDebugger-active gate we registered it under.
-	if _output_logger != null and EngineDebugger.is_active():
-		OS.remove_logger(_output_logger)
+	if _output_logger != null and EngineDebugger.is_active() and OS.has_method("remove_logger"):
+		OS.call("remove_logger", _output_logger)
 		_output_logger = null
 	_output_lock.lock()
 	_output_ring.clear()
@@ -65,7 +67,12 @@ func _capture(message: String, data: Array) -> bool:
 			EngineDebugger.send_message("godot_mcp:game_output", [_output_snapshot()])
 			return true
 		"get_scene_tree":
-			EngineDebugger.send_message("godot_mcp:scene_tree", [_serialize_tree()])
+			# #670: echo the request_id so the editor serves a reply only to the
+			# poll that asked for it (never the previous call's tree).
+			EngineDebugger.send_message("godot_mcp:scene_tree", [{
+				"request_id": str(_payload(data).get("request_id", "")),
+				"tree": _serialize_tree(),
+			}])
 			return true
 		"simulate_key":
 			_inject_key(_payload(data))
@@ -98,7 +105,17 @@ func _capture(message: String, data: Array) -> bool:
 			_record_stop()
 			return true
 		"get_performance":
-			EngineDebugger.send_message("godot_mcp:performance", [_performance_snapshot()])
+			# #670: echo the request_id (same request-scoping as get_scene_tree).
+			EngineDebugger.send_message("godot_mcp:performance", [{
+				"request_id": str(_payload(data).get("request_id", "")),
+				"monitors": _performance_snapshot(),
+			}])
+			return true
+		"evaluate":
+			# #677: expression evaluation runs in the game via Expression (the editor
+			# debugger's paused-frame eval protocol is not exposed to plugins). Echo
+			# the request_id so the editor serves the reply to the right poll.
+			EngineDebugger.send_message("godot_mcp:evaluation", [_evaluate(_payload(data))])
 			return true
 		"capture_frame":
 			# Deferred one rendered frame: an inline texture read-back can return the
@@ -348,7 +365,7 @@ func _process(_delta: float) -> void:
 		_monitor_remaining = 0
 	else:
 		var sample_start := Time.get_ticks_usec()
-		var value := _json_safe(node.get(_monitor_property))
+		var value := Coerce.to_json(node.get(_monitor_property))
 		if _should_queue_sample(value, Engine.get_process_frames()):
 			_monitor_samples.append({
 				"frame": Engine.get_process_frames(),
@@ -374,7 +391,7 @@ func _should_queue_sample(value: Variant, frame: int) -> bool:
 
 
 ## Value equality for the #536 change test: floats compare within `epsilon`
-## (recursively for the dict/array shapes _json_safe emits), everything else
+## (recursively for the dict/array shapes Coerce.to_json emits), everything else
 ## compares exactly. A float inside a Vector2/Color dict differs when any
 ## component exceeds epsilon. Mismatched types are always a difference — GDScript
 ## raises on `==` between mismatched operand types (e.g. int vs String), so the
@@ -403,6 +420,33 @@ func _values_equal(a: Variant, b: Variant, epsilon: float) -> bool:
 	return a == b
 
 
+## #677: evaluate a GDScript expression in the running game via Expression.
+## The editor debugger's paused-frame eval protocol is not exposed to editor
+## debugger plugins on Godot 4.7, so evaluation runs in-game instead (the base
+## instance is the scene root; it is not frame-scoped). Returns the JSON-safe
+## value, or an `error` string on parse/execute failure — never silent.
+func _evaluate(d: Dictionary) -> Dictionary:
+	var expression := str(d.get("expression", ""))
+	var request_id := str(d.get("request_id", ""))
+	var result := {
+		"request_id": request_id, "expression": expression,
+		"value": null, "evaluated": true, "error": "",
+	}
+	if expression.is_empty():
+		result["error"] = "empty expression"
+		return result
+	var expr := Expression.new()
+	if expr.parse(expression) != OK:
+		result["error"] = "parse error: %s" % expr.get_error_text()
+		return result
+	var value: Variant = expr.execute([], get_tree().root, false)
+	if expr.has_execute_failed():
+		result["error"] = "evaluation failed: %s" % expr.get_error_text()
+		return result
+	result["value"] = Coerce.to_json(value)
+	return result
+
+
 ## #571 one-shot read: resolve the node, read the property once, reply now.
 ## Uses the same JSON-safe coercion as the monitor series and the same
 ## read-property semantics (built-ins + script vars), but shares no state with
@@ -424,7 +468,7 @@ func _read_property(d: Dictionary) -> Dictionary:
 		}
 	return {
 		"request_id": request_id, "node_path": node_path, "property": property,
-		"value": _json_safe(node.get(property)), "error": "", "ready": true,
+		"value": Coerce.to_json(node.get(property)), "error": "", "ready": true,
 	}
 
 
@@ -585,21 +629,6 @@ func _button_name(index: int) -> String:
 	return ""
 
 
-## Minimal JSON-safe conversion for monitored property values (common Godot types).
-func _json_safe(value: Variant) -> Variant:
-	match typeof(value):
-		TYPE_VECTOR2, TYPE_VECTOR2I:
-			return {"x": value.x, "y": value.y}
-		TYPE_VECTOR3, TYPE_VECTOR3I:
-			return {"x": value.x, "y": value.y, "z": value.z}
-		TYPE_COLOR:
-			return {"r": value.r, "g": value.g, "b": value.b, "a": value.a}
-		TYPE_BOOL, TYPE_INT, TYPE_FLOAT, TYPE_STRING:
-			return value
-		_:
-			return str(value)
-
-
 # --- game output capture (issue #534) ----------------------------------------
 
 ## The bounded output ring: entries {seq, kind, text, time_ms}. kind is
@@ -616,44 +645,27 @@ var _output_lock: Mutex = Mutex.new()
 var _output_ring: Array = []
 var _output_seq := 0
 var _output_dropped := 0
-var _output_logger: Logger = null
-
-
-class MCPOutputLogger extends Logger:
-	## Relays into the probe's ring via a Callable so the inner class stays
-	## decoupled from the probe's state. Called from arbitrary threads — the
-	## probe side guards with its mutex.
-	var _sink: Callable
-
-	func _init(sink: Callable) -> void:
-		_sink = sink
-
-	func _log_message(message: String, error: bool) -> void:
-		_sink.call(message, "error" if error else "stdout")
-
-	func _log_error(
-		function: String, file: String, line: int, code: String, rationale: String,
-		editor_notify: bool, error_type: int, script_backtraces: Array
-	) -> void:
-		var kind := "error"
-		if error_type == Logger.ERROR_TYPE_WARNING:
-			kind = "warning"
-		# `rationale` carries the human text for push_error/push_warning/script
-		# errors; `code` is the engine-side message. Prefer whichever is present.
-		var text := rationale
-		if text.is_empty():
-			text = code
-		if text.is_empty():
-			text = "%s @ %s:%d" % [function, file, line]
-		_sink.call(text, kind)
+# #648: typed Object, not Logger — a `: Logger` annotation would fail to parse on
+# the 4.4 floor (Logger is 4.5+). Null on 4.4 / when output capture is unavailable.
+var _output_logger: Object = null
 
 
 ## Register the output logger in _ready (EngineDebugger-active gate lives in
 ## _ready; the logger is registered alongside it so captures start as early
 ## as the probe itself).
+##
+## #648: `Logger` + `OS.add_logger` are Godot 4.5+. On the 4.4 floor this returns
+## immediately (the logger script is never `load()`ed, so it is never parsed, and
+## `OS.call` avoids a compile-time reference to the 4.5 API) — the probe still
+## parses and every other feature works; output capture degrades to an empty ring.
 func _register_output_logger() -> void:
-	_output_logger = MCPOutputLogger.new(_on_output_line)
-	OS.add_logger(_output_logger)
+	if not OS.has_method("add_logger"):
+		return
+	var logger_script: Variant = load("res://addons/godot_mcp/mcp_output_logger.gd")
+	if logger_script == null:
+		return
+	_output_logger = logger_script.new(_on_output_line)
+	OS.call("add_logger", _output_logger)
 
 
 ## Logger sink (any thread): append {seq, kind, text, time_ms} into the ring,

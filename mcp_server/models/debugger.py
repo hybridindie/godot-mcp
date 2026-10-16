@@ -54,13 +54,19 @@ class StackFramesResult(BaseModel):
 
 
 class EvaluationResult(BaseModel):
-    """Outcome of evaluating an expression in a paused frame."""
+    """Outcome of evaluating an expression in the running game (issue #677).
+
+    Evaluation runs in-game via the runtime probe's `Expression` path (the editor
+    debugger's paused-frame eval is not exposed to plugins on Godot 4.7), so it is
+    not frame-scoped. `error` carries a parse/execute failure message (empty on
+    success) — a null `value` with `evaluated=True` and an `error` is a real
+    failure, never a silent null.
+    """
 
     expression: str = ""
     value: Any = None
-    # True when an evaluation reply was actually received; value:null with
-    # evaluated=False means "no result yet", not "expression is null" (#411).
     evaluated: bool = False
+    error: str = ""
 
 
 class FrameVarsResult(BaseModel):

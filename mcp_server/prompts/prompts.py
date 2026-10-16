@@ -374,7 +374,7 @@ def _register_troubleshoot(mcp: FastMCP) -> str:
                     "  - Check the status dock at the bottom of Godot.\n"
                     "  - Verify port 9080 is not blocked by another process.\n"
                     "  - Try godot_health_check() to see the bridge_url the server expects.\n\n"
-                    "STEP 3 — If you get 'ToolError: unknown tool':\n"
+                    "STEP 3 — If a tool is not enabled (\"Tool '<name>' is not enabled\"):\n"
                     "  - Call godot_list_toolsets() → confirm the toolset is disabled.\n"
                     "  - Call godot_enable_toolset('scene_edit') [or relevant category].\n"
                     "  - Retry the tool call.\n\n"
@@ -516,7 +516,7 @@ def _register_author_resource(mcp: FastMCP) -> str:
             body = recipe.format(save_path=save_path) + (
                 "\n\nSAFETY REMINDER:\n"
                 "- Every step above is a mutating tool; add dry_run=True to preview first.\n"
-                "- Verify with godot_inspection tools (e.g. read the saved .tres) when done."
+                "- Verify with godot_resources_edit_read_resource_file when done."
             )
         return [Message(role="user", content=body)]
 

@@ -34,8 +34,17 @@ func register(handlers: Dictionary) -> void:
 func _cmd_get_active_scene(_params: Dictionary) -> Dictionary:
 	var root: Node = EditorInterface.get_edited_scene_root()
 	if root == null:
-		return _router._ok({"is_open": false, "path": null, "name": null})
-	return _router._ok({"is_open": true, "path": root.scene_file_path, "name": _router._helpers.scene_name(root)})
+		return _router._ok({"is_open": false, "path": null, "name": null, "dirty": false})
+	var path := root.scene_file_path
+	return _router._ok({
+		"is_open": true,
+		"path": path,
+		"name": _router._helpers.scene_name(root),
+		# #643: whether the editor considers this scene unsaved (the tab's dirty
+		# marker) — an over-threshold batch bypasses UndoRedo, so it must mark the
+		# scene itself or the tab looks clean and closing discards the edits.
+		"dirty": not path.is_empty() and path in EditorInterface.get_unsaved_scenes(),
+	})
 
 
 ## List every res://*.tscn in the project + which is main / open / active (#304), so an

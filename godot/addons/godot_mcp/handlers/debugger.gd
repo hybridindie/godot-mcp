@@ -174,86 +174,56 @@ func _cmd_continue(_params: Dictionary) -> Dictionary:
 # Tier 2: stack / eval ------------------------------------------------------
 
 func _cmd_get_stack_frames(_params: Dictionary) -> Dictionary:
-	var guard := _router._require_debug_session()
-	if not guard["ok"]:
-		return guard
-
-	var debugger := _router._debugger as MCPDebugger
-	var session := debugger.get_session(debugger.get_session_id())
-	if not session.is_breaked():
-		return _router._fail(
-			"PRECONDITION_FAILED",
-			"The game is not paused. Set a breakpoint or force_break first.",
-			"break_state",
-		)
-
-	var frames: Variant = debugger.get_cached_stack_frames()
-	debugger.request_stack_frames()  # refresh cache for next call
-	if frames == null:
-		# The reply is async (poll-and-cache): an empty list right after a break
-		# usually means the stack_dump hasn't arrived yet, NOT a live game. Warn
-		# so an agent doesn't read [] as "the stack is empty" (#411).
-		return _router._ok({
-			"frames": [],
-			"hint": "No stack dump cached yet; the game may still be delivering it. Retry after a beat — frames:[] while the game is frozen at a break means 'not yet received', not 'empty call stack'.",
-		})
-	return _router._ok({"frames": frames})
+	# #677: the paused-frame call stack is delivered by the editor's internal
+	# ScriptEditorDebugger over the debugger protocol, which is NOT routed to
+	# editor debugger plugins on Godot 4.7 (a plugin never receives stack_dump).
+	# Return an honest structured error rather than a silent empty list.
+	return _router._fail(
+		"UNSUPPORTED",
+		"get_stack_frames is unavailable on Godot 4.7: the paused-frame call stack is not exposed to editor debugger plugins.",
+		"unsupported",
+	)
 
 
 func _cmd_evaluate_expression(params: Dictionary) -> Dictionary:
-	var guard := _router._require_debug_session()
+	# #677: evaluation runs in the running game via the runtime probe's Expression
+	# path (the editor debugger's paused-frame eval is not plugin-accessible).
+	var guard := _router._require_live_probe()
 	if not guard["ok"]:
 		return guard
-
 	var expression := str(params.get("expression", ""))
 	if expression.is_empty():
 		return _router._fail("VALIDATION_ERROR", "'expression' is required.")
-	var frame := int(params.get("frame", 0))
-
+	# Request-scoped: serve the reply for THIS request_id, else dispatch once and
+	# report pending (the server polls until the probe's reply lands).
+	var request_id := str(params.get("request_id", ""))
 	var debugger := _router._debugger as MCPDebugger
-	var session := debugger.get_session(debugger.get_session_id())
-	if not session.is_breaked():
-		return _router._fail(
-			"PRECONDITION_FAILED",
-			"The game is not paused. Set a breakpoint or force_break first.",
-			"break_state",
-		)
-
 	var cached: Variant = debugger.get_cached_evaluation()
-	debugger.request_evaluation(expression, frame)  # refresh cache for next call
-	var value: Variant = null
-	if cached is Dictionary:
-		value = (cached as Dictionary).get("value", null)
-	# value:null alone is ambiguous (evaluated-to-null vs. no reply yet vs.
-	# unevaluable frame) — echo whether an evaluation was actually received
-	# so an agent can tell the difference (#411).
-	return _router._ok({"expression": expression, "value": value, "evaluated": cached != null})
-
-
-func _cmd_get_frame_variables(params: Dictionary) -> Dictionary:
-	var guard := _router._require_debug_session()
-	if not guard["ok"]:
-		return guard
-
-	var frame := int(params.get("frame", 0))
-
-	var debugger := _router._debugger as MCPDebugger
-	var session := debugger.get_session(debugger.get_session_id())
-	if not session.is_breaked():
-		return _router._fail(
-			"PRECONDITION_FAILED",
-			"The game is not paused. Set a breakpoint or force_break first.",
-			"break_state",
-		)
-
-	var cached: Variant = debugger.get_cached_frame_vars()
-	debugger.request_frame_variables(frame)  # refresh cache for next call
-	if cached == null:
-		return _router._ok({"frame": frame, "locals": [], "members": [], "globals": []})
-	var d: Dictionary = cached as Dictionary
+	if cached is Dictionary and str((cached as Dictionary).get("request_id", "")) == request_id:
+		return _router._ok({
+			"ready": true,
+			"expression": (cached as Dictionary).get("expression", expression),
+			"value": (cached as Dictionary).get("value", null),
+			"evaluated": true,
+			"error": (cached as Dictionary).get("error", ""),
+		})
+	if debugger.get_evaluation_request() != request_id:
+		debugger.begin_evaluation_request(request_id)
+		debugger.request_evaluation(request_id, expression)
 	return _router._ok({
-		"frame": frame,
-		"locals": d.get("locals", []),
-		"members": d.get("members", []),
-		"globals": d.get("globals", []),
+		"ready": false,
+		"expression": expression,
+		"value": null,
+		"evaluated": false,
+		"reason": "evaluation_pending",
 	})
+
+
+func _cmd_get_frame_variables(_params: Dictionary) -> Dictionary:
+	# #677: same as get_stack_frames — the paused-frame variable set is served by
+	# the editor's internal ScriptEditorDebugger, not exposed to plugins on 4.7.
+	return _router._fail(
+		"UNSUPPORTED",
+		"get_frame_variables is unavailable on Godot 4.7: paused-frame variables are not exposed to editor debugger plugins.",
+		"unsupported",
+	)

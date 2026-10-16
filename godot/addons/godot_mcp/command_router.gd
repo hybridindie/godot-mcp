@@ -210,6 +210,17 @@ func _scene_history_undo_redo() -> UndoRedo:
 	return manager.get_history_undo_redo(history_id)
 
 
+## The custom context for an undo action that edits a NON-scene asset (script /
+## resource / shader / file). The manager deduces a history from the action's
+## first bound object and puts a non-Node operation in the **global** history —
+## so `godot_undo` (which reads the edited scene's history) would revert an
+## earlier *scene* edit instead (#640). Passing the edited scene root as the
+## context routes the action into the scene history the undo tools read; with no
+## scene open it returns null, keeping the action on the global history.
+func asset_action_context() -> Object:
+	return EditorInterface.get_edited_scene_root()
+
+
 ## Test seam: pin the history commands to a specific UndoRedo object
 ## (godot/tests/history_smoke.gd, where the editor's manager is unavailable).
 ## Production never calls this; the plugin entry drops the seam on dispose.

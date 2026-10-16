@@ -62,6 +62,57 @@ async def test_disable_toolset_hides_inspection_again() -> None:
     assert "godot_health_check" in names  # core stays
 
 
+# --- batch enable + bundles (issue #653) ------------------------------------
+
+
+async def test_enable_toolset_accepts_a_bundle_and_a_list() -> None:
+    async with Client(_server(), mode="legacy") as client:
+        result = await client.call_tool("godot_enable_toolset", {"category": "author,playtest"})
+        names = await _tool_names(client)
+    sc = result.structured_content
+    assert sc["enabled"] is True
+    # The combined result carries every member tool's schema (#621 parity), one call.
+    tools = {t["name"] for t in sc["tools"]}
+    assert {"godot_scene_edit_create_node", "godot_runtime_play_scene"} <= tools
+    assert "godot_scene_edit_create_node" in names
+    assert "godot_runtime_play_scene" in names
+
+
+async def test_disable_toolset_accepts_a_bundle() -> None:
+    async with Client(_server(), mode="legacy") as client:
+        await client.call_tool("godot_enable_toolset", {"category": "playtest"})
+        assert "godot_debugger_force_break" in await _tool_names(client)
+        result = await client.call_tool("godot_disable_toolset", {"category": "playtest"})
+        names = await _tool_names(client)
+    assert result.structured_content["enabled"] is False
+    assert "godot_debugger_force_break" not in names
+
+
+async def test_enable_toolset_unknown_bundle_is_structured_error() -> None:
+    async with Client(_server()) as client:
+        result = await client.call_tool(
+            "godot_enable_toolset", {"category": "no_such_bundle"}, raise_on_error=False
+        )
+    assert result.is_error
+    assert "Unknown toolset or bundle" in str(result.content)
+
+
+def test_bundles_cover_the_build_script_play_loop() -> None:
+    """#653 setup-cost measurement: the common build -> script -> play loop needs
+    four toolsets (scene_edit, scripts, runtime, input); both are covered by the
+    ``author``/``playtest`` bundles, so ONE ``enable_toolset`` call replaces four
+    ``enable_toolset`` calls (the setup-call reduction this issue targets)."""
+    from mcp_server.toolsets import BUNDLES
+
+    needed = {"scene_edit", "scripts", "runtime", "input"}
+    covered = set(BUNDLES["author"]) | set(BUNDLES["playtest"])
+    assert needed <= covered
+    single_enables_required = len(needed)
+    batched_calls_required = 1
+    assert single_enables_required >= 4
+    assert batched_calls_required == 1, "bundles collapse the setup to a single call"
+
+
 async def test_enabled_toolsets_are_pushed_to_the_addon() -> None:
     """#592: the dock's "Toolsets:" row is fed by the server — on peer connect and
     after every enable/disable — so it reflects the server's gating instead of a

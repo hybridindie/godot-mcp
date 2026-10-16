@@ -1,10 +1,10 @@
-"""Contract tests for Tier 2 debugger stack / eval tools (issue #110 follow-up).
+"""Contract tests for Tier 2 debugger stack / eval tools (issue #110 / #677).
 
-Three new ``runtime`` tools in the existing ``debugger`` toolset:
-get_stack_frames, evaluate_expression, get_frame_variables.
-
-All require an active play session with a valid debug session, and the game
-must be paused (either at a breakpoint or after force_break).
+``evaluate_expression`` runs in the running game via the runtime probe (#677) and
+requires a play session with the probe. ``get_stack_frames`` and
+``get_frame_variables`` are **unsupported** on Godot 4.7 (the paused-frame
+debugger protocol is not exposed to editor debugger plugins) and return a
+structured ``UNSUPPORTED`` error.
 """
 
 from __future__ import annotations
@@ -23,40 +23,22 @@ pytestmark = pytest.mark.asyncio
 
 def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
     match cmd.command:
-        case (
-            "cmd_set_breakpoint"
-            | "cmd_remove_breakpoint"
-            | "cmd_clear_breakpoints"
-            | "cmd_force_break"
-        ):
-            return ResponseEnvelope.success(cmd.id, {})
-        case "cmd_get_stack_frames":
-            return ResponseEnvelope.success(
-                cmd.id,
-                {
-                    "frames": [
-                        {"file": "res://main.gd", "line": 7, "func": "_ready"},
-                        {"file": "res://player.gd", "line": 42, "func": "take_damage"},
-                    ]
-                },
-            )
         case "cmd_evaluate_expression":
             p = cmd.params
             return ResponseEnvelope.success(
                 cmd.id,
-                {"expression": p.get("expression"), "value": 42, "evaluated": True},
-            )
-        case "cmd_get_frame_variables":
-            p = cmd.params
-            frame = p.get("frame", 0)
-            return ResponseEnvelope.success(
-                cmd.id,
                 {
-                    "frame": frame,
-                    "locals": [{"name": "health", "value": 100.0}],
-                    "members": [{"name": "speed", "value": 300}],
-                    "globals": [{"name": "GlobalState", "value": "<Dictionary>"}],
+                    "ready": True,
+                    "expression": p.get("expression"),
+                    "value": 42,
+                    "evaluated": True,
+                    "error": "",
                 },
+            )
+        case "cmd_get_stack_frames" | "cmd_get_frame_variables":
+            # #677: unsupported on Godot 4.7 — structured error, not silent empty.
+            return ResponseEnvelope.failure(
+                cmd.id, "UNSUPPORTED", "not exposed to editor debugger plugins"
             )
     return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
 
@@ -98,68 +80,40 @@ async def test_gated_in_debugger_toolset() -> None:
     } <= names
 
 
-async def test_get_stack_frames() -> None:
-    server, conn = _build()
-    async with Client(server) as client:
-        await client.call_tool("godot_enable_toolset", {"category": "debugger"})
-        result = await client.call_tool("godot_debugger_get_stack_frames", {})
-    frames = result.structured_content["frames"]
-    assert len(frames) == 2
-    assert frames[0]["file"] == "res://main.gd"
-    assert frames[0]["line"] == 7
-    assert frames[0]["func"] == "_ready"
-    assert "cmd_get_stack_frames" in _commands(conn)
-
-
-async def test_evaluate_expression() -> None:
+async def test_get_stack_frames_is_unsupported() -> None:
+    # #677: the paused-frame stack is not plugin-accessible on Godot 4.7.
     server, conn = _build()
     async with Client(server) as client:
         await client.call_tool("godot_enable_toolset", {"category": "debugger"})
         result = await client.call_tool(
-            "godot_debugger_evaluate_expression", {"expression": "player.health * 2", "frame": 0}
+            "godot_debugger_get_stack_frames", {}, raise_on_error=False
+        )
+    assert result.is_error and "UNSUPPORTED" in str(result.content)
+    assert "cmd_get_stack_frames" in _commands(conn)
+
+
+async def test_evaluate_expression_runs_in_game() -> None:
+    server, conn = _build()
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "debugger"})
+        result = await client.call_tool(
+            "godot_debugger_evaluate_expression", {"expression": "1 + 1"}
         )
     sc = result.structured_content
-    assert sc["expression"] == "player.health * 2"
+    assert sc["expression"] == "1 + 1"
     assert sc["value"] == 42
-    # #411: evaluated distinguishes "expression is null" from "no reply yet".
     assert sc["evaluated"] is True
     assert "cmd_evaluate_expression" in _commands(conn)
 
 
-async def test_empty_frames_carry_not_yet_hint() -> None:
-    # #411: frames:[] while breaked is "no reply cached yet" — the addon says so.
-    def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
-        if cmd.command == "cmd_get_stack_frames":
-            return ResponseEnvelope.success(
-                cmd.id,
-                {
-                    "frames": [],
-                    "hint": "No stack dump cached yet; retry.",
-                },
-            )
-        return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
-
-    conn = FakeAddonConnection(responder=responder)
-    bridge = Bridge(ServerConfig().bridge, connector=connector_for(conn))
-    server = create_server(ServerConfig(), bridge=bridge)
-    async with Client(server) as client:
-        await client.call_tool("godot_enable_toolset", {"category": "debugger"})
-        result = await client.call_tool("godot_debugger_get_stack_frames", {})
-    sc = result.structured_content
-    assert sc["frames"] == []
-    assert "cached" in sc["hint"]
-
-
-async def test_get_frame_variables() -> None:
+async def test_get_frame_variables_is_unsupported() -> None:
     server, conn = _build()
     async with Client(server) as client:
         await client.call_tool("godot_enable_toolset", {"category": "debugger"})
-        result = await client.call_tool("godot_debugger_get_frame_variables", {"frame": 1})
-    sc = result.structured_content
-    assert sc["frame"] == 1
-    assert sc["locals"][0]["name"] == "health"
-    assert sc["members"][0]["name"] == "speed"
-    assert sc["globals"][0]["name"] == "GlobalState"
+        result = await client.call_tool(
+            "godot_debugger_get_frame_variables", {}, raise_on_error=False
+        )
+    assert result.is_error and "UNSUPPORTED" in str(result.content)
     assert "cmd_get_frame_variables" in _commands(conn)
 
 

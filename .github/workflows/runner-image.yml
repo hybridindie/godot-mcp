@@ -36,7 +36,7 @@ jobs:
 
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@v6.0.0
+        uses: docker/metadata-action@v6.2.0
         with:
           images: ghcr.io/hybridindie/godot-mcp-runner
           tags: |

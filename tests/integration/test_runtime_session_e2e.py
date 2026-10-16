@@ -101,6 +101,17 @@ async def _run() -> None:
         child_types = [c["type"] for c in tree["children"]]
         assert "Node2D" in child_types  # our played scene root
 
+        # #670: a second request with a DISTINCT id returns its own ready tree —
+        # the poll serves the reply for THIS request, never the previous call's.
+        second: dict[str, Any] = {}
+        for _ in range(30):
+            second = await _ok(bridge, "cmd_get_game_scene_tree", {"request_id": "e2e-tree-2"})
+            if second.get("ready") and second.get("tree"):
+                break
+            await asyncio.sleep(0.5)
+        assert second.get("tree") is not None, "second scene-tree request never became ready"
+        assert second["tree"]["type"] == "Window"
+
         # force_break must pause WITHOUT the game cooperating: this played scene
         # has no script calling check_force_break(), so only the probe's own
         # _process servicing (issue #392) can bring the debugger to a halt.
@@ -117,30 +128,47 @@ async def _run() -> None:
                 break
             await asyncio.sleep(0.2)
         assert breaked, "force_break did not report the game entering the break loop"
-        # #411: is_playing exposes paused=true while frozen at the break.
+        # #411: is_playing exposes paused=true while frozen at the break. (#677: the
+        # old cmd_get_stack_frames pause-proxy is gone — that path is UNSUPPORTED on
+        # Godot 4.7; is_playing.paused is the authoritative signal.)
         state = await _ok(bridge, "cmd_is_playing", {})
         assert state["playing"] is True and state["paused"] is True
-        paused = False
-        for _ in range(30):
-            frames = await bridge.send("cmd_get_stack_frames", {"frame": 0})
-            if frames.ok:
-                paused = True
-                break
-            await asyncio.sleep(0.5)
-        assert paused, "force_break never paused a game without a cooperative _process"
+
+        # #677: get_stack_frames / get_frame_variables are honestly UNSUPPORTED.
+        unsupported = await bridge.send("cmd_get_stack_frames", {})
+        assert unsupported.ok is False and unsupported.error == "UNSUPPORTED"
+
         resume = await _ok(bridge, "cmd_continue_execution", {})
         assert resume.get("resumed") is not False
         resumed = False
         for _ in range(40):
-            still = await bridge.send("cmd_get_stack_frames", {"frame": 0})
-            if not still.ok:
+            still = await _ok(bridge, "cmd_is_playing", {})
+            if still["playing"] is True and still["paused"] is False:
                 resumed = True
                 break
             await asyncio.sleep(0.25)
-        assert resumed, "debugger still reports paused after continue_execution"
-        # #411: after continue, paused flips back to false.
-        state = await _ok(bridge, "cmd_is_playing", {})
-        assert state["paused"] is False
+        assert resumed, "is_playing still reports paused after continue_execution"
+
+        # #677: evaluate runs in-game via the probe (not frame-scoped) — the
+        # request-scoping means two successive evaluations each return their own
+        # value while the game is running.
+        async def _evaluate(expression: str, request_id: str) -> dict[str, Any]:
+            for _ in range(20):
+                r = await _ok(
+                    bridge,
+                    "cmd_evaluate_expression",
+                    {"expression": expression, "request_id": request_id},
+                )
+                if r.get("ready") and r.get("evaluated"):
+                    return r
+                await asyncio.sleep(0.2)
+            raise AssertionError(f"evaluate '{expression}' never became ready")
+
+        ev1 = await _evaluate("1 + 1", "e2e-eval-1")
+        ev2 = await _evaluate("1 + 2", "e2e-eval-2")
+        assert ev1["value"] == 2, f"first eval returned {ev1['value']!r}, not its own 2"
+        assert ev2["value"] == 3, f"second eval returned {ev2['value']!r}, not its own 3"
+
         await _ok(bridge, "cmd_stop_scene", {})
     finally:
         await bridge.close()

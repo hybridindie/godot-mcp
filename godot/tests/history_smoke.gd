@@ -119,6 +119,22 @@ func _initialize() -> void:
 	_eq(failures, "snapshot_empty.has_undo", snap_empty.get("has_undo"), false)
 	_eq(failures, "snapshot_empty.action", snap_empty.get("action"), "")
 
+	# #640 acceptance 3: an undo action's bound object is HELD by the history, so
+	# a plugin reload (which drops the router) can't dispose it out from under the
+	# stack — undo after disable/enable stays safe (no call into a freed router).
+	var bound := Router.new()
+	var bound_ref: WeakRef = weakref(bound)
+	var ur3 := UndoRedo.new()
+	ur3.create_action("Bound action")
+	ur3.add_do_method(Callable(bound, "has_command").bind("cmd_undo"))
+	ur3.add_undo_method(Callable(bound, "has_command").bind("cmd_undo"))
+	ur3.commit_action()
+	bound = null
+	_eq(failures, "bound_held_by_history", bound_ref.get_ref() != null, true)
+	ur3.undo()
+	ur3.redo()
+	_eq(failures, "undo_after_ref_dropped_ok", true, true)
+
 	if failures.is_empty():
 		print("HISTORY_TEST_OK")
 		quit(0)

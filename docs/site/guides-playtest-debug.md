@@ -65,10 +65,11 @@ just "it didn't crash".
 
 You: *"Set a breakpoint on player.gd line 42 and step through it."*
 
-The assistant sets a breakpoint; breakpoints fire on their own line. A forced break only lands
-if the game's main loop cooperates (the probe sets a flag the game services). Once stopped, it
-can read the stack, inspect frame variables, evaluate expressions, step over/into/out, and
-continue.
+The assistant sets a breakpoint; breakpoints fire on their own line. A forced break lands
+on the probe's next frame (no game cooperation needed). Once stopped, it can step
+over/into/out, evaluate an expression in the running game (`evaluate_expression` — global
+scope, not frame-scoped), and continue. The paused-frame stack / variable dump
+(`get_stack_frames`, `get_frame_variables`) is **not available on Godot 4.7** (#677).
 
 ## Debugging failures
 

@@ -17,7 +17,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import pytest
 from fastmcp import Client, FastMCP
 
 from mcp_server.bridge import Bridge
@@ -26,7 +25,8 @@ from mcp_server.models.envelope import CommandEnvelope, ResponseEnvelope
 from mcp_server.server import create_server
 from tests.fakes import FakeAddonConnection, connector_for
 
-pytestmark = pytest.mark.asyncio
+# asyncio_mode = "auto" (pyproject) marks the async tests; an explicit module-level
+# pytest.mark.asyncio also tagged the sync ones (issue #656).
 
 _OUTPUT: dict[str, Any] = {
     "next_seq": 7,
@@ -123,8 +123,11 @@ def test_probe_registers_a_logger_and_relays_the_ring() -> None:
     probe_src = _addon_root() / "mcp_runtime_probe.gd"
     src = probe_src.read_text()
     # A custom Logger captures the game's output stream (print/push_error/...).
-    assert "OS.add_logger" in src, "probe must register a custom Logger (issue #534)"
-    assert "_log_message" in src and "_log_error" in src
+    # #648: registered through the guarded dynamic call so the probe parses on 4.4.
+    assert 'OS.call("add_logger"' in src, "probe must register a custom Logger (issue #534)"
+    # The relay Logger itself lives in its own lazily-loaded script (#648).
+    logger_src = (_addon_root() / "mcp_output_logger.gd").read_text()
+    assert "_log_message" in logger_src and "_log_error" in logger_src
     # The ring is bounded (honest eviction, never unbounded growth).
     assert "MAX_OUTPUT" in src
     # The editor can pull the ring on demand via the godot_mcp channel.
@@ -150,12 +153,18 @@ def test_router_registers_cmd_get_game_output() -> None:
 def test_probe_removes_the_logger_on_exit() -> None:
     """PR #547 review: the Logger must be removed in _exit_tree (OS-level
     object) and the ring cleared — a play/stop/replay cycle frees the autoload,
-    and a stale logger would sink into a dead ring across sessions."""
+    and a stale logger would sink into a dead ring across sessions.
+
+    #648: the removal goes through the guarded dynamic call
+    (``OS.has_method("remove_logger")`` + ``OS.call``) so the probe parses on the
+    4.4 floor, where the API is absent.
+    """
     src = (_addon_root() / "mcp_runtime_probe.gd").read_text()
-    assert "OS.remove_logger" in src
+    assert 'OS.has_method("remove_logger")' in src
+    assert 'OS.call("remove_logger"' in src
     exit_body = src[src.index("func _exit_tree") :]
     exit_body = exit_body[: exit_body.index("\nfunc ", 1)]
-    assert "OS.remove_logger" in exit_body
+    assert 'OS.call("remove_logger"' in exit_body
     assert "_output_ring.clear()" in exit_body
 
 

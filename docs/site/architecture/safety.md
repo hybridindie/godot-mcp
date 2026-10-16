@@ -132,6 +132,9 @@ The persistence system exists for exactly that:
   hint.
 - Parse checks report `rescan_pending` when they raced an importer scan.
 - Timeout kills are distinguished from crashes.
+- A `TIMEOUT` on a **mutating** command carries `may_have_applied: true` + a hint
+  to re-read state: the editor drains commands serially, so a timed-out mutation
+  can still run after the agent gave up (#644).
 
 These fields are contract-pinned; skills and evals treat them as ground truth.
 The rule of thumb in the codebase: **a result never reads as success when the

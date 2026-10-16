@@ -34,7 +34,7 @@ func _cmd_create_shader(params: Dictionary) -> Dictionary:
 	var existed := FileAccess.file_exists(path)
 	var old := FileAccess.get_file_as_string(path) if existed else ""
 	var ur := EditorInterface.get_editor_undo_redo()
-	ur.create_action("Create shader %s" % path)
+	ur.create_action("Create shader %s" % path, UndoRedo.MERGE_DISABLE, _router.asset_action_context())
 	ur.add_do_method(_router, "_write_file_text", path, code)
 	if existed:
 		ur.add_undo_method(_router, "_write_file_text", path, old)

@@ -295,7 +295,7 @@ func _cmd_delete_resource_file(params: Dictionary) -> Dictionary:
 			tab_closed = EditorInterface.close_scene() == OK
 			break
 	var ur := EditorInterface.get_editor_undo_redo()
-	ur.create_action("Delete file %s" % path)
+	ur.create_action("Delete file %s" % path, UndoRedo.MERGE_DISABLE, _router.asset_action_context())
 	ur.add_do_method(_router, "_remove_file_with_uid", path)
 	ur.add_undo_method(_router, "_write_file_bytes", path, bytes)
 	if had_uid:
