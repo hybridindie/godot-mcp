@@ -81,6 +81,16 @@ unzip godot_mcp_addon.zip -d /path/to/your/project/
 - *"Show me the scene tree"* → `godot_inspection_get_scene_tree()`
 - *"Enable scene editing, then add a Player node"* → `godot_enable_toolset("scene_edit")`
 
+**5. (Recommended) Install the skills** — paste this into your assistant so it learns how to drive the editor (enable toolsets on its own, read the result verdicts, and avoid the common Godot pitfalls). The server works without them — the instructions and prompts are the fallback — but they make it noticeably better:
+
+```text
+Install the godot-mcp AI skills into your skills directory: clone
+https://github.com/hybridindie/godot-mcp and run `./scripts/install-skills.sh --copy`,
+or copy the `skills/*` folders into your skills directory, then reload your skills.
+```
+
+More → **[Skills](https://hybridindie.github.io/godot-mcp/reference-skills.html)**.
+
 Docker, HTTP service mode (several clients sharing one editor), and OpenWebUI → **[Configure your client](https://hybridindie.github.io/godot-mcp/getting-started-clients.html)**.
 
 ## The gated surface

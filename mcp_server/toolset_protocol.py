@@ -123,6 +123,23 @@ SAFETY_CONVENTION = (
     "- Read-only tools never mutate and need neither flag."
 )
 
+# The three companion skills are client-side (installed into the client's skill dir)
+# and cannot be detected over MCP (#707) — so the text may only advertise them and
+# name the install path, never claim a status. Kept short: this block rides the
+# every-session ``instructions`` payload.
+SKILLS = (
+    "SKILLS (client-side, optional — this server cannot detect them):\n"
+    "This server works without any skill: the protocol above, the workflow prompts, and "
+    "the godot:// resources are the fallback. For best results, three companion skills can "
+    "be installed into your client's skill directory so they auto-load on matching tasks:\n"
+    "- godot-getting-started    — the MCP workflow (toolset gating, safety, the honesty fields)\n"
+    "- godot-playtest-and-debug — the runtime / play-test loop\n"
+    "- godot-expert             — Godot 4.x engine knowledge and pitfalls\n"
+    "If your client has not loaded these, tell the user to install them — clone "
+    "https://github.com/hybridindie/godot-mcp and run ./scripts/install-skills.sh, then "
+    "reload skills. Do not assume they are present."
+)
+
 # The full gating protocol, shared verbatim by the server instructions and the
 # toolset_discovery prompt. Edit the parts above; both surfaces stay in sync.
 TOOLSET_PROTOCOL = "\n\n".join(
@@ -136,6 +153,8 @@ SERVER_INSTRUCTIONS = (
     + TOOLSET_PROTOCOL
     + "\n\n"
     + SAFETY_CONVENTION
+    + "\n\n"
+    + SKILLS
     + "\n\nDOCUMENTATION:\n"
     + DOC_LINKS
     + "\n\nThis server also exposes workflow prompts (toolset_discovery, build_scene, "

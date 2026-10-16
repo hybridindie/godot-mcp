@@ -37,3 +37,14 @@ def test_instructions_cover_safety_convention(instructions: str) -> None:
     """Mutations preview with dry_run; destructive ops require confirm."""
     assert "dry_run" in instructions
     assert "confirm" in instructions
+
+
+def test_instructions_advertise_the_client_side_skills(instructions: str) -> None:
+    """The skills are client-side and invisible to the server (#707); the model must
+    at least know they exist, how to install them, and that absence is undetectable."""
+    assert "godot-getting-started" in instructions
+    assert "godot-playtest-and-debug" in instructions
+    assert "godot-expert" in instructions
+    assert "install-skills.sh" in instructions
+    # Honest: the server can't know whether they're loaded — no false status claim.
+    assert "cannot detect" in instructions
