@@ -83,6 +83,18 @@ async def _run() -> None:
         assert "fps" in gm and "object_count" in gm
         assert gm["object_count"] > 0  # the running game has live objects
 
+        # #670: a second request with a DISTINCT id returns its own ready snapshot.
+        second: dict[str, Any] = {}
+        for _ in range(30):
+            second = await _ok(
+                bridge, "cmd_get_performance_monitors", {"request_id": "e2e-perf-2"}
+            )
+            if second.get("ready") and second.get("monitors"):
+                break
+            await asyncio.sleep(0.5)
+        assert second.get("monitors"), "second performance request never became ready"
+        assert "fps" in second["monitors"]
+
         await _ok(bridge, "cmd_stop_scene", {})
     finally:
         await bridge.close()

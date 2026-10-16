@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 class ApprovalRequest(BaseModel):
     """Payload POSTed to the approval webhook before a gated action runs."""
 
-    action: str  # the tool name, e.g. "delete_node"
+    action: str  # the exposed tool name, e.g. "godot_scene_edit_delete_node"
     safety_class: str  # "destructive" | "mutating" | "runtime"
     params: dict[str, Any] = Field(default_factory=dict)
     task_context: str | None = None

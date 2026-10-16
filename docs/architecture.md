@@ -133,6 +133,7 @@ Precondition failure (richer form, so the agent knows what to satisfy):
 | `TIMEOUT` | No response within the request's timeout. |
 | `INTERNAL_ERROR` | An unexpected failure on either side (still structured, never a trace). |
 | `APPROVAL_DENIED` | The human declined a `confirm`-gated approval (issue #153). |
+| `UNSUPPORTED` | The capability exists but the connected engine/version can't provide it (e.g. the paused-frame stack/eval debugger protocol on Godot 4.7, #677). Honest, not a silent empty result. |
 | `PEER_REPLACED` | Server **notice** to an editor whose bridge was taken over by another editor (#593); not a tool failure. |
 
 This table is the source of truth for the error enum; extend it here (and in the

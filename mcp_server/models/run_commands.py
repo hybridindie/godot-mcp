@@ -10,7 +10,15 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+
+class RunCommandEntry(BaseModel):
+    """One ``{command, params}`` entry of a ``run_commands`` batch (issue #691:
+    a typed shape so the schema guides client generation)."""
+
+    command: str
+    params: dict[str, Any] = Field(default_factory=dict)
 
 
 class SubCommandResult(BaseModel):

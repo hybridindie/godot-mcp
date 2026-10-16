@@ -31,6 +31,13 @@ class ErrorCode(StrEnum):
     TIMEOUT = "TIMEOUT"
     INTERNAL_ERROR = "INTERNAL_ERROR"
     APPROVAL_DENIED = "APPROVAL_DENIED"  # human-in-the-loop gate (issue #153)
+    # #677: the requested capability exists but the connected Godot version/engine
+    # cannot provide it (e.g. the paused-frame stack/eval protocol is not exposed to
+    # editor debugger plugins on 4.7). Honest, not a silent empty result.
+    UNSUPPORTED = "UNSUPPORTED"
+    # #647: a reply was too large for the addon's outbound buffer and was dropped —
+    # surfaced instead of letting the server time out with no cause.
+    RESPONSE_TOO_LARGE = "RESPONSE_TOO_LARGE"
 
 
 class CommandEnvelope(BaseModel):

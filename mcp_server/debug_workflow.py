@@ -121,7 +121,10 @@ def build_report(
 
     if tree_result is None or not tree_result.get("tree"):
         findings.append("NO ACTIVE SCENE: No .tscn scene is currently open in the editor.")
-        suggestions.append("Open a scene in Godot or call create_scene() to make one.")
+        suggestions.append(
+            "Open a scene in Godot or call godot_scene_edit_create_scene("
+            "root_type=…, scene_path=…) to make one (enable the scene_edit toolset first)."
+        )
 
     if run_result:
         if run_result.errors:

@@ -170,6 +170,6 @@ siblings draw first (underneath):
 
 ## .uid files
 
-Godot 4.6+ generates `.gd.uid` files alongside each script. These contain
+Godot 4.4+ generates `.gd.uid` files alongside each script. These contain
 a unique identifier for the script resource. They're safe to commit (small,
 one line). If missing, Godot regenerates them on import.

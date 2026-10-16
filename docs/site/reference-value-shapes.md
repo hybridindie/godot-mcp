@@ -17,10 +17,21 @@ setting properties, batch values, and tool params.
 | Godot type | Accepted JSON |
 |------------|---------------|
 | `Vector2` / `Vector3` | `{"x":1,"y":2}` · `[1,2]` · `"Vector2(100, 200)"` |
+| `Vector4` | `{"x":…,"y":…,"z":…,"w":…}` · `[1,2,3,4]` · `"Vector4(1, 2, 3, 4)"` |
 | `Color` | `{"r":1,"g":0,"b":0,"a":1}` · `"#ff0000"` |
-| `Rect2` | `{"position":{...},"size":{...}}` |
+| `Rect2` | `{"position":{…},"size":{…}}` |
+| `Quaternion` | `{"x":…,"y":…,"z":…,"w":…}` · `"Quaternion(…)"` |
+| `AABB` | `{"position":{x,y,z},"size":{x,y,z}}` · `"AABB(…)"` |
+| `Plane` | `{"normal":{x,y,z},"d":…}` · `"Plane(…)"` |
+| `Basis` | `{"x":{x,y,z},"y":{…},"z":{…}}` · `"Basis(…)"` |
+| `Transform2D` | `{"x":{x,y},"y":{x,y},"origin":{x,y}}` · `"Transform2D(…)"` |
+| `Transform3D` | `{"basis":{…},"origin":{x,y,z}}` · `"Transform3D(…)"` |
+| `Projection` | `{"x":{x,y,z,w},"y":{…},"z":{…},"w":{…}}` · `"Projection(…)"` |
+| `PackedByteArray` | `[0,1,255]` |
+| `PackedVector2Array` / `PackedVector3Array` / `PackedColorArray` | `[{…}]` (element shape as above) |
 | `NodePath` / `StringName` | a string |
 | Primitives | as-is (`true`, `3`, `"text"`) |
+| Non-finite floats | `"__nan__"` · `"__inf__"` · `"__-inf__"` (see below) |
 | Object-typed properties | `"res://path"` or `"uid://…"` (loaded via `ResourceLoader`), or `null` to clear |
 
 Example:
@@ -34,10 +45,29 @@ Example:
 ## Output shapes (Godot → JSON)
 
 The same coercion runs in reverse for every result: a `Vector2` comes back as
-`{"x":…, "y":…}`, a `Color` as `{"r":…, "g":…, "b":…, "a":…}`, and so on.
-Everything that crosses the bridge is JSON-safe — no Godot objects, ever
-(serialized trees are `{name, type, path, script, children}` dicts; large
-trees support `max_depth`).
+`{"x":…, "y":…}`, a `Color` as `{"r":…, "g":…, "b":…, "a":…}`, a `Transform3D`
+as `{"basis":{…},"origin":{…}}`, and so on (the full set is the "Accepted JSON"
+table above). Everything that crosses the bridge is JSON-safe — no Godot
+objects, ever (serialized trees are `{name, type, path, script, children}`
+dicts; large trees support `max_depth`). The **runtime probe reuses this same
+module** (`type_coerce.gd`), so the editor and the running game emit identical
+shapes — there is no second coercion implementation.
+
+### Non-finite floats
+
+JSON has no literal for `NaN`/`INF`, and `JSON.stringify` maps them lossily
+(`NaN`→`null`, `INF`→`1e99999`). They are therefore encoded as explicit string
+sentinels — `"__nan__"`, `"__inf__"`, `"__-inf__"` — in both directions, so a
+round-trip is faithful (#641).
+
+### Writes are verified by read-back
+
+`set_node_property` coerces the value to the property's declared type, applies
+it, then compares the **value read back** to the coerced value; a mismatch
+fails with a structured `VALIDATION_ERROR` naming the expected type. A value the
+engine silently ignores (an unsupported type, a dimension mismatch) can no
+longer come back as the *old* value under `set: true` (#641). Group / category /
+subgroup headings are rejected as properties (they have no backing storage).
 
 ## Coercion rules the addon follows
 

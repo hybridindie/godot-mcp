@@ -13,11 +13,14 @@ Gated in the ``debugger`` toolset.
 from __future__ import annotations
 
 import asyncio
+import uuid
 
 from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import DEBUGGER_TAG
+from mcp_server.constraints import TimeoutMs
+from mcp_server.defaults import DEFAULT_RUNTIME_INSPECT_TIMEOUT_MS
 from mcp_server.models.debugger import (
     BreakpointResult,
     ClearBreakpointsResult,
@@ -30,7 +33,7 @@ from mcp_server.models.debugger import (
 )
 from mcp_server.paths import ResPath
 from mcp_server.safety import RUNTIME, RUNTIME_EXECUTES_CODE
-from mcp_server.tools._route import route
+from mcp_server.tools._route import poll_ready, route
 
 DEBUGGER = {DEBUGGER_TAG}
 
@@ -132,33 +135,41 @@ def register_debugger(mcp: FastMCP, bridge: Bridge) -> None:
     @mcp.tool(meta=RUNTIME, tags=DEBUGGER)
     async def get_stack_frames() -> StackFramesResult:
         """Get the current GDScript call stack while the game is paused.
-        Returns a list of frames, each with ``file``, ``line``, and ``func``.
+
+        NOT AVAILABLE on Godot 4.7 (issue #677): the paused-frame call stack is
+        delivered by the editor's internal ScriptEditorDebugger over the debugger
+        protocol, which is not exposed to editor debugger plugins — so this returns
+        a structured ``UNSUPPORTED`` error rather than a silent empty list.
         """
-        return StackFramesResult(**await route(bridge, "cmd_get_stack_frames"))
+        return StackFramesResult(**await route(bridge, "cmd_get_stack_frames", {}))
 
     @mcp.tool(meta=RUNTIME_EXECUTES_CODE, tags=DEBUGGER)
-    async def evaluate_expression(expression: str, frame: int = 0) -> EvaluationResult:
-        """Evaluate a GDScript expression in the context of the given ``frame``.
-        ``frame`` 0 is the top of the stack (the currently executing function).
-        The game must be paused.
+    async def evaluate_expression(
+        expression: str,
+        timeout_ms: TimeoutMs = DEFAULT_RUNTIME_INSPECT_TIMEOUT_MS,
+    ) -> EvaluationResult:
+        """Evaluate a GDScript ``expression`` in the *running game* and return its
+        value. Requires a play session with the runtime probe. ``error`` is set (and
+        ``value`` null) on a parse/execute failure — never a silent null.
+
+        Issue #677: evaluation runs in-game via the probe's ``Expression`` path, so
+        it is evaluated in the game's global scope (base instance = the scene root);
+        it is **not** frame-scoped/paused-frame eval (Godot 4.7 does not expose the
+        paused-frame evaluator to editor debugger plugins).
 
         Runs arbitrary code in the game process, so it is approval-gated (issue
         #638): a configured approval webhook / guard must approve it first.
         """
-        return EvaluationResult(
-            **await route(
-                bridge,
-                "cmd_evaluate_expression",
-                {"expression": expression, "frame": frame},
-            )
-        )
+        params = {"expression": expression, "request_id": uuid.uuid4().hex}
+        result = await poll_ready(bridge, "cmd_evaluate_expression", params, timeout_ms)
+        return EvaluationResult(**result)
 
     @mcp.tool(meta=RUNTIME, tags=DEBUGGER)
-    async def get_frame_variables(frame: int = 0) -> FrameVarsResult:
-        """Get local, member, and global variables for ``frame``.
-        Returns three arrays under ``locals``, ``members``, and ``globals``.
-        The game must be paused.
+    async def get_frame_variables() -> FrameVarsResult:
+        """Get local, member, and global variables for the paused frame.
+
+        NOT AVAILABLE on Godot 4.7 (issue #677): paused-frame variables are served
+        by the editor's internal ScriptEditorDebugger, not exposed to editor debugger
+        plugins — this returns a structured ``UNSUPPORTED`` error.
         """
-        return FrameVarsResult(
-            **await route(bridge, "cmd_get_frame_variables", {"frame": frame})
-        )
+        return FrameVarsResult(**await route(bridge, "cmd_get_frame_variables", {}))

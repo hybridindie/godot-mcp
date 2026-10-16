@@ -113,7 +113,8 @@ def register_mutation(
         (scene-relative; "." is the root). Reversible via the editor's undo.
 
         IF THIS FAILS with "active_scene":
-          -> No scene is open. Call open_scene(path) or create_scene(path) first.
+          -> No scene is open. Call godot_scene_edit_open_scene(scene_path=…) or
+             godot_scene_edit_create_scene(root_type=…, scene_path=…) first.
         IF THIS FAILS with "parent not found":
           -> parent_path is wrong. Use get_scene_tree() to see actual node paths.
         """

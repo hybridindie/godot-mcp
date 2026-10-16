@@ -122,3 +122,71 @@ def test_live_script_workflow() -> None:
             editor.kill()
         for name in _ARTIFACTS:
             (GODOT_PROJECT / name).unlink(missing_ok=True)
+
+
+# #640: a script write with a scene open must land in the scene history, so
+# godot_undo reverts the script (not an earlier node edit) and the dock's
+# "Last action" reflects it.
+UNDO_SCRIPT = "res://tmp_e2e_undo_script.gd"
+UNDO_SCENE = "res://tmp_e2e_undo_scene.tscn"
+
+
+async def _run_script_undo() -> None:
+    bridge = Bridge(BridgeConfig(url=BRIDGE_URL))
+    if not await serve_and_await_editor(bridge):
+        raise AssertionError("the addon never connected to the bridge")
+    try:
+        await _ok(bridge, "cmd_create_scene", {"root_type": "Node2D", "scene_path": UNDO_SCENE})
+        for _ in range(40):
+            opened = await bridge.send("cmd_get_active_scene")
+            if opened.ok and (opened.result or {}).get("is_open"):
+                break
+            await asyncio.sleep(0.25)
+        await _ok(
+            bridge, "cmd_create_node", {"parent_path": ".", "node_type": "Node2D", "name": "Box"}
+        )
+        await _ok(
+            bridge, "cmd_write_script", {"script_path": UNDO_SCRIPT, "content": "extends Node\n"}
+        )
+
+        # Acceptance 2: the scene history (the dock's "Last action" view) names the
+        # script write — proving it did NOT land in the global history (#640).
+        history = await _ok(bridge, "cmd_list_history", {})
+        assert str(history["current_action"]).startswith("Write script"), history["current_action"]
+
+        # Acceptance 1: undo reverts the SCRIPT, not the earlier node create.
+        await _ok(bridge, "cmd_undo", {})
+        assert not (GODOT_PROJECT / "tmp_e2e_undo_script.gd").exists(), (
+            "undo did not revert the script write (#640)"
+        )
+        tree = await _ok(bridge, "cmd_get_scene_tree", {})
+        assert any(c["name"] == "Box" for c in tree["tree"]["children"]), (
+            "undo reverted the node create instead of the script write (#640)"
+        )
+    finally:
+        await bridge.close()
+
+
+def test_live_script_undo_targets_the_script() -> None:
+    assert GODOT_BIN is not None
+    editor = subprocess.Popen(
+        [GODOT_BIN, "--headless", "--editor", "--path", str(GODOT_PROJECT)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        env={**os.environ, "GODOT_MCP_BRIDGE_URL": BRIDGE_URL},
+    )
+    try:
+        asyncio.run(_run_script_undo())
+    finally:
+        editor.terminate()
+        try:
+            editor.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            editor.kill()
+        for name in (
+            "tmp_e2e_undo_script.gd",
+            "tmp_e2e_undo_script.gd.uid",
+            "tmp_e2e_undo_scene.tscn",
+            "tmp_e2e_undo_scene.tscn.uid",
+        ):
+            (GODOT_PROJECT / name).unlink(missing_ok=True)

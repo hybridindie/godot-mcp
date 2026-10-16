@@ -94,7 +94,7 @@ func _cmd_set_resource_property(params: Dictionary) -> Dictionary:
 	var old_value: Variant = res.get(property)
 	var new_value: Variant = Coerce.from_json(params.get("value"), prop_type)
 	var ur := EditorInterface.get_editor_undo_redo()
-	ur.create_action("Set %s.%s" % [path.get_file(), property])
+	ur.create_action("Set %s.%s" % [path.get_file(), property], UndoRedo.MERGE_DISABLE, _router.asset_action_context())
 	# _set_and_save_resource lives on the router, not this handler — target _router
 	# so the UndoRedo actually invokes it (else the set silently never runs).
 	ur.add_do_method(_router, "_set_and_save_resource", path, property, new_value)
@@ -113,11 +113,22 @@ func _cmd_register_autoload(params: Dictionary) -> Dictionary:
 	var path := str(params.get("path", ""))
 	if autoload_name.is_empty():
 		return _router._fail("VALIDATION_ERROR", "'name' must be a non-empty string.")
+	# #646: an autoload name must be a valid identifier (no spaces/slashes, not
+	# starting with a digit) — else project.godot gets an unusable key.
+	if not autoload_name.is_valid_identifier():
+		return _router._fail(
+			"VALIDATION_ERROR",
+			"'%s' is not a valid autoload name (use a valid identifier)." % autoload_name,
+		)
 	if not ResourceLoader.exists(path):
 		return _router._fail("RESOURCE_NOT_FOUND", "No script/scene at '%s'." % path)
 	# "*" prefix enables the autoload as a global singleton.
 	ProjectSettings.set_setting("autoload/" + autoload_name, "*" + path)
-	ProjectSettings.save()
+	var save_err := ProjectSettings.save()
+	if save_err != OK:
+		return _router._fail(
+			"INTERNAL_ERROR", "Failed to save project settings (error %d)." % save_err
+		)
 	return _router._ok({"name": autoload_name, "path": path, "registered": true})
 
 
@@ -128,7 +139,11 @@ func _cmd_unregister_autoload(params: Dictionary) -> Dictionary:
 	if not ProjectSettings.has_setting(key):
 		return _router._ok({"name": autoload_name, "unregistered": false})
 	ProjectSettings.set_setting(key, null)
-	ProjectSettings.save()
+	var save_err := ProjectSettings.save()
+	if save_err != OK:
+		return _router._fail(
+			"INTERNAL_ERROR", "Failed to save project settings (error %d)." % save_err
+		)
 	return _router._ok({"name": autoload_name, "unregistered": true})
 
 

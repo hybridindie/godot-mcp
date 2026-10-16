@@ -2,7 +2,17 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
+
+
+class ImportOptions(BaseModel):
+    """Structured options for ``import_asset`` (issue #691: a typed shape so the
+    schema guides client generation instead of a bare ``object``)."""
+
+    overwrite: bool = False
+    import_settings: dict[str, Any] = Field(default_factory=dict)
 
 
 class ImportAssetResult(BaseModel):

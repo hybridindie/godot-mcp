@@ -133,8 +133,9 @@ def register_inspection(mcp: FastMCP, bridge: Bridge) -> None:
         Call this to decide, when no scene is open, whether to OPEN an existing scene
         (a modification / enhancement / bugfix of something already there) or CREATE a
         net-new one:
-          - no scenes at all -> the project is empty; create_scene(root_type, path).
-          - exactly one scene -> open_scene(that path).
+          - no scenes at all -> the project is empty; godot_scene_edit_create_scene(
+            root_type=…, scene_path=…) to start one (enable the scene_edit toolset first).
+          - exactly one scene -> godot_scene_edit_open_scene(scene_path=that path).
           - several scenes -> open the one the request targets, or ask which to use.
         Returns an empty ``scenes`` list for a project with no scenes yet (not an error).
         """
@@ -144,26 +145,12 @@ def register_inspection(mcp: FastMCP, bridge: Bridge) -> None:
     async def get_scene_tree(max_depth: MaxDepth = -1, lightweight: bool = False) -> SceneTree:
         """Get the open scene as a recursive tree of {name, type, path, script, children}.
 
-        Each node carries an explicit scene-relative ``path`` ("." for the root,
-        e.g. "Player/Weapon" below it) — pass it verbatim to set_node_property,
-        create_node (as parent_path), attach_script, or get_node_properties; do not
-        reconstruct paths by hand.
-
-        ``max_depth`` limits how many child levels are returned (-1 = unlimited,
-        0 = root only); use it to avoid huge payloads on deep scenes. ``tree`` is
-        null when no scene is open.
-
-        ``lightweight=True`` returns only {name, type, children} (no ``script``) —
-        a smaller payload for a discovery pass where you just need the shape; pair
-        it with ``max_depth`` to keep large scenes out of context.
-
-        If the full tree exceeds the character limit, a lightweight view is returned
-        instead with ``truncated=true`` and a ``hint`` to narrow with ``max_depth``.
-
-        WHEN TO USE: You need to understand the static scene structure before
-        making edits (adding nodes, attaching scripts, setting properties).
-        WHEN NOT TO USE: The game is running and you need live state — use
-        get_game_scene_tree() to read the running game's current hierarchy.
+        Each node carries a scene-relative ``path`` (root ".") — pass it verbatim to
+        set_node_property / create_node(parent_path) / attach_script; never rebuild it
+        by hand. ``max_depth`` bounds child levels (-1 unlimited, 0 root only); a tree
+        over the output limit returns lightweight with ``truncated=true``. ``tree`` is
+        null when no scene is open. For the *running* game use get_game_scene_tree().
+        See docs/tool-contracts.md for ``lightweight``.
         """
         params = {"max_depth": max_depth, "lightweight": lightweight}
         result = SceneTree(**await route(bridge, "cmd_get_scene_tree", params))

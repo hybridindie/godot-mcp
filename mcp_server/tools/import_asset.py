@@ -25,6 +25,7 @@ from mcp_server.constraints import TimeoutMs
 from mcp_server.models.import_asset import (
     CreateMaterialResult,
     ImportAssetResult,
+    ImportOptions,
     ImportStatusResult,
 )
 from mcp_server.paths import ResPath
@@ -184,7 +185,7 @@ def register_import_asset(mcp: FastMCP, bridge: Bridge) -> None:
     async def import_asset(
         source: str,
         target_path: ResPath,
-        options: dict[str, Any] | None = None,
+        options: ImportOptions | None = None,
         dry_run: bool = False,
         wait_for_scan: bool = False,
         timeout_ms: TimeoutMs = _SCAN_TIMEOUT_MS_DEFAULT,
@@ -210,7 +211,7 @@ def register_import_asset(mcp: FastMCP, bridge: Bridge) -> None:
         whether the import artifacts are ready (vs just the copy landing).
         """
         _require_res_path(target_path)
-        options = options or {}
+        opts = options or ImportOptions()
         detected_type = _detect_type(target_path)
 
         preview = ImportAssetResult(
@@ -231,8 +232,8 @@ def register_import_asset(mcp: FastMCP, bridge: Bridge) -> None:
         params: dict[str, Any] = {
             "source": local_source,
             "target_path": target_path,
-            "overwrite": options.get("overwrite", False),
-            "import_settings": options.get("import_settings", {}),
+            "overwrite": opts.overwrite,
+            "import_settings": opts.import_settings,
         }
         try:
             result = await route(bridge, "cmd_import_asset", params)

@@ -98,6 +98,23 @@ async def _run() -> None:
         assert big["undoable"] is False, big
         assert "UndoRedo threshold" in big["hint"] and "Undo will not revert" in big["hint"]
 
+        # #643: the over-threshold path skips UndoRedo, so it must mark the scene
+        # unsaved itself — else the tab looks clean and closing discards the edits.
+        # Save first so the scene is clean, then re-run an over-threshold batch.
+        await _ok(bridge, "cmd_save_scene", {})
+        clean = await _ok(bridge, "cmd_get_active_scene", {})
+        assert clean.get("dirty") is False, f"saved scene should be clean: {clean}"
+        rerun = await _ok(
+            bridge,
+            "cmd_batch_set_property",
+            {"type": "Node", "property": "process_mode", "value": 1},
+        )
+        assert rerun["undoable"] is False, rerun
+        dirty = await _ok(bridge, "cmd_get_active_scene", {})
+        assert dirty.get("dirty") is True, (
+            "an over-threshold batch must mark the scene unsaved (#643)"
+        )
+
         # #461: run_commands names its early stop instead of burying it — a
         # failing command at index 0 halts the batch and the skipped tail is
         # counted (stop_on_error defaults to True).
@@ -140,28 +157,40 @@ async def _run() -> None:
 
         await _ok(bridge, "cmd_save_scene", {})
 
-        # open scene B so A is no longer the currently-edited scene
+        # open scene B so A is no longer the currently-edited scene (A stays open
+        # in a background tab).
         await _ok(bridge, "cmd_create_scene", {"root_type": "Node2D", "scene_path": SCENE_B})
         await _wait_scene_open(bridge)
 
-        # cross-scene edit of A (a file not currently edited) succeeds on disk
-        cross = await _ok(
+        # #645: a scene open in ANY tab (here A, a background tab) is refused — the
+        # editor's in-memory copy would overwrite the on-disk edit.
+        tabbed = await _ok(
             bridge,
             "cmd_cross_scene_set_property",
             {"scenes": [SCENE_A], "type": "Sprite2D", "property": "visible", "value": True},
         )
-        a_result = cross["results"][0]
-        assert a_result["modified"] == 2 and a_result["error"] == ""
-        assert cross["total_modified"] == 2
+        assert tabbed["results"][0]["modified"] == 0
+        assert "open in a tab" in tabbed["results"][0]["error"], tabbed["results"][0]
 
-        # the currently-edited scene (B) is skipped with an explicit error
+        # the currently-edited scene (B) is refused for the same reason
         guarded = await _ok(
             bridge,
             "cmd_cross_scene_set_property",
             {"scenes": [SCENE_B], "type": "Node2D", "property": "visible", "value": False},
         )
         assert guarded["results"][0]["modified"] == 0
-        assert "edited" in guarded["results"][0]["error"]
+        assert "open in a tab" in guarded["results"][0]["error"]
+
+        # close A, then the cross-scene edit lands on disk
+        await _ok(bridge, "cmd_close_scene", {"scene_path": SCENE_A, "confirm": True})
+        cross = await _ok(
+            bridge,
+            "cmd_cross_scene_set_property",
+            {"scenes": [SCENE_A], "type": "Sprite2D", "property": "visible", "value": True},
+        )
+        a_result = cross["results"][0]
+        assert a_result["modified"] == 2 and a_result["error"] == "", a_result
+        assert cross["total_modified"] == 2
 
         # dry_run reports the plan without an error, still counting matches
         dry = await _ok(
@@ -176,6 +205,18 @@ async def _run() -> None:
             },
         )
         assert dry["dry_run"] is True and dry["results"][0]["modified"] == 2
+
+        # #645: `modified` matches what actually persisted — reopen A and read it back.
+        await _ok(bridge, "cmd_open_scene", {"scene_path": SCENE_A})
+        for _ in range(40):
+            r = await bridge.send("cmd_get_active_scene")
+            if r.ok and (r.result or {}).get("path") == SCENE_A:
+                break
+            await asyncio.sleep(0.25)
+        persisted = await _ok(
+            bridge, "cmd_get_node_property", {"node_path": "S1", "property": "visible"}
+        )
+        assert persisted["value"] is True, f"cross-scene edit did not persist: {persisted}"
 
         # dependency analysis runs and returns a (possibly empty) list
         deps = await _ok(bridge, "cmd_get_dependencies", {"path": SCENE_A})

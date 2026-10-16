@@ -213,9 +213,17 @@ func set_and_save_resource(path: String, property: String, value: Variant) -> vo
 # -- scene-tree helpers (shared by mutations, node_parity) --------------------
 
 ## Set owner of a node and its whole subtree to the scene root so it is saved.
+##
+## #642: stop descending at an instanced sub-scene — a node with a non-empty
+## ``scene_file_path``. Owning the instance's *internal* nodes would serialize the
+## instance's internals as local nodes on save (duplicating them, or corrupting
+## the scene). The instance root itself IS owned (done below); its children belong
+## to the instanced scene, not this one. This matches the editor's Scene dock.
 func own_recursive(node: Node, root: Node) -> void:
 	if node != root:
 		node.owner = root
+	if not node.scene_file_path.is_empty():
+		return  # an instanced sub-scene root: own it, never descend into its internals
 	for child in node.get_children():
 		own_recursive(child, root)
 
@@ -406,6 +414,12 @@ func property_type(obj: Object, property: String) -> int:
 		# object whose id was reused (#540).
 		cache = {}
 		for prop_entry in obj.get_property_list():
+			# #641: group/category/subgroup entries are headings, not settable
+			# properties (their type is TYPE_NIL and set() silently no-ops) — skip
+			# them so property_type reports "no property" instead of accepting them.
+			var usage := int(prop_entry.get("usage", 0))
+			if usage & (PROPERTY_USAGE_GROUP | PROPERTY_USAGE_CATEGORY | PROPERTY_USAGE_SUBGROUP):
+				continue
 			cache[prop_entry["name"]] = int(prop_entry["type"])
 		_prop_cache[obj_id] = {"obj": weakref(obj), "props": cache}
 		_prune_prop_cache()

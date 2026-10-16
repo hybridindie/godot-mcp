@@ -16,6 +16,7 @@ already shapes addon-side precondition envelopes into ``ToolError``.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from typing import Any, TypeVar
 
 from fastmcp.exceptions import ToolError
@@ -277,25 +278,38 @@ async def route(
 
 
 async def poll_ready(
-    bridge: Bridge, command: str, params: dict[str, Any], timeout_ms: int
+    bridge: Bridge,
+    command: str,
+    params: dict[str, Any],
+    timeout_ms: int,
+    *,
+    terminal: Callable[[dict[str, Any]], bool] | None = None,
+    raise_on_timeout: bool = True,
 ) -> dict[str, Any]:
-    """Poll a poll-and-cache command until its result is ``ready`` or ``timeout_ms``
-    elapses (whichever first), returning the last result. Uses an event-loop deadline so
-    the wall-clock bound holds even for small timeouts and accounts for round-trip time.
-    Always makes at least one attempt.
+    """Poll a poll-and-cache command until ``terminal(result)`` or ``timeout_ms``
+    elapses (whichever first), returning the last result. Uses an event-loop deadline
+    so the wall-clock bound holds even for small timeouts and accounts for round-trip
+    time. Always makes at least one attempt.
+
+    ``terminal`` defaults to ``result["ready"]``; a soft read that reports state
+    rather than refusing (e.g. the live scene tree, which is ``ready`` only once its
+    request-scoped reply lands but is also terminal when probe-disconnected) passes
+    its own predicate.
 
     #459: a poll that never becomes ready is a structured failure, not a bare
     ``{ready: false}`` — when the last result carries a ``reason`` token (the
     addon self-reports why it is pending), the expiry raises a ``TIMEOUT`` ToolError
-    relaying it, so the agent can act on the cause instead of guessing.
+    relaying it, so the agent can act on the cause instead of guessing. A soft read
+    passes ``raise_on_timeout=False`` to get the pending state back instead.
     """
+    is_done = terminal if terminal is not None else (lambda r: bool(r.get("ready")))
     deadline = asyncio.get_event_loop().time() + timeout_ms / 1000
     result = await route(bridge, command, params)
-    while not result.get("ready"):
+    while not is_done(result):
         remaining = deadline - asyncio.get_event_loop().time()
         if remaining <= 0:
             reason = result.get("reason")
-            if reason:
+            if raise_on_timeout and reason:
                 raise ToolError(
                     f"TIMEOUT: {command} did not become ready within {timeout_ms}ms "
                     f"(last reason: {reason}). {result.get('hint', '')}".rstrip()

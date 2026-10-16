@@ -46,7 +46,7 @@ Always-on `core` extras: `godot_describe_class` (ClassDB metadata — check prop
 - **Destructive** tools (delete/overwrite, e.g. `godot_scene_edit_delete_node`) require `confirm=True` or they refuse; they also support `dry_run`.
 - **Runtime** tools control game execution (play/stop/breakpoints) — no `dry_run`.
 
-Read results as ground truth, not decoration: batch results carry honesty flags — `godot_batch_set_property` returns `undoable` (false above 20 nodes: undo will NOT revert it), `godot_composite_run_commands` reports `aborted_at`/`skipped_count` when it halted early — and `godot_scripts_get_parse_errors` returns `rescan_pending` (a fresh-class_name "Could not find type" may be stale cache; re-check before fixing). Read these fields; they prevent double-work.
+Read results as ground truth, not decoration: batch results carry honesty flags — `godot_batch_set_property` returns `undoable` (false above 20 nodes: undo will NOT revert it), `godot_composite_run_commands` reports `aborted_at`/`skipped_count` when it halted early, and a `TIMEOUT` on a mutating tool returns `may_have_applied: true` (the editor runs commands serially, so re-read state before retrying — never double-apply) — and `godot_scripts_get_parse_errors` returns `rescan_pending` (a fresh-class_name "Could not find type" may be stale cache; re-check before fixing). Read these fields; they prevent double-work.
 
 **Verify mutations with snapshot + diff** (read-only, always available): `godot_inspection_snapshot_subtree(node_path)` before a batch edit, `godot_inspection_diff_snapshots(before_id)` after (diffs vs. live state) — one call returns `{added, removed, changed: [{node, property, before, after}]}` instead of N re-reads. Snapshot ids are bounded (`s1`, `s2`, …); an evicted id says so — re-snapshot.
 
@@ -79,7 +79,7 @@ Resources are read-only and never mutate; mutations always go through tools.
 
 ## Working efficiently
 
-- **Enable only what the task needs, right before you need it** — the exposed surface stays small on purpose; don't pre-enable everything.
+- **Enable only what the task needs, right before you need it** — the exposed surface stays small on purpose; don't pre-enable everything. Enable a whole workflow in **one call** with `godot_enable_toolset("author,playtest")` — `author`/`playtest`/`ship` are bundles that expand to their member toolsets (a bundle is just a preset, not a new category), and you can comma-separate any mix of toolsets and bundles.
 - **Batch round-trips**: independent editor operations belong in one `godot_composite_run_commands` call (one editor frame for N commands) instead of N tool calls. Same for bulk property sets (`godot_batch_set_property`) and same-shape node creation (`godot_composite_batch_create_nodes`). Each entry still carries its own tool's policy: enable the sub-command's toolset first, and pass `confirm=true` if the batch contains a destructive sub-command.
 - **Verify before you build**: `godot_debug_workflow()` in `core` is one call returning parse errors + scene tree + headless run + bridge state — cheaper than four separate diagnostics calls.
 - **`dry_run` first on unfamiliar mutations** — the preview includes the projected honesty flags (`undoable`, persistence verdicts).

@@ -50,7 +50,7 @@ func _cmd_get_editor_performance(_params: Dictionary) -> Dictionary:
 
 
 
-func _cmd_get_performance_monitors(_params: Dictionary) -> Dictionary:
+func _cmd_get_performance_monitors(params: Dictionary) -> Dictionary:
 	if not EditorInterface.is_playing_scene():
 		return _router._fail("PRECONDITION_FAILED", "No play session. Run play_scene first.", "play_session")
 	if _router._debugger == null or not _router._debugger.is_connected_to_probe():
@@ -58,22 +58,27 @@ func _cmd_get_performance_monitors(_params: Dictionary) -> Dictionary:
 			"playing": true, "connected": false, "ready": true, "monitors": {},
 			"hint": "Add the godot_mcp runtime probe autoload to the game for live monitors.",
 		})
-	_router._debugger.send_to_probe("godot_mcp:get_performance", [])
+	# #670: request-scoped — serve the cached snapshot only when it answers THIS
+	# request_id; else dispatch once and report pending (the server polls).
+	var request_id := str(params.get("request_id", ""))
 	var cached: Variant = _router._debugger.get_performance()
-	if cached == null:
-		# #459: the probe has not answered the first monitor pull yet.
-		return _router._ok({
-			"playing": true,
-			"connected": true,
-			"ready": false,
-			"monitors": {},
-			"reason": "probe_pending",
-		})
+	if cached is Dictionary:
+		var cid := str((cached as Dictionary).get("request_id", ""))
+		if cid == request_id or not (cached as Dictionary).has("request_id"):
+			return _router._ok({
+				"playing": true, "connected": true, "ready": true,
+				"monitors": (cached as Dictionary).get("monitors", {}),
+			})
+	if _router._debugger.get_performance_request() != request_id:
+		_router._debugger.begin_performance_request(request_id)
+		_router._debugger.request_performance(request_id)
+	# #459: the probe has not answered this request yet.
 	return _router._ok({
 		"playing": true,
 		"connected": true,
-		"ready": true,
-		"monitors": cached,
+		"ready": false,
+		"monitors": {},
+		"reason": "probe_pending",
 	})
 
 

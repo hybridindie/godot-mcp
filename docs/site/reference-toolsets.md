@@ -3,12 +3,12 @@ type: index
 title: "Toolsets & tools"
 description: "Every tool in the 193-tool surface, grouped by toolset, with safety classes."
 created: 2026-09-19
-updated: 2026-10-11
+updated: 2026-10-15
 ---
 
 # Toolsets & tools
 
-194 tools across 29 categories. Only `core` + `inspection` are enabled by default; enable the rest with `godot_enable_toolset(category)`, which returns the enabled tools' names and input schemas so a client that never refreshes its registry can still call them. Class meanings: [safety classes](reference-safety-classes.md).
+194 tools across 29 categories. Only `core` + `inspection` are enabled by default; enable the rest with `godot_enable_toolset(category)`, which returns the enabled tools' names and input schemas so a client that never refreshes its registry can still call them. `category` also accepts a bundle (`author` / `playtest` / `ship`) or a comma-separated list, so a whole workflow is one call (#653). Class meanings: [safety classes](reference-safety-classes.md).
 
 ## `analysis` — Static analysis: dependencies, signal flow, unused resources, circular deps, scene integrity.
 
@@ -70,7 +70,7 @@ updated: 2026-10-11
 
 | Tool | Class |
 |------|-------|
-| `godot_batch_cross_scene_set_property` | mutating |
+| `godot_batch_cross_scene_set_property` | destructive |
 | `godot_batch_find_nodes_by_type` | read_only |
 | `godot_batch_get_dependencies` | read_only |
 | `godot_batch_set_property` | mutating |
@@ -154,7 +154,7 @@ updated: 2026-10-11
 | `godot_input_simulate_action` | runtime |
 | `godot_input_simulate_key` | runtime |
 | `godot_input_simulate_mouse` | runtime |
-| `godot_input_stop_recording` | read_only |
+| `godot_input_stop_recording` | runtime |
 
 ## `input_map` — Input Map actions in project settings: add/remove actions and events.
 
@@ -242,7 +242,7 @@ updated: 2026-10-11
 | `godot_project_move_file` | mutating |
 | `godot_project_resolve_uid` | read_only |
 | `godot_project_search_files` | read_only |
-| `godot_project_set_setting` | mutating |
+| `godot_project_set_setting` | destructive |
 
 ## `project_scaffold` — Scaffold a new project skeleton (directories, base scenes).
 
@@ -258,11 +258,11 @@ updated: 2026-10-11
 
 | Tool | Class |
 |------|-------|
-| `godot_resources_edit_create_resource` | mutating |
+| `godot_resources_edit_create_resource` | destructive |
 | `godot_resources_edit_read_resource_file` | read_only |
-| `godot_resources_edit_register_autoload` | mutating |
+| `godot_resources_edit_register_autoload` | destructive |
 | `godot_resources_edit_set_resource_property` | mutating |
-| `godot_resources_edit_unregister_autoload` | mutating |
+| `godot_resources_edit_unregister_autoload` | destructive |
 
 ## `runtime` — Headless run + output capture; live play session lifecycle.
 
@@ -276,7 +276,7 @@ updated: 2026-10-11
 | `godot_runtime_get_game_scene_tree` | read_only |
 | `godot_runtime_get_property_samples` | read_only |
 | `godot_runtime_is_playing` | read_only |
-| `godot_runtime_monitor_property` | read_only |
+| `godot_runtime_monitor_property` | runtime |
 | `godot_runtime_play_scene` | runtime |
 | `godot_runtime_read_property` | read_only |
 | `godot_runtime_run_and_capture` | runtime |
@@ -310,7 +310,7 @@ updated: 2026-10-11
 | `godot_scene_edit_create_node` | mutating |
 | `godot_scene_edit_create_scene` | mutating |
 | `godot_scene_edit_delete_node` | destructive |
-| `godot_scene_edit_disconnect_signal` | mutating |
+| `godot_scene_edit_disconnect_signal` | destructive |
 | `godot_scene_edit_duplicate_node` | mutating |
 | `godot_scene_edit_extract_scene` | mutating |
 | `godot_scene_edit_instance_scene` | mutating |
@@ -321,7 +321,7 @@ updated: 2026-10-11
 | `godot_scene_edit_reload_scene` | destructive |
 | `godot_scene_edit_remove_from_group` | mutating |
 | `godot_scene_edit_rename_node` | mutating |
-| `godot_scene_edit_rescan_filesystem` | read_only |
+| `godot_scene_edit_rescan_filesystem` | runtime |
 | `godot_scene_edit_save_all_scenes` | mutating |
 | `godot_scene_edit_save_scene` | mutating |
 | `godot_scene_edit_select_nodes` | mutating |

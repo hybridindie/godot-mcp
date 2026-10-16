@@ -185,10 +185,12 @@ async def require_active_scene(bridge: Bridge) -> None:
     _raise_if_failed(response)
     if not (response.result or {}).get("is_open"):
         raise PreconditionError(
-            "No scene is open. Recover, don't fail: call list_scenes() to see the "
-            "project's scenes — then open_scene(path) to edit an existing one, or "
-            "create_scene(root_type, scene_path) to start a new one (create_scene works "
-            "with no scene open). Re-run this action once a scene is open.",
+            "No scene is open. Recover, don't fail: enable the scene_edit toolset "
+            "(godot_enable_toolset) then call godot_inspection_list_scenes to see the "
+            "project's scenes — then godot_scene_edit_open_scene(scene_path=…) to edit an "
+            "existing one, or godot_scene_edit_create_scene(root_type=…, scene_path=…) to "
+            "start a new one (create_scene works with no scene open). Re-run this action "
+            "once a scene is open.",
             required="active_scene",
         )
 

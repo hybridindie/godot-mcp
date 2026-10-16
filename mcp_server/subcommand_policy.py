@@ -144,6 +144,30 @@ def _most_severe(base: str, plans: list[SubCommandPlan]) -> str:
     return base
 
 
+async def mutating_commands(mcp: FastMCP) -> frozenset[str]:
+    """Every addon ``cmd_*`` backed by a mutating/destructive tool (issue #644).
+
+    Used to flag a TIMEOUT on such a command ``may_have_applied`` — the editor
+    drains commands serially, so a timed-out mutation can still run later. Reads
+    the registry directly (the ``godot_`` transform may not be installed yet).
+    """
+    from mcp_server.command_map import BARE_TO_COMMAND
+    from mcp_server.transforms import _original_handler_name, godot_tool_name
+
+    out: set[str] = set()
+    for tool in await mcp.local_provider.list_tools():
+        if (tool.meta or {}).get("safety_class") not in (
+            SafetyClass.MUTATING.value,
+            SafetyClass.DESTRUCTIVE.value,
+        ):
+            continue
+        bare = godot_tool_name(_original_handler_name(tool), tool.tags).removeprefix("godot_")
+        command = BARE_TO_COMMAND.get(bare)
+        if command:
+            out.add(command)
+    return frozenset(out)
+
+
 async def effective_safety_class(mcp: FastMCP, tool: Tool, args: dict[str, Any]) -> str:
     """The safety class the approval gate should use for a tool call.
 
@@ -169,6 +193,7 @@ __all__ = [
     "COMMAND_TO_BARE",
     "effective_safety_class",
     "guard_batch",
+    "mutating_commands",
     "resolve_batch",
     "resolve_subcommand",
     "toolset_of",

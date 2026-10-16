@@ -75,4 +75,14 @@ tests). Invariants:
 Every UndoRedo-wrapped mutation is reversible by the human's own undo stack;
 `godot_undo` (always-on `core`) steps back one action. The documented
 exception: batch sets above 20 nodes bypass the stack for performance — and
-the result says so via `undoable: false`.
+the result says so via `undoable: false` (the scene is still marked dirty, #643).
+
+## Approval & the fail-closed default
+
+`confirm` is an *accident guard* the agent sets itself; real human oversight is the
+opt-in **approval gate** (`GODOT_MCP_APPROVAL_WEBHOOK`, or the elicitation guard with
+`GODOT_MCP_APPROVAL_REQUIRE`). `mutating`/`destructive` calls are routed to it, plus
+`runtime` tools flagged `writes_disk`/`executes_code` (`export_project`,
+`evaluate_expression`). With a webhook configured an unreachable webhook now **fails
+closed** — it denies — by default (#638); set `GODOT_MCP_APPROVAL_FAIL_OPEN=true` to
+opt into fail-open.

@@ -273,7 +273,19 @@ func _handle_text(text: String) -> void:
 		response = _router.handle(d2)
 		command_received.emit(cmd_name)
 	if _peer != null:
-		_peer.send_text(JSON.stringify(response))
+		# Variant, not Error: a test fake's send_text returns null (no real socket).
+		var err: Variant = _peer.send_text(JSON.stringify(response))
+		if err != null and err != OK:
+			# #647: the reply was too large for the outbound buffer and dropped —
+			# the server would otherwise just time out with no cause. Best-effort
+			# send a small structured error so the agent can narrow the request.
+			_peer.send_text(JSON.stringify({
+				"id": str(response.get("id", "")),
+				"ok": false,
+				"error": "RESPONSE_TOO_LARGE",
+				"hint": "The response was too large to send over the bridge and was "
+					+ "dropped. Narrow the request (e.g. max_depth or pagination) and retry.",
+			}))
 	# Handler execution time only (#520): the addon responds to commands, it
 	# never originates them, so there is no send-side timestamp to diff —
 	# exec_ms is the one honest number this side can measure. #589: the

@@ -307,7 +307,7 @@ states return an empty model (`is_open=False` / `tree=None` / `selected=None`), 
 | Tool | Params | Returns | Bridge command |
 |------|--------|---------|----------------|
 | `godot_inspection_get_project_info` | — | `ProjectInfo { name, godot_version, main_scene?, autoloads, input_actions }` | `cmd_get_project_info` |
-| `godot_inspection_get_active_scene` | — | `ActiveScene { is_open, path?, name? }` | `cmd_get_active_scene` |
+| `godot_inspection_get_active_scene` | — | `ActiveScene { is_open, path?, name?, dirty }` | `cmd_get_active_scene` |
 | `godot_inspection_list_scenes` | — | `ScenesResult { scenes: [SceneEntry { path, is_main, is_open, is_active }], main_scene? }` | `cmd_list_scenes` |
 | `godot_inspection_get_scene_tree` | `max_depth: int = -1, lightweight: bool = False` | `SceneTree { tree: SceneNode? }` | `cmd_get_scene_tree` |
 | `godot_inspection_get_selected_node` | — | `SelectedNode { selected: NodeInfo? }` | `cmd_get_selected_node` |
@@ -1031,6 +1031,10 @@ cursor; pass the previous call's `next_seq` as `since_seq` for incremental pulls
 input injection, there is **no break-state gate** — the ring stays readable while the game
 is frozen at a debugger break, which is exactly when crash traces matter. `kind` is
 `stdout` / `error` / `warning`; script errors carry the engine's rationale text.
+**Compatibility (#648):** the `Logger`/`OS.add_logger` API is Godot **4.5+**. The probe
+guards it (it `load()`s the logger script only when `OS.has_method("add_logger")`), so the
+addon still parses and every non-output feature works on the 4.4 floor — but
+`get_game_output` returns an **empty ring** on 4.4 (output capture needs 4.5+).
 
 #### Input simulation (issue #36) — category: `input` (gated off by default)
 
@@ -1176,8 +1180,11 @@ tools — `godot_batch_set_property`, `godot_composite_batch_create_nodes`, and
 honesty shape (issue #523), so a consumer reads one contract.
 `godot_batch_cross_scene_set_property` edits scene **files** on
 disk: it loads each (`GEN_EDIT_STATE_MAIN`), sets the property on every `node_type` node,
-re-packs and saves, and re-scans — the **currently-edited** scene is skipped (its
-in-memory copy would clobber the change; reported as an `error`), and each scene's
+re-packs and saves, and re-scans — a scene **open in any tab** (active or background) is
+refused with a hint (its in-memory copy would overwrite the on-disk change; edit the open
+scene directly instead), only nodes **owned** by the scene are changed (an instanced
+sub-scene's internals are dropped on save, so they aren't counted), and the **cached**
+resource is re-packed and saved so the resource cache reflects the change. Each scene's
 `{modified, error}` is reported so skips are explicit (this path is not UndoRedo-wrapped —
 closed files). It is **`destructive`** (issue #638): it rewrites scene files with no undo,
 so it requires `confirm=True`. `godot_batch_get_dependencies` lists what a `res://` resource/scene depends on (each
@@ -1207,11 +1214,11 @@ Control breakpoints, step execution, and inspect the paused call stack in a runn
 | `godot_debugger_step_over` | — | `StepResult { stepped }` |
 | `godot_debugger_step_out` | — | `StepResult { stepped }` |
 | `godot_debugger_continue_execution` | — | `ContinueResult { running }` |
-| `godot_debugger_get_stack_frames` | — | `StackFramesResult { frames[], hint }` |
-| `godot_debugger_evaluate_expression` | `expression, frame=0` | `EvaluationResult { expression, value, evaluated }` |
-| `godot_debugger_get_frame_variables` | `frame=0` | `FrameVarsResult { frame, locals[], members[], globals[] }` |
+| `godot_debugger_get_stack_frames` | — | **`UNSUPPORTED`** on Godot 4.7 (#677) |
+| `godot_debugger_evaluate_expression` | `expression, timeout_ms=2000` | `EvaluationResult { expression, value, evaluated, error }` |
+| `godot_debugger_get_frame_variables` | — | **`UNSUPPORTED`** on Godot 4.7 (#677) |
 
-Step tools send `step`/`next`/`out`/ `continue` via `EditorDebuggerSession.send_message` and require the game to be paused (`session.is_breaked()`). `godot_debugger_get_stack_frames` returns the current call stack from the debugger protocol (`get_stack_dump` → `stack_dump`); an empty `frames:[]` carries a `hint` — the poll-and-cache reply is async, so empty means "not yet received", not "empty call stack" (#411). `godot_debugger_evaluate_expression` evaluates a GDScript expression at the given frame (`evaluate` → `evaluation_return`) and echoes `evaluated` so a null `value` is distinguishable from "no reply yet" (#411) — it runs arbitrary code in the game process, so it carries the `executes_code` flag and is **approval-gated** (issue #638). `godot_debugger_get_frame_variables` fetches locals, members, and globals (`get_stack_frame_vars` → `stack_frame_vars`). All three are captured via the poll-and-cache pattern on `MCPDebugger`, so the first call after a break may return empty data until the async reply arrives.
+Step tools send `step`/`next`/`out`/ `continue` via `EditorDebuggerSession.send_message` and require the game to be paused (`session.is_breaked()`). **`godot_debugger_get_stack_frames` and `godot_debugger_get_frame_variables` are `UNSUPPORTED` on Godot 4.7** (#677): the paused-frame call stack / variable set is delivered by the editor's internal `ScriptEditorDebugger` over the debugger protocol, which is **not** routed to editor debugger plugins — a plugin never receives `stack_dump`/`stack_frame_vars`. They return a structured `UNSUPPORTED` error rather than a silent empty result. `godot_debugger_evaluate_expression` runs in the **running game** via the runtime probe's `Expression` path (#677) — it evaluates in the game's global scope (base instance = the scene root) and is **not** frame-scoped; `error` is set (with `value` null) on a parse/execute failure, never a silent null. It runs arbitrary code in the game process, so it carries the `executes_code` flag and is **approval-gated** (issue #638).
 
 #### Profiling (issue #38) — category: `profiling` (gated off by default)
 
@@ -1325,7 +1332,7 @@ history returns zero-values, not an error.
 
 | Tool | Params | Returns | Notes |
 |------|--------|---------|-------|
-| `godot_health_check` | — | `HealthStatus { server, version, transport, bridge_url, bridge_connected, addon_version?, version_notice? }` | liveness ping — call first; `version` is the CalVer build (see § contract versioning); `version_notice` flags a server↔addon version mismatch (#629) |
+| `godot_health_check` | — | `HealthStatus { server, version, transport, bridge_url, bridge_connected, addon_version?, version_notice?, bridge_bind_error? }` | liveness ping — call first; `version` is the CalVer build (see § contract versioning); `version_notice` flags a server↔addon version mismatch (#629); `bridge_bind_error` is set when the listener could not bind its port (#655) |
 | `godot_get_server_info` | — | `ServerDiagnostics { server, version, contract_version, min_compatible_contract, transport, toolsets[], prompts[], resources[], bridge{connected, url, godot_version?, project_name?, project_path?, addon_version?, addon_commands?, backend?{csharp_supported, csharp_project, csharp_build}}, active_scene?, addon_drift_warning?, version_notice?, update?, common_errors[], next_steps[] }` | capability snapshot — call first |
 | `godot_check_for_updates` | — | `UpdateStatus { enabled, current, latest?, update_available, url?, checked_at?, error?, hint? }` | opt-in (`GODOT_MCP_CHECK_UPDATES`, off by default → `enabled: false`); when on, queries the release feed and reports a newer version; on finding one it also notifies the editor dock (#629) |
 | `godot_debug_workflow` | `scene="", timeout_seconds=5.0, expected_timeout=False` | `DebugWorkflowResult { bridge{}, scene_tree?, run?, parse{ok, errors[], skipped_reason}, findings[], suggestions[] }` | one-call comprehensive check; `expected_timeout=True` suppresses the timeout/NON-ZERO-EXIT findings for games that never self-quit (#490) |
@@ -1396,6 +1403,15 @@ until enabled. These meta-tools are always available:
 | `godot_list_toolsets` | — | `[ToolsetInfo]` | discover categories (`{ name, enabled, description, min_godot, tools }`) |
 | `godot_enable_toolset` | `category` | `ToolsetInfo` | expose a category's tools (fires `list_changed`); `tools` carries the enabled tools' `name`/`description`/`input_schema` (#621) |
 | `godot_disable_toolset` | `category` | `ToolsetInfo` | hide a category again (`tools` empty) |
+
+**Bundles & batch (issue #653).** `category` also accepts a **bundle** — `author`
+(scene/scripts/assets authoring), `playtest` (run/drive/observe the game), `ship`
+(export) — or a **comma-separated list** of toolsets/bundles (e.g.
+`"author,playtest"`). A bundle/list enables all its members in ONE call and returns
+one combined `ToolsetInfo` whose `tools` carries every member tool's schema; a single
+name keeps the exact per-toolset result. Bundles are presets over the existing
+categories — one call replaces N `enable_toolset` calls (the build → script → play
+loop needs four categories, covered by `"author,playtest"`).
 
 `godot_enable_toolset`/`godot_disable_toolset` reject unknown categories and `core` with a
 structured `ToolError`. They change tool *exposure* only — never the Godot project

@@ -18,6 +18,7 @@ import asyncio
 import re
 import shutil
 import time
+from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
@@ -215,6 +216,13 @@ class GodotRunner:
             timed_out = True
             proc.kill()
             out, err = await proc.communicate()
+        except asyncio.CancelledError:
+            # #655: an MCP/task cancel must reap the subprocess too — otherwise a
+            # cancelled run leaves a Godot process alive on the machine.
+            proc.kill()
+            with suppress(Exception):
+                await proc.wait()
+            raise
         return RunOutput(
             command=cmd,
             stdout=out.decode("utf-8", "replace"),

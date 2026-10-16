@@ -1,7 +1,7 @@
 """Scene session management tools (issue #79).
 
 Editor session control: open/reload/save-all/list/select — all in the
-``scene_edit`` toolset. ``reload_scene`` is ``destructive`` (discards unsaved
+``scene_edit`` toolset. ``godot_scene_edit_reload_scene`` is ``destructive`` (discards unsaved
 changes and needs ``confirm``); the rest are ``mutating`` or ``read_only``.
 """
 

@@ -26,6 +26,10 @@ class GameSceneTreeResult(BaseModel):
     playing: bool
     connected: bool = False
     tree: GameNode | None = None
+    # #670: False while the probe's reply for THIS request hasn't arrived yet
+    # (the server polls); `reason` names why it's pending.
+    ready: bool = True
+    reason: str = ""
     hint: str = ""
 
 

@@ -38,21 +38,16 @@ var _game_frame: Variant = null  # last godot_mcp:game_frame payload (#446)
 var _frame_request_id := "__none__"  # request_id of the in-flight game frame capture (#446)
 var _game_output: Variant = null  # last godot_mcp:game_output payload (#534)
 var _breakpoints: Array = []  # tracked breakpoints for issue #110
-var _stack_frames: Variant = null  # last stack_dump payload (Tier 2)
-var _evaluation_result: Variant = null  # last evaluation_return payload (Tier 2)
-var _frame_vars: Variant = null  # last accumulated frame vars (Tier 2)
-var _frame_vars_expected: int = 0  # count from stack_frame_vars (Tier 2)
-var _frame_vars_locals: Array = []
-var _frame_vars_members: Array = []
-var _frame_vars_globals: Array = []
-
-
-## Debugger protocol capture names we claim so _capture receives raw messages.
-const _DEBUGGER_CAPTURES := ["stack_dump", "evaluation_return", "stack_frame_vars", "stack_frame_var"]
+var _evaluation_result: Variant = null  # last godot_mcp:evaluation payload (#677)
+# #670/#677: request ids for the probe-backed reads, so a handler serves the reply
+# for THIS request — never the previous call's cached value. The probe echoes the id.
+var _scene_tree_request := "__none__"
+var _performance_request := "__none__"
+var _evaluation_request := "__none__"
 
 
 func _has_capture(capture: String) -> bool:
-	return capture == CAPTURE_PREFIX or capture in _DEBUGGER_CAPTURES
+	return capture == CAPTURE_PREFIX
 
 
 func _capture(message: String, data: Array, session_id: int) -> bool:
@@ -60,12 +55,19 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 		"godot_mcp:ready":
 			_probe_ready = true
 			_session_id = session_id
-			request_scene_tree()  # warm the cache as soon as the probe announces itself
 			return true
 		"godot_mcp:pong":
 			return true
 		"godot_mcp:scene_tree":
-			_scene_tree = data[0] if not data.is_empty() else null
+			# #670: the probe echoes the request_id; store only when it matches the
+			# in-flight request (a legacy probe sends no id — tag it with the pending
+			# id so the stored shape is uniform).
+			var tree_payload: Variant = data[0] if not data.is_empty() else null
+			if tree_payload is Dictionary and (tree_payload as Dictionary).has("request_id"):
+				if str((tree_payload as Dictionary).get("request_id", "")) == _scene_tree_request:
+					_scene_tree = tree_payload
+			else:
+				_scene_tree = {"request_id": _scene_tree_request, "tree": tree_payload}
 			return true
 		"godot_mcp:input_ack":
 			_input_acks += 1
@@ -98,7 +100,13 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 			_recorded_input = data[0] if not data.is_empty() else null
 			return true
 		"godot_mcp:performance":
-			_performance = data[0] if not data.is_empty() else null
+			# #670: same request-id gate as scene_tree.
+			var perf_payload: Variant = data[0] if not data.is_empty() else null
+			if perf_payload is Dictionary and (perf_payload as Dictionary).has("request_id"):
+				if str((perf_payload as Dictionary).get("request_id", "")) == _performance_request:
+					_performance = perf_payload
+			else:
+				_performance = {"request_id": _performance_request, "monitors": perf_payload}
 			return true
 		"godot_mcp:game_frame":
 			_game_frame = data[0] if not data.is_empty() else null
@@ -106,41 +114,12 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 		"godot_mcp:game_output":
 			_game_output = data[0] if not data.is_empty() else null
 			return true
-		# Tier 2 debugger: raw Godot debugger protocol replies (issue #110)
-		"stack_dump":
-			_stack_frames = data[0] if not data.is_empty() else null
-			return true
-		"evaluation_return":
-			_evaluation_result = data[0] if not data.is_empty() else null
-			return true
-		"stack_frame_vars":
-			# The count message tells us how many variables to expect; reset accumulators.
-			_frame_vars_expected = data[0] if not data.is_empty() else 0
-			_frame_vars_locals = []
-			_frame_vars_members = []
-			_frame_vars_globals = []
-			_frame_vars = null
-			return true
-		"stack_frame_var":
-			# Accumulate a single variable: [type(0=local,1=member,2=global), name, value]
-			if data.size() >= 3:
-				var vtype: int = int(data[0])
-				var entry := {"name": str(data[1]), "value": data[2]}
-				match vtype:
-					0:
-						_frame_vars_locals.append(entry)
-					1:
-						_frame_vars_members.append(entry)
-					2:
-						_frame_vars_globals.append(entry)
-				# When the expected count is reached, build the final dict.
-				var total := _frame_vars_locals.size() + _frame_vars_members.size() + _frame_vars_globals.size()
-				if total >= _frame_vars_expected:
-					_frame_vars = {
-						"locals": _frame_vars_locals.duplicate(),
-						"members": _frame_vars_members.duplicate(),
-						"globals": _frame_vars_globals.duplicate(),
-					}
+		"godot_mcp:evaluation":
+			# #677: the probe evaluates in-game and echoes the request_id; store
+			# only when it matches the in-flight evaluation request.
+			var ev: Variant = data[0] if not data.is_empty() else null
+			if ev is Dictionary and str((ev as Dictionary).get("request_id", "")) == _evaluation_request:
+				_evaluation_result = ev
 			return true
 	return false
 
@@ -208,6 +187,7 @@ func _on_stopped() -> void:
 	_session_active = false
 	_probe_ready = false
 	_scene_tree = null
+	_scene_tree_request = "__none__"
 	_input_acks = 0
 	_property_samples = null
 	_read_property = null
@@ -216,15 +196,11 @@ func _on_stopped() -> void:
 	_ui_pending = "__none__"
 	_recorded_input = null
 	_performance = null
+	_performance_request = "__none__"
 	_game_frame = null
 	_frame_request_id = "__none__"
-	_stack_frames = null
 	_evaluation_result = null
-	_frame_vars = null
-	_frame_vars_expected = 0
-	_frame_vars_locals = []
-	_frame_vars_members = []
-	_frame_vars_globals = []
+	_evaluation_request = "__none__"
 
 
 ## Release the plugin's own references so it can be freed when the editor exits.
@@ -249,14 +225,15 @@ func dispose() -> void:
 	_probe_ready = false
 
 
-## Ask the running game's probe to (re)send the scene tree. The reply lands in the cache
-## on a later frame via _capture; callers read get_cached_scene_tree().
-func request_scene_tree() -> void:
+## Ask the running game's probe to (re)send the scene tree for ``request_id``. The
+## reply lands in the cache on a later frame via _capture; callers read
+## get_cached_scene_tree() and serve it only when its request_id matches.
+func request_scene_tree(request_id: String = "__none__") -> void:
 	if not _session_active or _session_id < 0:
 		return
 	var session := get_session(_session_id)
 	if session != null and session.is_active():
-		session.send_message("godot_mcp:get_scene_tree", [])
+		session.send_message("godot_mcp:get_scene_tree", [{"request_id": request_id}])
 
 
 ## True once a play session is live AND its probe has announced itself.
@@ -266,6 +243,18 @@ func is_connected_to_probe() -> bool:
 
 func get_cached_scene_tree() -> Variant:
 	return _scene_tree
+
+
+## #670: request_id of the in-flight scene-tree read (so repeated polls don't
+## re-dispatch and a stale reply can't be served to a new request).
+func get_scene_tree_request() -> String:
+	return _scene_tree_request
+
+
+## Mark a new scene-tree request as in-flight and drop any prior (stale) tree.
+func begin_scene_tree_request(request_id: String) -> void:
+	_scene_tree_request = request_id
+	_scene_tree = null
 
 
 ## Send a godot_mcp:* message to the running game's probe (fire-and-forget).
@@ -337,6 +326,23 @@ func get_performance() -> Variant:
 	return _performance
 
 
+## #670: request_id of the in-flight performance read.
+func get_performance_request() -> String:
+	return _performance_request
+
+
+## Mark a new performance read as in-flight and drop any prior (stale) snapshot.
+func begin_performance_request(request_id: String) -> void:
+	_performance_request = request_id
+	_performance = null
+
+
+## Ask the running game's probe for a fresh Performance snapshot for ``request_id``
+## (the reply echoes the id; _capture gates the cache on it).
+func request_performance(request_id: String) -> void:
+	send_to_probe("godot_mcp:get_performance", [{"request_id": request_id}])
+
+
 ## request_id of the in-flight game frame capture (so the router dispatches a
 ## grab only once per invocation, mirroring the find_ui request pattern).
 func get_pending_frame_request() -> String:
@@ -359,48 +365,29 @@ func get_game_output() -> Variant:
 	return _game_output
 
 
-## Cache accessors for Tier 2 debugger tools (step, stack, eval).
-
-func get_cached_stack_frames() -> Variant:
-	return _stack_frames
-
+## Cache accessor for the in-game expression evaluation (issue #677).
 
 func get_cached_evaluation() -> Variant:
 	return _evaluation_result
 
 
-func get_cached_frame_vars() -> Variant:
-	return _frame_vars
+## #677: request_id of the in-flight evaluation.
+func get_evaluation_request() -> String:
+	return _evaluation_request
 
 
-## Ask the editor debugger for the current call stack. Reply lands in
-## _stack_frames via _capture("stack_dump", data).
-func request_stack_frames() -> void:
-	if not _session_active or _session_id < 0:
-		return
-	var session := get_session(_session_id)
-	if session != null and session.is_active():
-		session.send_message("get_stack_dump", [])
+## Mark a new evaluation in-flight and drop the prior (stale) reply.
+func begin_evaluation_request(request_id: String) -> void:
+	_evaluation_request = request_id
+	_evaluation_result = null
 
 
-## Ask the editor debugger to evaluate ``expression`` at ``frame`` (0 is top).
-## Reply lands in _evaluation_result via _capture("evaluation_return", data).
-func request_evaluation(expression: String, frame: int = 0) -> void:
-	if not _session_active or _session_id < 0:
-		return
-	var session := get_session(_session_id)
-	if session != null and session.is_active():
-		session.send_message("evaluate", [expression, frame])
-
-
-## Ask the editor debugger for locals / members / globals at ``frame`` (0 is top).
-## Reply lands in _frame_vars via _capture("stack_frame_vars", data).
-func request_frame_variables(frame: int = 0) -> void:
-	if not _session_active or _session_id < 0:
-		return
-	var session := get_session(_session_id)
-	if session != null and session.is_active():
-		session.send_message("get_stack_frame_vars", [frame])
+## Ask the running game's probe to evaluate ``expression`` for ``request_id``.
+## #677: evaluation runs in-game via Expression (the editor debugger's paused-frame
+## eval protocol is not exposed to editor debugger plugins on 4.7). The reply lands
+## in _evaluation_result via _capture("godot_mcp:evaluation", data).
+func request_evaluation(request_id: String, expression: String) -> void:
+	send_to_probe("godot_mcp:evaluate", [{"request_id": request_id, "expression": expression}])
 
 
 ## Return the current session ID so handlers can call get_session().
