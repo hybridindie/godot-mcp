@@ -3,7 +3,7 @@ type: index
 title: "Changelog"
 description: "Release history for godot-mcp."
 created: 2026-09-19
-updated: 2026-10-12
+updated: 2026-10-15
 ---
 
 # Changelog
@@ -11,6 +11,47 @@ updated: 2026-10-12
 Full release notes live on
 [GitHub Releases](https://github.com/hybridindie/godot-mcp/releases). This page
 summarizes the recent ones.
+
+## 2026.10.15 — Security hardening, honest results, and a leaner agent surface
+
+A deep review pass across the whole server and addon: the safety/permission model is now
+enforced end to end, partial failures are reported honestly instead of as success, the
+debugger tells the truth about what the engine cannot do, and the tool surface is easier
+for an agent to select from. Surface: **194 tools** (unchanged). Shape is additive —
+`contract_version` stays 1 — with one behavioural note below.
+
+- **Security (#634–#638, #649, #650)** — `run_commands` now enforces each sub-command's own
+  safety class; the bridge authenticates a new peer *before* evicting the active one; the
+  WebSocket/HTTP listeners check `Origin`/`Host`; every file-path parameter is contained to
+  `res://`; the safety-class audit reclassified six tools (`create_resource`, `set_setting`,
+  `register_autoload`/`unregister_autoload`, `cross_scene_set_property`, `disconnect_signal`)
+  as **`destructive`** and made code-execution/disk-write tools approval-gated with a
+  **fail-closed** default; the publish workflow builds the tagged commit, gates on tests,
+  and pins actions by SHA; every CI job guards against fork PRs.
+- **Honest results (#640–#645, #670/#671)** — asset edits land in the scene undo history;
+  `type_coerce` covers the full shape set and property writes are verified by read-back;
+  `own_recursive` no longer descends into instanced sub-scenes; the over-threshold batch
+  path marks the scene dirty; a timed-out mutation is flagged `may_have_applied`;
+  `cross_scene_set_property` validates tabs and ownership; runtime and debugger reads are
+  request-scoped so a stale reply cannot be mistaken for the current one.
+- **Debugger & runtime (#677, #648)** — `evaluate_expression` runs in-game through the
+  probe; `get_stack_frames`/`get_frame_variables` return a structured `UNSUPPORTED` on
+  Godot 4.7 instead of a wrong answer; the probe stays parseable on the 4.4 floor.
+- **Reliability & lifecycle (#655, #675, #647, #646, #683)** — bridge/runtime lifecycle
+  leaks closed; the leaked runtime-probe autoload is removed from the project; addon scan
+  re-entrancy, oversize replies, and property type names fixed; autoload names validated
+  and save errors surfaced; visual-shader create is redoable.
+- **Agent experience (#652, #653, #654, #691)** — every tool reference in hints and
+  docstrings resolves; tool schemas gained description budgets and enums; known-shape
+  `dict` params are typed; `enable_toolset` accepts a bundle (`author`/`playtest`/`ship`) or
+  a comma-separated list, collapsing the setup loop to one call.
+- **CI & docs (#651, #672, #656)** — live-editor e2e coverage closed and the play-session
+  e2e runs under a virtual display; a portable hook plus a version-consistency test keep
+  the CalVer copies in lockstep; docs, skills, and examples refreshed against the final
+  surface.
+
+> **Behavioural note:** the six tools moved to `destructive` now require `confirm=True`
+> (default `False`). Calls that omitted it and previously succeeded must now pass it.
 
 ## 2026.10.12 — Version awareness, a resilient addon, and a friendlier site
 
