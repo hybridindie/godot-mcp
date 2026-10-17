@@ -84,9 +84,10 @@ unzip godot_mcp_addon.zip -d /path/to/your/project/
 **5. (Recommended) Install the skills** — paste this into your assistant so it learns how to drive the editor (enable toolsets on its own, read the result verdicts, and avoid the common Godot pitfalls). The server works without them — the instructions and prompts are the fallback — but they make it noticeably better:
 
 ```text
-Install the godot-mcp AI skills into your skills directory: clone
-https://github.com/hybridindie/godot-mcp and run `./scripts/install-skills.sh --copy`,
-or copy the `skills/*` folders into your skills directory, then reload your skills.
+Install the godot-mcp AI skills into your skills directory: clone or download
+https://github.com/hybridindie/godot-mcp and copy the three folders under its `skills/`
+directory (godot-getting-started, godot-playtest-and-debug, godot-expert) into your
+skills directory — keep godot-expert/references/ — then reload your skills.
 ```
 
 More → **[Skills](https://hybridindie.github.io/godot-mcp/reference-skills.html)**.

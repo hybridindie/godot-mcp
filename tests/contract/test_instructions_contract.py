@@ -45,6 +45,8 @@ def test_instructions_advertise_the_client_side_skills(instructions: str) -> Non
     assert "godot-getting-started" in instructions
     assert "godot-playtest-and-debug" in instructions
     assert "godot-expert" in instructions
-    assert "install-skills.sh" in instructions
+    # The install instruction names the source and keeps the on-demand reference guides.
+    assert "skills/" in instructions
+    assert "godot-expert/references/" in instructions
     # Honest: the server can't know whether they're loaded — no false status claim.
     assert "cannot detect" in instructions

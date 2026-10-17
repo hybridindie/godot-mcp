@@ -3,7 +3,7 @@ type: index
 title: "Set up with your AI agent"
 description: "For creators — have Claude, Codex, or any AI assistant install and connect godot-mcp to your Godot project, then build by describing what you want."
 created: 2026-10-11
-updated: 2026-10-11
+updated: 2026-10-16
 ---
 
 # Set up with your AI agent
@@ -58,9 +58,10 @@ Set up godot-mcp for my Godot project so you can drive the editor.
    project folder (it adds `addons/godot_mcp/`).
 4. Install the godot-mcp AI skills into your own skills directory so you know how to work
    here — they teach you to enable toolsets on your own, read the result verdicts, and
-   avoid the common Godot pitfalls. Clone https://github.com/hybridindie/godot-mcp and run
-   `./scripts/install-skills.sh --copy`, or copy the `skills/*` folders into your skills
-   directory. Reload your skills when done.
+   avoid the common Godot pitfalls. Clone or download
+   https://github.com/hybridindie/godot-mcp and copy the three folders under its `skills/`
+   directory (godot-getting-started, godot-playtest-and-debug, godot-expert) into your
+   skills directory — keep godot-expert/references/ intact. Reload your skills when done.
 5. When that's done, tell me to enable the addon: in Godot, Project → Project Settings →
    Plugins → enable "Godot Editor MCP - Addon".
 6. Once I confirm, verify the connection by calling `godot_health_check` and

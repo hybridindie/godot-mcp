@@ -28,31 +28,19 @@ docs in agent-friendly markdown.
 
 ### Prerequisites
 
-- A clone of this repo
+- The godot-mcp repo (clone or download)
 - An AI client that supports skills (opencode, etc.)
 
-### One-command install
+### Copy the folders
 
 ```bash
-# opencode (default — symlinks into ~/.config/opencode/skills/):
-./scripts/install-skills.sh
-
-# Claude / other clients:
-./scripts/install-skills.sh --target ~/.claude/skills
-
-# Any client with a custom skill path:
-./scripts/install-skills.sh --target /path/to/your/skills
-
-# Copy instead of symlink (standalone — no repo dependency):
-./scripts/install-skills.sh --copy
-
-# See all options:
-./scripts/install-skills.sh --help
+git clone --depth 1 https://github.com/hybridindie/godot-mcp /tmp/godot-mcp
+cp -r /tmp/godot-mcp/skills/* ~/.config/opencode/skills/   # Claude: ~/.claude/skills/
 ```
 
-**Symlink (default)** is recommended during development — updates to this
-repo flow through automatically. Use `--copy` for a standalone install
-(e.g. packaging a release).
+Copy **all three** folders — `godot-getting-started/`, `godot-playtest-and-debug/`,
+and `godot-expert/` — and keep `godot-expert/references/` intact: its 12 guides load
+on demand. Then reload your skills.
 
 ### Verify
 
@@ -248,8 +236,8 @@ The workflow skills (`getting-started`, `playtest-and-debug`) teach
 
 4. Update `skills/README.md` to document the new skill.
 
-5. The install script (`scripts/install-skills.sh`) auto-discovers any
-   directory under `skills/` — no registration needed.
+5. Any directory under `skills/` is picked up once copied into a client's skill
+   directory — no registration needed.
 
 ## Repository structure
 
