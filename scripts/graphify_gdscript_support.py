@@ -153,17 +153,12 @@ def _patch_extract(extract_py: Path, engine_py: Path) -> None:
 
     # -- engine.py: positional-callee branch in the generic call handler.
     if "# GDScript: callee is the first identifier child" not in src:
-        # The comment is one line since graphify 0.9.91, two before it.
-        anchors = (
+        anchor = (
             "            else:\n"
             "                # Generic: get callee from call_function_field\n"
-            "                # (or constructor on new_expression)\n",
-            "            else:\n"
-            "                # Generic: get callee from call_function_field"
-            " (or constructor on new_expression)\n",
+            "                # (or constructor on new_expression)\n"
         )
-        anchor = next((a for a in anchors if a in src), None)
-        if anchor is None:
+        if anchor not in src:
             raise SystemExit("engine.py: generic call-handler anchor not found")
         src = src.replace(anchor, _CALL_BRANCH + anchor, 1)
         changed = True
