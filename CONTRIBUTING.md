@@ -118,14 +118,15 @@ Zero skips are a blocking gate. No `@pytest.mark.skip`, no `xfail`, no bare `pyt
 
 ## Skills
 
-Three AI skills ship in `skills/` — installable into any AI client:
+Three AI skills ship in `skills/` — copy them into any AI client's skill directory:
 
 ```bash
-./scripts/install-skills.sh          # opencode (default)
-./scripts/install-skills.sh --target ~/.claude/skills  # Claude
+git clone --depth 1 https://github.com/hybridindie/godot-mcp /tmp/godot-mcp
+cp -r /tmp/godot-mcp/skills/* ~/.config/opencode/skills/   # Claude: ~/.claude/skills/
 ```
 
-See [`skills/README.md`](skills/README.md) for details.
+Copy the whole `godot-expert/` folder — including `references/`. See
+[`skills/README.md`](skills/README.md) for details.
 
 ## Versioning
 

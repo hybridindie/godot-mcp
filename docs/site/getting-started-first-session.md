@@ -3,7 +3,7 @@ type: index
 title: "Your first session"
 description: "Install the skill, then drive a real Godot project from your AI assistant — the orient → enable → preview → act → verify rhythm."
 created: 2026-09-19
-updated: 2026-10-11
+updated: 2026-10-16
 ---
 
 # Your first session
@@ -16,8 +16,8 @@ your assistant loads automatically. It teaches it to:
 - **enable the toolset it needs, by itself** (you never manage gates), and
 - read the "what actually happened" fields and avoid the Godot pitfalls that trip agents up.
 
-→ **[Install the skills](reference-skills.md)** (`./scripts/install-skills.sh`), then
-restart your assistant. From then on it just knows how to work in Godot.
+→ **[Install the skills](reference-skills.md)** (copy the `skills/` folders into your
+client), then restart your assistant. From then on it just knows how to work in Godot.
 
 With the skill in place you talk in plain language and supervise in Godot. The rhythm is
 always the same: **orient → enable → preview → act → verify.**

@@ -3,7 +3,7 @@ type: index
 title: "Skills"
 description: "The three installable AI skills — what each teaches, how they auto-trigger, and the godot-expert reference guides."
 created: 2026-09-30
-updated: 2026-09-30
+updated: 2026-10-16
 ---
 
 # Skills
@@ -80,19 +80,14 @@ The expert skill loads detail on demand from `references/` — 12 guides, each
 ## Install
 
 ```bash
-# opencode (default — symlinks into ~/.config/opencode/skills/):
-./scripts/install-skills.sh
-
-# Claude / other clients:
-./scripts/install-skills.sh --target ~/.claude/skills
-
-# Standalone copy (packaging a release, no repo dependency):
-./scripts/install-skills.sh --copy
+# Clone (or download) the repo, then copy the three skill folders:
+git clone --depth 1 https://github.com/hybridindie/godot-mcp /tmp/godot-mcp
+cp -r /tmp/godot-mcp/skills/* ~/.config/opencode/skills/   # Claude: ~/.claude/skills/
 ```
 
-Symlink (the default) is best during development — repo updates flow through.
-Restart the client after installing; skills activate automatically on their
-triggers.
+Copy all three folders — `godot-getting-started/`, `godot-playtest-and-debug/`, and
+`godot-expert/` — and keep `godot-expert/references/` (its guides load on demand).
+Restart the client after installing; skills activate automatically on their triggers.
 
 ## These skills stay honest
 

@@ -100,7 +100,7 @@ The scaffold (issue #1) is in place: `uv`-managed Python package, the addon unde
 
 ## Skills
 
-Three AI skills ship in [`skills/`](skills/README.md) — installable into any AI client (opencode, Claude) via `scripts/install-skills.sh`:
+Three AI skills ship in [`skills/`](skills/README.md) — copy the skill folders (including `godot-expert/references/`) into any AI client's skill directory (opencode, Claude):
 
 - `godot-getting-started` — bridge connection, toolset gating, safety classes, reading honesty fields (`undoable`/`aborted_at`/`rescan_pending`), round-trip economy
 - `godot-playtest-and-debug` — runtime play-test, input simulation, break-state gate, timeout semantics, debugging

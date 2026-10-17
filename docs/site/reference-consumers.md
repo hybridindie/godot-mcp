@@ -3,7 +3,7 @@ type: index
 title: "Consumer integration"
 description: "Layering game-specific agents on godot-mcp — the skills, the orchestrator pattern, and the eval harness."
 created: 2026-09-19
-updated: 2026-09-23
+updated: 2026-10-16
 ---
 
 # Consumer integration
@@ -26,7 +26,7 @@ A consumer pins four things (all versioned, all additive since contract 1):
 
 Three installable AI skills ship under
 [`skills/`](https://github.com/hybridindie/godot-mcp/tree/main/skills) —
-install into any client via `scripts/install-skills.sh`:
+copy the folders (incl. `godot-expert/references/`) into any client's skill directory:
 
 - `godot-getting-started` — bridge connection, toolset gating, safety classes,
   honesty fields, the `godot://` resources, round-trip economy
