@@ -88,7 +88,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.3.1
+        uses: astral-sh/setup-uv@v10.3.0
         with:
           # Pinned (issue #579) — skips the flaky manifest fetch (see ci.yml).
           version: "0.11.29"
