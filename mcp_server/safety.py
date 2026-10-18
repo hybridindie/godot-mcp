@@ -286,7 +286,7 @@ class ApprovalGate:
     is set and no webhook is configured, mutating/destructive tools return an
     ``InputRequiredResult`` (an elicitation the client fulfils and re-calls),
     rather than raising. This is durable (no server-side state) and works on
-    the sessionless protocol godot-mcp uses by design. See
+    the sessionless protocol Godot Editor MCP uses by design. See
     ``.opencode/rules/async-patterns.md``.
     """
 

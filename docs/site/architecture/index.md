@@ -3,16 +3,16 @@ type: index
 title: "Architecture"
 description: "The four-layer transport chain, the bridge contract, and where every responsibility lives."
 created: 2026-09-19
-updated: 2026-09-23
+updated: 2026-10-18
 ---
 
 # Architecture
 
-::: info For readers who know MCP
-This is the technical track. New here and just want to make a game? → **[Set up with your AI agent](../getting-started-with-an-agent.md)**.
+::: info For developers
+This is the architecture track. New here and just want to make a game? → **[For creators](../for-creators.md)**.
 :::
 
-godot-mcp is two halves joined by one seam. Keep the seam clean; keep logic out
+Godot Editor MCP is two halves joined by one seam. Keep the seam clean; keep logic out
 of the handlers.
 
 ```mermaid
@@ -20,11 +20,11 @@ flowchart LR
     subgraph client["Agent side"]
         AI["AI client (OpenCode / Claude / any MCP client)"]
     end
-    subgraph server["godot-mcp server (Python)"]
+    subgraph server["Godot Editor MCP server (Python)"]
         SRV["FastMCP server 194 tools · safety · Pydantic models"]
         BR["WebSocket listener ws://127.0.0.1:9080"]
     end
-    subgraph addon["godot-mcp addon (GDScript)"]
+    subgraph addon["Godot Editor MCP addon (GDScript)"]
         WS["WebSocketPeer client connects out · reconnects"]
         RT["Command router cmd_* handlers"]
     end
@@ -78,7 +78,7 @@ safety, gating, and typing would live in GDScript, version-locked to the
 editor, and unshareable across stdio/HTTP clients. A thinner one (client →
 Godot over a socket, no Python) loses typed models and the eval/skill ecosystem
 that runs on the Python side. The four-layer shape lets each half evolve on its
-own Cadver/contract terms: the addon pins Godot APIs, the server pins the MCP
+own CalVer/contract terms: the addon pins Godot APIs, the server pins the MCP
 protocol, and the envelope is the versioned glue.
 
 The bridge seam is also the test boundary: the entire suite runs against a fake

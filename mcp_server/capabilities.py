@@ -68,6 +68,7 @@ from typing import Any
 
 from fastmcp import FastMCP
 
+from mcp_server import __version__
 from mcp_server.toolsets import ToolsetManager
 
 CAPABILITY_KEY = "godot_mcp"
@@ -79,10 +80,10 @@ CAPABILITY_KEY = "godot_mcp"
 # wire-breaking change. See the module docstring for the full 4.0b1 findings.
 
 STATIC_CAPABILITY: dict[str, Any] = {
-    "version": "2026.06.01",
+    "version": __version__,
     "min_godot": "4.4",
     "docs": {
-        "tutorial": "https://github.com/hybridindie/godot-mcp/blob/main/TUTORIAL.md",
+        "tutorial": "https://github.com/hybridindie/godot-mcp/blob/main/docs/tutorial.md",
         "tool_contracts": "https://github.com/hybridindie/godot-mcp/blob/main/docs/tool-contracts.md",
         "architecture": "https://github.com/hybridindie/godot-mcp/blob/main/docs/architecture.md",
     },

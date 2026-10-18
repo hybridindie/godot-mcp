@@ -2,7 +2,7 @@
 
 Drive a *running* game over the bridge: synthesize key/mouse/action input, play input
 sequences, and record the input the game receives for replay (#68). Built on the #66
-runtime-session rails — the game must be running from the editor with the godot-mcp
+runtime-session rails — the game must be running from the editor with the Godot Editor MCP
 runtime probe autoload, which receives ``godot_mcp:`` input messages and calls
 ``Input.parse_input_event`` / ``Input.action_press`` on itself (and buffers events via
 its ``_input`` hook while recording). Gated `input` toolset; injection/recording-control

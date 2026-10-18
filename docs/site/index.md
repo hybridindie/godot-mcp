@@ -2,16 +2,16 @@
 layout: home
 
 hero:
-  name: 'godot-mcp'
+  name: 'Godot Editor MCP'
   text: 'Build your Godot game by talking to your AI'
   tagline: 'Your AI assistant drives a live Godot editor — inspecting, editing, running, and double-checking its own work, with every change undoable. No more editing files blind.'
   actions:
     - theme: brand
-      text: Get started
-      link: ./getting-started
+      text: For creators
+      link: ./for-creators
     - theme: alt
-      text: How it works
-      link: ./concepts
+      text: For developers
+      link: ./for-developers
     - theme: alt
       text: GitHub
       link: https://github.com/hybridindie/godot-mcp
@@ -42,7 +42,7 @@ Ask your assistant to add a node inside an instanced scene:
            saved. Enable Editable Children on 'Relic', or target a node the scene owns." }
 ```
 
-A file-blind agent would just say *"done."* godot-mcp tells you **what will actually be saved** — and exactly how to fix it. That honesty is the whole point.
+A file-blind agent would just say *"done."* Godot Editor MCP tells you **what will actually be saved** — and exactly how to fix it. That honesty is the whole point.
 
 ## Start in about two minutes
 
@@ -50,14 +50,17 @@ A file-blind agent would just say *"done."* godot-mcp tells you **what will actu
 2. **Point your AI assistant at it** with one line in its MCP config (for Claude Code: `claude mcp add godot -- uvx godot-editor-mcp`).
 3. **Tell it what you want** — *"add a player that jumps"*, *"make the jump feel snappier"*, *"why does it crash on start?"*.
 
-New to all this? **[Start with your AI agent](./getting-started-with-an-agent)** walks it through step by step — your assistant does the installing. Prefer to do it yourself? **[Manual setup](./getting-started-install)**.
+New to all this? **[For creators](./for-creators)** walks it through step by step — your
+assistant does the installing. Prefer to do it yourself? **[Manual setup](./getting-started-install)**.
 
-## Two ways in
+## Choose your track
 
-- **Here to make a game?** Hand the setup to your assistant and build by describing what you want.
-  → **[Start with your AI agent](./getting-started-with-an-agent)**
-- **Here for the tool itself?** (you know MCP — and maybe want to contribute.)
-  → **[Concepts](./concepts)** · **[Under the hood](./architecture/)** · **[Reference](./reference)** · **[Contributing](https://github.com/hybridindie/godot-mcp/blob/main/CONTRIBUTING.md)**
+- **Here to make a game?** Hand the setup to your assistant, then build by describing
+  what you want.
+  → **[For creators](./for-creators)** — no terminal, no MCP knowledge required.
+- **Here for the tool itself?** (you know MCP — and maybe want to integrate or contribute.)
+  → **[For developers](./for-developers)** — architecture, contract, reference, and
+  extension points.
 
 ## Where to go next
 
@@ -70,3 +73,7 @@ New to all this? **[Start with your AI agent](./getting-started-with-an-agent)**
 ---
 
 > **For AI agents.** This site ships [`llms.txt`](https://hybridindie.github.io/godot-mcp/llms.txt) (a page index) and [`llms-full.txt`](https://hybridindie.github.io/godot-mcp/llms-full.txt) (the whole site in one fetch).
+
+> **One name, three identifiers.** **Godot Editor MCP** is the product; the repository and
+> MCP server ID remain `godot-mcp` for wire compatibility, the package/CLI is
+> `godot-editor-mcp`, and the in-editor plugin is **Godot Editor MCP - Addon**.

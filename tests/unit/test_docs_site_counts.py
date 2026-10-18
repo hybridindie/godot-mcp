@@ -2,7 +2,7 @@
 
 The site states the surface size in many places: the tagline, the VitePress
 config description and footer, the ``llms-gen.mjs`` summary, and several
-concept/architecture pages ("193 tools", "29 gated toolsets", "the 193-tool
+concept/architecture pages ("194 tools", "29 categories", "the 194-tool
 surface"). Those numbers drift silently on every tool addition — the skills
 had the same problem and #611 fixed it there. This test pins them so a surface
 change that leaves the prose stale fails the suite.
@@ -39,9 +39,6 @@ _EXCLUDE_FILES = {"changelog.md", "reference-toolsets.md"}
 # DEFAULT surface (core + inspection only). "N tools" must be one of those; a
 # number that is neither is drift.
 _PATTERNS: list[tuple[re.Pattern[str], tuple[str, ...]]] = [
-    # "N gated toolsets" is the site's loose phrasing for the total toolset
-    # count (they are all gated by default), so it pins to `toolsets`.
-    (re.compile(r"\b(\d+)\s+gated toolsets\b"), ("toolsets",)),
     (re.compile(r"\b(\d+)\s+toolsets\b"), ("toolsets",)),
     (re.compile(r"\b(\d+)\s+categor(?:y|ies)\b"), ("toolsets",)),
     (re.compile(r"\b(\d+)-tool\b"), ("tools", "default_tools")),
@@ -64,7 +61,7 @@ def _live_counts() -> dict[str, int]:
     return {
         "tools": len(tools),
         "toolsets": len(TOOLSETS) + 1,  # +1: always-on core
-        "default_tools": default,  # the core + inspection surface (23)
+        "default_tools": default,  # the core + inspection surface (24)
         "gated_toolsets": len(TOOLSETS) - 1,  # all but core and inspection
     }
 
@@ -105,6 +102,19 @@ def test_docs_site_counts_match_the_live_registry() -> None:
                             f"(expected one of {sorted(allowed)}): {line.strip()[:120]}"
                         )
     assert not stale, "docs-site counts drifted from the registry:\n" + "\n".join(stale)
+
+
+def test_reference_toolsets_frontmatter_total_matches_registry() -> None:
+    """The generated page's frontmatter description is another stated total.
+    It drifted to "193-tool surface" because the broad scan excludes this file.
+    """
+    live = _live_counts()
+    text = (SITE / "reference-toolsets.md").read_text(encoding="utf-8")
+    m = re.search(r'description: "Every tool in the (\d+)-tool surface', text)
+    assert m, "reference-toolsets.md frontmatter description not found"
+    assert int(m.group(1)) == live["tools"], (
+        f"description says {m.group(1)} tools, registry has {live['tools']}"
+    )
 
 
 def test_reference_toolsets_intro_total_matches_registry() -> None:

@@ -52,6 +52,6 @@ def version_notice(server_version: str, addon_version: str | None) -> str | None
     return (
         f"SERVER↔ADDON VERSION MISMATCH: server {server_version} vs addon "
         f"{addon_version}. The {behind} is behind. Update both sides to the same "
-        "release — pip-install the matching godot-mcp and install the addon from "
+        "release — pip-install the matching godot-editor-mcp and install the addon from "
         "the same release (or copy godot/addons/godot_mcp/)."
     )

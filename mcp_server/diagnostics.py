@@ -219,7 +219,7 @@ def _addon_drift_warning(
         f"SERVER↔ADDON DRIFT: the connected addon does not register {len(missing)} "
         f"command(s) the server exposes ({sample}). The addon is likely older than "
         "the server (or vice versa). Update both sides to the same release: "
-        "pip-install the matching godot-mcp and copy godot/addons/godot_mcp/ "
+        "pip-install the matching godot-editor-mcp and copy godot/addons/godot_mcp/ "
         "from the same version."
     )
 
@@ -310,7 +310,7 @@ def _next_steps(
     steps: list[str] = []
     if update is not None and update.update_available:
         steps.append(
-            f"A newer godot-mcp is available: {update.latest} (you are on "
+            f"A newer Godot Editor MCP release is available: {update.latest} (you are on "
             f"{update.current}). Update the server and the Godot addon to the same "
             "release (pip install -U godot-editor-mcp)."
         )

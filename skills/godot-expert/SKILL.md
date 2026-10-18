@@ -1,11 +1,11 @@
 ---
 name: godot-expert
-description: "Use when building or modifying a Godot 4.x game through the godot-mcp tools — creating scenes, nodes, scripts, physics, UI, or debugging rendering/input/collision issues. Encodes the Godot 4.x engine rules, node-type constraints, rendering order, autoload lifecycle, and MCP tool patterns that an expert Godot developer knows. Prevents the common pitfalls: Control vs Node2D rendering, z-ordering, autoload-children visibility, input interception, type inference, and scene file format."
+description: "Use when building or modifying a Godot 4.x game through the Godot Editor MCP tools — creating scenes, nodes, scripts, physics, UI, or debugging rendering/input/collision issues. Encodes the Godot 4.x engine rules, node-type constraints, rendering order, autoload lifecycle, and MCP tool patterns that an expert Godot developer knows. Prevents the common pitfalls: Control vs Node2D rendering, z-ordering, autoload-children visibility, input interception, type inference, and scene file format."
 ---
 
 # Godot Expert Developer
 
-Expert knowledge for building Godot 4.x games through the godot-mcp tools.
+Expert knowledge for building Godot 4.x games through the Godot Editor MCP tools.
 Every rule below was learned the hard way — by hitting the bug, debugging it,
 and writing a test to pin it.
 
@@ -26,7 +26,7 @@ cover **how to call the tools**. Use them together.
 
 ## When NOT to use
 
-- Modifying the godot-mcp server itself (use the architecture/rules instead)
+- Modifying the Godot Editor MCP server itself (use the architecture/rules instead)
 - Python-side work (models, tools, bridge, tests)
 - Non-Godot projects
 
@@ -482,7 +482,7 @@ godot_enable_toolset('scene_edit')
 godot_enable_toolset('scripts')
 ```
 
-If the bridge is offline: open your Godot project (with the addon installed and enabled) in Godot 4.4+ — the status dock shows the connection state. For a smoke test, the `godot/` folder of the godot-mcp checkout is a ready-to-open project.
+If the bridge is offline: open your Godot project (with the addon installed and enabled) in Godot 4.4+ — the status dock shows the connection state. For a smoke test, the `godot/` folder of the Godot Editor MCP checkout is a ready-to-open project.
 
 ### Common tool calls
 
@@ -567,7 +567,7 @@ func test_player_starts_with_full_health() -> void:
   world generation or 1600 tiles will hang or time out. Instantiate the
   node + script directly instead.
 - **GUT 9.7 omits the "Failing Tests" line** when all tests pass. The
-  godot-mcp parser handles this (issue: fixed in `gut_parse.py`).
+  Godot Editor MCP parser handles this (issue: fixed in `gut_parse.py`).
 - **`assert_contains` doesn't exist** in GUT 9.7. Use
   `assert_string_contains(str, substring, msg)`.
 - **Autoload state leaks between tests** — reset it in `before_each`:

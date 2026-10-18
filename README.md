@@ -1,10 +1,10 @@
 <p align="center">
   <a href="https://hybridindie.github.io/godot-mcp/">
-    <img src="docs/assets/social-banner.svg" alt="godot-mcp — drive a live Godot editor from an AI agent over MCP" width="100%">
+    <img src="docs/assets/social-banner.svg" alt="Godot Editor MCP — drive a live Godot editor from an AI agent over MCP" width="100%">
   </a>
 </p>
 
-<h1 align="center">godot-mcp</h1>
+<h1 align="center">Godot Editor MCP</h1>
 
 <p align="center">
   A <strong>generic, game-agnostic</strong> <a href="https://modelcontextprotocol.io">Model Context Protocol</a> (MCP) server for <strong>AI-driven Godot development</strong>.
@@ -25,11 +25,16 @@
 
 > **Status:** feature-complete. **194 tools** across **29 categories** — always-on `core` plus 28 toggleable toolsets, of which only `inspection` is enabled by default (the rest are gated off until the agent asks). `godot-editor-mcp` on [PyPI](https://pypi.org/project/godot-editor-mcp/) · `ghcr.io/hybridindie/godot-mcp` · **version `2026.10.15`**.
 
+> **One name, three identifiers.** **Godot Editor MCP** is the product: it drives the
+> **editor** as its surface, through the addon. The repository and MCP server ID stay
+> `godot-mcp` for wire compatibility; the package/CLI is `godot-editor-mcp`; the in-editor
+> plugin is **Godot Editor MCP - Addon**; and every tool shares the `godot_` prefix.
+
 ---
 
 ## What it is
 
-godot-mcp bridges an AI agent and a **live** Godot editor. Instead of editing files blindly on disk, the agent drives the editor directly over MCP:
+Godot Editor MCP bridges an AI agent and a **live** Godot editor. Instead of editing files blindly on disk, the agent drives the editor directly over MCP:
 
 - **Inspect** the scene tree, selected nodes, and project settings live
 - **Mutate** scenes — nodes, scripts, signals — with undo
@@ -84,7 +89,7 @@ unzip godot_mcp_addon.zip -d /path/to/your/project/
 **5. (Recommended) Install the skills** — paste this into your assistant so it learns how to drive the editor (enable toolsets on its own, read the result verdicts, and avoid the common Godot pitfalls). The server works without them — the instructions and prompts are the fallback — but they make it noticeably better:
 
 ```text
-Install the godot-mcp AI skills into your skills directory: clone or download
+Install the Godot Editor MCP AI skills into your skills directory: clone or download
 https://github.com/hybridindie/godot-mcp and copy the three folders under its `skills/`
 directory (godot-getting-started, godot-playtest-and-debug, godot-expert) into your
 skills directory — keep godot-expert/references/ — then reload your skills.
@@ -102,6 +107,8 @@ Only `core` + `inspection` are exposed by default, so the agent's tool list stay
 
 The full manual lives on the docs site:
 
+- **[For creators](https://hybridindie.github.io/godot-mcp/for-creators.html)** — make a game by talking to your AI assistant
+- **[For developers](https://hybridindie.github.io/godot-mcp/for-developers.html)** — integrate, extend, or contribute to the server
 - **[Get started](https://hybridindie.github.io/godot-mcp/getting-started.html)** — install, connect, and drive your first session
 - **[Concepts](https://hybridindie.github.io/godot-mcp/concepts.html)** — how it works and why it's built this way
 - **[Guides](https://hybridindie.github.io/godot-mcp/guides.html)** — build a scene, play-test & debug, verify, ship

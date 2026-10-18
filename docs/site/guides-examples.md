@@ -3,12 +3,12 @@ type: index
 title: "Examples"
 description: "Two complete Godot games under examples/ — what they demonstrate, how to run them, and the MCP toolsets they exercise."
 created: 2026-09-30
-updated: 2026-10-12
+updated: 2026-10-18
 ---
 
 # Examples
 
-godot-mcp ships two complete Godot 4.x games under
+Godot Editor MCP ships two complete Godot 4.x games under
 [`examples/`](https://github.com/hybridindie/godot-mcp/tree/main/examples).
 They are the reference testbeds: real projects, built through the MCP tools,
 that exercise most of the surface end-to-end — and double as worked examples of
@@ -20,7 +20,7 @@ deterministic, and safe to diff.
 ## `examples/survivors/` — the from-scratch testbed
 
 A survivors-style game built **entirely through the MCP tools** — the canonical
-example of the whole authoring path. 60 GUT tests across 8 files.
+example of the whole authoring path. 60 GUT tests across 7 files.
 
 **Game:** player (WASD movement, health/XP/leveling), enemies (chase AI, per-wave
 scaling), projectiles (auto-fire at nearest enemy), XP gems (magnet pickup), a
@@ -72,7 +72,7 @@ scope; the paused-frame stack/vars are not exposed on 4.7, #677),
 
 ## How to use an example
 
-Open either project folder in Godot 4.4+ with the godot-mcp addon installed, then treat it
+Open either project folder in Godot 4.4+ with the Godot Editor MCP addon installed, then treat it
 as a target. You prompt in plain language; the assistant makes the calls — the rhythm from
 [Your first session](getting-started-first-session.md).
 

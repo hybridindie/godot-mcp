@@ -1,9 +1,9 @@
 ---
 type: index
 title: "Toolsets & tools"
-description: "Every tool in the 193-tool surface, grouped by toolset, with safety classes."
+description: "Every tool in the 194-tool surface, grouped by toolset, with safety classes."
 created: 2026-09-19
-updated: 2026-10-15
+updated: 2026-10-18
 ---
 
 # Toolsets & tools

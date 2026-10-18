@@ -2,7 +2,7 @@
 
 Control an editor *play session* and inspect the running game live. Play is launched
 from the editor (so the game connects to the editor debugger, which the addon's
-MCPDebugger captures); live inspection requires the godot-mcp runtime probe autoload in
+MCPDebugger captures); live inspection requires the Godot Editor MCP runtime probe autoload in
 the game. Foundation for input simulation (#36) and runtime inspection (#35). Gated in
 the ``runtime`` toolset; play control is `runtime`, reads are `read_only`.
 """
@@ -79,7 +79,7 @@ def register_runtime_session(mcp: FastMCP, bridge: Bridge) -> None:
         timeout_ms: TimeoutMs = DEFAULT_RUNTIME_INSPECT_TIMEOUT_MS,
     ) -> GameSceneTreeResult:
         """Get the *running* game's live scene tree ({name, type, path, children}).
-        Requires an active play session with the godot-mcp runtime probe autoload; if the
+        Requires an active play session with the Godot Editor MCP runtime probe autoload; if the
         probe isn't connected, returns ``connected=false`` with a ``hint`` to add it.
 
         WHEN TO USE: You need to inspect node hierarchy, positions, or state while

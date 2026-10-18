@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Entry point for AI agent harnesses working in **godot-mcp**.
+Entry point for AI agent harnesses working in **Godot Editor MCP** (repo: `godot-mcp`).
 
 > **Reading this as an LLM agent?** The documentation site ships an
 > agent-friendly mirror: [`llms.txt`](https://hybridindie.github.io/godot-mcp/llms.txt)
@@ -9,9 +9,9 @@ Entry point for AI agent harnesses working in **godot-mcp**.
 
 ## Independent & harness-agnostic
 
-godot-mcp is a **standalone MCP server** — generic Godot editor control over the Model Context Protocol. It is usable by **any** AI agent harness (OpenCode, or any MCP client over stdio or Streamable HTTP) and is **game-agnostic** (no built-in game vocabulary).
+Godot Editor MCP is a **standalone MCP server** — generic Godot editor control over the Model Context Protocol. It is usable by **any** AI agent harness (OpenCode, or any MCP client over stdio or Streamable HTTP) and is **game-agnostic** (no built-in game vocabulary).
 
-It has **no dependency on any specific consumer.** Other projects depend on godot-mcp, never the reverse — e.g. the `godot-agents` orchestrator is coded specifically against this server's tool surface, but godot-mcp must **never** couple back to it (no agent-harness-specific tools, prompts, assumptions, or imports). Keep the surface generic; let consumers adapt to it.
+It has **no dependency on any specific consumer.** Other projects depend on Godot Editor MCP, never the reverse — e.g. the `godot-agents` orchestrator is coded specifically against this server's tool surface, but Godot Editor MCP must **never** couple back to it (no agent-harness-specific tools, prompts, assumptions, or imports). Keep the surface generic; let consumers adapt to it.
 
 ## Current state
 
@@ -82,7 +82,7 @@ These span many files and are the things easiest to get wrong:
 
 ## Game-agnostic scope
 
-godot-mcp deliberately ships **no** game vocabulary — no Tower/Enemy/Wave models, no `create_tower`-style tools or prompts. Its surface is generic Godot: inspection, scene mutation, scripts, resources, and runtime control. A specific game (a tower-defense roguelite is the first consumer) is a **separate project** that imports godot-mcp as an MCP server and layers its own domain models, semantic tools, and prompts on top. Keep that boundary: if a capability only makes sense for one game, it belongs in the game project, not here.
+Godot Editor MCP deliberately ships **no** game vocabulary — no Tower/Enemy/Wave models, no `create_tower`-style tools or prompts. Its surface is generic Godot: inspection, scene mutation, scripts, resources, and runtime control. A specific game (a tower-defense roguelite is the first consumer) is a **separate project** that imports Godot Editor MCP as an MCP server and layers its own domain models, semantic tools, and prompts on top. Keep that boundary: if a capability only makes sense for one game, it belongs in the game project, not here.
 
 ## Toolchain & running
 
@@ -104,7 +104,7 @@ Three AI skills ship in [`skills/`](skills/README.md) — copy the skill folders
 
 - `godot-getting-started` — bridge connection, toolset gating, safety classes, reading honesty fields (`undoable`/`aborted_at`/`rescan_pending`), round-trip economy
 - `godot-playtest-and-debug` — runtime play-test, input simulation, break-state gate, timeout semantics, debugging
-- `godot-expert` — Godot 4.x engine knowledge, 10 sections + 7 reference guides + 11 documented bugs
+- `godot-expert` — Godot 4.x engine knowledge, 10 sections + 12 reference guides + 11 documented bugs
 
 They are pinned to the live surface by `tests/unit/test_skills_metadata.py` (tool refs resolve, toolset map covers all toolsets, prompts covered, version named) — a surface change without a skills update fails the suite.
 
@@ -125,7 +125,7 @@ Rules:
 
 Project config (`.opencode/opencode.json`) wires a `review` subagent (read-only pre-PR check before the Qodo bot), a `/preflight` command, and a `watcher.ignore` that keeps the regenerable `graphify-out/`, `.venv`, `godot/.godot/`, and `uv.lock` off the file watcher. `context7`, `pullmd`, and the `graphify` MCP are wired **globally** (`~/.config/opencode/opencode.jsonc`), as is the graphify reminder plugin (`~/.config/opencode/plugins/graphify.js`) — the graphify MCP resolves `graphify-out/graph.json` relative to the cwd via `~/.config/opencode/bin/graphify-mcp-launcher.sh`.
 
-> **MLflow is intentionally absent here.** The `mlflow` Python package is not installable alongside the FastMCP 4.x pin, and eval-observability is a consumer concern: all eval→MLflow logging (tracker, GenAI dataset sync, the `mlflow` MCP server) lives in **godot-agents**, which also owns the eval agents. godot-mcp evals stop at console output.
+> **MLflow is intentionally absent here.** The `mlflow` Python package is not installable alongside the FastMCP 4.x pin, and eval-observability is a consumer concern: all eval→MLflow logging (tracker, GenAI dataset sync, the `mlflow` MCP server) lives in **godot-agents**, which also owns the eval agents. Godot Editor MCP evals stop at console output.
 
 Two built-in tools are **off by default** and need an env var to activate — uncomment them in [`.env.example`](./.env.example), then `set -a; . ./.env; set +a` before launching opencode:
 

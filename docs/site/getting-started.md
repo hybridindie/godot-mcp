@@ -1,22 +1,26 @@
 ---
 type: index
 title: "Get started"
-description: "Install godot-mcp, connect your editor and AI assistant, and drive your first session."
+description: "Install Godot Editor MCP, connect your editor and AI assistant, and drive your first session."
 created: 2026-09-19
-updated: 2026-10-11
+updated: 2026-10-18
 ---
 
 # Get started
 
-Two ways to get running. Pick whichever fits.
+Godot Editor MCP drives a **live Godot editor** through the addon. Pick the track that
+matches what you want to do.
 
-## Option 1 — Let your AI assistant do it (easiest)
+## For creators — let your AI assistant do it
 
-You use an AI assistant (Claude, Codex, ChatGPT…) and would rather not touch a terminal. Hand it the setup:
+You make games and use an AI assistant (Claude, Codex, ChatGPT…), and you would rather
+not touch a terminal. Hand it the setup:
 
-→ **[Start with your AI agent](getting-started-with-an-agent.md)** — one copy-paste prompt installs the server, the addon, and the skill; you do one click and start building.
+→ **[For creators](for-creators.md)** — the friendly on-ramp, including a one-paste
+setup prompt. Your assistant installs the server, the addon, and the skills; you do one
+click and start building.
 
-## Option 2 — Set it up yourself
+## For developers — set it up yourself
 
 You're comfortable with installs and MCP. Five steps:
 

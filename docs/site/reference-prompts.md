@@ -3,7 +3,7 @@ type: index
 title: "Prompts & resources"
 description: "The 9 workflow prompts and the godot:// read-only resources — the surfaces beyond tools."
 created: 2026-09-19
-updated: 2026-09-23
+updated: 2026-10-18
 ---
 
 # Prompts & resources
@@ -35,7 +35,7 @@ Every prompt composes from the shared toolset-protocol text (single source of
 truth in `mcp_server/toolset_protocol.py`), so the gating instructions cannot
 drift between the server instructions and the prompts.
 
-## Read-only resources (4)
+## Read-only resources (4 resources + 1 depth template)
 
 Resources are addressable, refreshed-on-access snapshots — JSON strings, no
 side effects ever (mutations always go through tools). On a bridge failure the

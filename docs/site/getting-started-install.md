@@ -3,13 +3,13 @@ type: index
 title: "Install the MCP server"
 description: "Three ways to run godot-editor-mcp — PyPI, Docker, or from source."
 created: 2026-09-19
-updated: 2026-09-23
+updated: 2026-10-18
 ---
 
 # Install the MCP server
 
-::: info For readers who know MCP
-This is the manual / technical path. Rather not touch a terminal? → **[Set up with your AI agent](getting-started-with-an-agent.md)** has your assistant do it.
+::: info For developers
+This is the manual setup path. Rather not touch a terminal? → **[For creators](for-creators.md)** has your assistant do it.
 :::
 
 ## Option A: PyPI (recommended)

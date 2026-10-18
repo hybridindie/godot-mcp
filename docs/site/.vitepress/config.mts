@@ -5,9 +5,9 @@ const BASE = '/godot-mcp/'
 
 export default withMermaid(defineConfig({
   lang: 'en-US',
-  title: 'godot-mcp',
+  title: 'Godot Editor MCP',
   description:
-    'Bridge an AI agent and a live Godot editor over MCP — inspect, mutate, run, verify. 194 tools across 29 gated toolsets; the server owns safety, the addon owns Godot.',
+    'Godot Editor MCP bridges an AI agent and a live Godot editor over MCP — inspect, mutate, run, verify. 194 tools across 29 categories (28 toggleable toolsets plus always-on core); the server owns safety, the addon owns Godot.',
   base: BASE,
   outDir: 'dist',
   ignoreDeadLinks: false,
@@ -44,11 +44,11 @@ export default withMermaid(defineConfig({
     class: 'mermaid-blocks',
   },
   themeConfig: {
-    siteTitle: 'godot-mcp',
+    siteTitle: 'Godot Editor MCP',
     nav: [
-      { text: 'Get started', link: '/getting-started' },
-      { text: 'Guides', link: '/guides' },
-      { text: 'Concepts', link: '/concepts' },
+      { text: 'Start here', link: '/getting-started' },
+      { text: 'For creators', link: '/for-creators' },
+      { text: 'For developers', link: '/for-developers' },
       { text: 'Reference', link: '/reference' },
       { text: 'Under the hood', link: '/architecture/' },
       {
@@ -65,21 +65,19 @@ export default withMermaid(defineConfig({
     ],
     sidebar: [
       {
-        text: 'Get started',
+        text: 'Start here',
         items: [
           { text: 'Overview', link: '/getting-started' },
-          { text: 'Start with your AI agent', link: '/getting-started-with-an-agent' },
-          { text: 'Setup: the MCP server', link: '/getting-started-install' },
-          { text: 'Setup: the Godot addon', link: '/getting-started-addon' },
-          { text: 'Setup: your client', link: '/getting-started-clients' },
-          { text: 'Your first session', link: '/getting-started-first-session' },
-          { text: 'Remote & multi-client', link: '/getting-started-openwebui' }
+          { text: 'For creators', link: '/for-creators' },
+          { text: 'For developers', link: '/for-developers' }
         ]
       },
       {
-        text: 'Guides',
+        text: 'For creators',
         items: [
-          { text: 'Overview', link: '/guides' },
+          { text: 'Set up with your AI agent', link: '/getting-started-with-an-agent' },
+          { text: 'Your first session', link: '/getting-started-first-session' },
+          { text: 'Guides overview', link: '/guides' },
           { text: 'Build a scene', link: '/guides-build-scene' },
           { text: 'Play-test & debug', link: '/guides-playtest-debug' },
           { text: 'Verify your work', link: '/guides-verify' },
@@ -88,15 +86,14 @@ export default withMermaid(defineConfig({
         ]
       },
       {
-        text: 'Concepts',
+        text: 'For developers',
         items: [
-          { text: 'Why & how it works', link: '/concepts' }
-        ]
-      },
-      {
-        text: 'Reference',
-        items: [
-          { text: 'Overview', link: '/reference' },
+          { text: 'Install the MCP server', link: '/getting-started-install' },
+          { text: 'Install the Godot addon', link: '/getting-started-addon' },
+          { text: 'Configure your MCP client', link: '/getting-started-clients' },
+          { text: 'Remote & multi-client', link: '/getting-started-openwebui' },
+          { text: 'Concepts', link: '/concepts' },
+          { text: 'Reference overview', link: '/reference' },
           { text: 'Toolsets & tools', link: '/reference-toolsets' },
           { text: 'Safety classes', link: '/reference-safety-classes' },
           { text: 'Value shapes', link: '/reference-value-shapes' },
@@ -105,13 +102,7 @@ export default withMermaid(defineConfig({
           { text: 'Skills', link: '/reference-skills' },
           { text: 'Consumer integration', link: '/reference-consumers' },
           { text: 'Environment variables', link: '/reference-env-vars' },
-          { text: 'Changelog', link: '/changelog' }
-        ]
-      },
-      {
-        text: 'Under the hood',
-        items: [
-          { text: 'The four-layer chain', link: '/architecture/' },
+          { text: 'Under the hood', link: '/architecture/' },
           { text: 'The Godot addon', link: '/architecture/addon' },
           { text: 'Bridge & transport', link: '/architecture/bridge' },
           { text: 'The JSON envelope', link: '/architecture/envelope' },
@@ -125,6 +116,7 @@ export default withMermaid(defineConfig({
         text: 'Project',
         items: [
           { text: 'Contributing', link: 'https://github.com/hybridindie/godot-mcp/blob/main/CONTRIBUTING.md' },
+          { text: 'Changelog', link: '/changelog' },
           { text: 'GitHub', link: 'https://github.com/hybridindie/godot-mcp' }
         ]
       }
@@ -146,7 +138,7 @@ export default withMermaid(defineConfig({
       text: 'Edit this page on GitHub'
     },
     footer: {
-      message: '194 tools · 29 toolsets · contract version 1',
+      message: '194 tools · 29 categories · contract version 1',
       copyright: 'MIT Licensed. Copyright © 2026 hybridindie'
     }
   },

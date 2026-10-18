@@ -1,6 +1,6 @@
-# Contributing to godot-mcp
+# Contributing to Godot Editor MCP
 
-Thanks for your interest in contributing! godot-mcp is a standalone MCP server that drives a live Godot editor from AI agents. This guide covers setup, workflow, and conventions.
+Thanks for your interest in contributing! Godot Editor MCP (repo: `godot-mcp`) is a standalone MCP server that drives a live Godot editor from AI agents. This guide covers setup, workflow, and conventions.
 
 ## Prerequisites
 

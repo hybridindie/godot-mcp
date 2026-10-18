@@ -1,6 +1,6 @@
 # Architecture: the WebSocket bridge contract
 
-This document is the contract for the seam between the two halves of godot-mcp. It is
+This document is the contract for the seam between the two halves of Godot Editor MCP (repo: `godot-mcp`). It is
 authoritative for the **transport** and the **JSON envelope**; the tool/resource/prompt
 surface is specified in [`tool-contracts.md`](tool-contracts.md). The grounding rules in
 [`../.opencode/rules/`](../.opencode/rules/) govern *how* code on each side is written.

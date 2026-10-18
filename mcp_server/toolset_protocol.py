@@ -17,7 +17,7 @@ from mcp_server.categories import INSPECTION_TAG
 from mcp_server.toolsets import DEFAULT_ENABLED
 
 DOC_LINKS = (
-    "- Tutorial: https://github.com/hybridindie/godot-mcp/blob/main/TUTORIAL.md\n"
+    "- Tutorial: https://github.com/hybridindie/godot-mcp/blob/main/docs/tutorial.md\n"
     "- Tool contracts: https://github.com/hybridindie/godot-mcp/blob/main/docs/tool-contracts.md\n"
     "- Architecture: https://github.com/hybridindie/godot-mcp/blob/main/docs/architecture.md"
 )
@@ -29,14 +29,14 @@ _ENV_DEFAULT_TEXT = (
 )
 
 _DEFAULT_INTRO = (
-    "You are connected to a godot-mcp server that gates its tools into categories "
+    "You are connected to a Godot Editor MCP server that gates its tools into categories "
     "called 'toolsets'. Only 'core' (diagnostics, toolset management) and 'inspection' "
     "(read-only project/scene/node reading) are enabled by default. Every other "
     "capability is hidden until you explicitly enable it."
 )
 
 _SEEDED_INTRO = (
-    "You are connected to a godot-mcp server that gates its tools into categories "
+    "You are connected to a Godot Editor MCP server that gates its tools into categories "
     "called 'toolsets'. The default exposure is 'core' (diagnostics, toolset "
     "management) plus the toolsets seeded at startup via GODOT_MCP_DEFAULT_TOOLSETS "
     "— this server was started with extra toolsets already enabled, so some or all "

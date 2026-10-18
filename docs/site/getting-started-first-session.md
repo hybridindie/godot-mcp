@@ -3,12 +3,12 @@ type: index
 title: "Your first session"
 description: "Install the skill, then drive a real Godot project from your AI assistant — the orient → enable → preview → act → verify rhythm."
 created: 2026-09-19
-updated: 2026-10-16
+updated: 2026-10-18
 ---
 
 # Your first session
 
-godot-mcp is driven **through an AI assistant**, not by typing tool names. So the single
+Godot Editor MCP is driven **through an AI assistant**, not by typing tool names. So the single
 most useful thing you can do first is **install the skill** — a small bundle of knowledge
 your assistant loads automatically. It teaches it to:
 

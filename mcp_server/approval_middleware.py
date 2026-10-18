@@ -16,7 +16,7 @@ no webhook is configured, a ``mutating``/``destructive`` tool returns an
 its first round, and the second round inspects the answer in
 ``ctx.input_responses`` to either run the tool or deny. This is durable (no
 server-side state — the tool name + params + safety_class round-trip through
-``request_state``) and works on the sessionless protocol godot-mcp uses by
+``request_state``) and works on the sessionless protocol Godot Editor MCP uses by
 design (see ``.opencode/rules/async-patterns.md``).
 """
 

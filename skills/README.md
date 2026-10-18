@@ -1,6 +1,6 @@
-# godot-mcp Skills
+# Godot Editor MCP Skills
 
-godot-mcp ships three AI skills that give your agent expert knowledge when
+Godot Editor MCP ships three AI skills that give your agent expert knowledge when
 building Godot games through the MCP tools. Two categories:
 
 - **MCP workflow skills** — step-by-step recipes for calling the tools
@@ -28,7 +28,7 @@ docs in agent-friendly markdown.
 
 ### Prerequisites
 
-- The godot-mcp repo (clone or download)
+- The Godot Editor MCP repo (clone or download)
 - An AI client that supports skills (opencode, etc.)
 
 ### Copy the folders
@@ -66,13 +66,13 @@ ln -s "$(pwd)/skills/godot-playtest-and-debug" ~/.config/opencode/skills/godot-p
 
 ### godot-getting-started
 
-**Purpose:** Connect to and drive a Godot editor through the godot-mcp
+**Purpose:** Connect to and drive a Godot editor through the Godot Editor MCP
 server. Read this once at the start of any Godot session — it prevents the
 two most common failures: missing tools (toolset not enabled) and
 unconfirmed destructive edits.
 
 **Triggers on:** "use godot-mcp", "drive Godot", "control the Godot
-editor", "godot-mcp tools aren't showing up", "unknown tool from godot",
+editor", "Godot Editor MCP tools aren't showing up", "unknown tool from godot",
 "set up godot-mcp".
 
 **What it teaches:**
@@ -83,7 +83,7 @@ editor", "godot-mcp tools aren't showing up", "unknown tool from godot",
 - Using built-in workflow prompts (`/build_scene`, `/play_test`, `/author_resource`, `/export_build`, `/batch_refactor`, etc.)
 - Error recovery (`unknown tool`, `PRECONDITION_FAILED`, `BRIDGE_DISCONNECTED`)
 
-**When to use:** First thing in any session that involves godot-mcp.
+**When to use:** First thing in any session that involves Godot Editor MCP.
 
 ---
 

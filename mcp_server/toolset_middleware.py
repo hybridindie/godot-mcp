@@ -1,6 +1,6 @@
 """Server-global toolset gating middleware (issue #364).
 
-godot-mcp is a single-user, locally-run MCP server — one client per Godot
+Godot Editor MCP is a single-user, locally-run MCP server — one client per Godot
 instance. Per-session isolation was dead code on the sessionless
 ``2026-07-28`` protocol real clients use (a fresh ``session_id`` per call), and
 ``Middleware.on_initialize`` violated ``.opencode/rules/async-patterns.md``.

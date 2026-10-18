@@ -97,7 +97,7 @@ def _apply_http_host_origin_protection(config: ServerConfig) -> None:
 
     ``run(transport="http")`` and ``http_app()`` both fall back to
     ``fastmcp.settings.http_host_origin_protection`` when no explicit value is
-    passed, so setting it here makes the godot-mcp default ("auto": protect the
+    passed, so setting it here makes the Godot Editor MCP default ("auto": protect the
     loopback-bound server) effective on every HTTP path.
     """
     fastmcp.settings.http_host_origin_protection = config.http_host_origin_protection
@@ -240,7 +240,7 @@ def create_server(
     register_profiling(mcp, bridge)
     register_batch(mcp, bridge)
     # Toolset gating (issues #227/#364): the enabled set is a *single server-global
-    # set*, not per-session — godot-mcp is a single-user local server, and the
+    # set*, not per-session — Godot Editor MCP is a single-user local server, and the
     # sessionless 2026-07-28 protocol real clients use made per-session isolation
     # dead code (see ToolsetMiddleware's docstring). Every client, and the addon
     # dock's push (#592), reads the same set.

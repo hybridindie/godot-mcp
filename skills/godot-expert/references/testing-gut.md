@@ -201,4 +201,4 @@ godot_testing_run_tests(test_dir="res://tests/unit", timeout_seconds=120)
 `framework_absent=true` (a normal outcome, not an error).
 
 **Parser note:** GUT 9.7+ omits the "Failing Tests" line when all tests
-pass. The godot-mcp parser handles this (fixed in `gut_parse.py`).
+pass. The Godot Editor MCP parser handles this (fixed in `gut_parse.py`).

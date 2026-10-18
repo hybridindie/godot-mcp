@@ -9,7 +9,7 @@
   <g transform="translate(78, 96) scale(3.4)">
     <rect x="4" y="13" width="38" height="38" rx="10" fill="#3f86c4"/><circle cx="17" cy="29" r="5" fill="#fff"/><circle cx="29" cy="29" r="5" fill="#fff"/><circle cx="19" cy="29" r="2.3" fill="#18202e"/><circle cx="31" cy="29" r="2.3" fill="#18202e"/><rect x="15" y="39" width="16" height="3.5" rx="1.75" fill="#18202e" fill-opacity=".55"/><path d="M42 32H50" stroke="#3fbf7a" stroke-width="4.5" stroke-linecap="round"/><circle cx="55" cy="32" r="5" fill="none" stroke="#3fbf7a" stroke-width="4.5"/>
   </g>
-  <text x="90" y="390" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="110" font-weight="700" fill="#ffffff">godot-mcp</text>
+  <text x="90" y="390" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="84" font-weight="700" fill="#ffffff">Godot Editor MCP</text>
   <text x="90" y="460" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="36" fill="#9cc3e6">Drive a live Godot editor from an AI agent — over MCP</text>
   <text x="90" y="530" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="28" fill="#3fbf7a">docs: hybridindie.github.io/godot-mcp</text>
 </svg>

@@ -3,12 +3,12 @@ type: index
 title: "Remote & multi-client"
 description: "Drive Godot over HTTP from another machine — several clients on one editor, OpenWebUI, Docker, VPN-from-a-phone."
 created: 2026-09-19
-updated: 2026-10-11
+updated: 2026-10-18
 ---
 
 # Remote & multi-client
 
-godot-mcp's HTTP transport is built for remote/web front-ends: run the server
+Godot Editor MCP's HTTP transport is built for remote/web front-ends: run the server
 next to your editor, expose it with a bearer token, and drive it from a phone
 or laptop via [OpenWebUI](https://openwebui.com) — or any MCP Streamable HTTP
 client.

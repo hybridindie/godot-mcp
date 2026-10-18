@@ -1,7 +1,7 @@
 """Runtime inspection tools (issue #35).
 
 Inspect a *running* game on the #66 runtime-session rails: watch a node property over
-time and locate live UI (Control) elements. Requires a play session with the godot-mcp
+time and locate live UI (Control) elements. Requires a play session with the Godot Editor MCP
 runtime probe. All `read_only` against the live session, in the `runtime` toolset.
 (``get_game_scene_tree`` — the third piece of #35 — already shipped with #66.)
 """

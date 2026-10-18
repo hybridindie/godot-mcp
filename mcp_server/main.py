@@ -1,6 +1,6 @@
-"""stdio (and optional Streamable HTTP) entrypoint for the godot-mcp server.
+"""stdio (and optional Streamable HTTP) entrypoint for the Godot Editor MCP server.
 
-Run with ``uv run godot-mcp`` (or ``python -m mcp_server.main``). Transport
+Run with ``uv run godot-editor-mcp`` (or ``python -m mcp_server.main``). Transport
 defaults to stdio; set ``GODOT_MCP_TRANSPORT=http`` (with ``GODOT_MCP_HTTP_HOST`` /
 ``GODOT_MCP_HTTP_PORT``) for a long-lived HTTP server. The FastMCP runtime owns
 the event loop — we never call ``asyncio.run`` here

@@ -1,9 +1,9 @@
 ---
 type: index
 title: "Set up with your AI agent"
-description: "For creators — have Claude, Codex, or any AI assistant install and connect godot-mcp to your Godot project, then build by describing what you want."
+description: "For creators — have Claude, Codex, or any AI assistant install and connect Godot Editor MCP to your Godot project, then build by describing what you want."
 created: 2026-10-11
-updated: 2026-10-16
+updated: 2026-10-18
 ---
 
 # Set up with your AI agent
@@ -34,7 +34,7 @@ You stay in Godot; the assistant works through the editor you already have open.
 - An **AI assistant that can run commands and edit files** — for example Claude Code,
   OpenAI Codex, or OpenCode. A plain chat window can't install things for you (see
   [Not using a coding assistant?](#not-using-a-coding-assistant) below).
-- That's everything — the assistant installs godot-mcp itself.
+- That's everything — the assistant installs Godot Editor MCP itself.
 
 ## Step 1 — Open your project in Godot
 
@@ -46,17 +46,17 @@ fine to start.
 Open your assistant **in your project's folder** and paste this:
 
 ```text
-Set up godot-mcp for my Godot project so you can drive the editor.
+Set up Godot Editor MCP for my Godot project so you can drive the editor.
 
 1. Install the server: run `pip install godot-editor-mcp`. (If pip is unavailable, don't
    install anything else — `uvx godot-editor-mcp` runs it on demand and is enough.)
-2. Register godot-mcp as an MCP server for yourself, launching it with the command
+2. Register Godot Editor MCP as an MCP server for yourself, launching it with the command
    `uvx godot-editor-mcp` over stdio. Use the correct MCP-config method for your client
    (for Claude Code that is: `claude mcp add godot -- uvx godot-editor-mcp`).
 3. Install the Godot addon into my project: download the latest `godot_mcp_addon.zip`
    from https://github.com/hybridindie/godot-mcp/releases/latest and unzip it into my
    project folder (it adds `addons/godot_mcp/`).
-4. Install the godot-mcp AI skills into your own skills directory so you know how to work
+4. Install the Godot Editor MCP AI skills into your own skills directory so you know how to work
    here — they teach you to enable toolsets on your own, read the result verdicts, and
    avoid the common Godot pitfalls. Clone or download
    https://github.com/hybridindie/godot-mcp and copy the three folders under its `skills/`
@@ -76,7 +76,7 @@ In Godot: **Project → Project Settings → Plugins**, and switch on **Godot Ed
 status dock appears at the bottom of the editor. When its dot turns **green**, the
 assistant is connected and ready.
 
-![The godot-mcp status dock: a green Connected dot, the Godot version and bridge URL, the active scene and selected node, the last undoable action, the enabled toolsets, and a recent-command log showing what the assistant has been doing.](/dock.svg)
+![The Godot Editor MCP status dock: a green Connected dot, the Godot version and bridge URL, the active scene and selected node, the last undoable action, the enabled toolsets, and a recent-command log showing what the assistant has been doing.](/dock.svg)
 
 *A green dot means connected. The **recent-command log** at the bottom shows exactly what the assistant has been doing, and the **Last action** row is undoable with Ctrl+Z.*
 
@@ -85,7 +85,7 @@ assistant is connected and ready.
 Tell your assistant:
 
 ```text
-Run a health check on godot-mcp and tell me whether the Godot editor is connected.
+Run a health check on Godot Editor MCP and tell me whether the Godot editor is connected.
 ```
 
 If it reports *connected* (and its version matches what it installed), you're set.

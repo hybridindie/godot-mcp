@@ -3,7 +3,7 @@ type: index
 title: "Install the Godot addon"
 description: "Copy the addon into your project and enable it — the editor dials the server and reconnects on its own."
 created: 2026-09-19
-updated: 2026-10-11
+updated: 2026-10-18
 ---
 
 # Install the Godot addon
@@ -41,7 +41,7 @@ cp -r godot-mcp/godot/addons/godot_mcp /path/to/your/game/addons/
 
 ## Option C: use the bundled project
 
-Open the `godot/` folder of the godot-mcp checkout as a project in Godot
+Open the `godot/` folder of the `godot-mcp` checkout as a project in Godot
 4.4+. This is a minimal project that exists so the addon is loadable and
 testable.
 
@@ -91,7 +91,7 @@ GODOT_MCP_BRIDGE_URL=ws://127.0.0.1:9080 godot --path /path/to/your/game
 
 The editor's own external-file detection is **window-focus-driven** — files
 changed by an agent, git, or any other tool while Godot is unfocused stay
-invisible until you click into the editor. All files written *through* godot-mcp
+invisible until you click into the editor. All files written *through* Godot Editor MCP
 tools already refresh the editor's filesystem view automatically; for edits made
 outside the MCP path, enable the opt-in auto-refresh:
 

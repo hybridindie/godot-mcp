@@ -1,9 +1,9 @@
 ---
 type: index
 title: "Configure your MCP client"
-description: "Register godot-mcp in OpenCode, Claude, or any MCP host — stdio or HTTP."
+description: "Register Godot Editor MCP in OpenCode, Claude, or any MCP host — stdio or HTTP."
 created: 2026-09-19
-updated: 2026-10-11
+updated: 2026-10-18
 ---
 
 # Configure your MCP client
@@ -72,12 +72,12 @@ Any MCP client works the same way — the server speaks standard MCP over stdio
 or Streamable HTTP:
 
 - **Any MCP client or agent harness**: register the server with the same
-  `command` (stdio) or `url` (HTTP) shape in its MCP config. godot-mcp speaks
+  `command` (stdio) or `url` (HTTP) shape in its MCP config. Godot Editor MCP speaks
   standard MCP, so any client that drives MCP tools works — a coding agent, an
   IDE assistant, or your own orchestrator.
 
 ::: info Sessions are stateless
-godot-mcp serves the sessionless MCP `2026-07-28` protocol shape: no
+Godot Editor MCP serves the sessionless MCP `2026-07-28` protocol shape: no
 per-session state, and toolset grants are server-global. A reconnect keeps
 the grant — nothing to re-establish.
 :::
@@ -156,7 +156,7 @@ the safer configuration.
 A capable client (Claude Code's CLI) subscribes only when the server's
 handshake advertises `capabilities.tools.listChanged: true`. On the
 `2026-07-28` sessionless protocol MCP derives that flag from whether the server
-serves a `subscriptions/listen` stream. godot-mcp now serves it — it registers
+serves a `subscriptions/listen` stream. Godot Editor MCP now serves it — it registers
 the mcp SDK's `ListenHandler` on FastMCP's low-level server, the same wiring
 mcp's own `MCPServer` uses — so the modern `server/discover` advertises
 `tools.listChanged: true` and a subscribing client receives

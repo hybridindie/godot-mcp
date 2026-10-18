@@ -1,8 +1,8 @@
-# Tutorial: Building and Testing a Game with godot-mcp (LLM-Prompt Edition)
+# Tutorial: Building and Testing a Game with Godot Editor MCP (LLM-Prompt Edition)
 
-This tutorial demonstrates how to use **godot-mcp** to build, edit, play-test, and verify a simple 2D game — all while Godot remains open. Unlike a reference manual, this document is written as **a series of natural-language prompts you can send to an LLM agent** (Claude Code, OpenCode, etc.). The agent will invoke MCP tools automatically to carry out each instruction.
+This tutorial demonstrates how to use **Godot Editor MCP** to build, edit, play-test, and verify a simple 2D game — all while Godot remains open. Unlike a reference manual, this document is written as **a series of natural-language prompts you can send to an LLM agent** (Claude Code, OpenCode, etc.). The agent will invoke MCP tools automatically to carry out each instruction.
 
-> **Prerequisites**: Godot 4.4+ installed, `uv` (Python package manager), and the godot-mcp addon enabled in your project.
+> **Prerequisites**: Godot 4.4+ installed, `uv` (Python package manager), and the Godot Editor MCP addon enabled in your project.
 
 ---
 
@@ -15,7 +15,7 @@ The server automatically teaches the LLM about toolset gating through **four mec
 Every time the MCP client connects, the server sends initialization instructions that explain the gating system. The LLM sees this automatically — no setup required.
 
 **What the LLM receives:**
-> "You are connected to a godot-mcp server that gates its tools into categories called 'toolsets'. Only 'core' and 'inspection' are enabled by default. Every other capability is hidden until you explicitly enable it."
+> "You are connected to a Godot Editor MCP server that gates its tools into categories called 'toolsets'. Only 'core' and 'inspection' are enabled by default. Every other capability is hidden until you explicitly enable it."
 >
 > "MANDATORY PROTOCOL: 1. Call godot_get_server_info() for a full capability snapshot. 2. Call godot_list_toolsets() to see what is available. 3. Call godot_enable_toolset(category) for every category you plan to use. 4. Only after enabling can you call the tools in that category."
 
@@ -48,7 +48,7 @@ Every tool's description explicitly states which toolset it belongs to. For exam
 If your MCP client does **not** surface server instructions or prompts (older versions, some configurations), paste this into your first message to teach the LLM:
 
 ```
-You are working with a godot-mcp server. Tools are gated into categories called 'toolsets'. 
+You are working with a Godot Editor MCP server. Tools are gated into categories called 'toolsets'.
 Only 'core' and 'inspection' are enabled by default. Before doing any scene editing, 
 script writing, runtime testing, or batch operations, you MUST:
 
@@ -126,7 +126,7 @@ A status dock appears at the bottom showing:
   "mcp": {
     "godot": {
       "type": "local",
-      "command": ["uv", "run", "godot-mcp"]
+      "command": ["uv", "run", "godot-editor-mcp"]
     }
   }
 }
@@ -138,7 +138,7 @@ A status dock appears at the bottom showing:
   "mcpServers": {
     "godot": {
       "command": "uv",
-      "args": ["run", "godot-mcp"]
+      "args": ["run", "godot-editor-mcp"]
     }
   }
 }
@@ -150,7 +150,7 @@ A status dock appears at the bottom showing:
 
 ## Part 2: Prompt-by-Prompt Game Creation
 
-For each prompt below, paste it into your MCP client chat. The LLM will use the appropriate godot-mcp tools automatically.
+For each prompt below, paste it into your MCP client chat. The LLM will use the appropriate Godot Editor MCP tools automatically.
 
 ---
 

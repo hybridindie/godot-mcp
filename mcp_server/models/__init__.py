@@ -1,4 +1,4 @@
-"""Pydantic models for the godot-mcp server.
+"""Pydantic models for the Godot Editor MCP server.
 
 Typed I/O for the tool surface — bridge envelopes, health, and editor-inspection
 results. ``snake_case`` fields throughout. These models are game-agnostic; they

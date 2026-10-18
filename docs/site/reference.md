@@ -3,13 +3,13 @@ type: index
 title: "Reference"
 description: "The tool surface in tables — toolsets, safety classes, value shapes, errors, and env vars."
 created: 2026-09-19
-updated: 2026-09-23
+updated: 2026-10-18
 ---
 
 # Reference
 
 ::: info For readers who know MCP
-This is the technical track. New here and just want to make a game? → **[Set up with your AI agent](getting-started-with-an-agent.md)**.
+This is the developer reference. New here and just want to make a game? → **[For creators](for-creators.md)**.
 :::
 
 Authoritative tables for the surface. The per-tool contract spec (full result

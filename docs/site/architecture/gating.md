@@ -3,7 +3,7 @@ type: index
 title: "Toolset gating"
 description: "Why 194 tools are gated, how the enabled set works, and what list_changed does."
 created: 2026-09-19
-updated: 2026-10-10
+updated: 2026-10-18
 ---
 
 # Toolset gating
@@ -16,7 +16,7 @@ them.
 ## The enabled set
 
 `enable_toolset` / `disable_toolset` write into a **single server-global
-enabled set** (issue #364). godot-mcp is a single-user, locally-run server —
+enabled set** (issue #364). Godot Editor MCP is a single-user, locally-run server —
 per-session isolation was removed because it was dead code on the sessionless
 MCP `2026-07-28` protocol (a fresh `session_id` per call made it useless) and
 violated the no-server-initiated-hook rule. Consequences, which are features:

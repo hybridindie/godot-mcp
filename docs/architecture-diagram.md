@@ -1,4 +1,4 @@
-# godot-mcp architecture (visual)
+# Godot Editor MCP architecture (visual)
 
 Companion to [`architecture.md`](architecture.md) — the same system, rendered. The
 defining detail (post-#276/#277): the **editor dials**, the **server listens**, but the

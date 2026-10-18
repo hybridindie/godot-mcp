@@ -21,7 +21,7 @@ def register_updates(mcp: FastMCP, bridge: Bridge, checker: UpdateChecker) -> No
 
     @mcp.tool(meta=READ_ONLY, tags={CORE_TAG})
     async def check_for_updates() -> UpdateStatus:
-        """Check whether a newer godot-mcp release is available.
+        """Check whether a newer Godot Editor MCP release is available.
 
         Opt-in and offline by default: with ``GODOT_MCP_CHECK_UPDATES`` unset the
         result reports ``enabled: false`` and makes no network request. When enabled

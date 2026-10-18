@@ -1,14 +1,14 @@
 ---
 type: index
 title: "Consumer integration"
-description: "Layering game-specific agents on godot-mcp — the skills, the orchestrator pattern, and the eval harness."
+description: "Layering game-specific agents on Godot Editor MCP — the skills, the orchestrator pattern, and the eval harness."
 created: 2026-09-19
-updated: 2026-10-16
+updated: 2026-10-18
 ---
 
 # Consumer integration
 
-godot-mcp is deliberately game-agnostic. This page maps the integration
+Godot Editor MCP is deliberately game-agnostic. This page maps the integration
 surface for consumers that layer game-specific behavior on top.
 
 ## The integration surface
@@ -44,11 +44,11 @@ change without a skills update fails the suite.
 
 ## The orchestrator pattern
 
-A consumer that drives godot-mcp as one component of a larger agent system
+A consumer that drives Godot Editor MCP as one component of a larger agent system
 **built specifically against this server** (not a generic MCP client)
 demonstrates the pattern:
 
-- Typed client wrappers mirroring godot-mcp's tools verbatim, with the same
+- Typed client wrappers mirroring Godot Editor MCP's tools verbatim, with the same
   param keys and `_ensure_or_return_error` gating
 - Honesty-field awareness: `persisted`, `undoable`, `aborted_at`,
   `rescan_pending`, `expected_timeout`, `game_not_breaked`
@@ -60,10 +60,10 @@ demonstrates the pattern:
 
 The recommended shape for a game-specific consumer:
 
-1. **Keep godot-mcp untouched** — it stays generic; game vocabulary ("spawn
+1. **Keep Godot Editor MCP untouched** — it stays generic; game vocabulary ("spawn
    wave", "upgrade tower") lives in your project.
 2. **Wrap, don't fork** — typed client wrappers per tool group, with your
-   domain models built from godot-mcp's `structuredContent` payloads.
+   domain models built from Godot Editor MCP's `structuredContent` payloads.
 3. **Add your own prompts/skills** — the recipe templates here
    ([prompts](reference-prompts.md)) are the pattern; your game's versions
    compose the same generic tools in game-shaped orders.

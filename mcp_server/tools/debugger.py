@@ -73,7 +73,7 @@ def register_debugger(mcp: FastMCP, bridge: Bridge) -> None:
     @mcp.tool(meta=RUNTIME, tags=DEBUGGER)
     async def force_break() -> ForceBreakResult:
         """Trigger an immediate break in the running game via the runtime probe.
-        Requires a play session with the godot-mcp runtime probe autoload.
+        Requires a play session with the Godot Editor MCP runtime probe autoload.
 
         WHEN TO USE: You need the game to pause RIGHT NOW so you can inspect
         stack frames, step through code, or evaluate expressions (e.g., the player

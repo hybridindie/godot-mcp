@@ -102,4 +102,4 @@ async def test_get_server_info_surfaces_a_known_update_in_next_steps() -> None:
         result = await client.call_tool("godot_get_server_info", {})
     data = result.structured_content
     assert data["update"] is not None and data["update"]["update_available"] is True
-    assert any("newer godot-mcp" in step for step in data["next_steps"])
+    assert any("newer Godot Editor MCP" in step for step in data["next_steps"])
