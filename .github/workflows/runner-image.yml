@@ -45,7 +45,7 @@ jobs:
             type=raw,value=latest
 
       - name: Build and push
-        uses: docker/build-push-action@v7.0.0
+        uses: docker/build-push-action@v7.4.0
         with:
           context: .
           file: infra/runner.Dockerfile
