@@ -144,7 +144,9 @@ func _rollback(snapshot: Dictionary) -> Dictionary:
 			and ProjectSettings.has_setting(autoload_key) and _router.has_plugin():
 		_router.remove_autoload_singleton("GameState")
 
-	# Restore every setting the scaffold touched.
+	# Restore every setting in memory first: even if the final save fails, the
+	# editor's live settings match the snapshot (the raw-file fallback only fixes
+	# disk + the resource cache).
 	for key in snapshot["settings"]:
 		var state: Dictionary = snapshot["settings"][key]
 		if state["had"]:
