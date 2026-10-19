@@ -63,10 +63,16 @@ class FakeAddonConnection:
     """An in-memory Connection that plays the addon side of the bridge."""
 
     def __init__(
-        self, responder: Responder = ping_responder, *, send_error: Exception | None = None
+        self,
+        responder: Responder = ping_responder,
+        *,
+        send_error: Exception | None = None,
+        path: str = "",
     ) -> None:
         self._responder = responder
         self._send_error = send_error
+        # #702: the fake can present the probe path to the bridge listener.
+        self.path = path
         self._incoming: asyncio.Queue[str] = asyncio.Queue()
         self.sent: list[str] = []
         self.closed = False

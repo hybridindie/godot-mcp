@@ -34,6 +34,11 @@ const BUFFER_SIZE := 33554432  # 32 MiB (2^25), power of two per the class docs
 # that isn't up yet (or that restarts) is found again without hammering it.
 const _RETRY_MIN := 0.5
 const _RETRY_MAX := 5.0
+# #702: once another editor has taken the bridge, probe slowly for it to free.
+# A probe is non-displacing: the server answers busy while a peer is connected,
+# so this cannot flip-flop against the editor that replaced us.
+const _PROBE_MIN := 5.0
+const _PROBE_MAX := 30.0
 
 signal connection_changed(status: Status)
 ## #593: human-facing bridge lifecycle events for the dock log — reconnect
@@ -64,6 +69,12 @@ var _retry_remaining := 0.0  # seconds until the next reconnect attempt
 var _retry_attempt := 0
 # Opt-in shared-token auth (issue #538): read once at start; never logged.
 var _auth_token := ""
+# #702: replaced-editor probe state. Kept separate from the normal reconnect
+# loop so a busy bridge is never displaced just to test it.
+var _probe_active := false
+var _probe_peer = null
+var _probe_delay := _PROBE_MIN
+var _probe_remaining := 0.0
 
 
 func _init(router: MCPCommandRouter = null) -> void:
@@ -80,11 +91,17 @@ func start(url: String = DEFAULT_URL, auth_token: String = "") -> int:
 	_retry_delay = _RETRY_MIN
 	_retry_remaining = 0.0
 	_retry_attempt = 0
+	_probe_active = false
+	_probe_delay = _PROBE_MIN
+	_probe_remaining = 0.0
+	_clear_probe_peer()
 	return _open()
 
 
 func stop() -> void:
 	_active = false
+	_probe_active = false
+	_clear_probe_peer()
 	if _peer != null:
 		_peer.close()
 		_peer = null
@@ -130,6 +147,9 @@ func _open() -> int:
 
 
 func _process(delta: float) -> void:
+	if _probe_active:
+		_process_probe(delta)
+		return
 	if not _active:
 		return
 	if _peer == null:
@@ -173,6 +193,92 @@ func _process(delta: float) -> void:
 			_peer = null
 			_set_status(Status.DISCONNECTED)
 			_schedule_retry()
+
+
+## #702: probe URL — a separate path the server answers without adopting us
+## while another editor owns the bridge.
+func _probe_url() -> String:
+	return _url.rstrip("/") + "/probe"
+
+
+func _clear_probe_peer() -> void:
+	if _probe_peer != null:
+		_probe_peer.close()
+		_probe_peer = null
+
+
+## Enter the replaced state's probe loop: slow, backed-off, non-displacing.
+func _start_probe() -> void:
+	_probe_active = true
+	_probe_delay = _PROBE_MIN
+	_probe_remaining = _PROBE_MIN
+	_clear_probe_peer()
+	event_logged.emit("bridge held by another editor — probing until it is free")
+
+
+func _probe_failed() -> void:
+	_probe_delay = minf(_probe_delay * 2.0, _PROBE_MAX)
+	_probe_remaining = _probe_delay
+
+
+func _open_probe() -> void:
+	_probe_peer = WebSocketPeer.new()
+	_probe_peer.outbound_buffer_size = BUFFER_SIZE
+	_probe_peer.inbound_buffer_size = BUFFER_SIZE
+	var err: int = _probe_peer.connect_to_url(_probe_url())
+	if err != OK:
+		_probe_peer = null
+		_probe_failed()
+
+
+func _process_probe(delta: float) -> void:
+	if _probe_peer == null:
+		_probe_remaining -= delta
+		if _probe_remaining <= 0.0:
+			_open_probe()
+		return
+
+	_probe_peer.poll()
+	match _probe_peer.get_ready_state():
+		WebSocketPeer.STATE_OPEN:
+			while _probe_peer.get_available_packet_count() > 0:
+				var parsed: Variant = JSON.parse_string(
+					_probe_peer.get_packet().get_string_from_utf8()
+				)
+				if typeof(parsed) != TYPE_DICTIONARY:
+					continue
+				var d := parsed as Dictionary
+				if not d.has("busy"):
+					continue
+				if bool(d.get("busy", true)):
+					_clear_probe_peer()
+					_probe_failed()
+				else:
+					_promote_probe(_probe_peer)
+				return
+		WebSocketPeer.STATE_CONNECTING, WebSocketPeer.STATE_CLOSING:
+			pass
+		WebSocketPeer.STATE_CLOSED:
+			_probe_peer = null
+			_probe_failed()
+
+
+## The server said the bridge is free and adopted this same connection: keep it,
+## announce ourselves, and return to the normal connected loop without a replay
+## window that another editor could slip into.
+func _promote_probe(peer) -> void:
+	_peer = peer
+	_probe_peer = null
+	_probe_active = false
+	_probe_delay = _PROBE_MIN
+	_probe_remaining = 0.0
+	_active = true
+	_retry_delay = _RETRY_MIN
+	_retry_attempt = 0
+	_set_status(Status.CONNECTED)
+	_send_auth()
+	_send_peer_hello()
+	event_logged.emit("bridge free — resumed after replacement")
 
 
 func _schedule_retry() -> void:
@@ -256,10 +362,11 @@ func _handle_text(text: String) -> void:
 				# the dock never shows a green "Connected" on a taken-over link.
 				event_logged.emit("server: %s — %s" % [code, hint])
 				if code == "PEER_REPLACED":
-					# stop reconnecting (a fight for the bridge would flip-flop);
-					# the REPLACED status holds until the plugin is reloaded.
+					# #702: stop the normal reconnect loop (a fight for the bridge
+					# would flip-flop), but probe slowly for the bridge to free.
 					_active = false
 					_set_status(Status.REPLACED)
+					_start_probe()
 				_peer.close()
 			return
 	var response: Dictionary

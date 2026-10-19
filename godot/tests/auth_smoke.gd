@@ -69,16 +69,21 @@ func _initialize() -> void:
 		"hint": "Another editor took over the bridge.",
 	}))
 	_eq(failures, "replaced_not_echoed", recorder.sent.size(), 1)
-	_eq(failures, "replaced_logged", events.size(), 2)
+	_eq(failures, "replaced_logged", events.size(), 3)
+	if events.size() == 3 and not events[2].contains("probing"):
+		failures.append("replaced_probe_logged: expected the probe notice, got %s" % events[2])
 	if bridge.get_status() != Bridge.Status.REPLACED:
 		failures.append("replaced_status: expected REPLACED, got %d" % int(bridge.get_status()))
 	if bridge._active:
 		failures.append("replaced_must_stop_reconnecting")
+	if not bridge._probe_active:
+		failures.append("replaced_must_start_probing")
 
 	# A malformed message still behaves as before (echoes the error envelope).
 	bridge._handle_text("not json")
 	_eq(failures, "malformed_still_echoed", recorder.sent.size(), 2)
 
+	bridge.stop()
 	bridge.free()
 
 	if failures.is_empty():

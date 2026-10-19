@@ -279,6 +279,9 @@ def test_replaced_peer_state_and_reconnect_logging() -> None:
     # The replaced editor stops reconnecting (no fight for the bridge).
     replaced_block = bridge.split('if code == "PEER_REPLACED"', 1)[1].split("return", 1)[0]
     assert "_active = false" in replaced_block
+    assert "_start_probe()" in replaced_block, "the replaced editor must probe for a free bridge"
+    assert "_PROBE_MIN" in bridge and "_promote_probe" in bridge
+    assert 'rstrip("/") + "/probe"' in bridge
     # One dock line per retry attempt, not per process tick.
     retry = bridge.split("func _schedule_retry", 1)[1].split("\nfunc ", 1)[0]
     assert "_retry_attempt += 1" in retry

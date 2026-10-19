@@ -3,7 +3,7 @@ type: index
 title: "Bridge & transport"
 description: "The WebSocket contract — connection direction, backoff, timeouts, and configuration."
 created: 2026-09-19
-updated: 2026-09-23
+updated: 2026-10-19
 ---
 
 # Bridge & transport
@@ -43,6 +43,12 @@ Why the editor dials:
 - **Framing:** one JSON object per WebSocket text message, UTF-8. No headers.
 - **One active peer:** a new addon connection replaces the old one (a stale
   editor can't ghost the bridge).
+- **Replaced-editor probe (#702):** after a `PEER_REPLACED` notice the addon
+  stops normal reconnects and probes `/probe` with a slow backoff (5 s → 30 s).
+  While another editor owns the bridge, the server answers
+  `{ok: true, busy: true}` and closes the probe **without displacing** the
+  active peer; when the bridge is free, it answers `busy: false` and adopts the
+  same connection, so the two editors cannot flip-flop.
 - **Auth is opt-in (#538)**: localhost-only by default — the zero-config path
   has no handshake. Set `GODOT_MCP_BRIDGE_TOKEN` on both sides for
   shared/remote-editor setups: the addon authenticates as its first message, a

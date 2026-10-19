@@ -63,8 +63,9 @@ func _initialize() -> void:
 		failures.append("retry countdown did not re-attempt a connection")
 	b2.stop()
 
-	# 3. #593: a replaced peer holds the REPLACED status and stops reconnecting —
-	#    no fight for the bridge after another editor takes it over.
+	# 3. #593/#702: a replaced peer holds the REPLACED status, leaves the normal
+	#    reconnect loop, and probes slowly. A busy probe backs off; a free probe
+	#    promotes the SAME connection back to CONNECTED.
 	var b3 := Bridge.new()
 	b3._active = true
 	b3._peer = _NullPeer.new()
@@ -74,7 +75,20 @@ func _initialize() -> void:
 	if b3.get_status() != Bridge.Status.REPLACED:
 		failures.append("replaced: expected REPLACED, got %d" % int(b3.get_status()))
 	if b3._active:
-		failures.append("replaced: must stop the reconnect loop")
+		failures.append("replaced: must stop the normal reconnect loop")
+	if not b3._probe_active:
+		failures.append("replaced: must start the bridge probe")
+	if b3._probe_delay != 5.0:
+		failures.append("replaced: probe should start at 5.0s, got %f" % b3._probe_delay)
+	b3._probe_failed()
+	if b3._probe_delay != 10.0:
+		failures.append("replaced: busy probe should back off to 10.0s, got %f" % b3._probe_delay)
+	b3._promote_probe(_NullPeer.new())
+	if b3.get_status() != Bridge.Status.CONNECTED:
+		failures.append("replaced: free probe should promote to CONNECTED")
+	if b3._probe_active or not b3._active:
+		failures.append("replaced: free probe should leave probe mode and resume the normal loop")
+	b3.stop()
 
 	if failures.is_empty():
 		print("BRIDGE_RECONNECT_TEST_OK")
@@ -87,6 +101,9 @@ func _initialize() -> void:
 
 class _NullPeer:
 	extends RefCounted
-	## Minimal WebSocketPeer stand-in for the notice path (#593) — close() only.
+	## Minimal WebSocketPeer stand-in for the notice/probe paths (#593/#702).
 	func close() -> void:
 		pass
+
+	func send_text(_text: String) -> Error:
+		return OK

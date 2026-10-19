@@ -59,8 +59,10 @@ a separate, explicitly-versioned channel.)
 - **Connection lifecycle:** the **server listens; the editor (addon) connects out and
   reconnects** with **exponential backoff** (start ~500 ms, capped) whenever the link is
   down — so editor start order doesn't matter and a restart self-heals (#276). At most one
-  active peer; a new connection replaces the old. A `cmd_ping` → `{pong: true}` exchange is
-  the liveness health check.
+  active peer; a new connection replaces the old. A replaced editor probes `/probe` with a
+  slow backoff: busy probes are refused without displacing the active peer, and a free probe
+  is adopted as the new connection (#702). A `cmd_ping` → `{pong: true}` exchange is the
+  liveness health check.
 - **Concurrency:** many requests may be in flight; each response is matched to its request
   by `id`. Correlation is concurrency-safe — no shared mutable per-request state. The
   editor is a single writer, so mutating commands are effectively serialized by the addon.

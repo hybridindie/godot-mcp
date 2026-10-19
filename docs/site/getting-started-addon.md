@@ -101,7 +101,9 @@ GODOT_MCP_BRIDGE_URL=ws://127.0.0.1:9080 godot --path /path/to/your/game
    can start in **either** order — the addon reconnects automatically. If a
    second editor takes over the bridge, the first shows a distinct
    **"Replaced by another editor"** state (purple dot) instead of a misleading
-   green — its commands now go to the other editor.
+   green — its commands now go to the other editor. It keeps probing the bridge
+without displacing the other editor; once that editor disconnects, the replaced
+editor resumes automatically.
 3. `godot_health_check()` from your agent returns
    `{"bridge_connected": true, "version": "…"}`.
 
