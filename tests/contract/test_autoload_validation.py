@@ -28,3 +28,28 @@ def test_save_errors_are_surfaced() -> None:
     assert "Failed to save project settings" in _SRC
     # The bare ignored call form must be gone.
     assert "\tProjectSettings.save()\n" not in _SRC
+
+
+def test_autoload_handlers_use_the_editor_api_when_available() -> None:
+    """#700: the editor API supplies undo + Autoload panel refresh."""
+    assert "_router.add_autoload_singleton(" in _SRC
+    assert "_router.remove_autoload_singleton(" in _SRC
+    assert "_router.has_plugin()" in _SRC
+    router = (
+        Path(__file__).resolve().parents[2]
+        / "godot"
+        / "addons"
+        / "godot_mcp"
+        / "command_router.gd"
+    ).read_text(encoding="utf-8")
+    assert "func set_plugin(plugin: EditorPlugin)" in router
+    assert "func add_autoload_singleton(name: String, path: String)" in router
+    assert "func remove_autoload_singleton(name: String)" in router
+    entry = (
+        Path(__file__).resolve().parents[2]
+        / "godot"
+        / "addons"
+        / "godot_mcp"
+        / "godot_mcp.gd"
+    ).read_text(encoding="utf-8")
+    assert "router.set_plugin(self)" in entry

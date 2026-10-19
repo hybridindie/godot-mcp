@@ -90,11 +90,11 @@ def register_resource_files(mcp: FastMCP, bridge: Bridge) -> None:
     async def register_autoload(
         name: str, path: ResPath, confirm: bool = False, dry_run: bool = False
     ) -> RegisterAutoloadResult:
-        """Register an autoload singleton ``name`` pointing at the script/scene ``path``
-        (persisted to project settings).
+        """Register an autoload singleton ``name`` pointing at the script/scene ``path``.
 
-        Destructive: writes project settings to disk (``ProjectSettings.save``) with no
-        UndoRedo, so it requires ``confirm=True`` (``dry_run`` previews).
+        Uses the editor's autoload API (Autoload panel refresh + the editor undo stack)
+        and persists the result to project settings. Destructive because it writes
+        project settings to disk, so it requires ``confirm=True`` (``dry_run`` previews).
         """
         if not dry_run:
             require_confirmation(confirm, "register_autoload")
@@ -109,10 +109,11 @@ def register_resource_files(mcp: FastMCP, bridge: Bridge) -> None:
     async def unregister_autoload(
         name: str, confirm: bool = False, dry_run: bool = False
     ) -> UnregisterAutoloadResult:
-        """Remove the autoload singleton ``name`` from project settings.
+        """Remove the autoload singleton ``name``.
 
-        Destructive: writes project settings to disk with no UndoRedo, so it requires
-        ``confirm=True`` (``dry_run`` previews).
+        Uses the editor's autoload API (Autoload panel refresh + the editor undo stack)
+        and persists the result to project settings. Destructive because it writes
+        project settings to disk, so it requires ``confirm=True`` (``dry_run`` previews).
         """
         if not dry_run:
             require_confirmation(confirm, "unregister_autoload")

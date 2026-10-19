@@ -63,6 +63,8 @@ func _enter_tree() -> void:
 	add_debugger_plugin(_debugger)
 	var router := MCPCommandRouter.new()
 	router.set_debugger(_debugger)
+	# #700: autoload handlers use the editor API (undo + Autoload panel refresh).
+	router.set_plugin(self)
 	_router = router  # kept for the cmd_server_hello version label (#521)
 
 	# Start the WebSocket bridge and reflect its state in the dock.

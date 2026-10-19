@@ -83,6 +83,10 @@ var pending_rescan := false
 # The EditorDebuggerPlugin that captures a played game's godot_mcp channel (issue #66).
 # Set by the plugin entry; null in headless/unit contexts where there is no editor.
 var _debugger: Object = null
+# The EditorPlugin entry (issue #700): lets autoload handlers use the editor's
+# add_autoload_singleton/remove_autoload_singleton (UndoRedo + panel refresh).
+# Null in headless/unit contexts.
+var _plugin: EditorPlugin = null
 ## The shared domain helpers (issue #522): handlers reach the shared logic
 ## through `_router._helpers` — no per-domain back-references, no cycle.
 const MCPHelpers := preload("./mcp_helpers.gd")
@@ -95,6 +99,29 @@ var _guards: MCPGuards = null
 ## Inject the MCPDebugger so runtime-inspection handlers can read cached live state.
 func set_debugger(debugger: Object) -> void:
 	_debugger = debugger
+
+
+## Inject the EditorPlugin entry (issue #700). Null in headless contexts; autoload
+## handlers fall back to ProjectSettings when no plugin is available.
+func set_plugin(plugin: EditorPlugin) -> void:
+	_plugin = plugin
+
+
+func has_plugin() -> bool:
+	return _plugin != null
+
+
+## Register an autoload through the editor API so the Autoload panel refreshes and
+## the action lands on the editor undo stack (issue #700).
+func add_autoload_singleton(name: String, path: String) -> void:
+	if _plugin != null:
+		_plugin.add_autoload_singleton(name, path)
+
+
+## Remove an autoload through the editor API (undo + panel refresh, issue #700).
+func remove_autoload_singleton(name: String) -> void:
+	if _plugin != null:
+		_plugin.remove_autoload_singleton(name)
 
 
 ## Break the router/handler reference cycle so this cluster can actually be freed.
@@ -111,6 +138,7 @@ func dispose() -> void:
 	# is via `_router` for the envelope builders, which dies with this object).
 	_handlers.clear()
 	_debugger = null
+	_plugin = null
 	_instances.clear()
 	_helpers = null
 	_guards = null

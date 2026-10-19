@@ -525,9 +525,11 @@ property's declared Godot type.
 | `godot_resources_edit_unregister_autoload` | `name, confirm=False, dry_run=False` | `UnregisterAutoloadResult { name, unregistered }` | `destructive` |
 
 `godot_resources_edit_set_resource_property` is undo-reversible (`mutating`). `godot_resources_edit_create_resource`
-is a file write (not undo-tracked) and `godot_resources_edit_register_autoload`/`unregister_autoload`
-persist to project settings — all three are **`destructive`** (issue #638): they accept
-`dry_run: bool = False` (preview, no change) and require `confirm=True` to run.
+is a file write (not undo-tracked). `godot_resources_edit_register_autoload`/`unregister_autoload`
+go through `EditorPlugin.add_autoload_singleton()` / `remove_autoload_singleton()`, so the
+Autoload panel refreshes and the change lands on the editor undo stack; the result is still
+persisted with `ProjectSettings.save()`. All three remain **`destructive`** (issue #638):
+they accept `dry_run: bool = False` (preview, no change) and require `confirm=True` to run.
 
 #### External asset import (issue #108) — category: `asset_import` (gated off by default)
 
@@ -920,8 +922,14 @@ Action (when not dry-run):
 4. Creates a root scene (`Node2D` for 2D types, `Node3D` for 3D) saved as `res://scenes/{main_scene}.tscn`
 5. Sets `application/run/main_scene` and persists to `project.godot`
 
-All changes are persisted via `ProjectSettings.save()`.  The tool is `destructive`
+All changes are persisted via `ProjectSettings.save()`. The tool is `destructive`
 because there is no clean UndoRedo path for broad project mutations.
+
+The scaffold is **all-or-nothing** (#700): `main_scene` must be a valid identifier,
+and any failure after work has begun restores the project-settings snapshot, removes
+files/directories this run created, and returns `INTERNAL_ERROR` with a hint naming
+the failed step and whether rollback completed. Pre-existing files and directories are
+left untouched.
 
 #### Composite / macro (issue #154) — category: `composite` (gated off by default)
 

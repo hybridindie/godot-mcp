@@ -56,9 +56,12 @@ def register_project_scaffold(
         """Scaffold a project skeleton for ``type``.
 
         Supported types: ``"2d_platformer"`` | ``"3d_fps"`` | ``"top_down_rpg"`` |
-        ``"visual_novel"``.  Creates directories, sets rendering/window defaults,
-        registers autoloads, and creates a root scene.  Requires ``confirm=True``
+        ``"visual_novel"``. Creates directories, sets rendering/window defaults,
+        registers autoloads, and creates a root scene. Requires ``confirm=True``
         because it mutates the project filesystem broadly.
+
+        All-or-nothing: if a step fails, created files/directories and settings are
+        rolled back before the structured error is returned.
         """
         if type not in _SCAFFOLD_TYPES:
             raise ValueError(

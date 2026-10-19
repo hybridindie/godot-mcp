@@ -122,8 +122,14 @@ func _cmd_register_autoload(params: Dictionary) -> Dictionary:
 		)
 	if not ResourceLoader.exists(path):
 		return _router._fail("RESOURCE_NOT_FOUND", "No script/scene at '%s'." % path)
-	# "*" prefix enables the autoload as a global singleton.
-	ProjectSettings.set_setting("autoload/" + autoload_name, "*" + path)
+	# #700: prefer the editor API so the Autoload panel refreshes and the change
+	# lands on the editor undo stack. Headless contexts (no plugin) fall back to
+	# the settings write.
+	if _router.has_plugin():
+		_router.add_autoload_singleton(autoload_name, path)
+	else:
+		# "*" prefix enables the autoload as a global singleton.
+		ProjectSettings.set_setting("autoload/" + autoload_name, "*" + path)
 	var save_err := ProjectSettings.save()
 	if save_err != OK:
 		return _router._fail(
@@ -138,7 +144,11 @@ func _cmd_unregister_autoload(params: Dictionary) -> Dictionary:
 	var key := "autoload/" + autoload_name
 	if not ProjectSettings.has_setting(key):
 		return _router._ok({"name": autoload_name, "unregistered": false})
-	ProjectSettings.set_setting(key, null)
+	# #700: prefer the editor API (undo + panel refresh); headless falls back.
+	if _router.has_plugin():
+		_router.remove_autoload_singleton(autoload_name)
+	else:
+		ProjectSettings.set_setting(key, null)
 	var save_err := ProjectSettings.save()
 	if save_err != OK:
 		return _router._fail(
