@@ -14,6 +14,19 @@ infra/
 └── README.md               # This file
 ```
 
+## CI runner images
+
+`runner.Dockerfile` and the `k8s-runner-*.yml` deployments are deliberately owned
+here. The `[self-hosted, godot]` runner needs Godot 4.7 baked in for this repo's
+e2e suite; moving the runner build into a consumer would couple this repo's CI to
+that consumer.
+
+`.github/workflows/runner-image.yml` builds and pushes
+`ghcr.io/hybridindie/godot-mcp-runner`. Manual dispatch is the intended rebuild
+path; Dockerfile/workflow changes also trigger a build. The GHCR package must
+grant `hybridindie/godot-mcp` write access for the workflow's `GITHUB_TOKEN` to
+push (issue #706).
+
 ## Pre-built image
 
 A Docker image is published to GitHub Container Registry on every release:

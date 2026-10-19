@@ -159,3 +159,11 @@ def test_canonical_contract_wording_is_not_reversed() -> None:
     contracts = (REPO_ROOT / "docs" / "tool-contracts.md").read_text(encoding="utf-8")
     assert "Below the floor, the client is too **old**" in contracts
     assert "Below the floor, the client is too new" not in contracts
+
+
+def test_agents_has_one_canonical_wiki_fabric_block() -> None:
+    """AGENTS.md is shared by every harness; keep one wiki-fabric block."""
+    text = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    assert text.count("## wiki-fabric") == 1
+    assert "## wiki-fabric (opencode)" not in text
+    assert text.count("This project is connected to a knowledge fabric") == 1

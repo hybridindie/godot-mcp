@@ -28,6 +28,7 @@ guards/threshold smokes all exercise the router) plus a new helpers smoke.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -37,20 +38,20 @@ from tests.integration._godot import GODOT_BIN, run_godot
 ADDON_DIR = Path(__file__).resolve().parents[2] / "godot" / "addons" / "godot_mcp"
 ROUTER_GD = ADDON_DIR / "command_router.gd"
 HELPERS_GD = ADDON_DIR / "mcp_helpers.gd"
+HANDLERS_DIR = ADDON_DIR / "handlers"
 
-HANDLER_TABLE = [
-    "scene_inspect", "mutation", "scripts", "node_parity", "animation",
-    "physics", "scene_3d", "mesh_library", "particles", "navigation",
-    "audio", "tilemap", "tileset", "theme_ui", "shaders", "runtime_session",
-    "runtime_inspect", "input_recording", "profiling", "batch", "composite",
-    "export", "editor", "project_fs", "resources", "scene_session",
-    "input_map", "debugger", "import_asset", "visual_shader", "project_scaffold",
-    "class_info",
-]
+_HANDLER_PRELOAD = re.compile(r'preload\("\./handlers/([a-z0-9_]+)\.gd"\)')
 
 
 def _router_src() -> str:
     return ROUTER_GD.read_text()
+
+
+def _function_body(src: str, name: str) -> str:
+    """The body of ``func name(...)`` up to the next top-level function."""
+    start = src.index(f"func {name}(")
+    end = src.find("\nfunc ", start + 1)
+    return src[start:] if end == -1 else src[start:end]
 
 
 def test_helpers_module_exists_and_owns_the_shared_logic() -> None:
@@ -72,44 +73,54 @@ def test_helpers_module_exists_and_owns_the_shared_logic() -> None:
 
 
 def test_router_registration_is_data_driven() -> None:
-    """Adding a domain costs one table entry, not four edits: no per-domain
-    preload/member-var/new/register/dispose boilerplate survives."""
+    """The router wires handlers through one table loop, and ``dispose()`` clears
+    only the real references. Behavior (every domain registered, commands live)
+    is pinned by ``helpers_smoke.gd``; these checks enforce the architecture that
+    behavior cannot observe."""
     src = _router_src()
-    # No per-domain member variables (the cycle-keeping members die).
-    for name in (
-        "_scene_inspect", "_mutation", "_scripts", "_node_parity",
-        "_animation", "_physics", "_scene_3d", "_mesh_library",
-        "_particles", "_navigation", "_audio", "_tilemap", "_tileset",
-        "_theme_ui", "_shaders", "_runtime_session", "_runtime_inspect",
-        "_input_recording", "_profiling", "_batch", "_composite", "_export",
-        "_editor", "_project_fs", "_resources", "_scene_session",
-        "_input_map", "_debugger_handlers", "_import_asset", "_visual_shader",
-    ):
-        assert f"var {name}: MCP" not in src, (
-            f"router keeps a per-domain member var {name} — registration must be data-driven (#522)"
+    init = _function_body(src, "_init")
+    assert "for handler_script in HANDLERS:" in init
+    assert init.count("handler.register(_handlers)") == 1
+    assert "_instances.append(handler)" in init
+    assert init.count("handler_script.new(self)") == 1, (
+        "router still constructs domain handlers outside the HANDLERS loop"
+    )
+
+    dispose = _function_body(src, "dispose")
+    for attr in ("_handlers", "_instances"):
+        assert f"{attr}.clear()" in dispose, f"dispose() must clear {attr}"
+    for attr in ("_debugger", "_helpers", "_guards"):
+        assert f"{attr} = null" in dispose, f"dispose() must drop {attr}"
+
+    # No per-domain member vars: discover the handler class names from the
+    # scripts themselves instead of hard-coding a stale list.
+    handler_classes = {
+        match.group(1)
+        for path in HANDLERS_DIR.glob("*.gd")
+        if (match := re.search(r"^class_name (MCP\w+)$", path.read_text(), re.M))
+    }
+    for cls in sorted(handler_classes):
+        assert f": {cls}" not in src, (
+            f"router keeps a per-domain member of type {cls} — "
+            "registration must be data-driven (#522)"
         )
-    # No per-domain .new(self)+register lines in _init.
-    assert src.count("= MCP") <= 2, (
-        "router still constructs domain handlers inline — use the HANDLERS table loop"
-    )
-    # dispose() is trivial (no 30-line member-clearing).
-    dispose = src[src.index("func dispose") :]
-    dispose = dispose[: dispose.index("\nfunc ", 1)]
-    assert dispose.count("= null") <= 3, (
-        "dispose() still clears per-domain members by hand — must be trivial (#522)"
-    )
 
 
 def test_handler_table_covers_every_domain() -> None:
-    """The HANDLERS table lists all 31 domain handler scripts (plus guards)."""
+    """The HANDLERS table is derived from the handler scripts on disk: every
+    ``handlers/*.gd`` file appears exactly once, and nothing stale remains."""
     src = _router_src()
-    for domain in HANDLER_TABLE:
-        assert f'"{domain}' in src or f"{domain}" in src, (
-            f"router HANDLERS table missing the {domain} domain (#522)"
-        )
-    # And the loop drives registration (a single register call site).
-    assert src.count(".register(") <= 1, (
-        "router must register handlers in one loop, not 30 inline calls"
+    table = _HANDLER_PRELOAD.findall(src)
+    on_disk = sorted(path.stem for path in HANDLERS_DIR.glob("*.gd"))
+    assert sorted(table) == on_disk, (
+        "router HANDLERS table and handlers/ disagree: "
+        f"table-only={sorted(set(table) - set(on_disk))}, "
+        f"disk-only={sorted(set(on_disk) - set(table))}"
+    )
+    assert len(table) == len(set(table)), "HANDLERS table has a duplicate entry"
+    # The loop drives registration (one register call site).
+    assert src.count(".register(") == 1, (
+        "router must register handlers in one loop, not inline calls"
     )
 
 

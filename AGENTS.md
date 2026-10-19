@@ -137,10 +137,9 @@ Two built-in tools are **off by default** and need an env var to activate — un
 - For process tasks (branching, PRs, test results, summaries): use bullet points, no prose paragraphs.
 - For mandatory reports (e.g. missing tooling, deferred phase scope): append a bullet list after any code output.
 
-## wiki-fabric (opencode)
 ## wiki-fabric
 
-This project is connected to a knowledge fabric (`.wiki-overlay.md` declares the namespace; the fabric lives at `~/.local/share/wiki-fabric/` by default — `WIKI_FABRIC_DIR` overrides).
+This project is connected to a knowledge fabric (`.wiki-overlay.md` declares the namespace; the fabric lives at `~/.local/share/wiki-fabric/` by default — `WIKI_FABRIC_DIR` overrides). This is the canonical block for every harness — do not duplicate it per client.
 
 Rules:
 - Before starting a task, run `wf context --task "<task>" --write-receipt` (0 tokens) — it compiles a scoped manifest of relevant claims, patterns, and decisions (project > domain > global precedence) with exclusion reasons. The `--write-receipt` flag persists a delivery record (the manifest + provenance, still on stdout) so outcomes can later be reviewed against what was known: receipts are the default delivery record, zero extra cost.
