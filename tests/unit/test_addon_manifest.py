@@ -53,6 +53,20 @@ def test_plugin_script_exists_and_is_editor_plugin(
     assert "extends EditorPlugin" in source, "addon entry must extend EditorPlugin"
 
 
+def test_addon_ships_a_copy_of_the_project_license() -> None:
+    """Godot's Asset Library guidance: a plugin should carry the license in its
+    own folder, so users who install it keep the license with the addon."""
+    addon_license = ADDON_DIR / "LICENSE"
+    root_license = REPO_ROOT / "LICENSE"
+    assert addon_license.is_file(), "addon must ship LICENSE in its own folder"
+    assert addon_license.read_text(encoding="utf-8") == root_license.read_text(
+        encoding="utf-8"
+    ), "addon LICENSE drifted from the repository LICENSE"
+    text = addon_license.read_text(encoding="utf-8")
+    assert "MIT License" in text
+    assert "Copyright (c)" in text
+
+
 def test_addon_version_matches_package(plugin_cfg: configparser.ConfigParser) -> None:
     version = plugin_cfg.get("plugin", "version").strip('"')
     assert CALVER.match(version), f"addon version {version!r} is not CalVer"
