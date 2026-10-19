@@ -84,9 +84,13 @@ func _snapshot(main_scene_path: String) -> Dictionary:
 	var files := {}
 	for path in [GAME_STATE_SCRIPT, main_scene_path]:
 		var existed := FileAccess.file_exists(path)
+		var uid_path := str(path) + ".uid"
+		var uid_existed := FileAccess.file_exists(uid_path)
 		files[path] = {
 			"existed": existed,
 			"text": FileAccess.get_file_as_string(path) if existed else "",
+			"uid_existed": uid_existed,
+			"uid_text": FileAccess.get_file_as_string(uid_path) if uid_existed else "",
 		}
 	return {
 		"settings": settings,
@@ -110,6 +114,16 @@ func _rollback(snapshot: Dictionary) -> Dictionary:
 			var write_err := _write_text(path, str(state["text"]))
 			if write_err != OK:
 				errors.append("could not restore '%s' (error %d)" % [path, write_err])
+			# Godot 4.4+ sidecars: restore the original UID, or drop a sidecar that
+			# the scan created for a pre-4.4 file.
+			var uid_path: String = str(path) + ".uid"
+			if state["uid_existed"]:
+				var uid_err := _write_text(uid_path, str(state["uid_text"]))
+				if uid_err != OK:
+					errors.append("could not restore '%s' (error %d)" % [uid_path, uid_err])
+			elif FileAccess.file_exists(uid_path):
+				DirAccess.remove_absolute(uid_path)
+				EditorInterface.get_resource_filesystem().update_file(uid_path)
 		else:
 			_router._remove_file_with_uid(path)
 
@@ -151,6 +165,8 @@ func _rollback(snapshot: Dictionary) -> Dictionary:
 			else:
 				file.store_string(project_text)
 				file.close()
+				# The disk is authoritative again; drop the editor's stale view.
+				EditorInterface.get_resource_filesystem().update_file(PROJECT_FILE)
 
 	if errors.is_empty():
 		return {"ok": true}
