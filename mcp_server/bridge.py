@@ -299,10 +299,18 @@ class Bridge:
         if self._conn is not None:
             with suppress(Exception):
                 await conn.send(json.dumps({"ok": True, "busy": True}))
-            await conn.close()
-            return
-        with suppress(Exception):
-            await conn.send(json.dumps({"ok": True, "busy": False}))
+            # The active peer can disconnect between the check and the close.
+            # Give that a moment to land, then adopt this probe if the bridge
+            # just became free (the addon waits for either busy:false or close).
+            await asyncio.sleep(0.05)
+            if self._conn is not None:
+                await conn.close()
+                return
+            with suppress(Exception):
+                await conn.send(json.dumps({"ok": True, "busy": False}))
+        else:
+            with suppress(Exception):
+                await conn.send(json.dumps({"ok": True, "busy": False}))
         reader = await self._attach(conn)
         if reader is not None:
             await reader

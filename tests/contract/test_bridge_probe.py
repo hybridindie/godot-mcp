@@ -52,3 +52,34 @@ async def test_free_probe_is_promoted_without_a_second_connection() -> None:
     with suppress(asyncio.CancelledError):
         await task
     await bridge.close()
+
+
+async def test_busy_probe_is_adopted_if_the_peer_leaves_during_the_check() -> None:
+    """The busy answer is followed by a short re-check (#702 review): a probe
+    that arrived just as the active editor left is promoted, not closed."""
+    active = FakeAddonConnection()
+    bridge = Bridge(BridgeConfig(), connector=connector_for(active))
+    await bridge.connect()
+
+    probe = FakeAddonConnection(path="/probe")
+    task = asyncio.create_task(bridge._handle_peer(probe))
+    for _ in range(50):
+        if probe.sent:
+            break
+        await asyncio.sleep(0.01)
+    assert json.loads(probe.sent[0]) == {"ok": True, "busy": True}
+
+    # Simulate the active editor disconnecting inside the probe's re-check window.
+    bridge._conn = None
+
+    for _ in range(50):
+        if len(probe.sent) >= 2:
+            break
+        await asyncio.sleep(0.01)
+    assert json.loads(probe.sent[1]) == {"ok": True, "busy": False}
+    assert bridge._conn is probe
+
+    task.cancel()
+    with suppress(asyncio.CancelledError):
+        await task
+    await bridge.close()

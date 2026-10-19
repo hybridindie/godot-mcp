@@ -223,6 +223,9 @@ func _probe_failed() -> void:
 
 func _open_probe() -> void:
 	_probe_peer = WebSocketPeer.new()
+	if _probe_peer == null:
+		_probe_failed()
+		return
 	_probe_peer.outbound_buffer_size = BUFFER_SIZE
 	_probe_peer.inbound_buffer_size = BUFFER_SIZE
 	var err: int = _probe_peer.connect_to_url(_probe_url())
@@ -251,10 +254,10 @@ func _process_probe(delta: float) -> void:
 				if not d.has("busy"):
 					continue
 				if bool(d.get("busy", true)):
-					_clear_probe_peer()
-					_probe_failed()
-				else:
-					_promote_probe(_probe_peer)
+					# The server re-checks after answering: keep this probe open
+					# for a possible busy:false (bridge just freed) or its close.
+					continue
+				_promote_probe(_probe_peer)
 				return
 		WebSocketPeer.STATE_CONNECTING, WebSocketPeer.STATE_CLOSING:
 			pass
