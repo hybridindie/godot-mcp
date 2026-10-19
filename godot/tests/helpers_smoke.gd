@@ -32,6 +32,33 @@ func _initialize() -> void:
 	if router._instances.size() != Router.HANDLERS.size():
 		failures.append("instances/table mismatch: %d vs %d" % [router._instances.size(), Router.HANDLERS.size()])
 
+	# The HANDLERS table matches the handler scripts on disk. This is a runtime
+	# view of the table, so it cannot drift with preload formatting.
+	var handler_dir := DirAccess.open("res://addons/godot_mcp/handlers")
+	if handler_dir == null:
+		failures.append("cannot open the handlers directory")
+	else:
+		var on_disk: Array[String] = []
+		handler_dir.list_dir_begin()
+		var file_name := handler_dir.get_next()
+		while file_name != "":
+			if file_name.ends_with(".gd"):
+				on_disk.append("res://addons/godot_mcp/handlers/" + file_name)
+			file_name = handler_dir.get_next()
+		handler_dir.list_dir_end()
+		var table_paths: Array[String] = []
+		for handler_script in Router.HANDLERS:
+			table_paths.append(str(handler_script.resource_path))
+		on_disk.sort()
+		table_paths.sort()
+		if table_paths != on_disk:
+			failures.append(
+				"HANDLERS/disk mismatch: table=%s disk=%s"
+				% [str(table_paths), str(on_disk)]
+			)
+		if table_paths.size() != Router.HANDLERS.size():
+			failures.append("duplicate HANDLERS entries")
+
 	# The helpers module owns the shared logic (no router-privates reach-in).
 	var helpers := router._helpers
 	if helpers == null:
