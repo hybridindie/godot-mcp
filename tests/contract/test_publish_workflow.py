@@ -76,3 +76,16 @@ def test_dependabot_keeps_github_actions_fresh() -> None:
     assert "github-actions" in ecosystems, (
         "SHA-pinned actions need Dependabot to stay current (#649)"
     )
+
+
+def test_legacy_asset_library_publish_job_is_gone() -> None:
+    """#734: the legacy godotengine.org asset-library endpoint uses a different
+    ID space and has no valid publish path for the new store. The addon zip is
+    attached to the GitHub release and uploaded to store.godotengine.org
+    manually until the new store exposes a publish API/CLI."""
+    jobs = _jobs()
+    assert "publish-assetlib" not in jobs
+    text = _PUBLISH.read_text(encoding="utf-8")
+    assert "godotengine.org/asset-library" not in text
+    assert "YOUR_ASSET_ID" not in text
+    assert "GODOT_ASSETLIB_TOKEN" not in text

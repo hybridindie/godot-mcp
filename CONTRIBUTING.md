@@ -136,6 +136,10 @@ CalVer `YYYY.MM.DD[-N]` (stable, e.g. `2026.09.10`); prerelease suffixes (`b1`, 
 
 Releases are automated via `.github/workflows/publish.yml` — triggered on GitHub release publish. See [the release workflow](infra/README.md) for details.
 
+The addon zip is attached to the GitHub release and must be uploaded to the new
+Godot Asset Store manually for now: its beta v1 API is read-only for releases and
+has no publish endpoint. See [the Asset Store notes](infra/README.md#godot-asset-store).
+
 ## Questions?
 
 Open an [issue](https://github.com/hybridindie/godot-mcp/issues) or read [`AGENTS.md`](AGENTS.md) for the full project context.

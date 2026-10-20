@@ -27,6 +27,27 @@ path; Dockerfile/workflow changes also trigger a build. The GHCR package must
 grant `hybridindie/godot-mcp` write access for the workflow's `GITHUB_TOKEN` to
 push (issue #706).
 
+## Godot Asset Store
+
+The addon zip (`addon_dist/godot_mcp_addon.zip`) is attached to every GitHub
+release. The new store (<https://store.godotengine.org>) uses the coordinates
+publisher `john-d-studios`, asset `godot-editor-mcp-addon` (internal asset ID
+`3101`).
+
+There is **no public upload/publish endpoint** yet. The beta store's v1 API is
+read-only for assets/releases, and the roadmap says a CLI for CI uploads is
+planned. Upload the zip through the store's logged-in manage UI for now.
+
+Useful API endpoints:
+
+- Docs: <https://store.godotengine.org/api/v1/redoc>
+- OpenAPI: <https://store.godotengine.org/api/v1/openapi.json>
+- Verify releases:
+  `curl -fsSL 'https://store.godotengine.org/api/v1/releases/john-d-studios/godot-editor-mcp-addon/?stable_only=true'`
+
+The legacy `godotengine.org/asset-library` endpoint is **not** used: its asset
+IDs are a different namespace (legacy `3101` is another asset).
+
 ## Pre-built image
 
 A Docker image is published to GitHub Container Registry on every release:
