@@ -12,6 +12,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Manual re-run (e.g. after a runner-level flake in `uv python install`).
+  workflow_dispatch:
 
 # Cancel a superseded run when a new commit lands on the same ref (iterative PR
 # pushes) — only the latest commit's CI matters, so this saves runner minutes (#309).
