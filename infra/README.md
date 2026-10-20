@@ -55,7 +55,7 @@ A Docker image is published to GitHub Container Registry on every release:
 ```bash
 docker pull ghcr.io/hybridindie/godot-mcp:latest
 # or a specific version:
-docker pull ghcr.io/hybridindie/godot-mcp:2026.10.15
+docker pull ghcr.io/hybridindie/godot-mcp:2026.10.20
 ```
 
 Run it:
@@ -123,5 +123,5 @@ MCP connections.
 Docker images are built and pushed automatically by `.github/workflows/publish.yml` on
 GitHub release publish. The image is tagged with both the release version and `latest`:
 
-- `ghcr.io/hybridindie/godot-mcp:<version>` (e.g. `2026.10.15`)
+- `ghcr.io/hybridindie/godot-mcp:<version>` (e.g. `2026.10.20`)
 - `ghcr.io/hybridindie/godot-mcp:latest`

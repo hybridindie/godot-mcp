@@ -5,7 +5,7 @@ description: Connect to and drive a Godot editor through the Godot Editor MCP se
 
 # godot: getting started
 
-Godot Editor MCP exposes the Godot editor (inspection, scene edits, scripts, runtime) over MCP. This skill documents the **2026.10.15** surface. Tools are named `godot_<toolset>_<action>`. The live inventory is authoritative — `godot_get_server_info()` and `godot_list_toolsets()` report the real tools and categories, so trust them over anything written here. Read this once at the start of a Godot session — it prevents the three most common failures: a version mismatch, missing tools, and unconfirmed destructive edits.
+Godot Editor MCP exposes the Godot editor (inspection, scene edits, scripts, runtime) over MCP. This skill documents the **2026.10.20** surface. Tools are named `godot_<toolset>_<action>`. The live inventory is authoritative — `godot_get_server_info()` and `godot_list_toolsets()` report the real tools and categories, so trust them over anything written here. Read this once at the start of a Godot session — it prevents the three most common failures: a version mismatch, missing tools, and unconfirmed destructive edits.
 
 ## 1. Confirm the bridge and the version
 
@@ -16,7 +16,7 @@ godot_health_check()      # bridge connected? which URL? → also returns versio
 godot_get_server_info()   # version, contract_version, toolsets, active scene, next_steps
 ```
 
-- `godot_health_check()` returns `version` — if it isn't **2026.10.15**, this skill may be stale; rely on `godot_get_server_info()`'s live toolset/tool inventory over anything here.
+- `godot_health_check()` returns `version` — if it isn't **2026.10.20**, this skill may be stale; rely on `godot_get_server_info()`'s live toolset/tool inventory over anything here.
 - `godot_get_server_info()` returns `contract_version` (tool-surface compatibility, currently 1) — a client is compatible when `min_compatible_contract <= yours <= contract_version`.
 - **Version drift & updates.** `godot_health_check()` / `godot_get_server_info()` report the connected addon's version and flag a server↔addon mismatch (`version_notice`) — if the two differ, both sides need the same release. If update checks are enabled (`GODOT_MCP_CHECK_UPDATES`), call `godot_check_for_updates()` to see whether a newer Godot Editor MCP release exists; a known update also shows up in `next_steps`.
 - If disconnected: open **your Godot project** with the addon enabled (addons are installed per-project; for a smoke test you can open the `godot/` folder of the Godot Editor MCP checkout). Requires Godot 4.4+ (validated on 4.7). Enable it in Project Settings → Plugins → godot_mcp, then check the status dock.

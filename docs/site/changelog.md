@@ -3,7 +3,7 @@ type: index
 title: "Changelog"
 description: "Release history for godot-mcp."
 created: 2026-09-19
-updated: 2026-10-15
+updated: 2026-10-20
 ---
 
 # Changelog
@@ -11,6 +11,35 @@ updated: 2026-10-15
 Full release notes live on
 [GitHub Releases](https://github.com/hybridindie/godot-mcp/releases). This page
 summarizes the recent ones.
+
+## 2026.10.20 — Editor API autoloads, atomic scaffolds, and replaced-editor recovery
+
+Addon reliability release. Surface: **194 tools** across **29 categories**
+(unchanged); all changes are additive — `contract_version` stays 1.
+
+- **Autoloads use the editor API (#700)** — `register_autoload` and
+  `unregister_autoload` now go through
+  `EditorPlugin.add_autoload_singleton()` / `remove_autoload_singleton()`, so the
+  Autoload settings panel refreshes and the change lands on the editor undo
+  stack. Headless contexts keep the `ProjectSettings` fallback, and save errors
+  are still surfaced.
+- **`project_scaffold` is all-or-nothing (#700)** — it snapshots settings,
+  files, and directories, validates `main_scene` as an identifier, defers the
+  settings save to the end, and rolls back on any failure. A mid-scaffold
+  failure now returns a structured `INTERNAL_ERROR` naming the failed step and
+  whether rollback completed.
+- **Replaced editors recover automatically (#702)** — after `PEER_REPLACED`,
+  the addon no longer stays dark forever. It probes a non-displacing `/probe`
+  path with a slow 5s→30s backoff; busy probes never displace the active
+  editor, and a free probe is adopted as the same connection.
+- **The addon ships its license (#728)** — `godot/addons/godot_mcp/LICENSE`
+  carries the MIT license into the release/Asset Store zip, as Godot's Asset
+  Library guidance recommends.
+- **Docs & release workflow** — the compatibility contract is now a dedicated,
+  corrected explainer; the docs use the **Godot Editor MCP** product name with
+  explicit creator/developer tracks; the legacy Asset Library publish job was
+  removed in favor of attaching the addon zip to the GitHub release for manual
+  upload to the new store (#723/#725/#727/#734).
 
 ## 2026.10.15 — Security hardening, honest results, and a leaner agent surface
 
