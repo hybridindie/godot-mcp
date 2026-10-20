@@ -1,7 +1,9 @@
 """CalVer comparison and server↔addon version-drift notices (issue #629).
 
-Versions are CalVer ``YYYY.MM.DD[-N]``. Comparing them as strings is unsafe (a
-zero-padded and an unpadded build sort wrongly), so parse the numeric parts.
+Versions are CalVer ``YYYY.MM.DD[.N]`` (a dotted ``.N`` is a same-day revision;
+the legacy ``-N`` form is accepted and ordered identically). Comparing them as
+strings is unsafe (a zero-padded and an unpadded build sort wrongly), so parse
+the numeric parts.
 """
 
 from __future__ import annotations
@@ -12,11 +14,17 @@ _LEADING_INT = re.compile(r"^\d+")
 
 
 def parse_calver(value: str) -> tuple[int, ...] | None:
-    """Parse ``YYYY.MM.DD[-N]`` (or a bare tag like ``v2026.10.10``) into its
-    numeric parts, or ``None`` when it is not CalVer-shaped."""
+    """Parse ``YYYY.MM.DD[.N]`` (or a bare tag like ``v2026.10.10``) into its
+    numeric parts, or ``None`` when it is not CalVer-shaped.
+
+    A same-day revision may be written ``2026.10.20.1`` (canonical) or
+    ``2026.10.20-1``. The hyphen form is normalized to the dotted one so it is
+    not dropped from the comparison — a patch must sort newer than its base.
+    """
     text = value.strip().lstrip("vV")
     if not text:
         return None
+    text = re.sub(r"-(\d+)$", r".\1", text)
     head = text.split("-", 1)[0]
     parts: list[int] = []
     for part in head.split("."):

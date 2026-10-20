@@ -36,8 +36,8 @@ the guarantees those tests protect.
 
 ## What the contract does not cover
 
-- **The CalVer build version.** `version` (`YYYY.MM.DD[-N]`) moves on every release,
-  including additive and internal changes.
+- **The CalVer build version.** `version` (`YYYY.MM.DD[.N]`, where `.N` is a same-day
+  revision) moves on every release, including additive and internal changes.
 - **The MCP protocol revision** (`2026-07-28`) or the FastMCP version.
 - **Server↔addon version matching.** `version_notice` handles that separately; both
   halves should come from the same release.

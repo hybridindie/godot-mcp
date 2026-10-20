@@ -28,7 +28,7 @@ def test_version_is_calver() -> None:
     import mcp_server
 
     assert CALVER.match(mcp_server.__version__), (
-        f"__version__ {mcp_server.__version__!r} is not CalVer YYYY.MM.DD[-N]"
+        f"__version__ {mcp_server.__version__!r} is not CalVer YYYY.MM.DD[.N]"
     )
 
 

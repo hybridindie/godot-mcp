@@ -12,6 +12,24 @@ Full release notes live on
 [GitHub Releases](https://github.com/hybridindie/godot-mcp/releases). This page
 summarizes the recent ones.
 
+## 2026.10.20.1 — Godot 4.4 floor + non-default addon installs
+
+Patch release. Makes the shipped addon load on Godot 4.4–4.6 and work from
+non-standard install paths; no tool or contract changes.
+
+- **The addon loads on the 4.4 floor (#738)** — `EditorInterface.get_unsaved_scenes()`
+  (4.7+) and `close_scene()` (4.5+) are now resolved dynamically, so no handler
+  breaks parsing on 4.4–4.6. The output logger (`extends Logger`, 4.5+) is compiled
+  from an embedded source string instead of shipping as a `.gd` file the 4.4 editor
+  parses; `ActiveScene` gains `dirty_known`, and moving an open scene is refused when
+  the engine cannot report dirty state.
+- **Addon-relative paths (#742)** — `command_router.gd` and `mcp_bridge.gd` read
+  `plugin.cfg` from their own `resource_path`, so installs under e.g.
+  `res://godot/addons/godot_mcp/` report the real addon version.
+- **CI** — a `godot-floor` job parses the addon in a real Godot 4.4 editor and runs
+  the 26 headless smokes; the live-editor e2e now triggers only for addon-affecting
+  changes.
+
 ## 2026.10.20 — Editor API autoloads, atomic scaffolds, and replaced-editor recovery
 
 Addon reliability release. Surface: **194 tools** across **29 categories**
