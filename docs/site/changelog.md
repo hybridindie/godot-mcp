@@ -29,6 +29,9 @@ non-standard install paths; no tool or contract changes.
 - **CI** — a `godot-floor` job parses the addon in a real Godot 4.4 editor and runs
   the 26 headless smokes; the live-editor e2e now triggers only for addon-affecting
   changes.
+- **Versioning** — same-day releases use a dotted CalVer revision
+  (`YYYY.MM.DD.N`, e.g. this `2026.10.20.1`); the legacy `-N` spelling still parses
+  and orders identically.
 
 ## 2026.10.20 — Editor API autoloads, atomic scaffolds, and replaced-editor recovery
 
