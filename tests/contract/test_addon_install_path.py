@@ -3,8 +3,8 @@
 Consumers install the addon at arbitrary ``res://`` paths — e.g. a project that
 keeps every editor addon under ``godot/`` installs it at
 ``res://godot/addons/godot_mcp/``. Any hardcoded ``res://addons/godot_mcp/``
-path breaks there: the runtime probe logs ``File not found`` every debug
-session (blank output ring) and the addon-version handshake reads ``""``.
+path breaks there: the addon-version handshake reads ``""`` (the runtime
+logger is now compiled from source, so it has no file path at all).
 
 Sibling resources must be resolved from the calling script's own
 ``resource_path`` base dir.
@@ -27,14 +27,6 @@ def test_no_addon_source_hardcodes_the_default_install_prefix() -> None:
         "hardcoded res://addons/godot_mcp path breaks non-default installs "
         f"(#742): {offenders}"
     )
-
-
-def test_probe_resolves_the_logger_relative_to_itself() -> None:
-    src = (_ADDON / "mcp_runtime_probe.gd").read_text(encoding="utf-8")
-    assert "get_script().resource_path.get_base_dir()" in src, (
-        "probe must resolve mcp_output_logger.gd relative to its own script (#742)"
-    )
-    assert 'path_join("mcp_output_logger.gd")' in src
 
 
 def test_router_and_bridge_resolve_plugin_cfg_relative_to_themselves() -> None:

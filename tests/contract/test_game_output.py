@@ -123,10 +123,12 @@ def test_probe_registers_a_logger_and_relays_the_ring() -> None:
     probe_src = _addon_root() / "mcp_runtime_probe.gd"
     src = probe_src.read_text()
     # A custom Logger captures the game's output stream (print/push_error/...).
-    # #648: registered through the guarded dynamic call so the probe parses on 4.4.
+    # #648/#738: compiled from the embedded source only when OS.add_logger exists,
+    # so the 4.4 editor never parses `extends Logger`.
     assert 'OS.call("add_logger"' in src, "probe must register a custom Logger (issue #534)"
-    # The relay Logger itself lives in its own lazily-loaded script (#648).
-    logger_src = (_addon_root() / "mcp_output_logger.gd").read_text()
+    marker = 'const _LOGGER_SOURCE := """'
+    body_start = src.index(marker) + len(marker)
+    logger_src = src[body_start : src.index('"""', body_start)]
     assert "_log_message" in logger_src and "_log_error" in logger_src
     # The ring is bounded (honest eviction, never unbounded growth).
     assert "MAX_OUTPUT" in src

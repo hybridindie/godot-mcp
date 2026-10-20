@@ -654,21 +654,50 @@ var _output_logger: Object = null
 ## _ready; the logger is registered alongside it so captures start as early
 ## as the probe itself).
 ##
-## #648: `Logger` + `OS.add_logger` are Godot 4.5+. On the 4.4 floor this returns
-## immediately (the logger script is never `load()`ed, so it is never parsed, and
-## `OS.call` avoids a compile-time reference to the 4.5 API) — the probe still
-## parses and every other feature works; output capture degrades to an empty ring.
+## #648/#738: `Logger` + `OS.add_logger` are Godot 4.5+. A Logger subclass cannot
+## live in a `.gd` file: the editor parses every script in the project (even
+## without a `class_name`), so extending Logger would break the 4.4/4.6 floor at
+## editor load. Compile the subclass from this string instead — only when the
+## 4.5+ API exists — so the 4.4 editor never parses it. Output capture degrades
+## to an empty ring on 4.4; every other probe feature works.
+const _LOGGER_SOURCE := """
+extends Logger
+
+var _sink: Callable
+
+
+func _init(sink: Callable) -> void:
+	_sink = sink
+
+
+func _log_message(message: String, error: bool) -> void:
+	_sink.call(message, "error" if error else "stdout")
+
+
+func _log_error(
+	function: String, file: String, line: int, code: String, rationale: String,
+	editor_notify: bool, error_type: int, script_backtraces: Array
+) -> void:
+	var kind := "error"
+	if error_type == Logger.ERROR_TYPE_WARNING:
+		kind = "warning"
+	# `rationale` carries the human text for push_error/push_warning/script errors;
+	# `code` is the engine-side message. Prefer whichever is present.
+	var text := rationale
+	if text.is_empty():
+		text = code
+	if text.is_empty():
+		text = "%s @ %s:%d" % [function, file, line]
+	_sink.call(text, kind)
+"""
+
+
 func _register_output_logger() -> void:
 	if not OS.has_method("add_logger"):
 		return
-	# #742: resolve next to THIS script — the addon may be installed at any
-	# res:// path (e.g. res://godot/addons/godot_mcp), so a hardcoded default
-	# prefix logs "File not found" every debug session.
-	var logger_path: String = get_script().resource_path.get_base_dir().path_join("mcp_output_logger.gd")
-	if not ResourceLoader.exists(logger_path):
-		return
-	var logger_script: Variant = load(logger_path)
-	if logger_script == null:
+	var logger_script := GDScript.new()
+	logger_script.source_code = _LOGGER_SOURCE
+	if logger_script.reload() != OK:
 		return
 	_output_logger = logger_script.new(_on_output_line)
 	OS.call("add_logger", _output_logger)

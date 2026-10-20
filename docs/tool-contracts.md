@@ -1043,10 +1043,11 @@ cursor; pass the previous call's `next_seq` as `since_seq` for incremental pulls
 input injection, there is **no break-state gate** — the ring stays readable while the game
 is frozen at a debugger break, which is exactly when crash traces matter. `kind` is
 `stdout` / `error` / `warning`; script errors carry the engine's rationale text.
-**Compatibility (#648):** the `Logger`/`OS.add_logger` API is Godot **4.5+**. The probe
-guards it (it `load()`s the logger script only when `OS.has_method("add_logger")`), so the
-addon still parses and every non-output feature works on the 4.4 floor — but
-`get_game_output` returns an **empty ring** on 4.4 (output capture needs 4.5+).
+**Compatibility (#648/#738):** the `Logger`/`OS.add_logger` API is Godot **4.5+**. The
+probe compiles the logger subclass from an embedded source string only when
+`OS.has_method("add_logger")`, so the addon still parses and every non-output feature
+works on the 4.4 floor — but `get_game_output` returns an **empty ring** on 4.4 (output
+capture needs 4.5+).
 
 #### Input simulation (issue #36) — category: `input` (gated off by default)
 
