@@ -5,14 +5,22 @@
 # This job runs them on a SELF-HOSTED runner that has a Godot editor binary —
 # closing the CI gap behind #263/#269.
 #
-# TRIGGER POLICY (2026-09-28): the e2e is TOO HEAVY for routine CI — a live
+# TRIGGER POLICY (2026-10-20): the e2e is TOO HEAVY for routine CI — a live
 # editor boot per run contends for the single self-hosted runner (issue #444's
 # flake source) and multiplies runner minutes. The job runs ONLY when:
-#   - manually dispatched (workflow_dispatch below), or
-#   - a PR touches areas DIRECTLY affected by live-editor behavior
-#     (the addon source, the FastAPI server/tools, or this workflow itself —
-#     the `paths:` filter on the pull_request trigger; the vendored consumers
-#     like world_forge pin by commit and do NOT inherit e2e runs).
+#   - manually dispatched (workflow_dispatch below),
+#   - nightly on main (the `schedule` below), or
+#   - a PR touches something that can change live-editor behavior:
+#       * the addon itself (`godot/addons/godot_mcp/**`) and its smoke scripts
+#         (`godot/tests/**`) or project config (`godot/project.godot`),
+#       * the server/tools contract that drives the bridge (`mcp_server/**`),
+#       * the Python deps the server runs on (`pyproject.toml`, `uv.lock`), or
+#       * this workflow.
+# Python `tests/**`-only changes do NOT trigger it: they change the verification,
+# not the addon. Use workflow_dispatch on the branch (or the nightly run) for
+# test-only changes; the addon floor is separately checked on every PR by the
+# `godot-floor` job in ci.yml (Godot 4.4 parse + headless smokes). The vendored
+# consumers like world_forge pin by commit and do NOT inherit e2e runs.
 # Everything else is verified locally: run `workflow_dispatch` on the branch
 # (or `uv run pytest tests/integration/test_*_e2e.py` on a dev machine with
 # GODOT_BIN set) before merging changes that don't match the paths filter.
@@ -53,8 +61,11 @@ on:
   pull_request:
     paths:
       - "godot/addons/godot_mcp/**"
+      - "godot/tests/**"
+      - "godot/project.godot"
       - "mcp_server/**"
-      - "tests/**"
+      - "pyproject.toml"
+      - "uv.lock"
       - ".github/workflows/e2e.yml"
 
 # One in-flight live-editor run across the whole repo (issue #444): the single

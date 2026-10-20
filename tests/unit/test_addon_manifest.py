@@ -324,7 +324,7 @@ def test_dock_shows_dirty_scene_and_play_state() -> None:
     dock = (ADDON_DIR / "mcp_dock.gd").read_text()
 
     assert "func _update_editor_state_rows()" in plugin
-    assert "EditorInterface.get_unsaved_scenes()" in plugin
+    assert "unsaved_scenes()" in plugin
     assert "EditorInterface.is_playing_scene()" in plugin
     assert "is_connected_to_probe()" in plugin
     assert "set_scene_dirty(scene, dirty)" in plugin

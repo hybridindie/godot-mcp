@@ -31,11 +31,19 @@ func register(handlers: Dictionary) -> void:
 
 func _cmd_close_scene(params: Dictionary) -> Dictionary:
 	# Closes a scene tab, discarding unsaved changes (confirm is enforced
-	# server-side; honored defensively here). EditorInterface.close_scene() (4.4+)
+	# server-side; honored defensively here). EditorInterface.close_scene() (4.5+)
 	# closes the currently active scene; to close a specific open scene by path
 	# we activate it first via open_scene_from_path, then close.
 	if not params.get("confirm", false):
 		return _router._fail("PRECONDITION_FAILED", "close_scene discards unsaved changes. Set confirm=True to proceed (or call save_scene first).", "confirm")
+	# #738: EditorInterface.close_scene() is 4.5+; call it dynamically so the addon
+	# still parses on the 4.4 floor, and refuse honestly where it does not exist.
+	if not EditorInterface.has_method("close_scene"):
+		return _router._fail(
+			"UNSUPPORTED",
+			"Closing scene tabs needs Godot 4.5+; this editor is %s." % Engine.get_version_info().get("string", ""),
+			"godot_version",
+		)
 	var root := EditorInterface.get_edited_scene_root()
 	if root == null:
 		return _router._fail("PRECONDITION_FAILED", "No scene is open.", "active_scene")
@@ -63,7 +71,7 @@ func _cmd_close_scene(params: Dictionary) -> Dictionary:
 		var activated := EditorInterface.get_edited_scene_root()
 		if activated == null or activated.scene_file_path != scene_path:
 			return _router._fail("INTERNAL_ERROR", "Failed to activate scene '%s' for closing." % scene_path)
-	var err := EditorInterface.close_scene()
+	var err: int = EditorInterface.call("close_scene")
 	if err != OK:
 		return _router._fail("INTERNAL_ERROR", "Failed to close scene '%s' (error %d)." % [target_path, err])
 	return _router._ok({"scene_path": target_path, "closed": true})

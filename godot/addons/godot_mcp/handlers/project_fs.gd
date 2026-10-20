@@ -292,7 +292,9 @@ func _cmd_delete_resource_file(params: Dictionary) -> Dictionary:
 				active_root = EditorInterface.get_edited_scene_root()
 				if active_root == null or active_root.scene_file_path != path:
 					break  # activation failed — refuse to guess which tab is active
-			tab_closed = EditorInterface.close_scene() == OK
+			# #738: close_scene() is 4.5+; dynamic so the addon parses on 4.4.
+			if EditorInterface.has_method("close_scene"):
+				tab_closed = int(EditorInterface.call("close_scene")) == OK
 			break
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Delete file %s" % path, UndoRedo.MERGE_DISABLE, _router.asset_action_context())
@@ -350,14 +352,19 @@ func _cmd_move_resource_file(params: Dictionary) -> Dictionary:
 	# #532 refusal: moving an open scene with unsaved changes would clobber the
 	# in-memory copy (the editor holds the buffer under the OLD path; after the
 	# move the save writes the old content back to the OLD path and the moved
-	# file diverges). get_unsaved_scenes() (4.4+) lists them by path.
-	if (path.ends_with(".tscn") or path.ends_with(".scn")) \
-			and path in EditorInterface.get_unsaved_scenes():
-		return _router._fail(
-			"PRECONDITION_FAILED",
-			"'%s' is open and has unsaved changes — moving it now would clobber the in-memory copy. Call save_scene first, then move." % path,
-			"scene_saved",
-		)
+	# file diverges). #738: get_unsaved_scenes() is 4.7+; on 4.4–4.6 the helper
+	# returns null (unknown), so refuse moving ANY open scene rather than risk
+	# clobbering an unsaved buffer.
+	var scene_move := path.ends_with(".tscn") or path.ends_with(".scn")
+	if scene_move:
+		var unsaved: Variant = _router._helpers.unsaved_scenes()
+		var is_dirty := unsaved != null and path in (unsaved as Array)
+		var is_open_unknown := unsaved == null and path in EditorInterface.get_open_scenes()
+		if is_dirty or is_open_unknown:
+			var hint := "'%s' is open and has unsaved changes — moving it now would clobber the in-memory copy. Call save_scene first, then move." % path
+			if is_open_unknown:
+				hint = "'%s' is open; this Godot version cannot report unsaved changes, so moving it could clobber the in-memory copy. Save or close it first." % path
+			return _router._fail("PRECONDITION_FAILED", hint, "scene_saved")
 	var uid := ResourceLoader.get_resource_uid(path)
 	var uid_text := ResourceUID.id_to_text(uid) if uid != -1 else ""
 	# The referencing files: a project-wide search for the old path (and the

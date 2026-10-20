@@ -346,7 +346,7 @@ func group_removal_persistence(node: Node, group: String) -> Dictionary:
 	for entry in _base_states(node):
 		var state: SceneState = entry[0]
 		if group in state.get_node_groups(entry[1]):
-			var source := state.get_path() if not state.get_path().is_empty() else "the scene it comes from"
+			var source: String = state.get_path() if not state.get_path().is_empty() else "the scene it comes from"
 			return _not_persisted(
 				"group_from_base_scene",
 				"'%s' gets group '%s' from '%s', so removing it is not saved — the group is back after a reload. Remove it in '%s' instead." % [EditorInterface.get_edited_scene_root().get_path_to(node), group, source, source]
@@ -488,6 +488,16 @@ func scene_name(root: Node) -> String:
 	if not root.scene_file_path.is_empty():
 		return root.scene_file_path.get_file()
 	return String(root.name)
+
+
+## #738: EditorInterface's get_unsaved_scenes() is Godot 4.7+ (the addon floor is
+## 4.4). Call it dynamically so every handler still parses on 4.4–4.6; returns
+## ``null`` there so callers can degrade honestly instead of claiming a scene is
+## clean. 4.7+ returns the array of unsaved scene paths.
+func unsaved_scenes() -> Variant:
+	if not EditorInterface.has_method("get_unsaved_scenes"):
+		return null
+	return EditorInterface.call("get_unsaved_scenes")
 
 
 func autoloads() -> Dictionary:

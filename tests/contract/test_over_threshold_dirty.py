@@ -23,4 +23,7 @@ def test_over_threshold_paths_mark_the_scene_unsaved() -> None:
 
 def test_active_scene_reports_the_dirty_marker() -> None:
     src = (_ADDON / "handlers/scene_inspect.gd").read_text(encoding="utf-8")
-    assert "get_unsaved_scenes()" in src and '"dirty"' in src
+    # #738: call get_unsaved_scenes() dynamically (4.7+) so 4.4–4.6 still parse;
+    # the helper returns null there and dirty is reported as unknown.
+    assert "unsaved_scenes()" in src and '"dirty"' in src
+    assert '"dirty_known"' in src

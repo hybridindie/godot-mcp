@@ -30,6 +30,9 @@ class ActiveScene(BaseModel):
     # #643: the editor's dirty marker — False once saved. An over-threshold batch
     # (no UndoRedo) marks the scene unsaved so this reflects those edits.
     dirty: bool = False
+    # #738: get_unsaved_scenes() is Godot 4.7+. On 4.4–4.6 the addon cannot tell,
+    # so `dirty` is False and this is False — never present an unknown as clean.
+    dirty_known: bool = True
 
 
 class SceneEntry(BaseModel):

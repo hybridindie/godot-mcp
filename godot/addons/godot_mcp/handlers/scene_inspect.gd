@@ -34,8 +34,13 @@ func register(handlers: Dictionary) -> void:
 func _cmd_get_active_scene(_params: Dictionary) -> Dictionary:
 	var root: Node = EditorInterface.get_edited_scene_root()
 	if root == null:
-		return _router._ok({"is_open": false, "path": null, "name": null, "dirty": false})
+		return _router._ok({
+			"is_open": false, "path": null, "name": null, "dirty": false, "dirty_known": true,
+		})
 	var path := root.scene_file_path
+	# #738: get_unsaved_scenes() is 4.7+; on 4.4–4.6 the helper returns null and
+	# we report dirty as unknown rather than guessing "clean".
+	var unsaved: Variant = _router._helpers.unsaved_scenes()
 	return _router._ok({
 		"is_open": true,
 		"path": path,
@@ -43,7 +48,8 @@ func _cmd_get_active_scene(_params: Dictionary) -> Dictionary:
 		# #643: whether the editor considers this scene unsaved (the tab's dirty
 		# marker) — an over-threshold batch bypasses UndoRedo, so it must mark the
 		# scene itself or the tab looks clean and closing discards the edits.
-		"dirty": not path.is_empty() and path in EditorInterface.get_unsaved_scenes(),
+		"dirty": unsaved != null and not path.is_empty() and path in (unsaved as Array),
+		"dirty_known": unsaved != null,
 	})
 
 

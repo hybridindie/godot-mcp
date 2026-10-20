@@ -307,7 +307,7 @@ states return an empty model (`is_open=False` / `tree=None` / `selected=None`), 
 | Tool | Params | Returns | Bridge command |
 |------|--------|---------|----------------|
 | `godot_inspection_get_project_info` | — | `ProjectInfo { name, godot_version, main_scene?, autoloads, input_actions }` | `cmd_get_project_info` |
-| `godot_inspection_get_active_scene` | — | `ActiveScene { is_open, path?, name?, dirty }` | `cmd_get_active_scene` |
+| `godot_inspection_get_active_scene` | — | `ActiveScene { is_open, path?, name?, dirty, dirty_known }` | `cmd_get_active_scene` |
 | `godot_inspection_list_scenes` | — | `ScenesResult { scenes: [SceneEntry { path, is_main, is_open, is_active }], main_scene? }` | `cmd_list_scenes` |
 | `godot_inspection_get_scene_tree` | `max_depth: int = -1, lightweight: bool = False` | `SceneTree { tree: SceneNode? }` | `cmd_get_scene_tree` |
 | `godot_inspection_get_selected_node` | — | `SelectedNode { selected: NodeInfo? }` | `cmd_get_selected_node` |
@@ -317,6 +317,10 @@ states return an empty model (`is_open=False` / `tree=None` / `selected=None`), 
 | `godot_inspection_get_node_groups` | `node_path: str` | `NodeGroups { node_path, groups[] }` | `cmd_get_node_groups` |
 | `godot_inspection_snapshot_subtree` | `node_path: str = ".", properties: [str] = [], max_depth: int = -1` | `SnapshotResult { snapshot_id, node_path, snapshot }` | `cmd_snapshot_subtree` |
 | `godot_inspection_diff_snapshots` | `before_id: str, after_id: str? = None, node_path: str = "."` | `SnapshotDiff { added: [node], removed: [node], changed: [DiffEntry { node, property, before, after }] }` | `cmd_snapshot_subtree` (live re-read only) |
+
+`ActiveScene.dirty` is the editor's dirty-tab marker. On Godot 4.4–4.6 the engine cannot
+report unsaved scenes (`get_unsaved_scenes()` is 4.7+), so the addon returns `dirty=false`
+with `dirty_known=false` — treat that as unknown, not clean (#738).
 
 `SceneNode = { name, type, path, script?, owner?, editable_children?, children: [SceneNode] }`. Each node's `path` (#180)
 is scene-relative (`"."` for the root, e.g. `Player/Weapon` below it) and is accepted verbatim

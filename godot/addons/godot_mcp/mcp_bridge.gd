@@ -341,7 +341,9 @@ func _send_auth() -> void:
 func _addon_version() -> String:
 	var addon_version := ""
 	var cfg := ConfigFile.new()
-	if cfg.load("res://addons/godot_mcp/plugin.cfg") == OK:
+	# #742: resolve next to THIS script — the addon may be installed at any res:// path.
+	var cfg_path: String = get_script().resource_path.get_base_dir().path_join("plugin.cfg")
+	if cfg.load(cfg_path) == OK:
 		addon_version = str(cfg.get_value("plugin", "version", ""))
 	return addon_version
 

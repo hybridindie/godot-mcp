@@ -661,7 +661,13 @@ var _output_logger: Object = null
 func _register_output_logger() -> void:
 	if not OS.has_method("add_logger"):
 		return
-	var logger_script: Variant = load("res://addons/godot_mcp/mcp_output_logger.gd")
+	# #742: resolve next to THIS script — the addon may be installed at any
+	# res:// path (e.g. res://godot/addons/godot_mcp), so a hardcoded default
+	# prefix logs "File not found" every debug session.
+	var logger_path: String = get_script().resource_path.get_base_dir().path_join("mcp_output_logger.gd")
+	if not ResourceLoader.exists(logger_path):
+		return
+	var logger_script: Variant = load(logger_path)
 	if logger_script == null:
 		return
 	_output_logger = logger_script.new(_on_output_line)

@@ -260,8 +260,11 @@ func _update_editor_state_rows() -> void:
 	var root := EditorInterface.get_edited_scene_root()
 	var scene := _scene_label(root)
 	var dirty := false
+	# #738: get_unsaved_scenes() is 4.7+; the helper returns null on 4.4–4.6, where
+	# the dock shows the scene as clean (unknown) rather than guessing.
+	var unsaved: Variant = _router._helpers.unsaved_scenes() if _router != null else null
 	if root != null and not root.scene_file_path.is_empty():
-		dirty = root.scene_file_path in EditorInterface.get_unsaved_scenes()
+		dirty = unsaved != null and root.scene_file_path in (unsaved as Array)
 	_dock.set_scene_dirty(scene, dirty)
 
 	var playing := EditorInterface.is_playing_scene()

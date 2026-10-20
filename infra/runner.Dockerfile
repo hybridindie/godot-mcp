@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 #
-# Custom GitHub Actions runner image with the Godot 4.7 editor binary baked in.
+# Custom GitHub Actions runner image with the Godot 4.7 editor binary baked in
+# (and the pinned 4.4 floor binary for the `godot-floor` CI job, issue #701).
 # Serves the [self-hosted, godot] runner label for the e2e (godot-mcp) and
 # gle-bench (godot-agents) workflows. Built FROM the stock actions-runner image
 # so the runner internals stay identical — only Godot is added.
@@ -50,5 +51,26 @@ RUN sudo apt-get update \
 RUN xvfb-run -a /opt/godot/godot --headless --quit 2>&1 | grep -q . \
     && /opt/godot/godot --version | grep -q "^4.7" \
     || (echo "::error::Godot binary did not report 4.7.x" && exit 1)
+
+# The addon's supported floor (issue #701): a second pinned editor used by the
+# `godot-floor` job in ci.yml to parse/smoke the addon on 4.4. Same checksum
+# discipline as the primary binary; never run an unverified download.
+ARG GODOT_FLOOR_VERSION=4.4-stable
+ARG GODOT_FLOOR_ASSET=Godot_v4.4-stable_linux.x86_64.zip
+
+RUN sudo mkdir -p /opt/godot/4.4 \
+    && curl -fsSL -o /tmp/${GODOT_FLOOR_ASSET} \
+        "https://github.com/godotengine/godot/releases/download/${GODOT_FLOOR_VERSION}/${GODOT_FLOOR_ASSET}" \
+    && curl -fsSL -o /tmp/SHA512-SUMS-floor.txt \
+        "https://github.com/godotengine/godot/releases/download/${GODOT_FLOOR_VERSION}/SHA512-SUMS.txt" \
+    && (cd /tmp && awk -v f="${GODOT_FLOOR_ASSET}" '$2==f' SHA512-SUMS-floor.txt | sha512sum -c -) \
+    && sudo unzip -o /tmp/${GODOT_FLOOR_ASSET} -d /opt/godot/4.4 \
+    && sudo chmod +x /opt/godot/4.4/Godot_v${GODOT_FLOOR_VERSION}_linux.x86_64 \
+    && sudo ln -sf /opt/godot/4.4/Godot_v${GODOT_FLOOR_VERSION}_linux.x86_64 /opt/godot/4.4/godot \
+    && rm -f /tmp/${GODOT_FLOOR_ASSET} /tmp/SHA512-SUMS-floor.txt
+
+# Sanity: the floor binary reports 4.4.
+RUN /opt/godot/4.4/godot --version | grep -q "^4.4" \
+    || (echo "::error::Godot floor binary did not report 4.4.x" && exit 1)
 
 ENV GODOT_BIN=/opt/godot/godot

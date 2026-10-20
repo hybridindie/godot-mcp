@@ -152,3 +152,94 @@ jobs:
         env:
           FASTMCP_MCP_CAMELCASE_COMPAT: "false"
         run: uv run pytest -q tests/contract/test_tool_transform.py
+  # Godot 4.4 is the addon's supported floor (docs, .opencode/rules/addon.md).
+  # The e2e lane only exercises 4.7, so a 4.5+ API in the addon used to ship
+  # undetected (issues #648, #738, #701). This job loads the addon in the real
+  # 4.4 editor (editor load parses every preloaded script) and runs the
+  # headless smokes on the floor.
+  #
+  # Runs on the Godot-capable runner; the image bakes 4.4 at /opt/godot/4.4/godot
+  # (infra/runner.Dockerfile). Until that image is rolled out, the step downloads
+  # the pinned release with Godot's published SHA512 checksum.
+  godot-floor:
+    name: godot 4.4 floor (parse + smoke)
+    runs-on: [self-hosted, godot]
+    # SECURITY (public repo + self-hosted runner, issue #650): never execute
+    # untrusted fork code on the runner. Only same-repo branch PRs and pushes
+    # run; fork PRs skip this job. Mirrors e2e.yml.
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          # Pinned (issue #579) — skips the flaky manifest fetch (see other jobs).
+          version: "0.11.29"
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Sync dependencies
+        run: uv sync --frozen
+
+      - name: Resolve Godot 4.4 (baked binary, else verified download)
+        run: |
+          set -euo pipefail
+          baked=/opt/godot/4.4/godot
+          if [ -x "$baked" ]; then
+            echo "GODOT_BIN=$baked" >> "$GITHUB_ENV"
+            "$baked" --version
+            exit 0
+          fi
+          version=4.4-stable
+          asset="Godot_v${version}_linux.x86_64.zip"
+          dir="$RUNNER_TEMP/godot44"
+          mkdir -p "$dir"
+          cd "$dir"
+          if [ ! -x godot ]; then
+            curl -fsSL -o "$asset" \
+              "https://github.com/godotengine/godot/releases/download/${version}/${asset}"
+            curl -fsSL -o SHA512-SUMS.txt \
+              "https://github.com/godotengine/godot/releases/download/${version}/SHA512-SUMS.txt"
+            awk -v f="$asset" '$2==f' SHA512-SUMS.txt | sha512sum -c -
+            unzip -o -q "$asset"
+            chmod +x "Godot_v${version}_linux.x86_64"
+            ln -sf "Godot_v${version}_linux.x86_64" godot
+          fi
+          echo "GODOT_BIN=$dir/godot" >> "$GITHUB_ENV"
+          "$dir/godot" --version
+
+      - name: Verify the floor version
+        run: |
+          ver="$("$GODOT_BIN" --version)"
+          echo "Godot: $ver"
+          case "$ver" in
+            4.4*) ;;
+            *) echo "::error::expected Godot 4.4.x, got '$ver'"; exit 1 ;;
+          esac
+
+      - name: Parse the whole addon in the 4.4 editor
+        # The plugin is enabled in godot/project.godot; handlers preload at parse
+        # time, so one 4.4-incompatible API fails the editor load. Assert on the
+        # script errors explicitly: --quit still exits 0 after a parse failure.
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/godot44-parse.log"
+          timeout 180 "$GODOT_BIN" --headless --path godot --editor --quit \
+            2>&1 | tee "$log"
+          if grep -qE "SCRIPT ERROR|Parse Error|Failed to load script" "$log"; then
+            echo "::error::the addon does not parse on the Godot 4.4 floor"
+            exit 1
+          fi
+
+      - name: Headless smokes on the floor
+        run: |
+          uv run pytest -q \
+            tests/integration/test_addon_read_smokes.py \
+            tests/contract/test_addon_44_floor.py \
+            tests/contract/test_probe_44_floor.py
