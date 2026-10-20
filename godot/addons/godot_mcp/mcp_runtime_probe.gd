@@ -676,7 +676,7 @@ func _log_message(message: String, error: bool) -> void:
 
 func _log_error(
 	function: String, file: String, line: int, code: String, rationale: String,
-	editor_notify: bool, error_type: int, script_backtraces: Array
+	_editor_notify: bool, error_type: int, _script_backtraces: Array
 ) -> void:
 	var kind := "error"
 	if error_type == Logger.ERROR_TYPE_WARNING:
