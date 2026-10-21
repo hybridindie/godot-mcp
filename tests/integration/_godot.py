@@ -12,6 +12,7 @@ import asyncio
 import functools
 import inspect
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -72,8 +73,11 @@ def is_godot_48_beta1() -> bool:
 
     Betas are verified targets, not supported releases; an upstream failure is
     asserted as the known-bad shape so the rest of the suite still runs.
+
+    Anchored so ``4.8.beta10``/``4.8.stable`` never satisfy the gate; both the
+    dotted (``4.8.beta1``) and hyphenated (``4.8-beta1``) spellings are accepted.
     """
-    return "4.8.beta1" in godot_version()
+    return bool(re.match(r"^4[.-]8[.-]beta1(?:[.-]|$)", godot_version()))
 
 
 def _has_display() -> bool:

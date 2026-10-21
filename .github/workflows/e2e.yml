@@ -236,12 +236,23 @@ jobs:
 
       - name: Verify Godot 4.8 beta version
         run: |
+          set -euo pipefail
           ver="$("$GODOT_BIN" --version)"
           echo "Godot: $ver"
-          case "$ver" in
-            4.8.beta1*) ;;
-            *) echo "::error::expected Godot 4.8-beta1 on the beta lane, got '$ver'"; exit 1 ;;
-          esac
+          {
+            echo "### Godot 4.8 beta verification lane"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Binary | \`$GODOT_BIN\` |"
+            echo "| Version | \`$ver\` |"
+            echo "| Gate | advisory — the 4.7 lane remains the stable gate |"
+            echo "| Known upstream | [godotengine/godot#124712](https://github.com/godotengine/godot/issues/124712) (MeshLibrary items save empty; asserted as the beta1 shape) |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if ! printf '%s' "$ver" | grep -Eq '^4[.-]8[.-]beta1([.-]|$)'; then
+            echo "::error::expected Godot 4.8-beta1 on the beta lane, got '$ver'"
+            exit 1
+          fi
 
       - name: Warm asset import
         run: 'timeout 180 "$GODOT_BIN" --headless --import --path godot/ || true'
