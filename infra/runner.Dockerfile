@@ -73,4 +73,25 @@ RUN sudo mkdir -p /opt/godot/4.4 \
 RUN /opt/godot/4.4/godot --version | grep -q "^4.4" \
     || (echo "::error::Godot floor binary did not report 4.4.x" && exit 1)
 
+# Godot 4.8 beta verification lane (#739). Betas are served from
+# downloads.godotengine.org (no GitHub release / SHA512-SUMS file), so the zip's
+# SHA512 is pinned here (verified against the official download for the pinned
+# beta commit 4d10419ca). Update the version, asset, URL and hash together.
+ARG GODOT48_VERSION=4.8-beta1
+ARG GODOT48_ASSET=Godot_v4.8-beta1_linux.x86_64.zip
+ARG GODOT48_SHA512=aee4cbf3c5f86eee875c0f2f77cc9d816a3fbb220774e6ffc95fd5a557a6c5ec917f2b6118c0aa2008bd10f4b2a021225dc78ba7b7c54745411e0f2721f70a67
+
+RUN sudo mkdir -p /opt/godot48 \
+    && curl -fsSL -o /tmp/${GODOT48_ASSET} \
+        "https://downloads.godotengine.org/?version=4.8&flavor=beta1&slug=linux.x86_64.zip" \
+    && echo "${GODOT48_SHA512}  /tmp/${GODOT48_ASSET}" | sha512sum -c - \
+    && sudo unzip -o /tmp/${GODOT48_ASSET} -d /opt/godot48 \
+    && sudo chmod +x /opt/godot48/Godot_v${GODOT48_VERSION}_linux.x86_64 \
+    && sudo ln -sf /opt/godot48/Godot_v${GODOT48_VERSION}_linux.x86_64 /opt/godot48/godot \
+    && rm -f /tmp/${GODOT48_ASSET}
+
+# Sanity: the beta binary reports the pinned beta line.
+RUN /opt/godot48/godot --version | grep -q "^4.8.beta1" \
+    || (echo "::error::Godot 4.8 beta binary did not report 4.8.beta1" && exit 1)
+
 ENV GODOT_BIN=/opt/godot/godot

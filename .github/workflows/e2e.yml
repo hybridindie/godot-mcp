@@ -45,6 +45,15 @@
 # The eval workflow uses the same self-hosted convention (label `godot-eval`); a
 # single runner can carry both labels if it has Godot installed.
 #
+# 4.8 BETA LANE (#739): a second, ADVISORY job runs the same suites against the
+# pinned Godot 4.8-beta1 binary (`/opt/godot48/godot`, baked by the runner image;
+# a SHA512-verified download is the fallback until that image rolls out). It
+# shares the trigger policy above (dispatch + the addon/server paths filter) and
+# is `continue-on-error`: a beta regression is visible but does not block — the
+# 4.7 lane remains the stable gate. The known upstream MeshLibrary regression
+# (godotengine/godot#124712) is asserted as the expected beta1 shape, not a
+# blanket skip, so the rest of the suite still runs.
+#
 # SECURITY (public repo): a self-hosted runner must never execute untrusted fork
 # code. The job below is guarded so only same-repo branch PRs and manual dispatch
 # run on the runner — fork PRs skip it. Also set the repo Actions setting "Require
@@ -160,6 +169,102 @@ jobs:
         # (or is cancelled mid-suite) can leave editor/game children alive on the
         # shared runner; the next job then contends with them (the #444 flake
         # source, and the wedge observed in issue #581's verification runs).
+        if: always()
+        run: |
+          pkill -f 'godot.*--editor' 2>/dev/null || true
+          pkill -f 'godot.*remote-debug' 2>/dev/null || true
+          sleep 1
+          if pgrep -f 'godot.*(remote-debug|--editor)' >/dev/null; then
+            echo "::warning::stray godot processes survived the reaping"
+          fi
+
+  godot-4-8-beta:
+    name: live editor (Godot 4.8 beta, advisory)
+    runs-on: [self-hosted, godot]
+    # SECURITY: same fork-PR protection as the 4.7 lane (see the header).
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    # Beta verification is advisory (#739): a red check is visible, but only the
+    # 4.7 lane gates a stable release. Remove continue-on-error at 4.8-stable.
+    continue-on-error: true
+    timeout-minutes: 20
+    env:
+      # Baked at /opt/godot48 by infra/runner.Dockerfile; override with a repo var.
+      GODOT_BIN: ${{ vars.GODOT48_BIN || '/opt/godot48/godot' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version: "0.11.29"
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Sync dependencies
+        run: uv sync --frozen
+
+      - name: Resolve Godot 4.8 beta (baked, else verified download)
+        # Pinned to beta commit 4d10419ca (4.8.beta1.official). Betas have no
+        # GitHub release checksum file, so the SHA512 below is the pinned hash of
+        # the official downloads.godotengine.org zip. Update both together.
+        run: |
+          set -euo pipefail
+          if [ -x "$GODOT_BIN" ]; then
+            "$GODOT_BIN" --version
+            exit 0
+          fi
+          version=4.8-beta1
+          asset="Godot_v${version}_linux.x86_64.zip"
+          sha512="aee4cbf3c5f86eee875c0f2f77cc9d816a3fbb220774e6ffc95fd5a557a6c5ec917f2b6118c0aa2008bd10f4b2a021225dc78ba7b7c54745411e0f2721f70a67"
+          dir="$RUNNER_TEMP/godot48"
+          mkdir -p "$dir"
+          cd "$dir"
+          if [ ! -x godot ]; then
+            curl -fsSL -o "$asset" \
+              "https://downloads.godotengine.org/?version=4.8&flavor=beta1&slug=linux.x86_64.zip"
+            echo "${sha512}  ${asset}" | sha512sum -c -
+            unzip -o -q "$asset"
+            chmod +x "Godot_v${version}_linux.x86_64"
+            ln -sf "Godot_v${version}_linux.x86_64" godot
+          fi
+          echo "GODOT_BIN=$dir/godot" >> "$GITHUB_ENV"
+          "$dir/godot" --version
+
+      - name: Verify Godot 4.8 beta version
+        run: |
+          ver="$("$GODOT_BIN" --version)"
+          echo "Godot: $ver"
+          case "$ver" in
+            4.8.beta1*) ;;
+            *) echo "::error::expected Godot 4.8-beta1 on the beta lane, got '$ver'"; exit 1 ;;
+          esac
+
+      - name: Warm asset import
+        run: 'timeout 180 "$GODOT_BIN" --headless --import --path godot/ || true'
+
+      - name: Editor e2e + addon smoke suites (4.8 beta)
+        # Same suites as the stable lane. The MeshLibrary assertion is branch-gated
+        # on 4.8-beta1 in test_persistence_e2e.py (upstream #124712) — the rest of
+        # the suite runs normally.
+        run: |
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            echo "::error::xvfb-run not found on the runner; the play-session e2e would silently skip. Install xvfb (issue #672)."
+            exit 1
+          fi
+          xvfb-run -a --server-args="-screen 0 1280x1024x24" \
+            timeout --signal=TERM --kill-after=10 900 \
+            uv run pytest -q -p no:cacheprovider \
+            tests/integration \
+            tests/contract/test_addon_guards.py \
+            tests/contract/test_addon_handshake.py \
+            tests/contract/test_router_refactor.py \
+            tests/contract/test_undo_threshold.py
+
+      - name: Reap stray Godot processes
         if: always()
         run: |
           pkill -f 'godot.*--editor' 2>/dev/null || true

@@ -9,6 +9,7 @@ testing rules permit (CI has no editor; a dev machine with Godot 4.4+ does).
 from __future__ import annotations
 
 import asyncio
+import functools
 import inspect
 import os
 import shutil
@@ -41,6 +42,38 @@ def find_godot() -> str | None:
 
 
 GODOT_BIN = find_godot()
+
+
+@functools.lru_cache(maxsize=1)
+def godot_version() -> str:
+    """The resolved engine's ``--version`` string (``""`` when unavailable).
+
+    Used to isolate engine-version-specific behavior (currently the 4.8-beta1
+    MeshLibrary regression, godotengine/godot#124712) without skipping the rest
+    of a suite.
+    """
+    if GODOT_BIN is None:
+        return ""
+    try:
+        result = subprocess.run(
+            [GODOT_BIN, "--version"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return result.stdout.strip()
+
+
+def is_godot_48_beta1() -> bool:
+    """Whether the resolved binary is the pinned Godot 4.8-beta1 (#739).
+
+    Betas are verified targets, not supported releases; an upstream failure is
+    asserted as the known-bad shape so the rest of the suite still runs.
+    """
+    return "4.8.beta1" in godot_version()
 
 
 def _has_display() -> bool:

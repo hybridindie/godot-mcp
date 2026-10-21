@@ -24,6 +24,7 @@ from tests.integration._godot import (
     GODOT_BIN,
     GODOT_PROJECT,
     e2e_bridge_url,
+    is_godot_48_beta1,
     serve_and_await_editor,
 )
 
@@ -804,7 +805,19 @@ def test_live_persistence_verdicts_match_reload() -> None:
 
         state = _saved_state()
         assert state["Relic"] == AUTHORED, "an edit to a non-editable instance child was saved"
-        assert state["Relic2"] == EDITABLE_SAVED, "saved editable-instance state differs"
+        if is_godot_48_beta1():
+            # Upstream beta regression (godotengine/godot#124712): MeshLibrary
+            # items are serialized as an empty resource. Assert the known-bad
+            # shape so the remaining verdicts still run; once the beta is fixed
+            # (or at 4.8-stable) this branch should be deleted and the strict
+            # expectation restored.
+            expected = {**EDITABLE_SAVED, "grid2_items": []}
+            assert state["Relic2"] == expected, (
+                "Godot 4.8-beta1 was expected to lose MeshLibrary items "
+                "(godotengine/godot#124712); if this changed, update the lane"
+            )
+        else:
+            assert state["Relic2"] == EDITABLE_SAVED, "saved editable-instance state differs"
         assert "OwnRenamed" in state["main_children"] and "Own" not in state["main_children"]
         assert state["own_tree_probe"] is True, "a scene-owned AnimationTree root edit was lost"
         derived = state["derived"]
