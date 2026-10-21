@@ -114,12 +114,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Pinned uv from the shared runner cache (see .github/actions/setup-uv);
+      # avoids the third-party binary-download stall (#750/#752).
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: ./.github/actions/setup-uv
         timeout-minutes: 5
-        with:
-          # Pinned (issue #579) — skips the flaky manifest fetch (see ci.yml).
-          version: "0.11.29"
 
       - name: Set up Python
         timeout-minutes: 5
@@ -203,11 +202,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Pinned uv from the shared runner cache (see .github/actions/setup-uv);
+      # avoids the third-party binary-download stall (#750/#752).
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: ./.github/actions/setup-uv
         timeout-minutes: 5
-        with:
-          version: "0.11.29"
 
       - name: Set up Python
         timeout-minutes: 5

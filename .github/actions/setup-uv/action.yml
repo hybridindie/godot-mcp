@@ -1,0 +1,56 @@
+name: Setup uv (pinned, cached)
+description: >
+  Install the pinned uv binary from the self-hosted runners' shared cache,
+  downloading it with hard timeouts on a cache miss. Replaces
+  astral-sh/setup-uv on the self-hosted pools, where the binary download
+  intermittently stalls for minutes (#750/#752).
+
+inputs:
+  version:
+    description: uv version to install
+    required: false
+    default: "0.11.29"
+
+runs:
+  using: composite
+  steps:
+    - name: Install uv
+      shell: bash
+      run: |
+        set -euo pipefail
+        version="${{ inputs.version }}"
+        case "$(uname -m)" in
+          x86_64) target="x86_64-unknown-linux-gnu" ;;
+          aarch64|arm64) target="aarch64-unknown-linux-gnu" ;;
+          *) echo "::error::unsupported runner arch $(uname -m)"; exit 1 ;;
+        esac
+        asset="uv-${target}.tar.gz"
+        bin_dir="/runner/_work/_cache/bin"
+        bin="${bin_dir}/uv-${version}"
+        mkdir -p "$bin_dir"
+        if [ ! -x "$bin" ] || ! "$bin" --version | grep -q " ${version}"; then
+          tmp="$(mktemp -d)"
+          installed=0
+          # GitHub first (actions already reach it), then the astral mirror.
+          for base in \
+            "https://github.com/astral-sh/uv/releases/download/${version}" \
+            "https://releases.astral.sh/github/uv/releases/download/${version}"; do
+            if timeout 90 curl -fsSL "$base/$asset" -o "$tmp/$asset" \
+               && timeout 30 curl -fsSL "$base/$asset.sha256" -o "$tmp/$asset.sha256"; then
+              if (cd "$tmp" && sha256sum -c "$asset.sha256"); then
+                tar -xzf "$tmp/$asset" -C "$tmp"
+                install -m 0755 "$tmp/uv-${target}/uv" "$bin"
+                installed=1
+                break
+              fi
+            fi
+          done
+          rm -rf "$tmp"
+          if [ "$installed" != "1" ]; then
+            echo "::error::could not download uv ${version} from GitHub or the astral mirror"
+            exit 1
+          fi
+        fi
+        ln -sf "$bin" "$bin_dir/uv"
+        echo "$bin_dir" >> "$GITHUB_PATH"
+        "$bin_dir/uv" --version
