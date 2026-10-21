@@ -39,7 +39,11 @@ runs:
                && timeout 30 curl -fsSL "$base/$asset.sha256" -o "$tmp/$asset.sha256"; then
               if (cd "$tmp" && sha256sum -c "$asset.sha256"); then
                 tar -xzf "$tmp/$asset" -C "$tmp"
-                install -m 0755 "$tmp/uv-${target}/uv" "$bin"
+                # Atomic publish: concurrent cold-cache jobs on the shared PVC
+                # must never let a reader see a partially written binary.
+                tmp_bin="${bin}.tmp.$$"
+                install -m 0755 "$tmp/uv-${target}/uv" "$tmp_bin"
+                mv -f "$tmp_bin" "$bin"
                 installed=1
                 break
               fi
