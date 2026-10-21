@@ -12,6 +12,19 @@ Full release notes live on
 [GitHub Releases](https://github.com/hybridindie/godot-mcp/releases). This page
 summarizes the recent ones.
 
+## 2026.10.21b2 — 4.8 shims in the beta
+
+Prerelease over `2026.10.21b1`; same tool surface. This build includes the
+post-b1 addon work:
+
+- **EditorDock shim (#602)** — `EditorDock`/`add_dock` on Godot 4.6+, legacy
+  bottom panel on the 4.4/4.5 floor.
+- **FuzzySearch did-you-mean (#603)** — the engine matcher reranks plausible
+  class names on 4.8+, with the local fallback unchanged on 4.4–4.7.
+- **CI** — the setup-uv/uv binary stalls are fixed; the 4.4 floor, 4.7 e2e, and
+  the advisory 4.8-beta lane are green.
+- Verified on 4.8-beta1 (26 addon smokes, 87/87 integration) and 4.4/4.7.
+
 ## 2026.10.21b1 — Godot 4.8 beta verification prerelease
 
 **Prerelease** (`pip install --pre godot-editor-mcp`). The stable install path
