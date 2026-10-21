@@ -92,8 +92,15 @@ def test_dock_script_exists_and_is_tool() -> None:
 def test_plugin_wires_the_dock() -> None:
     source = (ADDON_DIR / "godot_mcp.gd").read_text()
     assert "MCPStatusDock" in source, "plugin must instantiate the typed dock"
-    assert "add_control_to_bottom_panel" in source, "plugin must add the dock to the bottom panel"
-    assert "remove_control_from_bottom_panel" in source, "plugin must remove the dock on _exit_tree"
+    # #602: 4.6+ uses EditorDock/add_dock; the 4.4/4.5 floor keeps the legacy
+    # bottom panel. Both must be present, resolved dynamically on the floor.
+    assert 'ClassDB.class_exists("EditorDock")' in source
+    assert 'call("add_dock"' in source
+    assert 'call("remove_dock"' in source
+    assert "add_control_to_bottom_panel" in source, "plugin must keep the 4.4/4.5 fallback"
+    assert "remove_control_from_bottom_panel" in source, (
+        "plugin must remove the legacy dock on _exit_tree"
+    )
 
 
 def test_command_router_exists() -> None:

@@ -391,6 +391,18 @@ file (or a sibling/named class that isn't a member of the extender).
 
 ---
 
+### Godot 4.6+: EditorDock replaces the bottom-panel API
+
+`EditorPlugin.add_control_to_bottom_panel()` is deprecated in 4.6 in favour of
+`EditorDock` + `EditorPlugin.add_dock()`. `EditorDock` does **not** exist on
+4.4/4.5, so an addon with a 4.4 floor must resolve it at runtime
+(`ClassDB.class_exists("EditorDock")`, `ClassDB.instantiate`) — a `.gd` script
+that `extends EditorDock` fails to parse on the floor. The `EditorDock` is a
+`Control` container: add your existing panel as its child, set `title` and
+`default_slot` (`DOCK_SLOT_BOTTOM`), call `add_dock()`; remove it with
+`remove_dock()` and free it in `_exit_tree()`. Keep the legacy call as the
+4.4/4.5 fallback.
+
 ## 6. Scene file format (.tscn)
 
 ### Structure

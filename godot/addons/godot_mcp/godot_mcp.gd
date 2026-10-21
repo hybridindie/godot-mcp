@@ -8,12 +8,11 @@ extends EditorPlugin
 ## reflects connection state + recent commands in the dock. All safety/preconditions
 ## live in the MCP server, not here.
 ##
-## API note: add_control_to_bottom_panel() is deprecated as of Godot 4.6 in
-## favour of EditorDock/add_dock() with DOCK_SLOT_BOTTOM, but EditorDock does
-## not exist in 4.4/4.5 and this project targets 4.4+, so the broadly-
-## compatible API is the correct choice here. The bottom panel is the natural
-## home for a status/log display (alongside Output and Debug), not a tab
-## competing with Scene/Import in the dock area.
+## API note: the status dock is registered through EditorDock/add_dock() on
+## Godot 4.6+ (ClassDB-resolved, so this script still parses on 4.4/4.5), with
+## the legacy add_control_to_bottom_panel() as the 4.4/4.5 fallback. The bottom
+## dock is the natural home for a status/log display (alongside Output and
+## Debug), not a tab competing with Scene/Import in the dock area.
 
 const PLUGIN_NAME := "godot_mcp"
 const MIN_GODOT_MAJOR := 4
@@ -27,6 +26,9 @@ const AutoRefreshHelper: GDScript = preload("./mcp_auto_refresh.gd")
 
 var _dock: MCPStatusDock
 var _dock_button: Button
+# #602: the EditorDock wrapper on Godot 4.6+ (null on the 4.4/4.5 legacy path).
+# Typed Node, not EditorDock — that class does not exist on the 4.4 floor.
+var _editor_dock: Node = null
 var _bridge: MCPBridge
 var _debugger: MCPDebugger
 var _router: MCPCommandRouter
@@ -49,12 +51,7 @@ func _enter_tree() -> void:
 	_warn_if_unsupported_version()
 	_status_icons = StatusIcons.new()
 	_dock = MCPStatusDock.new()
-	_dock_button = add_control_to_bottom_panel(_dock, "MCP")
-	# Auto-show the bottom panel and set the initial status icon.
-	if _dock_button != null:
-		_dock_button.button_pressed = true
-		_update_button_icon(MCPBridge.Status.DISCONNECTED)
-
+	_register_dock()
 	# Feed static info the dock can show immediately.
 	_dock.set_server_version(_server_version_label())
 	_dock.set_bridge_url(_bridge_url())
@@ -118,6 +115,41 @@ func _enter_tree() -> void:
 	_refresh_all()
 
 
+## #602: register the status dock through the 4.6+ EditorDock/add_dock API when
+## available, falling back to the legacy bottom panel on the 4.4/4.5 floor.
+##
+## `EditorDock` is a 4.6+ class, so it is resolved through ClassDB (never a
+## compile-time reference) — the plugin must keep parsing on 4.4. If the class
+## or the slot enum is unavailable, the legacy path is used instead.
+func _register_dock() -> void:
+	if _supports_editor_dock():
+		var slot: int = ClassDB.class_get_integer_constant("EditorDock", "DOCK_SLOT_BOTTOM")
+		var dock_node: Node = ClassDB.instantiate("EditorDock") as Node
+		if dock_node != null and slot >= 0:
+			dock_node.set("title", "MCP")
+			dock_node.set("default_slot", slot)
+			dock_node.add_child(_dock)
+			call("add_dock", dock_node)
+			_editor_dock = dock_node
+			if dock_node.has_method("make_visible"):
+				dock_node.call("make_visible")
+			_update_button_icon(MCPBridge.Status.DISCONNECTED)
+			return
+		if dock_node != null:
+			dock_node.queue_free()
+	# Legacy bottom panel: the only option on 4.4/4.5.
+	_dock_button = add_control_to_bottom_panel(_dock, "MCP")
+	if _dock_button != null:
+		_dock_button.button_pressed = true
+		_update_button_icon(MCPBridge.Status.DISCONNECTED)
+
+
+## #602: whether the running editor exposes the dock API (`EditorDock`/`add_dock`,
+## Godot 4.6+). Method + class existence, never a compile-time symbol.
+func _supports_editor_dock() -> bool:
+	return ClassDB.class_exists("EditorDock") and has_method("add_dock")
+
+
 func _exit_tree() -> void:
 	if _refresh_timer != null:
 		_refresh_timer.stop()
@@ -152,11 +184,18 @@ func _exit_tree() -> void:
 		remove_debugger_plugin(_debugger)
 		_debugger = null
 
-	if _dock != null:
+	if _editor_dock != null:
+		# #602: remove_dock is 4.6+ (guarded by _register_dock); freeing the
+		# wrapper also frees the MCPStatusDock child.
+		call("remove_dock", _editor_dock)
+		_editor_dock.queue_free()
+		_editor_dock = null
+		_dock = null
+	elif _dock != null:
 		remove_control_from_bottom_panel(_dock)
 		_dock.queue_free()
 		_dock = null
-		_dock_button = null
+	_dock_button = null
 	_status_icons = null
 
 
@@ -305,14 +344,10 @@ func _on_auto_refresh_toggled(enabled: bool) -> void:
 		_auto_refresh_timer.stop()
 
 
-## Set the bottom-bar button icon to a colored dot reflecting connection status.
-## In Godot 4.7, add_control_to_bottom_panel returns a legacy dummy Button
-## that isn't rendered — the real tab is managed by EditorDock. So we also
-## update the dock's internal status dot (which is always visible when the
-## panel is open). The button icon is set as a best-effort for 4.4/4.5 where
-## the button is the real tab toggle.
+## Update the dock's internal status dot (always visible when the panel is open)
+## and, on the legacy path only, the bottom-bar button icon.
 func _update_button_icon(status: MCPBridge.Status) -> void:
-	# Best-effort: set the legacy button icon (works on 4.4/4.5, no-op on 4.7).
+	# Best-effort: set the legacy button icon (4.4/4.5; no-op on the 4.6+ dock).
 	if _dock_button != null:
 		# #539: three statuses → three immutable textures, built once (lazily)
 		# and cached for the plugin's lifetime — the hot path only swaps a
