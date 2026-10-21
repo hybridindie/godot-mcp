@@ -88,6 +88,13 @@ concurrency:
 permissions:
   contents: read
 
+# Self-hosted runners share /runner/_work/_cache; keep uv's package and
+# Python caches there instead of setup-uv's actions/cache restore, which
+# hangs on the self-hosted cache service (#579).
+env:
+  UV_CACHE_DIR: /runner/_work/_cache/uv
+  UV_PYTHON_INSTALL_DIR: /runner/_work/_cache/uv-python
+
 jobs:
   editor-suites:
     name: live editor (e2e + addon smoke)
@@ -109,12 +116,13 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v10.3.0
+        timeout-minutes: 5
         with:
           # Pinned (issue #579) — skips the flaky manifest fetch (see ci.yml).
           version: "0.11.29"
-          enable-cache: true
 
       - name: Set up Python
+        timeout-minutes: 5
         run: uv python install 3.11
 
       - name: Sync dependencies
@@ -197,11 +205,12 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v10.3.0
+        timeout-minutes: 5
         with:
           version: "0.11.29"
-          enable-cache: true
 
       - name: Set up Python
+        timeout-minutes: 5
         run: uv python install 3.11
 
       - name: Sync dependencies
