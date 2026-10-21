@@ -127,6 +127,31 @@ func _initialize() -> void:
 	if not str(unknown.get("hint", "")).contains("Node2D") and not str(unknown.get("hint", "")).contains("Node3D"):
 		failures.append("unknown.hint: expected did-you-mean over real classes: %s" % str(unknown.get("hint")))
 
+	# #603: typo → suggestion cases covering both matchers — the compact local
+	# pass on 4.4–4.7 and the FuzzySearch rerank on 4.8+.
+	var typo_cases := [
+		{"given": "Node9D", "wants": ["Node2D", "Node3D"]},
+		{"given": "Spriet2D", "wants": ["Sprite2D"]},
+		{"given": "CharacterBoddy3D", "wants": ["CharacterBody3D"]},
+	]
+	for i in range(typo_cases.size()):
+		var typo: Dictionary = typo_cases[i]
+		var response: Dictionary = router.handle({
+			"id": "typo%d" % i, "command": "cmd_describe_class",
+			"params": {"class_name": str(typo["given"])},
+		})
+		var hint := str(response.get("hint", ""))
+		var hit := false
+		for want in typo["wants"]:
+			if hint.contains(str(want)):
+				hit = true
+				break
+		if not hit:
+			failures.append(
+				"typo %s: expected one of %s in hint: %s"
+				% [str(typo["given"]), str(typo["wants"]), hint]
+			)
+
 	# Empty class_name → VALIDATION_ERROR, pre-ClassDB.
 	var empty: Dictionary = router.handle({
 		"id": "7", "command": "cmd_describe_class", "params": {"class_name": ""},
