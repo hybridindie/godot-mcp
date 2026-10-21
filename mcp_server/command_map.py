@@ -253,6 +253,10 @@ def _suggest(miss: str) -> str | None:
     Similarity = longest common substring (not just prefix), so
     ``set_layerz`` finds ``physics_set_layers``. Ties break toward the
     shorter name (closer to the plain handler form).
+
+    #603: kept Python-side deliberately — the server cannot call the engine's
+    4.8 ``FuzzySearch`` without a connected editor, and a validation error must
+    not depend on the bridge. The addon uses FuzzySearch for class names.
     """
     best: tuple[int, str] | None = None
     for known in BARE_TO_COMMAND:

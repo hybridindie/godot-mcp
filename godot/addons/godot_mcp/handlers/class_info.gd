@@ -155,9 +155,36 @@ func _closest(given: String, candidates: Array, n: int) -> Array:
 		if score > 0.0:
 			scored.append({"c": c, "s": score})
 	scored.sort_custom(func(a, b): return a["s"] > b["s"])
-	var top: Array = []
+	var plausible: Array = []
 	for entry in scored:
-		top.append(str(entry["c"]))
+		plausible.append(str(entry["c"]))
+	var ranked: Array = plausible.duplicate()
+	# #603: Godot 4.8 exposes the editor's own FuzzySearch to scripting. Rerank
+	# the *plausible* set (candidates the local pass already matched) rather than
+	# the full class list: the engine matcher is tuned for paths and over-weights
+	# long identifiers (for "Node9D" it ranks VisualShaderNodeDotProduct above
+	# Node2D). ClassDB-resolved so this script still parses on 4.4–4.7.
+	if not plausible.is_empty() and ClassDB.class_exists("FuzzySearch"):
+		var fuzzy: Variant = ClassDB.instantiate("FuzzySearch")
+		if fuzzy != null:
+			fuzzy.set("max_results", plausible.size())
+			fuzzy.set("filter_low_scores", false)
+			var matches: Array = fuzzy.call("search_all", given, PackedStringArray(plausible))
+			var out: Array = []
+			for m in matches:
+				var target := str(m.get("target"))
+				if target.is_empty() or out.has(target):
+					continue
+				out.append(target)
+			# Keep any plausible names FuzzySearch omitted, so nothing is lost.
+			for c in plausible:
+				if not out.has(c):
+					out.append(c)
+			if not out.is_empty():
+				ranked = out
+	var top: Array = []
+	for c in ranked:
+		top.append(str(c))
 		if top.size() >= n:
 			break
 	return top

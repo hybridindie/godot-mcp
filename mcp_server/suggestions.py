@@ -2,6 +2,12 @@
 
 Lightweight difflib-based closest-match finder for use when a property name is
 misspelled or doesn't exist on a node/resource/shader. No external dependencies.
+
+#603: this stays Python-side by design. Godot 4.8's ``FuzzySearch`` lives in the
+editor process; the server has no engine access, and routing every suggestion
+through the bridge would make a validation error depend on a connected editor
+(plus a round-trip). The addon uses the engine matcher where it has one (class
+names); the server keeps deterministic local matching.
 """
 
 from __future__ import annotations
