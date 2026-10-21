@@ -12,6 +12,24 @@ Full release notes live on
 [GitHub Releases](https://github.com/hybridindie/godot-mcp/releases). This page
 summarizes the recent ones.
 
+## 2026.10.21b1 — Godot 4.8 beta verification prerelease
+
+**Prerelease** (`pip install --pre godot-editor-mcp`). The stable install path
+stays on `2026.10.20.1`; this build makes no tool or contract changes.
+
+- **Verified against Godot 4.8-beta1** (`4.8.beta1.official.4d10419ca`) — the
+  addon loads, the addon smokes and live bridge e2e pass, and the integration
+  suite is 87/87 with the known upstream MeshLibrary assertion isolated.
+- **Known upstream limitation** — `MeshLibrary` items are saved as an empty
+  resource on 4.8-beta1 ([godotengine/godot#124712](https://github.com/godotengine/godot/issues/124712)).
+  The persistence test asserts that beta1 shape; 4.7 and 4.8-stable keep the
+  strict expectation.
+- **4.8 beta CI lane** — the e2e workflow now runs an advisory, non-blocking
+  4.8-beta1 lane alongside the stable 4.7 lane. The Godot 4.4 floor and the 4.7
+  suites are unchanged.
+- **Not claimed** — 4.8-stable support. The floor remains Godot 4.4 and 4.7 is
+  the validated stable target; 4.8 remains a verification target.
+
 ## 2026.10.20.1 — Godot 4.4 floor + non-default addon installs
 
 Patch release. Makes the shipped addon load on Godot 4.4–4.6 and work from
