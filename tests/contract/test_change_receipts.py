@@ -393,6 +393,12 @@ def test_synthesize_receipt_status_and_op() -> None:
         {"resource_path": "res://a.tres", "created": True},
     )
     assert written["changes"][0]["op"] == "write"
+    existed = synthesize_receipt(
+        "godot_scene_edit_connect_signal",
+        {"source_path": "A"},
+        {"connected": True, "already_connected": True},
+    )
+    assert existed["status"] == "existed" and existed["changes"] == []
 
 
 async def test_every_mutating_tool_is_receipt_covered() -> None:
