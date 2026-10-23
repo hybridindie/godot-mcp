@@ -271,7 +271,9 @@ and the file/resource family (`create_resource`, `set_resource_property`,
 `write_script`, `patch_script`, `create_shader`, `assign_shader_material`,
 `set_shader_param`, `import_asset`, `delete_resource_file`,
 `move_resource_file`); the remaining mutating tools adopt it as the rollout
-continues.
+continues. Tools in the remaining domains get a coarse fallback receipt
+synthesized from the addon result flags/paths by `ReceiptMiddleware`; a
+handler-specific read-back replaces it as each domain lands.
 
 ```json
 {

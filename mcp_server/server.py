@@ -30,6 +30,7 @@ from mcp_server.config import ServerConfig
 from mcp_server.diagnostics import register_diagnostics
 from mcp_server.logging_setup import install_proactor_reset_demotion
 from mcp_server.prompts import register_prompts
+from mcp_server.receipt_middleware import ReceiptMiddleware, apply_receipt_schema
 from mcp_server.resources.context import register_resources
 from mcp_server.result_validation_middleware import ResultValidationMiddleware
 from mcp_server.runtime import GodotRunner, Runner
@@ -155,6 +156,10 @@ def create_server(
             await apply_safety_annotations(mcp)
         except Exception:
             logger.warning("failed to apply safety annotations", exc_info=True)
+        try:
+            await apply_receipt_schema(mcp)
+        except Exception:
+            logger.warning("failed to apply receipt schema", exc_info=True)
         # #644: tell the bridge which addon commands are mutating, so a timeout on
         # one is flagged may_have_applied (the editor runs commands serially).
         try:
@@ -196,6 +201,10 @@ def create_server(
     # ``structuredContent`` (error/hint/required/next_call). Outermost so it
     # sees errors raised by every inner middleware and the tool body.
     mcp.add_middleware(AgentErrorMiddleware())
+    # #756: every successful mutating/destructive result carries a receipt. Precise
+    # handler receipts win; this fills a coarse fallback for the domains still
+    # rolling out.
+    mcp.add_middleware(ReceiptMiddleware())
     # Repair stringified JSON arguments (object/array/scalar params sent as JSON
     # strings by some client harnesses) before any other middleware or argument
     # validation sees them.

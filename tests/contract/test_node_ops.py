@@ -195,7 +195,9 @@ async def test_group_tools() -> None:
         removed = await client.call_tool(
             "godot_scene_edit_remove_from_group", {"node_path": "Box", "group": "g"}
         )
-    assert added.structured_content == {
+    sc = dict(added.structured_content)
+    receipt = sc.pop("receipt")
+    assert sc == {
         "node_path": "Box",
         "group": "g",
         "in_group": True,
@@ -204,8 +206,8 @@ async def test_group_tools() -> None:
         "persisted": True,  # #458: the addon's verdict passes through
         "reason": None,
         "hint": None,
-        "receipt": None,  # #756: receipts are rolling out; absent for this handler
     }
+    assert receipt["status"] == "updated"  # #756: fallback receipt
     assert removed.structured_content["in_group"] is False
     assert removed.structured_content["persisted"] is True
 

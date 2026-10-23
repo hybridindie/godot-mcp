@@ -339,3 +339,78 @@ def test_resource_handlers_build_receipts_from_read_back() -> None:
     scripts = (root / "handlers" / "scripts.gd").read_text(encoding="utf-8")
     assert "var landed := FileAccess.get_file_as_string(path)" in scripts
     assert "landed != content" in scripts
+
+
+async def test_fallback_receipt_for_domains_without_handler_receipt() -> None:
+    """The middleware fills a coarse receipt from the addon result + args."""
+
+    def responder(command: Any) -> ResponseEnvelope | None:
+        if command.command == "cmd_add_audio_bus":
+            return ResponseEnvelope.success(
+                command.id, {"index": 1, "name": command.params["name"]}
+            )
+        if command.command == "cmd_add_input_action":
+            return ResponseEnvelope.success(
+                command.id,
+                {"name": command.params["name"], "added": True, "deadzone": 0.5},
+            )
+        return _responder(command)
+
+    async with Client(_server(responder), mode="legacy") as client:
+        await client.call_tool("godot_enable_toolset", {"category": "audio"})
+        bus = await client.call_tool("godot_audio_add_bus", {"name": "Music"})
+        await client.call_tool("godot_enable_toolset", {"category": "input_map"})
+        action = await client.call_tool("godot_input_map_add_action", {"name": "jump"})
+    assert bus.structured_content["receipt"]["status"] == "created"
+    assert bus.structured_content["receipt"]["changes"][0]["path"] == "Music"
+    assert bus.structured_content["receipt"]["changes"][0]["op"] == "add"
+    assert action.structured_content["receipt"]["status"] == "created"
+    assert action.structured_content["receipt"]["changes"][0]["path"] == "jump"
+
+
+def test_synthesize_receipt_status_and_op() -> None:
+    from mcp_server.receipt_middleware import synthesize_receipt
+
+    created = synthesize_receipt(
+        "godot_audio_add_bus", {"name": "Music"}, {"index": 1, "name": "Music"}
+    )
+    assert created["status"] == "created" and created["changes"][0]["op"] == "add"
+    dropped = synthesize_receipt(
+        "godot_scene_edit_set_node_property",
+        {"node_path": "Root", "property": "x"},
+        {"node_path": "Root", "set": False},
+    )
+    assert dropped["status"] == "noop" and dropped["changes"] == []
+    renamed = synthesize_receipt(
+        "godot_scene_edit_rename_node",
+        {"node_path": "Root/A", "new_name": "B"},
+        {"node_path": "Root/B", "renamed": True},
+    )
+    assert renamed["changes"][0]["op"] == "rename"
+    written = synthesize_receipt(
+        "godot_resources_edit_create_resource",
+        {"resource_path": "res://a.tres"},
+        {"resource_path": "res://a.tres", "created": True},
+    )
+    assert written["changes"][0]["op"] == "write"
+
+
+async def test_every_mutating_tool_is_receipt_covered() -> None:
+    """Every mutating/destructive tool is covered by the receipt middleware (#756)."""
+    from mcp_server.receipt_middleware import ReceiptMiddleware, synthesize_receipt
+
+    server = _server(_responder)
+    tools = await server.local_provider.list_tools()
+    mutating = [
+        t
+        for t in tools
+        if (t.meta or {}).get("safety_class") in ("mutating", "destructive")
+    ]
+    assert len(mutating) >= 90, f"expected the full mutating surface, got {len(mutating)}"
+    assert any(isinstance(m, ReceiptMiddleware) for m in server.middleware), (
+        "ReceiptMiddleware must be registered to fill fallback receipts"
+    )
+    for tool in mutating:
+        receipt = synthesize_receipt(tool.name, {}, {})
+        assert receipt["status"] in {"created", "updated", "existed", "noop"}
+        assert isinstance(receipt["changes"], list)
