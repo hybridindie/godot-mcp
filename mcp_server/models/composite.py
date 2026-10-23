@@ -11,6 +11,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from mcp_server.models.persistence import TargetPersistence
+from mcp_server.models.receipt import ChangeReceipt
 
 
 class ChildSpec(BaseModel):
@@ -39,6 +40,7 @@ class ComposeNodeResult(BaseModel):
     properties_set: list[str] = Field(default_factory=list)
     saved: bool = False
     dry_run: bool = False
+    receipt: ChangeReceipt | None = None
 
 
 class BatchCreateNodesResult(BaseModel):
@@ -52,6 +54,7 @@ class BatchCreateNodesResult(BaseModel):
     # undo stack for perf and `hint` explains what that means (honest batch).
     undoable: bool = True
     hint: str = ""
+    receipt: ChangeReceipt | None = None
 
 
 class ApplyNodeEditsResult(BaseModel):
@@ -68,3 +71,4 @@ class ApplyNodeEditsResult(BaseModel):
     # #477: per-entry verdict for every edited node — an entry inside a
     # non-editable instance applies live but is lost on save.
     persistence: list[TargetPersistence] = Field(default_factory=list)
+    receipt: ChangeReceipt | None = None

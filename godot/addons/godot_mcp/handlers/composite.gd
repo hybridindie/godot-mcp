@@ -114,9 +114,35 @@ func _cmd_compose_node(params: Dictionary) -> Dictionary:
 		parent, [node], "Compose %s" % node.name, true
 	)
 	var node_path: String = paths[0]
-
+	var created_node: Node = root.get_node_or_null(NodePath(node_path))
 	for child_node in child_nodes:
 		child_names.append(String(child_node.name))
+	if created_node == null:
+		return _router._ok(_router._helpers.with_persistence({
+			"node_path": node_path,
+			"created": false,
+			"children": child_names,
+			"script_attached": false,
+			"properties_set": built["properties_set"],
+			"saved": false,
+			"hint": "The editor did not keep the composed node.",
+			"receipt": MCPReceipt.make("noop", []),
+		}, persistence))
+	var changes: Array = [
+		MCPReceipt.change(
+			node_path, "add", null,
+			{"type": created_node.get_class(), "name": String(created_node.name)}
+		),
+	]
+	for child_node in child_nodes:
+		changes.append(MCPReceipt.change(
+			Inspect.relative_path(child_node, root), "add", null,
+			{"type": child_node.get_class(), "name": String(child_node.name)}
+		))
+	for prop_name in built["properties_set"]:
+		changes.append(MCPReceipt.change(
+			node_path, "set", null, created_node.get(str(prop_name))
+		))
 	return _router._ok(_router._helpers.with_persistence({
 		"node_path": node_path,
 		"created": true,
@@ -124,6 +150,7 @@ func _cmd_compose_node(params: Dictionary) -> Dictionary:
 		"script_attached": not str(params.get("script_path", "")).is_empty(),
 		"properties_set": built["properties_set"],
 		"saved": _maybe_save(params),
+		"receipt": MCPReceipt.make("created", changes),
 	}, persistence))
 
 
@@ -160,8 +187,13 @@ func _cmd_batch_create_nodes(params: Dictionary) -> Dictionary:
 	# the batch_set_property handler honors the flag the same way.
 	if bool(params.get("dry_run", false)):
 		var planned: Array = []
+		var planned_changes: Array = []
 		for node in nodes:
-			planned.append(Inspect.relative_path(node, root))
+			var p := Inspect.relative_path(node, root)
+			planned.append(p)
+			planned_changes.append(MCPReceipt.change(
+				p, "add", null, {"type": node.get_class(), "name": String(node.name)}
+			))
 		return _router._ok({
 			"created": [],
 			"count": planned.size(),
@@ -169,6 +201,7 @@ func _cmd_batch_create_nodes(params: Dictionary) -> Dictionary:
 			"dry_run": true,
 			"undoable": _router._helpers.undoable_for_count(names.size()),
 			"hint": "" if _router._helpers.undoable_for_count(names.size()) else _router._helpers.undo_threshold_hint(names.size()),
+			"receipt": MCPReceipt.make("created", planned_changes),
 		})
 	# #523: batch creates share the UndoRedo threshold — the decision + hint
 	# live on the router (one site), same honesty shape as batch_set_property.
@@ -182,14 +215,22 @@ func _cmd_batch_create_nodes(params: Dictionary) -> Dictionary:
 		_router._helpers.commit_add_children(parent, nodes, "Batch create %d %s" % [nodes.size(), node_type])
 
 	var created: Array = []
+	var changes: Array = []
 	for node in nodes:
-		created.append(Inspect.relative_path(node, root))
+		var p := Inspect.relative_path(node, root)
+		if root.get_node_or_null(NodePath(p)) == null:
+			continue
+		created.append(p)
+		changes.append(MCPReceipt.change(
+			p, "add", null, {"type": node.get_class(), "name": String(node.name)}
+		))
 	return _router._ok(_router._helpers.with_persistence({
 		"created": created,
 		"count": created.size(),
 		"saved": _maybe_save(params),
 		"undoable": undoable,
 		"hint": "" if undoable else _router._helpers.undo_threshold_hint(names.size()),
+		"receipt": MCPReceipt.make("created" if not created.is_empty() else "noop", changes),
 	}, persistence))
 
 
@@ -245,6 +286,15 @@ func _cmd_apply_node_edits(params: Dictionary) -> Dictionary:
 	# semantics (run_or_preview never sends this command with dry_run set), but
 	# a raw envelope carrying dry_run: true must not mutate the tree either.
 	if bool(params.get("dry_run", false)):
+		var preview_changes: Array = []
+		var preview_changed := false
+		for item in to_apply:
+			if Coerce.values_equal(item["value"], item["old"]):
+				continue
+			preview_changed = true
+			preview_changes.append(MCPReceipt.change(
+				Inspect.relative_path(item["node"], root), "set", item["old"], item["value"]
+			))
 		return _router._ok({
 			"edited": [],
 			"skipped": skipped,
@@ -254,6 +304,10 @@ func _cmd_apply_node_edits(params: Dictionary) -> Dictionary:
 			"undoable": _router._helpers.undoable_for_count(to_apply.size()),
 			"hint": "" if _router._helpers.undoable_for_count(to_apply.size()) else _router._helpers.undo_threshold_hint(to_apply.size(), "applies"),
 			"persistence": persistence,
+			"receipt": MCPReceipt.make(
+				("updated" if preview_changed else "existed") if not to_apply.is_empty() else "noop",
+				preview_changes,
+			),
 		})
 
 	if not to_apply.is_empty():
@@ -276,6 +330,16 @@ func _cmd_apply_node_edits(params: Dictionary) -> Dictionary:
 		for item in to_apply:
 			_router._helpers.invalidate_prop_cache(item["node"])
 
+	var changes: Array = []
+	var changed := false
+	for item in to_apply:
+		var after: Variant = item["node"].get(item["property"])
+		if Coerce.values_equal(after, item["old"]):
+			continue
+		changed = true
+		changes.append(MCPReceipt.change(
+			Inspect.relative_path(item["node"], root), "set", item["old"], after
+		))
 	return _router._ok({
 		"edited": edited_paths,
 		"skipped": skipped,
@@ -284,4 +348,8 @@ func _cmd_apply_node_edits(params: Dictionary) -> Dictionary:
 		"undoable": _router._helpers.undoable_for_count(to_apply.size()),
 		"hint": "" if _router._helpers.undoable_for_count(to_apply.size()) else _router._helpers.undo_threshold_hint(to_apply.size(), "applies"),
 		"persistence": persistence,
+		"receipt": MCPReceipt.make(
+			("updated" if changed else "existed") if not to_apply.is_empty() else "noop",
+			changes,
+		),
 	})

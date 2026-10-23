@@ -7,6 +7,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from mcp_server.models.persistence import TargetPersistence
+from mcp_server.models.receipt import ChangeReceipt
 
 
 class NodeRef(BaseModel):
@@ -42,6 +43,7 @@ class BatchSetResult(BaseModel):
     # non-editable instance is individually lost on save even when the batch
     # reports ok.
     persistence: list[TargetPersistence] = Field(default_factory=list)
+    receipt: ChangeReceipt | None = None
 
 
 class CrossSceneSceneResult(BaseModel):

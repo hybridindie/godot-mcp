@@ -181,7 +181,12 @@ func _cmd_batch_set_property(params: Dictionary) -> Dictionary:
 			continue
 		var node_path := Inspect.relative_path(node, root)
 		applied.append(node_path)
-		to_apply.append({"node": node, "value": Coerce.from_json(value, prop_type)})
+		to_apply.append({
+			"node": node,
+			"path": node_path,
+			"value": Coerce.from_json(value, prop_type),
+			"before": node.get(property),
+		})
 		# #477: `_batch_targets` descends into instanced children, so a target
 		# inside a non-editable instance is individually lost on save even when
 		# the batch reports ok. Each applied target gets its own verdict —
@@ -214,6 +219,17 @@ func _cmd_batch_set_property(params: Dictionary) -> Dictionary:
 		# Invalidate cached property types for all modified objects.
 		for item in to_apply:
 			_router._helpers.invalidate_prop_cache(item["node"])
+	var changes: Array = []
+	var changed := false
+	for item in to_apply:
+		var after: Variant = item["value"] if dry_run else item["node"].get(property)
+		if Coerce.values_equal(after, item["before"]):
+			continue
+		changed = true
+		changes.append(MCPReceipt.change(str(item["path"]), "set", item["before"], after))
+	var status := "noop"
+	if not to_apply.is_empty():
+		status = "updated" if changed else "existed"
 	return _router._ok({
 		"property": property,
 		"applied": applied,
@@ -223,6 +239,7 @@ func _cmd_batch_set_property(params: Dictionary) -> Dictionary:
 		"undoable": undoable,
 		"persistence": persistence,
 		"hint": "" if undoable else _router._helpers.undo_threshold_hint(to_apply.size()),
+		"receipt": MCPReceipt.make(status, changes),
 	})
 
 

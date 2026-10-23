@@ -265,8 +265,9 @@ listed in the #477 section above — same fields, different deciding rule.)
 actually changed now?" — built from the addon's read-back, never from the
 request. It is additive and currently emitted by the core node-mutation family
 (`create_node`, `rename_node`, `set_node_property`, `delete_node`,
-`attach_script`, `connect_signal`); the remaining mutating tools adopt it as the
-rollout continues.
+`attach_script`, `connect_signal`) and the batch/composite family
+(`batch_set_property`, `apply_node_edits`, `batch_create_nodes`, `compose_node`);
+the remaining mutating tools adopt it as the rollout continues.
 
 ```json
 {

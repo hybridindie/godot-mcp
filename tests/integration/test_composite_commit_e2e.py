@@ -70,6 +70,7 @@ async def _run() -> None:
             {"parent_path": ".", "node_type": "Node2D", "name": "Solo"},
         )
         assert created["created"] is True and "Solo" in created["node_path"]
+        assert created["receipt"]["status"] == "created"
 
         # Flat batch create: three siblings in ONE undo action.
         batch = await _ok(
@@ -78,6 +79,8 @@ async def _run() -> None:
             {"parent_path": ".", "node_type": "Node2D", "names": ["B1", "B2", "B3"]},
         )
         assert batch["created"] == ["B1", "B2", "B3"] and batch["undoable"] is True
+        assert batch["receipt"]["status"] == "created"
+        assert {c["path"] for c in batch["receipt"]["changes"]} == {"B1", "B2", "B3"}
 
         # Compose: one node + two children, the subtree owned in one action.
         composed = await _ok(
@@ -94,6 +97,12 @@ async def _run() -> None:
             },
         )
         assert composed["children"] == ["LeafA", "LeafB"]
+        assert composed["receipt"]["status"] == "created"
+        assert {c["path"] for c in composed["receipt"]["changes"]} >= {
+            "Trunk",
+            "Trunk/LeafA",
+            "Trunk/LeafB",
+        }
 
         tree = await _ok(bridge, "cmd_get_scene_tree", {})
         names = _child_names(tree)

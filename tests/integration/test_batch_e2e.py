@@ -83,6 +83,21 @@ async def _run() -> None:
         assert batch["count"] == 2 and batch["skipped"] == []
         # #461: small batches are undo-tracked — reported explicitly
         assert batch["undoable"] is True
+        # #756: the read-back receipt covers every applied target.
+        assert batch["receipt"]["status"] == "updated"
+        assert {c["path"] for c in batch["receipt"]["changes"]} == {"S1", "S2"}
+        assert all(c["op"] == "set" for c in batch["receipt"]["changes"])
+        assert all(c["after"] is False for c in batch["receipt"]["changes"])
+
+        edits = await _ok(
+            bridge,
+            "cmd_apply_node_edits",
+            {"edits": [{"node_path": "S1", "properties": {"visible": True}}]},
+        )
+        assert edits["receipt"]["status"] == "updated"
+        assert edits["receipt"]["changes"][0]["path"] == "S1"
+        assert edits["receipt"]["changes"][0]["before"] is False
+        assert edits["receipt"]["changes"][0]["after"] is True
 
         # #461: a batch above the 20-node threshold bypasses UndoRedo; the
         # response says so (undoable=false + hint), never silent. Node has

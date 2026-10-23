@@ -213,3 +213,87 @@ def test_node_handlers_build_receipts_from_read_back() -> None:
         assert "MCPReceipt.make(" in section, f"{handler} must emit a receipt"
     # A dropped write is `noop`, not `updated`.
     assert 'MCPReceipt.make("noop"' in src
+
+
+async def test_batch_and_composite_receipts_parse() -> None:
+    def responder(command: Any) -> ResponseEnvelope | None:
+        if command.command == "cmd_batch_set_property":
+            return ResponseEnvelope.success(
+                command.id,
+                {
+                    "property": "visible",
+                    "applied": ["S1", "S2"],
+                    "skipped": [],
+                    "count": 2,
+                    "dry_run": False,
+                    "undoable": True,
+                    "persistence": [],
+                    "hint": "",
+                    "receipt": _receipt(
+                        "updated",
+                        [
+                            {
+                                "path": "S1",
+                                "op": "set",
+                                "before": True,
+                                "after": False,
+                            },
+                            {
+                                "path": "S2",
+                                "op": "set",
+                                "before": True,
+                                "after": False,
+                            },
+                        ],
+                    ),
+                },
+            )
+        if command.command == "cmd_compose_node":
+            return ResponseEnvelope.success(
+                command.id,
+                {
+                    "node_path": "Trunk",
+                    "created": True,
+                    "children": ["Leaf"],
+                    "script_attached": False,
+                    "properties_set": [],
+                    "saved": False,
+                    "receipt": _receipt(
+                        "created",
+                        [
+                            {
+                                "path": "Trunk",
+                                "op": "add",
+                                "before": None,
+                                "after": {"type": "Node2D", "name": "Trunk"},
+                            },
+                            {
+                                "path": "Trunk/Leaf",
+                                "op": "add",
+                                "before": None,
+                                "after": {"type": "Node2D", "name": "Leaf"},
+                            },
+                        ],
+                    ),
+                },
+            )
+        return _responder(command)
+
+    async with Client(_server(responder), mode="legacy") as client:
+        await client.call_tool("godot_enable_toolset", {"category": "batch"})
+        batch = await client.call_tool(
+            "godot_batch_set_property",
+            {"node_type": "Sprite2D", "property": "visible", "value": False},
+        )
+        await client.call_tool("godot_enable_toolset", {"category": "composite"})
+        compose = await client.call_tool(
+            "godot_composite_compose_node",
+            {"parent_path": ".", "node_type": "Node2D", "node_name": "Trunk"},
+        )
+    assert batch.structured_content["receipt"]["status"] == "updated"
+    assert len(batch.structured_content["receipt"]["changes"]) == 2
+    assert compose.structured_content["receipt"]["status"] == "created"
+    assert {c["path"] for c in compose.structured_content["receipt"]["changes"]} == {
+        "Trunk",
+        "Trunk/Leaf",
+    }
