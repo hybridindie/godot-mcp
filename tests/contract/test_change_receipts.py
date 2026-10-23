@@ -297,3 +297,45 @@ async def test_batch_and_composite_receipts_parse() -> None:
         "Trunk",
         "Trunk/Leaf",
     }
+
+
+async def test_resource_property_noop_receipt() -> None:
+    """A dropped resource write is surfaced as set:false + a noop receipt."""
+
+    def responder(command: Any) -> ResponseEnvelope | None:
+        if command.command == "cmd_set_resource_property":
+            return ResponseEnvelope.success(
+                command.id,
+                {
+                    "resource_path": "res://shape.tres",
+                    "property": "size",
+                    "value": {"x": 4.0, "y": 5.0},
+                    "set": False,
+                    "hint": "Setting 'size' did not land.",
+                    "receipt": _receipt("noop"),
+                },
+            )
+        return _responder(command)
+
+    async with Client(_server(responder), mode="legacy") as client:
+        await client.call_tool("godot_enable_toolset", {"category": "resources_edit"})
+        result = await client.call_tool(
+            "godot_resources_edit_set_resource_property",
+            {"resource_path": "res://shape.tres", "property": "size", "value": {"x": 1, "y": 2}},
+        )
+    payload = result.structured_content
+    assert payload["set"] is False
+    assert payload["receipt"]["status"] == "noop"
+    assert payload["receipt"]["changes"] == []
+
+
+def test_resource_handlers_build_receipts_from_read_back() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2] / "godot" / "addons" / "godot_mcp"
+    resources = (root / "handlers" / "resources.gd").read_text(encoding="utf-8")
+    assert 'MCPReceipt.make("noop"' in resources
+    assert "ResourceLoader.load(path)" in resources
+    scripts = (root / "handlers" / "scripts.gd").read_text(encoding="utf-8")
+    assert "var landed := FileAccess.get_file_as_string(path)" in scripts
+    assert "landed != content" in scripts
