@@ -27,10 +27,11 @@ from fastmcp.exceptions import ToolError
 from mcp.types import ToolAnnotations
 from pydantic import ValidationError
 
+from mcp_server.agent_errors import AgentToolError
 from mcp_server.bridge import Bridge
 from mcp_server.categories import CORE_TAG
 from mcp_server.models.approval import ApprovalRequest, ApprovalResponse
-from mcp_server.models.envelope import ErrorCode, ResponseEnvelope
+from mcp_server.models.envelope import ErrorCode, NextCall, ResponseEnvelope
 from mcp_server.models.safety import SafetyClassListing
 
 if TYPE_CHECKING:
@@ -155,14 +156,23 @@ class PreconditionError(Exception):
         hint: str,
         required: str,
         error: ErrorCode | str = ErrorCode.PRECONDITION_FAILED,
+        next_call: NextCall | dict[str, Any] | None = None,
     ) -> None:
-        self.error = str(error)
+        self.error = str(error.value if isinstance(error, ErrorCode) else error)
         self.hint = hint
         self.required = required
+        if isinstance(next_call, dict):
+            next_call = NextCall(**next_call)
+        self.next_call = next_call
         super().__init__(f"{self.error}: {hint}")
 
     def as_tool_error(self) -> ToolError:
-        return ToolError(f"{self.error}: {self.hint} [required={self.required}]")
+        return AgentToolError(
+            self.error,
+            self.hint,
+            required=self.required,
+            next_call=self.next_call,
+        )
 
 
 # --- preconditions ---------------------------------------------------------
@@ -192,6 +202,11 @@ async def require_active_scene(bridge: Bridge) -> None:
             "start a new one (create_scene works with no scene open). Re-run this action "
             "once a scene is open.",
             required="active_scene",
+            next_call=NextCall(
+                tool="godot_inspection_list_scenes",
+                args={},
+                reason="list the project's scenes, then open or create one",
+            ),
         )
 
 
@@ -214,6 +229,11 @@ async def require_node_exists(bridge: Bridge, node_path: str) -> None:
             response.hint or f"No node at '{node_path}'.",
             required="node_exists",
             error=ErrorCode.RESOURCE_NOT_FOUND,
+            next_call=NextCall(
+                tool="godot_inspection_get_scene_tree",
+                args={},
+                reason=f"find the correct path for '{node_path}'",
+            ),
         )
     _raise_if_failed(response)
 
@@ -368,6 +388,7 @@ def _raise_if_failed(response: ResponseEnvelope) -> None:
             response.hint or "A precondition check failed.",
             required=response.required or "unknown",
             error=response.error or ErrorCode.INTERNAL_ERROR,
+            next_call=response.next_call,
         )
 
 

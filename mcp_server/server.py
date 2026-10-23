@@ -21,6 +21,7 @@ import fastmcp_tasks  # noqa: F401  — importing enables Client-side task suppo
 from fastmcp import FastMCP
 from fastmcp_tasks import TasksExtension
 
+from mcp_server.agent_error_middleware import AgentErrorMiddleware
 from mcp_server.approval_middleware import ApprovalMiddleware
 from mcp_server.bridge import Bridge
 from mcp_server.capabilities import STATIC_CAPABILITY, apply_capability
@@ -190,9 +191,14 @@ def create_server(
         # from the live registry after registration; see capabilities.apply_capability.
         experimental_capabilities={"godot_mcp": dict(STATIC_CAPABILITY)},
     )
+    # Structured recovery data on tool errors (#757): AgentToolError and
+    # undeclared-argument failures become an is_error result with
+    # ``structuredContent`` (error/hint/required/next_call). Outermost so it
+    # sees errors raised by every inner middleware and the tool body.
+    mcp.add_middleware(AgentErrorMiddleware())
     # Repair stringified JSON arguments (object/array/scalar params sent as JSON
     # strings by some client harnesses) before any other middleware or argument
-    # validation sees them — registered first so it runs outermost.
+    # validation sees them.
     mcp.add_middleware(ArgumentCoercionMiddleware())
     # Centralize the webhook ApprovalGate at the tools/call boundary (issue #330).
     # No-op unless a webhook is configured; dry_run short-circuits in the middleware.

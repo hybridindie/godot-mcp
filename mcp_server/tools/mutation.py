@@ -20,8 +20,10 @@ from typing import Any
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 
+from mcp_server.agent_errors import AgentToolError
 from mcp_server.bridge import Bridge
 from mcp_server.categories import SCENE_EDIT_TAG
+from mcp_server.models.envelope import NextCall
 from mcp_server.models.mutation import (
     AttachScriptResult,
     ConnectSignalResult,
@@ -84,6 +86,9 @@ async def _try_set_with_suggestions(
         return SetPropertyResult(**result)
     except ToolError as exc:
         text = str(exc)
+        # Preserve a structured recovery call the addon already supplied.
+        if isinstance(exc, AgentToolError) and exc.next_call is not None:
+            raise
         if "has no property" in text:
             props = await _node_property_names(bridge, node_path)
             sug = suggest(property, props)
@@ -95,7 +100,24 @@ async def _try_set_with_suggestions(
                 )
             else:
                 hint = f"Node has no property '{property}'."
-            raise ToolError(f"VALIDATION_ERROR: {hint}") from None
+            raise AgentToolError(
+                "VALIDATION_ERROR",
+                hint,
+                required="property",
+                next_call=(
+                    NextCall(
+                        tool="godot_scene_edit_set_node_property",
+                        args={
+                            "node_path": node_path,
+                            "property": sug[0],
+                            "value": params.get("value"),
+                        },
+                        reason=f"set '{sug[0]}' instead of '{property}'",
+                    )
+                    if sug
+                    else None
+                ),
+            ) from None
         raise
 
 

@@ -27,13 +27,14 @@ The eight bridge-envelope codes (the `ErrorCode` enum in
 | `APPROVAL_DENIED` | the human declined an approval | n/a — retry with different intent |
 | `PEER_REPLACED` | a server **notice** to the editor that a second editor took over the bridge (not a tool failure) | two editors pointed at one server; the replaced dock shows purple and stops reconnecting (#593) |
 
-Two server-side codes appear in `ToolError` text but never cross the bridge
+Three server-side codes appear in `ToolError` text but never cross the bridge
 (the server rejects before dispatching, or bounds the payload locally):
 
 | Code | Meaning | Typical cause |
 |------|---------|---------------|
 | `PARAM_ERROR` | a path parameter rejected server-side before the bridge call | a script/resource path that isn't `res://`-contained (`res://../…`, `res:///abs`) |
 | `OUTPUT_LIMIT` | a result payload would exceed the 25k character cap | an oversized `snapshot_subtree` — narrow with `max_depth` |
+| `UNDECLARED_PARAMETER` | an argument the tool does not declare (#757) | the `hint` lists the accepted names; `next_call` renames a near-miss |
 
 ## The recovery table
 
@@ -59,7 +60,8 @@ Two server-side codes appear in `ToolError` text but never cross the bridge
 2. **`hint` is for recovery** — written for an agent with no human in the
    loop. A hint that restates the code is a bug.
 3. **Preconditions carry `required`** — the machine-checkable name of what to
-   satisfy.
+   satisfy. Errors may also carry `next_call` (a fully-formed follow-up call) in
+   the result's `structuredContent` so recovery is executable, not prose (#757).
 4. **No partial success.** A result never reads as success when the effect
    half-failed: `aborted_at`, `undoable`, `persisted`, and `rescan_pending`
    exist so the agent never has to guess.

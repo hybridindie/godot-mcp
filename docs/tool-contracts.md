@@ -275,6 +275,28 @@ never a Python traceback. The structured precondition shape (matching the bridge
 }
 ```
 
+The error result's `structuredContent` also carries an optional **`next_call`** — a
+fully-formed follow-up call the client can send as-is (#757):
+
+```json
+{
+  "ok": false,
+  "error": "PRECONDITION_FAILED",
+  "hint": "No scene is open. …",
+  "required": "active_scene",
+  "next_call": {
+    "tool": "godot_inspection_list_scenes",
+    "args": {},
+    "reason": "list the project's scenes, then open or create one"
+  }
+}
+```
+
+`UNDECLARED_PARAMETER` rejects an argument the tool does not declare (it is never
+silently dropped); `hint` lists the accepted parameters and, for a near-miss,
+`next_call` is the same tool with the argument renamed. The text form
+(`"<ERROR_CODE>: <hint> [required=<field>]"`) is unchanged.
+
 - `require_bridge_connected(bridge)` — Godot reachable (else `BRIDGE_DISCONNECTED`,
   `required="bridge_connected"`).
 - `require_active_scene(bridge)` — a scene is open (`required="active_scene"`). Its hint

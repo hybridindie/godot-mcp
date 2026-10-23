@@ -93,6 +93,7 @@ def test_every_python_error_code_is_used_or_explicitly_unrepresented() -> None:
         "APPROVAL_DENIED",  # human-in-the-loop gate (#153), server-side middleware
         "PEER_REPLACED",  # server notice to a replaced peer (#593); the addon only
         # *reads* this code (never emits it via _fail), so the _fail scan misses it
+        "UNDECLARED_PARAMETER",  # server-side argument validation (#757)
     }
     emitted = set(_collect_codes())
     unused = ALLOWED - emitted - server_only

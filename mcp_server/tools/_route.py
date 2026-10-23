@@ -22,6 +22,7 @@ from typing import Any, TypeVar
 from fastmcp.exceptions import ToolError
 from pydantic import BaseModel
 
+from mcp_server.agent_errors import AgentToolError
 from mcp_server.bridge import Bridge
 from mcp_server.defaults import (
     DEFAULT_POLL_INTERVAL_SECONDS,
@@ -248,10 +249,12 @@ async def validate_or_raise(
     """
     validation = await _preflight_validate(bridge, command, params or {})
     if not validation.get("ok"):
-        detail = f"{validation['error']}: {validation['hint']}"
-        if validation.get("required"):
-            detail = f"{detail} [required={validation['required']}]"
-        raise ToolError(detail)
+        raise AgentToolError(
+            str(validation["error"]),
+            str(validation["hint"]),
+            required=validation.get("required"),
+            next_call=validation.get("next_call"),
+        )
 
 
 async def route(
@@ -270,10 +273,12 @@ async def route(
     response = await bridge.send(command, params or {})
 
     if not response.ok:
-        detail = f"{response.error}: {response.hint}" if response.hint else str(response.error)
-        if response.required:
-            detail = f"{detail} [required={response.required}]"
-        raise ToolError(detail)
+        raise AgentToolError(
+            response.error or "INTERNAL_ERROR",
+            response.hint or "",
+            required=response.required,
+            next_call=response.next_call,
+        )
     return response.result or {}
 
 

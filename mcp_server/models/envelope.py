@@ -38,6 +38,20 @@ class ErrorCode(StrEnum):
     # #647: a reply was too large for the addon's outbound buffer and was dropped —
     # surfaced instead of letting the server time out with no cause.
     RESPONSE_TOO_LARGE = "RESPONSE_TOO_LARGE"
+    # #757: a tool call included an argument the tool does not declare. Rejected
+    # instead of silently dropped, with the accepted names + a corrected next_call.
+    UNDECLARED_PARAMETER = "UNDECLARED_PARAMETER"
+
+
+class NextCall(BaseModel):
+    """A fully-formed follow-up call the client can send as-is (#757).
+
+    ``reason`` is a short human explanation (e.g. "enable the scene_edit toolset").
+    """
+
+    tool: str
+    args: dict[str, Any] = Field(default_factory=dict)
+    reason: str | None = None
 
 
 class CommandEnvelope(BaseModel):
@@ -61,6 +75,8 @@ class ResponseEnvelope(BaseModel):
     error: str | None = None
     hint: str | None = None
     required: str | None = None
+    # #757: an optional, fully-formed recovery call (from the addon or the server).
+    next_call: NextCall | None = None
 
     @classmethod
     def success(cls, id: str, result: dict[str, Any] | None = None) -> ResponseEnvelope:
@@ -73,6 +89,7 @@ class ResponseEnvelope(BaseModel):
         error: str | ErrorCode,
         hint: str,
         required: str | None = None,
+        next_call: NextCall | dict[str, Any] | None = None,
     ) -> ResponseEnvelope:
         return cls(
             id=id,
@@ -80,6 +97,11 @@ class ResponseEnvelope(BaseModel):
             error=str(error.value if isinstance(error, ErrorCode) else error),
             hint=hint,
             required=required,
+            next_call=(
+                next_call
+                if isinstance(next_call, NextCall) or next_call is None
+                else NextCall(**next_call)
+            ),
         )
 
     def model_dump_json(self, **kwargs: Any) -> str:
