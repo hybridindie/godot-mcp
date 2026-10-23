@@ -60,6 +60,7 @@ class ConnectSignalResult(BaseModel):
     already_connected: JSONBool = False
     dry_run: JSONBool = False
     receipt: ChangeReceipt | None = None
+    hint: str | None = None
 
 
 class SaveSceneResult(BaseModel):

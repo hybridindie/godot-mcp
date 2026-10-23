@@ -56,8 +56,19 @@ func _cmd_create_node(params: Dictionary) -> Dictionary:
 		parent, node, "Create %s" % node.name
 	)
 	var created_path := str(committed["path"])
+	var created_node: Node = root.get_node_or_null(NodePath(created_path))
+	if created_node == null:
+		return _router._ok(_router._helpers.with_persistence({
+			"node_path": created_path,
+			"created": false,
+			"hint": "The editor did not keep the new node at '%s'." % created_path,
+			"receipt": MCPReceipt.make("noop", []),
+		}, committed["persistence"]))
 	var receipt := MCPReceipt.make("created", [
-		MCPReceipt.change(created_path, "add", null, {"type": node.get_class(), "name": String(node.name)}),
+		MCPReceipt.change(
+			created_path, "add", null,
+			{"type": created_node.get_class(), "name": String(created_node.name)}
+		),
 	])
 	return _router._ok(_router._helpers.with_persistence({
 		"node_path": created_path,
@@ -129,6 +140,15 @@ func _cmd_rename_node(params: Dictionary) -> Dictionary:
 	ur.commit_action()
 	var renamed_path := Inspect.relative_path(node, EditorInterface.get_edited_scene_root())
 	var new_name := String(node.name)
+	if root.get_node_or_null(NodePath(renamed_path)) != node:
+		return _router._ok(_router._helpers.with_persistence({
+			"node_path": renamed_path,
+			"old_name": old_name,
+			"new_name": new_name,
+			"renamed": false,
+			"hint": "The editor did not apply the rename to '%s'." % renamed_path,
+			"receipt": MCPReceipt.make("noop", []),
+		}, persistence))
 	var receipt := MCPReceipt.make("updated", [
 		MCPReceipt.change(renamed_path, "rename", old_name, new_name),
 	])
@@ -245,6 +265,13 @@ func _cmd_delete_node(params: Dictionary) -> Dictionary:
 	# node's property types. (The liveness guard bounds this; erase closes it.)
 	_router._helpers.invalidate_prop_cache(node)
 	var deleted_path := str(params.get("node_path"))
+	if root.get_node_or_null(NodePath(deleted_path)) != null:
+		return _router._ok(_router._helpers.with_persistence({
+			"node_path": deleted_path,
+			"deleted": false,
+			"hint": "The editor still has a node at '%s' after the delete." % deleted_path,
+			"receipt": MCPReceipt.make("noop", []),
+		}, persistence))
 	var receipt := MCPReceipt.make("updated", [
 		MCPReceipt.change(deleted_path, "remove", {"type": node.get_class(), "name": String(node.name)}, null),
 	])
@@ -279,12 +306,26 @@ func _cmd_attach_script(params: Dictionary) -> Dictionary:
 	# an explicit erase keeps the mutation paths uniform with batch/composite.)
 	_router._helpers.invalidate_prop_cache(node)
 	var attach_path := str(params.get("node_path"))
+	var landed: Variant = node.get_script()
+	if landed == null:
+		return _router._ok(_router._helpers.with_persistence({
+			"node_path": attach_path,
+			"script_path": script_path,
+			"attached": false,
+			"hint": "The editor did not keep the script on '%s'." % attach_path,
+			"receipt": MCPReceipt.make("noop", []),
+		}, _router._helpers.persistent_target(node)))
+	var landed_path := str((landed as Script).resource_path)
 	var receipt := MCPReceipt.make("updated", [
-		MCPReceipt.change(attach_path, "set", null if old_script == null else str(old_script.resource_path), script_path),
+		MCPReceipt.change(
+			attach_path, "set",
+			null if old_script == null else str((old_script as Script).resource_path),
+			landed_path
+		),
 	])
 	return _router._ok(_router._helpers.with_persistence({
 		"node_path": attach_path,
-		"script_path": script_path,
+		"script_path": landed_path,
 		"attached": true,
 		"receipt": receipt,
 	}, _router._helpers.persistent_target(node)))
@@ -337,6 +378,17 @@ func _cmd_connect_signal(params: Dictionary) -> Dictionary:
 	ur.add_do_method(source, "connect", signal_name, callable, Object.CONNECT_PERSIST)
 	ur.add_undo_method(source, "disconnect", signal_name, callable)
 	ur.commit_action()
+	if not source.is_connected(signal_name, callable):
+		return _router._ok({
+			"source_path": str(params.get("source_path")),
+			"signal_name": signal_name,
+			"target_path": str(params.get("target_path")),
+			"method_name": method_name,
+			"connected": false,
+			"already_connected": false,
+			"hint": "The editor did not keep the signal connection.",
+			"receipt": MCPReceipt.make("noop", []),
+		})
 	var connection := "%s:%s -> %s.%s" % [
 		str(params.get("source_path")), signal_name,
 		str(params.get("target_path")), method_name,
