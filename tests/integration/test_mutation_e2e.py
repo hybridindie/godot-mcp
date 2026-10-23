@@ -63,6 +63,9 @@ async def _run_roundtrip() -> None:
             bridge, "cmd_create_node", {"parent_path": ".", "node_type": "Sprite2D", "name": "Hero"}
         )
         assert created["created"] is True and created["node_path"] == "Hero"
+        assert created["receipt"]["status"] == "created"
+        assert created["receipt"]["changes"][0]["op"] == "add"
+        assert created["receipt"]["changes"][0]["path"] == "Hero"
 
         was_set = await _ok(
             bridge,
@@ -70,6 +73,10 @@ async def _run_roundtrip() -> None:
             {"node_path": "Hero", "property": "position", "value": {"x": 10, "y": 20}},
         )
         assert was_set["value"] == {"x": 10.0, "y": 20.0}  # coerced JSON → Vector2 → JSON
+        assert was_set["receipt"]["status"] == "updated"
+        assert was_set["receipt"]["changes"][0]["op"] == "set"
+        assert was_set["receipt"]["changes"][0]["before"] == {"x": 0.0, "y": 0.0}
+        assert was_set["receipt"]["changes"][0]["after"] == {"x": 10.0, "y": 20.0}
 
         # Agent-friendly string form is also coerced (issue #51).
         as_string = await _ok(
@@ -78,9 +85,20 @@ async def _run_roundtrip() -> None:
             {"node_path": "Hero", "property": "position", "value": "Vector2(30, 40)"},
         )
         assert as_string["value"] == {"x": 30.0, "y": 40.0}
+        # Idempotent re-run: the target already matches the request.
+        again = await _ok(
+            bridge,
+            "cmd_set_node_property",
+            {"node_path": "Hero", "property": "position", "value": "Vector2(30, 40)"},
+        )
+        assert again["receipt"]["status"] == "existed"
+        assert again["receipt"]["changes"] == []
 
         renamed = await _ok(bridge, "cmd_rename_node", {"node_path": "Hero", "new_name": "Player"})
         assert renamed["new_name"] == "Player"
+        assert renamed["receipt"]["changes"][0]["op"] == "rename"
+        assert renamed["receipt"]["changes"][0]["before"] == "Hero"
+        assert renamed["receipt"]["changes"][0]["after"] == "Player"
 
         tree = await _ok(bridge, "cmd_get_scene_tree")
         names = [c["name"] for c in tree["tree"]["children"]]
@@ -95,6 +113,8 @@ async def _run_roundtrip() -> None:
 
         deleted = await _ok(bridge, "cmd_delete_node", {"node_path": "Player", "confirm": True})
         assert deleted["deleted"] is True
+        assert deleted["receipt"]["changes"][0]["op"] == "remove"
+        assert deleted["receipt"]["changes"][0]["path"] == "Player"
 
         after = await _ok(bridge, "cmd_get_scene_tree")
         assert "Player" not in [c["name"] for c in after["tree"]["children"]]

@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from mcp_server.models.json_strict import JSONBool, JSONInt, JSONStr
 from mcp_server.models.persistence import PersistenceReport
+from mcp_server.models.receipt import ChangeReceipt
 
 
 class CreateNodeResult(PersistenceReport):
@@ -58,6 +59,7 @@ class ConnectSignalResult(BaseModel):
     # the addon treats that as an idempotent success rather than a failure (#152).
     already_connected: JSONBool = False
     dry_run: JSONBool = False
+    receipt: ChangeReceipt | None = None
 
 
 class SaveSceneResult(BaseModel):

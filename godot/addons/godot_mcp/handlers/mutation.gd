@@ -55,9 +55,14 @@ func _cmd_create_node(params: Dictionary) -> Dictionary:
 	var committed := _router._helpers.commit_add_child_with_persistence(
 		parent, node, "Create %s" % node.name
 	)
+	var created_path := str(committed["path"])
+	var receipt := MCPReceipt.make("created", [
+		MCPReceipt.change(created_path, "add", null, {"type": node.get_class(), "name": String(node.name)}),
+	])
 	return _router._ok(_router._helpers.with_persistence({
-		"node_path": committed["path"],
+		"node_path": created_path,
 		"created": true,
+		"receipt": receipt,
 	}, committed["persistence"]))
 
 
@@ -122,11 +127,17 @@ func _cmd_rename_node(params: Dictionary) -> Dictionary:
 	ur.add_do_property(node, "name", str(params.get("new_name", old_name)))
 	ur.add_undo_property(node, "name", old_name)
 	ur.commit_action()
+	var renamed_path := Inspect.relative_path(node, EditorInterface.get_edited_scene_root())
+	var new_name := String(node.name)
+	var receipt := MCPReceipt.make("updated", [
+		MCPReceipt.change(renamed_path, "rename", old_name, new_name),
+	])
 	return _router._ok(_router._helpers.with_persistence({
-		"node_path": Inspect.relative_path(node, EditorInterface.get_edited_scene_root()),
+		"node_path": renamed_path,
 		"old_name": old_name,
-		"new_name": String(node.name),
+		"new_name": new_name,
 		"renamed": true,
+		"receipt": receipt,
 	}, persistence))
 
 
@@ -168,24 +179,37 @@ func _cmd_set_node_property(params: Dictionary) -> Dictionary:
 	# to the coerced value. A mismatch means the engine rejected or altered the
 	# assignment (wrong type/dimension, a no-op) — report it with the expected type,
 	# never set:true on the old value (#414).
+	var node_path := str(params.get("node_path"))
 	if not Coerce.values_equal(read_back, new_value):
-		return _router._fail(
-			"VALIDATION_ERROR",
-			("Setting '%s' did not land: read back %s, expected %s (%s). The value may be "
-			+ "incompatible with the property's expected type.")
+		# #756: the engine dropped or altered the write. Report `set: false` with a
+		# `noop` receipt instead of an `updated` success — the agent must not claim
+		# the change landed. The read-back value is the honest state.
+		return _router._ok(_router._helpers.with_persistence({
+			"node_path": node_path,
+			"property": property,
+			"value": Coerce.to_json(read_back),
+			"set": false,
+			"hint": ("Setting '%s' did not land: read back %s, expected %s (%s). The value may be "
+				+ "incompatible with the property's expected type.")
 				% [
 					property,
 					str(Coerce.to_json(read_back)),
 					str(Coerce.to_json(new_value)),
 					Coerce.variant_type_name(prop_type),
 				],
-			"value",
-		)
+			"receipt": MCPReceipt.make("noop", []),
+		}, _router._helpers.persistent_target(node)))
+	var already := Coerce.values_equal(old_value, new_value)
+	var receipt := MCPReceipt.make(
+		"existed" if already else "updated",
+		[] if already else [MCPReceipt.change(node_path, "set", old_value, read_back)],
+	)
 	return _router._ok(_router._helpers.with_persistence({
-		"node_path": str(params.get("node_path")),
+		"node_path": node_path,
 		"property": property,
 		"value": Coerce.to_json(read_back),
 		"set": true,
+		"receipt": receipt,
 	}, _router._helpers.persistent_target(node)))
 
 
@@ -220,9 +244,14 @@ func _cmd_delete_node(params: Dictionary) -> Dictionary:
 	# a later object reusing the freed instance id would be served the dead
 	# node's property types. (The liveness guard bounds this; erase closes it.)
 	_router._helpers.invalidate_prop_cache(node)
+	var deleted_path := str(params.get("node_path"))
+	var receipt := MCPReceipt.make("updated", [
+		MCPReceipt.change(deleted_path, "remove", {"type": node.get_class(), "name": String(node.name)}, null),
+	])
 	return _router._ok(_router._helpers.with_persistence({
-		"node_path": str(params.get("node_path")),
+		"node_path": deleted_path,
 		"deleted": true,
+		"receipt": receipt,
 	}, persistence))
 
 
@@ -249,7 +278,16 @@ func _cmd_attach_script(params: Dictionary) -> Dictionary:
 	# cached types so the next read refreshes. (The miss-refresh covers this, but
 	# an explicit erase keeps the mutation paths uniform with batch/composite.)
 	_router._helpers.invalidate_prop_cache(node)
-	return _router._ok(_router._helpers.with_persistence({"node_path": str(params.get("node_path")), "script_path": script_path, "attached": true}, _router._helpers.persistent_target(node)))
+	var attach_path := str(params.get("node_path"))
+	var receipt := MCPReceipt.make("updated", [
+		MCPReceipt.change(attach_path, "set", null if old_script == null else str(old_script.resource_path), script_path),
+	])
+	return _router._ok(_router._helpers.with_persistence({
+		"node_path": attach_path,
+		"script_path": script_path,
+		"attached": true,
+		"receipt": receipt,
+	}, _router._helpers.persistent_target(node)))
 
 
 
@@ -282,6 +320,7 @@ func _cmd_connect_signal(params: Dictionary) -> Dictionary:
 			"method_name": method_name,
 			"connected": true,
 			"already_connected": true,
+			"receipt": MCPReceipt.make("existed", []),
 		})
 	# For a *fresh* connect, the method must resolve. has_method() already covers
 	# script methods and built-in virtuals (e.g. _ready); the script method-list
@@ -298,6 +337,10 @@ func _cmd_connect_signal(params: Dictionary) -> Dictionary:
 	ur.add_do_method(source, "connect", signal_name, callable, Object.CONNECT_PERSIST)
 	ur.add_undo_method(source, "disconnect", signal_name, callable)
 	ur.commit_action()
+	var connection := "%s:%s -> %s.%s" % [
+		str(params.get("source_path")), signal_name,
+		str(params.get("target_path")), method_name,
+	]
 	return _router._ok({
 		"source_path": str(params.get("source_path")),
 		"signal_name": signal_name,
@@ -305,6 +348,9 @@ func _cmd_connect_signal(params: Dictionary) -> Dictionary:
 		"method_name": method_name,
 		"connected": true,
 		"already_connected": false,
+		"receipt": MCPReceipt.make("created", [
+			MCPReceipt.change(connection, "add", null, {"signal": signal_name, "method": method_name}),
+		]),
 	})
 
 

@@ -204,6 +204,7 @@ async def test_group_tools() -> None:
         "persisted": True,  # #458: the addon's verdict passes through
         "reason": None,
         "hint": None,
+        "receipt": None,  # #756: receipts are rolling out; absent for this handler
     }
     assert removed.structured_content["in_group"] is False
     assert removed.structured_content["persisted"] is True

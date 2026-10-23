@@ -27,7 +27,7 @@ the guarantees those tests protect.
 | Surface | What is promised |
 |---------|------------------|
 | Tools | Exposed names, input parameter names/types/requiredness/defaults, and toolset categories |
-| Results | Result-model fields and their meaning, including honesty fields (`persisted`, `undoable`, `aborted_at`, `rescan_pending`, …) |
+| Results | Result-model fields and their meaning, including honesty fields (`persisted`, `receipt`, `undoable`, `aborted_at`, `rescan_pending`, …) |
 | Values | JSON value shapes for Godot types (`Vector2`, `Color`, `Rect2`, `NodePath`, …) |
 | Envelope | `{id, command, params}` → `{id, ok, result, error, hint, required, next_call?}` |
 | Errors | The stable `ErrorCode` enum and the recovery contract (`hint`, `required`, optional `next_call`) |

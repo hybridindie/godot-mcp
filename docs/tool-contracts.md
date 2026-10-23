@@ -259,6 +259,33 @@ Consumer tools (each carries `persisted`/`reason`/`hint` in its result):
 (The structural create/move/delete family and the multi-target batch shapes are
 listed in the #477 section above — same fields, different deciding rule.)
 
+#### Change receipts (issue #756)
+
+`persisted` answers "will this survive a save?"; a **receipt** answers "what
+actually changed now?" — built from the addon's read-back, never from the
+request. It is additive and currently emitted by the core node-mutation family
+(`create_node`, `rename_node`, `set_node_property`, `delete_node`,
+`attach_script`, `connect_signal`); the remaining mutating tools adopt it as the
+rollout continues.
+
+```json
+{
+  "status": "updated",
+  "changes": [
+    {"path": "Hero", "op": "set", "before": {"x": 0, "y": 0}, "after": {"x": 10, "y": 20}}
+  ],
+  "truncated": false
+}
+```
+
+- `status`: `created` · `updated` · `existed` (the target already matched the
+  request — an idempotent re-run) · `noop` (accepted but nothing changed).
+- `op`: `add` · `remove` · `set` · `write` · `rename`; `path` is a node path or a
+  `res://` file path; values use the normal JSON-coerced shapes.
+- `changes` is bounded (50); `truncated: true` means entries were dropped.
+- A write the engine silently drops returns `set: false` with a `noop` receipt
+  and the read-back value — never an `updated` success.
+
 ### Preconditions
 
 Checked before any side effect. Each is a function in `safety.py` that raises a typed
