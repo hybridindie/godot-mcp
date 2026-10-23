@@ -38,6 +38,7 @@ func _build_node(
 	var node: Node = ClassDB.instantiate(node_type)
 	node.name = node_name
 	var set_names: Array = []
+	var property_values: Dictionary = {}
 	for prop in properties:
 		var prop_name := str(prop)
 		var prop_type := _router._helpers.property_type(node, prop_name)
@@ -46,8 +47,12 @@ func _build_node(
 			return _router._fail(
 				"VALIDATION_ERROR", "'%s' has no property '%s'." % [node_type, prop_name]
 			)
-		node.set(prop_name, Coerce.from_json(properties[prop], prop_type))
-		set_names.append(prop_name)
+		var coerced: Variant = Coerce.from_json(properties[prop], prop_type)
+		node.set(prop_name, coerced)
+		# #756: only claim a property that the read-back says actually landed.
+		if Coerce.values_equal(node.get(prop_name), coerced):
+			set_names.append(prop_name)
+			property_values[prop_name] = coerced
 	if not script_path.is_empty():
 		if not ResourceLoader.exists(script_path):
 			node.free()
@@ -57,7 +62,7 @@ func _build_node(
 			node.free()
 			return _router._fail("VALIDATION_ERROR", "'%s' is not a script resource." % script_path)
 		node.set_script(script)
-	return {"node": node, "properties_set": set_names}
+	return {"node": node, "properties_set": set_names, "property_values": property_values}
 
 
 func _maybe_save(params: Dictionary) -> bool:
@@ -140,9 +145,11 @@ func _cmd_compose_node(params: Dictionary) -> Dictionary:
 			{"type": child_node.get_class(), "name": String(child_node.name)}
 		))
 	for prop_name in built["properties_set"]:
-		changes.append(MCPReceipt.change(
-			node_path, "set", null, created_node.get(str(prop_name))
-		))
+		var prop := str(prop_name)
+		var after: Variant = created_node.get(prop)
+		if not Coerce.values_equal(after, built["property_values"][prop]):
+			continue
+		changes.append(MCPReceipt.change(node_path, "set", null, after))
 	return _router._ok(_router._helpers.with_persistence({
 		"node_path": node_path,
 		"created": true,
