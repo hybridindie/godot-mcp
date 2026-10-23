@@ -270,6 +270,7 @@ func _cmd_delete_resource_file(params: Dictionary) -> Dictionary:
 		return _router._fail("VALIDATION_ERROR", "path must be a res:// file.")
 	if not FileAccess.file_exists(path):
 		return _router._fail("RESOURCE_NOT_FOUND", "No file at '%s'." % path)
+	var before_state := MCPReceipt.file_state(path)
 	var bytes := FileAccess.get_file_as_bytes(path)
 	var uid_path := path + ".uid"
 	var had_uid := FileAccess.file_exists(uid_path)
@@ -304,7 +305,18 @@ func _cmd_delete_resource_file(params: Dictionary) -> Dictionary:
 		ur.add_undo_method(_router, "_write_file_bytes", uid_path, uid_bytes)
 	ur.commit_action()
 	EditorInterface.get_resource_filesystem().update_file(path)
-	return _router._ok({"path": path, "deleted": true, "had_uid": had_uid, "tab_closed": tab_closed})
+	if FileAccess.file_exists(path):
+		return _router._ok({
+			"path": path, "deleted": false, "had_uid": had_uid, "tab_closed": tab_closed,
+			"hint": "The file still exists after the delete.",
+			"receipt": MCPReceipt.make("noop", []),
+		})
+	return _router._ok({
+		"path": path, "deleted": true, "had_uid": had_uid, "tab_closed": tab_closed,
+		"receipt": MCPReceipt.make("updated", [
+			MCPReceipt.change(path, "remove", before_state, MCPReceipt.file_state(path)),
+		]),
+	})
 
 
 ## Move/rename a res:// file and rewrite every referencing file (issue #532).
@@ -365,6 +377,7 @@ func _cmd_move_resource_file(params: Dictionary) -> Dictionary:
 			if is_open_unknown:
 				hint = "'%s' is open; this Godot version cannot report unsaved changes, so moving it could clobber the in-memory copy. Save or close it first." % path
 			return _router._fail("PRECONDITION_FAILED", hint, "scene_saved")
+	var before_state := MCPReceipt.file_state(path)
 	var uid := ResourceLoader.get_resource_uid(path)
 	var uid_text := ResourceUID.id_to_text(uid) if uid != -1 else ""
 	# The referencing files: a project-wide search for the old path (and the
@@ -399,15 +412,30 @@ func _cmd_move_resource_file(params: Dictionary) -> Dictionary:
 		fs.update_file(path)  # drops the stale entry
 		fs.update_file(new_path)
 		fs.scan()
+	var moved_ok := not bool(params.get("preview", false))
+	if moved_ok and (not FileAccess.file_exists(new_path) or FileAccess.file_exists(path)):
+		moved_ok = false
+	var receipt := MCPReceipt.make("noop", [])
+	if bool(params.get("preview", false)):
+		# Predicted move: the same bytes at the new path.
+		var predicted := {"exists": true, "bytes": int(before_state.get("bytes", 0))}
+		receipt = MCPReceipt.make("updated", [
+			MCPReceipt.change(new_path, "rename", before_state, predicted),
+		])
+	elif moved_ok:
+		receipt = MCPReceipt.make("updated", [
+			MCPReceipt.change(new_path, "rename", before_state, MCPReceipt.file_state(new_path)),
+		])
 	return _router._ok({
 		"old_path": path,
 		"new_path": new_path,
 		"updated_refs": remaps,
-		"moved": not params.get("preview", false),
+		"moved": moved_ok,
 		# Honest reporting (issue #532): a file move is not UndoRedo-tracked —
 		# reverse it with a second move or version control.
 		"undoable": false,
 		"hint": "A file move is not UndoRedo-tracked; reverse it with a second move_file(old→new) or version control.",
+		"receipt": receipt,
 	})
 
 

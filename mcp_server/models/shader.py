@@ -7,6 +7,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from mcp_server.models.persistence import PersistenceReport
+from mcp_server.models.receipt import ChangeReceipt
 from mcp_server.models.scripts import ParseError
 
 
@@ -14,6 +15,8 @@ class ShaderResult(BaseModel):
     shader_path: str
     created: bool = False
     dry_run: bool = False
+    hint: str | None = None
+    receipt: ChangeReceipt | None = None
 
 
 class ShaderReadResult(BaseModel):

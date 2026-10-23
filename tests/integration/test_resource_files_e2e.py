@@ -49,7 +49,7 @@ async def _run() -> None:
 
     try:
         # create → read
-        await _ok(
+        created = await _ok(
             bridge,
             "cmd_create_resource",
             {
@@ -58,16 +58,20 @@ async def _run() -> None:
                 "properties": {"size": {"x": 4, "y": 5}},
             },
         )
+        assert created["receipt"]["status"] == "created"
+        assert created["receipt"]["changes"][0]["op"] == "write"
         read = await _ok(bridge, "cmd_read_resource", {"resource_path": TRES})
         assert read["type"] == "RectangleShape2D"
         assert read["properties"]["size"] == {"x": 4.0, "y": 5.0}
 
         # edit → read
-        await _ok(
+        edited = await _ok(
             bridge,
             "cmd_set_resource_property",
             {"resource_path": TRES, "property": "size", "value": {"x": 10, "y": 20}},
         )
+        assert edited["receipt"]["status"] == "updated"
+        assert edited["receipt"]["changes"][0]["op"] == "set"
         after = await _ok(bridge, "cmd_read_resource", {"resource_path": TRES})
         assert after["properties"]["size"] == {"x": 10.0, "y": 20.0}
 

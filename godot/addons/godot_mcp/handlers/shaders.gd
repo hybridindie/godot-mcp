@@ -31,6 +31,7 @@ func _cmd_create_shader(params: Dictionary) -> Dictionary:
 	var code := str(params.get("code", ""))
 	if code.is_empty():
 		return _router._fail("VALIDATION_ERROR", "'code' must be a non-empty shader source.")
+	var before_state := MCPReceipt.file_state(path)
 	var existed := FileAccess.file_exists(path)
 	var old := FileAccess.get_file_as_string(path) if existed else ""
 	var ur := EditorInterface.get_editor_undo_redo()
@@ -43,7 +44,21 @@ func _cmd_create_shader(params: Dictionary) -> Dictionary:
 		# so nothing is left orphaned.
 		ur.add_undo_method(_router, "_remove_file_with_uid", path)
 	ur.commit_action()
-	return _router._ok({"shader_path": path, "created": not existed})
+	if FileAccess.get_file_as_string(path) != code:
+		return _router._ok({
+			"shader_path": path,
+			"created": false,
+			"hint": "The editor did not keep the shader source.",
+			"receipt": MCPReceipt.make("noop", []),
+		})
+	return _router._ok({
+		"shader_path": path,
+		"created": not existed,
+		"receipt": MCPReceipt.make(
+			"created" if not existed else "updated",
+			[MCPReceipt.change(path, "write", before_state, MCPReceipt.file_state(path))],
+		),
+	})
 
 
 
@@ -75,6 +90,9 @@ func _cmd_assign_shader_material(params: Dictionary) -> Dictionary:
 	var material := ShaderMaterial.new()
 	material.shader = shader
 	var prev: Variant = node.get(prop)
+	var before_shader := ""
+	if prev is ShaderMaterial and (prev as ShaderMaterial).shader != null:
+		before_shader = (prev as ShaderMaterial).shader.resource_path
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action("Assign shader material to %s" % node.name)
 	ur.add_do_property(node, prop, material)
@@ -83,11 +101,26 @@ func _cmd_assign_shader_material(params: Dictionary) -> Dictionary:
 	if prev is Resource:  # keep the prior material alive for undo
 		ur.add_undo_reference(prev)
 	ur.commit_action()
+	var landed_material: Variant = node.get(prop)
+	if not (landed_material is ShaderMaterial) or (landed_material as ShaderMaterial).shader != shader:
+		return _router._ok(_router._helpers.with_persistence({
+			"node_path": str(params.get("node_path")),
+			"shader_path": shader_path,
+			"material_property": prop,
+			"assigned": false,
+			"hint": "The editor did not keep the shader material.",
+			"receipt": MCPReceipt.make("noop", []),
+		}, persistence))
+	var already := before_shader == shader_path
 	return _router._ok(_router._helpers.with_persistence({
 		"node_path": str(params.get("node_path")),
 		"shader_path": shader_path,
 		"material_property": prop,
 		"assigned": true,
+		"receipt": MCPReceipt.make(
+			"existed" if already else "updated",
+			[] if already else [MCPReceipt.change(str(params.get("node_path")), "set", before_shader, shader_path)],
+		),
 	}, persistence))
 
 
@@ -136,11 +169,16 @@ func _cmd_set_shader_param(params: Dictionary) -> Dictionary:
 	# requested one (the #414 pattern). Undeclared names are refused above, so a
 	# non-null request always lands in the cache here.
 	var landed: Variant = material.get_shader_parameter(name)
+	var already := Coerce.values_equal(prev, landed)
 	return _router._ok(_router._helpers.with_persistence({
 		"node_path": str(params.get("node_path")),
 		"name": name,
 		"value": Coerce.to_json(landed),
 		"set": true,
+		"receipt": MCPReceipt.make(
+			"existed" if already else "updated",
+			[] if already else [MCPReceipt.change(str(params.get("node_path")), "set", prev, landed)],
+		),
 	}, persistence))
 
 

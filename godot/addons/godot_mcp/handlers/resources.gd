@@ -66,6 +66,7 @@ func _cmd_create_resource(params: Dictionary) -> Dictionary:
 		if prop_type != -1:
 			res.set(str(key), Coerce.from_json(properties[key], prop_type))
 
+	var before_state := MCPReceipt.file_state(path)
 	var base_dir := path.get_base_dir()
 	if not DirAccess.dir_exists_absolute(base_dir):
 		DirAccess.make_dir_recursive_absolute(base_dir)
@@ -73,7 +74,24 @@ func _cmd_create_resource(params: Dictionary) -> Dictionary:
 	if err != OK:
 		return _router._fail("INTERNAL_ERROR", "Failed to save resource to '%s' (error %d)." % [path, err])
 	EditorInterface.get_resource_filesystem().update_file(path)
-	return _router._ok({"resource_path": path, "type": res_type, "created": true})
+	var landed: Resource = ResourceLoader.load(path)
+	if landed == null:
+		return _router._ok({
+			"resource_path": path,
+			"type": res_type,
+			"created": false,
+			"hint": "The editor did not keep the resource at '%s'." % path,
+			"receipt": MCPReceipt.make("noop", []),
+		})
+	return _router._ok({
+		"resource_path": path,
+		"type": landed.get_class(),
+		"created": true,
+		"receipt": MCPReceipt.make(
+			"updated" if before_state["exists"] else "created",
+			[MCPReceipt.change(path, "write", before_state, MCPReceipt.file_state(path))],
+		),
+	})
 
 
 
@@ -100,10 +118,28 @@ func _cmd_set_resource_property(params: Dictionary) -> Dictionary:
 	ur.add_do_method(_router, "_set_and_save_resource", path, property, new_value)
 	ur.add_undo_method(_router, "_set_and_save_resource", path, property, old_value)
 	ur.commit_action()
+	var reloaded: Resource = ResourceLoader.load(path)
+	var landed: Variant = reloaded.get(property) if reloaded != null else null
+	if not Coerce.values_equal(landed, new_value):
+		return _router._ok({
+			"resource_path": path,
+			"property": property,
+			"value": Coerce.to_json(landed),
+			"set": false,
+			"hint": "Setting '%s' did not land: read back %s, expected %s."
+				% [property, str(Coerce.to_json(landed)), str(Coerce.to_json(new_value))],
+			"receipt": MCPReceipt.make("noop", []),
+		})
+	var already := Coerce.values_equal(old_value, new_value)
 	return _router._ok({
 		"resource_path": path,
 		"property": property,
-		"value": Coerce.to_json(ResourceLoader.load(path).get(property)),
+		"value": Coerce.to_json(landed),
+		"set": true,
+		"receipt": MCPReceipt.make(
+			"existed" if already else "updated",
+			[] if already else [MCPReceipt.change(path, "set", old_value, landed)],
+		),
 	})
 
 

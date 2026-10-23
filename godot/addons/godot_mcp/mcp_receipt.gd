@@ -21,6 +21,13 @@ static func change(path: String, op: String, before: Variant, after: Variant) ->
 	}
 
 
+## A compact file state for a write/remove/rename change (never the file body).
+static func file_state(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
+		return {"exists": false}
+	return {"exists": true, "bytes": FileAccess.get_file_as_bytes(path).size()}
+
+
 ## A receipt body: status + bounded change list.
 static func make(status: String, changes: Array) -> Dictionary:
 	var truncated := changes.size() > MAX_CHANGES

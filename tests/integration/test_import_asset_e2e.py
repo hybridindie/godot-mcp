@@ -71,6 +71,8 @@ async def _run() -> None:
             },
         )
         assert imported["imported"] is True
+        assert imported["receipt"]["status"] == "created"
+        assert imported["receipt"]["changes"][0]["op"] == "write"
         assert imported["target_path"] == IMPORTED_PNG
         assert imported["detected_type"] == "Texture2D"
 

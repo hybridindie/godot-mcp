@@ -104,6 +104,8 @@ async def _run() -> None:
             {"path": OLD_SCRIPT, "new_path": NEW_SCRIPT},
         )
         assert result["moved"] is True and result["undoable"] is False
+        assert result["receipt"]["status"] == "updated"
+        assert result["receipt"]["changes"][0]["op"] == "rename"
         assert result["old_path"] == OLD_SCRIPT and result["new_path"] == NEW_SCRIPT
         moved_refs = [r for r in result["updated_refs"] if r["file"] == REF_SCENE]
         assert moved_refs and moved_refs[0]["count"] >= 1

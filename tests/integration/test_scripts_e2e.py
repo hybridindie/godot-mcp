@@ -64,6 +64,8 @@ async def _run() -> None:
             {"script_path": VALID, "content": 'extends Node\nfunc _ready():\n\tprint("hi")\n'},
         )
         assert written["created"] is True
+        assert written["receipt"]["status"] == "created"
+        assert written["receipt"]["changes"][0]["op"] == "write"
         read = await _ok(bridge, "cmd_read_script", {"script_path": VALID})
         assert 'print("hi")' in read["content"]
 
@@ -72,6 +74,7 @@ async def _run() -> None:
             bridge, "cmd_patch_script", {"script_path": VALID, "find": "hi", "replace": "bye"}
         )
         assert patched["replacements"] == 1
+        assert patched["receipt"]["status"] == "updated"
         after = await _ok(bridge, "cmd_read_script", {"script_path": VALID})
         assert 'print("bye")' in after["content"]
 

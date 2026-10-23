@@ -265,9 +265,13 @@ listed in the #477 section above — same fields, different deciding rule.)
 actually changed now?" — built from the addon's read-back, never from the
 request. It is additive and currently emitted by the core node-mutation family
 (`create_node`, `rename_node`, `set_node_property`, `delete_node`,
-`attach_script`, `connect_signal`) and the batch/composite family
-(`batch_set_property`, `apply_node_edits`, `batch_create_nodes`, `compose_node`);
-the remaining mutating tools adopt it as the rollout continues.
+`attach_script`, `connect_signal`), the batch/composite family
+(`batch_set_property`, `apply_node_edits`, `batch_create_nodes`, `compose_node`),
+and the file/resource family (`create_resource`, `set_resource_property`,
+`write_script`, `patch_script`, `create_shader`, `assign_shader_material`,
+`set_shader_param`, `import_asset`, `delete_resource_file`,
+`move_resource_file`); the remaining mutating tools adopt it as the rollout
+continues.
 
 ```json
 {
@@ -283,6 +287,9 @@ the remaining mutating tools adopt it as the rollout continues.
   request — an idempotent re-run) · `noop` (accepted but nothing changed).
 - `op`: `add` · `remove` · `set` · `write` · `rename`; `path` is a node path or a
   `res://` file path; values use the normal JSON-coerced shapes.
+- File changes report a compact state (`{exists, bytes}`), never the file body;
+  the handler still compares the read-back content (or reloads the resource)
+  before claiming the change landed.
 - `changes` is bounded (50); `truncated: true` means entries were dropped.
 - A write the engine silently drops returns `set: false` with a `noop` receipt
   and the read-back value — never an `updated` success.

@@ -6,6 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from mcp_server.models.receipt import ChangeReceipt
+
 
 class ImportOptions(BaseModel):
     """Structured options for ``import_asset`` (issue #691: a typed shape so the
@@ -28,6 +30,7 @@ class ImportAssetResult(BaseModel):
     # already in flight (Godot coalesces scan() calls); the plugin re-issues it, so
     # the import still lands, but the sidecar may take a scan cycle longer.
     scan_deferred: bool = False
+    receipt: ChangeReceipt | None = None
 
 
 class CreateMaterialResult(BaseModel):

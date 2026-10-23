@@ -256,6 +256,7 @@ async def _run() -> None:
             bridge, "cmd_create_shader", {"shader_path": SHADER_PATH, "code": SHADER_CODE}
         )
         assert created["created"] is True
+        assert created["receipt"]["status"] == "created"
         assert SHADER_FILE.exists(), "shader should be written to disk"
         read = await _ok(bridge, "cmd_read_shader", {"shader_path": SHADER_PATH})
         assert "uniform float strength" in read["code"]
@@ -268,6 +269,7 @@ async def _run() -> None:
             {"node_path": "Sprite", "shader_path": SHADER_PATH},
         )
         assert assigned["material_property"] == "material"
+        assert assigned["receipt"]["status"] == "updated"
         await _create(bridge, "Mesh", "MeshInstance3D")
         assigned3d = await _ok(
             bridge,
@@ -283,6 +285,7 @@ async def _run() -> None:
             {"node_path": "Sprite", "name": "strength", "value": 0.5, "param_type": "float"},
         )
         assert param["name"] == "strength"
+        assert param["receipt"]["status"] == "updated"
 
         # #465: read the uniform back (set on the 2D material, unset on the 3D one) and a
         # name the shader does not declare

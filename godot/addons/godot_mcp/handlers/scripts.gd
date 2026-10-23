@@ -103,6 +103,7 @@ func _cmd_write_script(params: Dictionary) -> Dictionary:
 			or (not path.ends_with(".gd") and not path.ends_with(".cs")):
 		return _router._fail("VALIDATION_ERROR", "script_path must be a res:// .gd or .cs file.")
 	var content := str(params.get("content", ""))
+	var before_state := MCPReceipt.file_state(path)
 	var existed := FileAccess.file_exists(path)
 	var old := FileAccess.get_file_as_string(path) if existed else ""
 	var ur := EditorInterface.get_editor_undo_redo()
@@ -118,9 +119,21 @@ func _cmd_write_script(params: Dictionary) -> Dictionary:
 	# #424: report what actually happened — an overwrite reads as success
 	# (overwrote/previous_existed), never as a no-op ("would_overwrite" is the
 	# dry-run probe's phrasing and stays there).
+	var landed := FileAccess.get_file_as_string(path)
+	if landed != content:
+		return _router._ok({
+			"script_path": path, "created": false,
+			"overwrote": false, "previous_existed": existed,
+			"hint": "The editor did not keep the script content.",
+			"receipt": MCPReceipt.make("noop", []),
+		})
 	return _router._ok({
 		"script_path": path, "created": not existed,
 		"overwrote": existed, "previous_existed": existed,
+		"receipt": MCPReceipt.make(
+			"created" if not existed else "updated",
+			[MCPReceipt.change(path, "write", before_state, MCPReceipt.file_state(path))],
+		),
 	})
 
 
@@ -143,6 +156,7 @@ func _cmd_patch_script(params: Dictionary) -> Dictionary:
 	var find := str(params.get("find", ""))
 	if find.is_empty():
 		return _router._fail("VALIDATION_ERROR", "'find' must be a non-empty string.")
+	var before_state := MCPReceipt.file_state(path)
 	var content := FileAccess.get_file_as_string(path)
 	var occurrences := content.count(find)
 	if occurrences == 0:
@@ -153,7 +167,20 @@ func _cmd_patch_script(params: Dictionary) -> Dictionary:
 	ur.add_do_method(_router, "_write_file_text", path, patched)
 	ur.add_undo_method(_router, "_write_file_text", path, content)
 	ur.commit_action()
-	return _router._ok({"script_path": path, "replacements": occurrences})
+	if FileAccess.get_file_as_string(path) != patched:
+		return _router._ok({
+			"script_path": path,
+			"replacements": 0,
+			"hint": "The editor did not keep the patched script content.",
+			"receipt": MCPReceipt.make("noop", []),
+		})
+	return _router._ok({
+		"script_path": path,
+		"replacements": occurrences,
+		"receipt": MCPReceipt.make("updated", [
+			MCPReceipt.change(path, "write", before_state, MCPReceipt.file_state(path)),
+		]),
+	})
 
 
 func _collect_scripts(directory: String, out: Array, language: String) -> void:

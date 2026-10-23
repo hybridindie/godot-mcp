@@ -120,6 +120,8 @@ async def _run() -> None:
         await _ok(bridge, "cmd_write_script", {"script_path": tmp, "content": "extends Node\n"})
         deleted = await _ok(bridge, "cmd_delete_resource_file", {"path": tmp})
         assert deleted["deleted"] is True and deleted["path"] == tmp
+        assert deleted["receipt"]["status"] == "updated"
+        assert deleted["receipt"]["changes"][0]["op"] == "remove"
         gone = await bridge.send("cmd_delete_resource_file", {"path": tmp})
         assert gone.ok is False and gone.error == "RESOURCE_NOT_FOUND"
         bad = await bridge.send("cmd_delete_resource_file", {"path": "/etc/passwd"})

@@ -6,6 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from mcp_server.models.receipt import ChangeReceipt
+
 
 class ResourceContent(BaseModel):
     resource_path: str
@@ -19,13 +21,18 @@ class CreateResourceResult(BaseModel):
     type: str
     created: bool = False
     dry_run: bool = False
+    hint: str | None = None
+    receipt: ChangeReceipt | None = None
 
 
 class SetResourcePropertyResult(BaseModel):
     resource_path: str
     property: str
     value: Any = None
+    set: bool = False
     dry_run: bool = False
+    hint: str | None = None
+    receipt: ChangeReceipt | None = None
 
 
 class RegisterAutoloadResult(BaseModel):

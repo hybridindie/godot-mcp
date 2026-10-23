@@ -6,6 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from mcp_server.models.receipt import ChangeReceipt
+
 
 class FsEntry(BaseModel):
     """A filesystem node: a file, or a directory with children."""
@@ -53,6 +55,8 @@ class DeleteResourceFileResult(BaseModel):
     had_uid: bool = False
     tab_closed: bool = False
     dry_run: bool = False
+    hint: str | None = None
+    receipt: ChangeReceipt | None = None
 
 
 class MovedRef(BaseModel):
@@ -78,3 +82,4 @@ class MoveResourceFileResult(BaseModel):
     undoable: bool = False
     hint: str | None = None
     dry_run: bool = False
+    receipt: ChangeReceipt | None = None

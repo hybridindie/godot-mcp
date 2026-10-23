@@ -6,6 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field, model_serializer
 
+from mcp_server.models.receipt import ChangeReceipt
+
 
 class ScriptContent(BaseModel):
     script_path: str
@@ -43,6 +45,7 @@ class WriteScriptResult(BaseModel):
     # until an MSBuild build (Phase 2) — the hint says so, never a false parse-OK.
     hint: str | None = None
     dry_run: bool = False
+    receipt: ChangeReceipt | None = None
 
     @model_serializer(mode="plain")
     def _serialize(self) -> dict[str, Any]:
@@ -68,6 +71,8 @@ class WriteScriptResult(BaseModel):
             data["previous_existed"] = previous_existed
         if self.hint is not None:
             data["hint"] = self.hint
+        if self.receipt is not None:
+            data["receipt"] = self.receipt.model_dump(exclude_none=True)
         return data
 
 
@@ -75,6 +80,8 @@ class PatchScriptResult(BaseModel):
     script_path: str
     replacements: int = 0
     dry_run: bool = False
+    hint: str | None = None
+    receipt: ChangeReceipt | None = None
 
 
 class ParseError(BaseModel):

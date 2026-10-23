@@ -101,6 +101,7 @@ func _cmd_import_asset(params: Dictionary) -> Dictionary:
 	if not target_path.begins_with("res://"):
 		return _router._fail("VALIDATION_ERROR", "target_path must start with res://.")
 
+	var before_state := MCPReceipt.file_state(target_path)
 	var abs_target := ProjectSettings.globalize_path(target_path)
 	var abs_source := source
 	if source.begins_with("res://"):
@@ -136,12 +137,26 @@ func _cmd_import_asset(params: Dictionary) -> Dictionary:
 	if detected_type == "AudioStreamWAV" and import_settings.has("loop_mode"):
 		loop_applied = _set_wav_loop(target_path, import_settings)
 
+	if not FileAccess.file_exists(target_path):
+		return _router._ok({
+			"imported": false,
+			"target_path": target_path,
+			"detected_type": detected_type,
+			"loop_applied": loop_applied,
+			"scan_deferred": scan_deferred,
+			"hint": "The import did not leave a file at the target path.",
+			"receipt": MCPReceipt.make("noop", []),
+		})
 	return _router._ok({
 		"imported": true,
 		"target_path": target_path,
 		"detected_type": detected_type,
 		"loop_applied": loop_applied,
 		"scan_deferred": scan_deferred,
+		"receipt": MCPReceipt.make(
+			"updated" if before_state["exists"] else "created",
+			[MCPReceipt.change(target_path, "write", before_state, MCPReceipt.file_state(target_path))],
+		),
 	})
 
 
