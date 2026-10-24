@@ -21,6 +21,7 @@ SMOKES = [
     ("auto_refresh_smoke.gd", "AUTO_REFRESH_TEST_OK"),
     ("bridge_timing_smoke.gd", "BRIDGE_TIMING_TEST_OK"),
     ("class_info_smoke.gd", "CLASS_INFO_TEST_OK"),
+    ("checkpoint_smoke.gd", "CHECKPOINT_TEST_OK"),
     ("csharp_smoke.gd", "CSHARP_TEST_OK"),
     ("extract_smoke.gd", "EXTRACT_TEST_OK"),
     ("history_smoke.gd", "HISTORY_TEST_OK"),

@@ -1,7 +1,7 @@
 ---
 type: index
 title: "Toolset gating"
-description: "Why 196 tools are gated, how the enabled set works, and what list_changed does."
+description: "Why 198 tools are gated, how the enabled set works, and what list_changed does."
 created: 2026-09-19
 updated: 2026-10-18
 ---
@@ -10,7 +10,7 @@ updated: 2026-10-18
 
 A large flat tool surface degrades agent tool-selection and burns context. So
 the *live* surface stays small: `core` + `inspection` are exposed by default
-(25 tools), and 27 further toolsets are **gated off** until the agent enables
+(27 tools), and 27 further toolsets are **gated off** until the agent enables
 them.
 
 ## The enabled set
@@ -61,8 +61,8 @@ toolset is disabled fails with a structured gating error, and
 
 ## Why the gate is worth its friction
 
-1. **Tool selection sharpness.** With 196 tools exposed, models confuse
-   similar tools and waste calls. The default 25-tool surface fits in context
+1. **Tool selection sharpness.** With 198 tools exposed, models confuse
+   similar tools and waste calls. The default 27-tool surface fits in context
    with room to reason.
 2. **Safety surface minimization.** Destructive tools (`delete_node`,
    `reload_scene`, `close_scene`, bus removers, file deleters) are *invisible*

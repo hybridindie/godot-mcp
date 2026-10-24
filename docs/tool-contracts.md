@@ -1394,6 +1394,8 @@ capture leave the capture's series intact). Same `request_id` + poll pattern as
 | `godot_undo` | `count: int = 1, dry_run: bool = False` | `UndoResult { dry_run, requested, undone?, last_action?, nothing_to_undo?, has_undo?, would_undo_next? }` | `mutating` |
 | `godot_redo` | `count: int = 1, dry_run: bool = False` | `RedoResult { dry_run, requested, redone?, last_action?, nothing_to_redo?, has_redo?, would_redo_next? }` | `mutating` |
 | `godot_list_history` | — | `HistoryResult { version, has_undo, has_redo, can_redo, current_action, depth, recent: [{name}] }` | `read_only` |
+| `godot_checkpoint_create` | `label: str = ""` | `CheckpointInfo { checkpoint_id, label?, scene_path?, current_action, history_count, created_at? }` | `read_only` |
+| `godot_checkpoint_restore` | `checkpoint_id: str, dry_run: bool = False` | `CheckpointRestoreResult { checkpoint_id, label?, scene_path?, requested, undone, complete, dry_run, hint? }` | `mutating` |
 
 `godot_undo` undoes up to `count` actions on the current scene's undo history (falls
 back to the global history when no scene is open). A real undo returns
@@ -1402,6 +1404,15 @@ no-op (`undone == 0`, `nothing_to_undo == True`), not an error. `dry_run=True` p
 instead — `{ has_undo, would_undo_next }` — and performs nothing. Each response carries
 only its mode's keys (a dry-run never emits `nothing_to_undo`). `count < 1` is a
 structured `ToolError`.
+
+`godot_checkpoint_create` (#760) marks the current scene's undo history
+(server-side and in-memory — not durable across a server restart).
+`godot_checkpoint_restore` undoes back to that marker and reports the requested /
+undone counts; a different scene, a cleared history, or a checkpoint ahead of the
+current position is refused. Only **UndoRedo-tracked** actions are covered: file
+writes, project settings and over-threshold batches bypass the undo stack (a VCS
+snapshot backstop is the follow-up). `dry_run=True` reports the delta without
+touching the editor.
 
 `godot_redo` (#529) mirrors `godot_undo` exactly for the redo direction: a real redo
 returns `{ redone, requested, last_action, nothing_to_redo }`; redoing with nothing to

@@ -21,7 +21,7 @@ from tests.fakes import FakeAddonConnection, connector_for
 # skills/docs, not the per-tool docstring.
 _DESCRIPTION_BUDGET = 1100
 # And the whole surface (sum of descriptions) must fit this.
-_TOTAL_BUDGET = 62_000
+_TOTAL_BUDGET = 62_500
 
 
 async def _tools() -> list[Any]:

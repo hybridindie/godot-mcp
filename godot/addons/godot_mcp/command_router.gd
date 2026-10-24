@@ -173,6 +173,9 @@ func _init() -> void:
 	# on the router as cmd_undo — they drive EditorUndoRedoManager directly.
 	_handlers["cmd_redo"] = _cmd_redo
 	_handlers["cmd_list_history"] = _cmd_list_history
+	# #760 checkpoints: the current undo-history pointer/depth, so the server can
+	# mark a point and undo back to it without guessing the stack depth.
+	_handlers["cmd_undo_state"] = _cmd_undo_state
 	# Meta-command: execute a batch of sub-commands in one frame (issue #167).
 	# Lives on the router (not a domain handler) because it re-dispatches via _route.
 	_handlers["cmd_run_commands"] = _cmd_run_commands
@@ -271,6 +274,23 @@ func history_snapshot() -> Dictionary:
 		"has_undo": has_undo,
 		"action": str(ur.get_current_action_name()) if has_undo else "",
 	}
+
+
+## Read-only undo-history state for checkpoints (#760): the current action index
+## (get_current_action) and the history size. A checkpoint stores both; restoring
+## undoes the delta. No scene → global history.
+func _cmd_undo_state(_params: Dictionary) -> Dictionary:
+	var ur := _scene_history_undo_redo()
+	var root: Node = EditorInterface.get_edited_scene_root() if Engine.is_editor_hint() else null
+	var scene_path := root.scene_file_path if root != null else ""
+	if ur == null:
+		return _ok({"available": false, "current": -1, "count": 0, "scene_path": scene_path})
+	return _ok({
+		"available": true,
+		"current": ur.get_current_action(),
+		"count": ur.get_history_count(),
+		"scene_path": scene_path,
+	})
 
 
 ## Undo the last `count` editor actions on the current scene's history (S4).

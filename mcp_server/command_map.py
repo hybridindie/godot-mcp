@@ -244,6 +244,12 @@ ORCHESTRATORS: dict[str, str] = {
         "runs the project headless via the Godot binary, not a bridge command;"
         " call it directly instead"
     ),
+    "checkpoint_create": (
+        "a server-side marker over the scene undo history; call it directly instead"
+    ),
+    "checkpoint_restore": (
+        "a server-side undo-to-checkpoint workflow; call it directly instead"
+    ),
 }
 
 
