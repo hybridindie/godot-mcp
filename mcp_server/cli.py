@@ -66,7 +66,7 @@ def _toml_snippet(project: Path | None) -> str:
             [
                 "",
                 "[mcp_servers.godot-mcp.env]",
-                f'GODOT_MCP_PROJECT_DIR = "{project}"',
+                f"GODOT_MCP_PROJECT_DIR = {json.dumps(str(project))}",
             ]
         )
     return "\n".join(lines) + "\n"

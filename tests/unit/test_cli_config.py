@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -73,6 +74,13 @@ def test_codex_toml_append_force_and_preserve(
     ) == 0
     assert cfg.read_text().count("[mcp_servers.godot-mcp]") == 1
     capsys.readouterr()
+
+
+def test_codex_toml_escapes_the_project_path(tmp_path: Path) -> None:
+    project = tmp_path / 'a"b\\c'
+    snippet = cli._toml_snippet(project)
+    parsed = tomllib.loads(snippet)
+    assert parsed["mcp_servers"]["godot-mcp"]["env"]["GODOT_MCP_PROJECT_DIR"] == str(project)
 
 
 def test_gemini_home_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
