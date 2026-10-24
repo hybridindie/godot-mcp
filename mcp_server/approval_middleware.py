@@ -31,6 +31,7 @@ from fastmcp.server.middleware import Middleware, MiddlewareContext
 from fastmcp.tools.base import InputRequiredToolResult
 from mcp.types import ElicitRequest, ElicitRequestFormParams, InputRequiredResult
 
+from mcp_server.consent import APPROVAL_PRECLEARED
 from mcp_server.models.envelope import ErrorCode
 from mcp_server.safety import ApprovalGate, PreconditionError, approval_gated
 from mcp_server.subcommand_policy import effective_safety_class
@@ -99,6 +100,10 @@ class ApprovalMiddleware(Middleware):
         self._approval = approval
 
     async def on_call_tool(self, context: MiddlewareContext, call_next: Any) -> Any:
+        if APPROVAL_PRECLEARED.get():
+            # A consent token minted after this exact call's webhook approval
+            # already carries the human's decision (#759).
+            return await call_next(context)
         args = context.message.arguments or {}
         if args.get("dry_run"):
             return await call_next(context)

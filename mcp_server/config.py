@@ -123,6 +123,9 @@ class ServerConfig(BaseModel):
     # see .opencode/rules/async-patterns.md. Ignored when a webhook is set
     # (the webhook path keeps its existing raise-on-deny behavior).
     approval_require: bool = False
+    # Consent-token HMAC key (#759). Unset → a random per-process key (tokens do
+    # not survive a restart; fine for a short-lived local token).
+    consent_secret: str | None = None
     # HTTP transport auth (issue #226). Opt-in: loopback HTTP is allowed without a
     # token; a non-loopback bind requires a token or the server refuses to start.
     auth_token: str | None = None
@@ -153,6 +156,7 @@ class ServerConfig(BaseModel):
             in ("1", "true", "yes"),
             approval_require=os.environ.get("GODOT_MCP_APPROVAL_REQUIRE", "").lower()
             in ("1", "true", "yes"),
+            consent_secret=os.environ.get("GODOT_MCP_CONSENT_SECRET") or None,
             auth_token=os.environ.get("GODOT_MCP_AUTH_TOKEN"),
             http_host_origin_protection=_parse_host_origin_protection(
                 os.environ.get(HOST_ORIGIN_PROTECTION_ENV)

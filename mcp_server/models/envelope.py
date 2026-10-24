@@ -41,6 +41,9 @@ class ErrorCode(StrEnum):
     # #757: a tool call included an argument the tool does not declare. Rejected
     # instead of silently dropped, with the accepted names + a corrected next_call.
     UNDECLARED_PARAMETER = "UNDECLARED_PARAMETER"
+    # #759: a destructive call's consent token is missing, expired, replayed, or
+    # does not match the exact (tool, args) it was minted for.
+    CONSENT_MISMATCH = "CONSENT_MISMATCH"
 
 
 class NextCall(BaseModel):

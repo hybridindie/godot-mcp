@@ -47,6 +47,8 @@ dependencies = [
     # exclusively, and standardizing here keeps our httpx exception handlers live code
     # (FastMCP raises httpx2 exceptions, so `except httpx.` would silently never match).
     "httpx2>=2.9",
+    # #759: validate describe_tool(args) against the target tool's JSON Schema.
+    "jsonschema>=4.26.0",
 ]
 
 [project.urls]
@@ -65,7 +67,6 @@ dev = [
     "pytest-asyncio>=1.4",
     "mypy>=2.1",
     "ruff>=0.15",
-    "jsonschema>=4.26.0",
     "types-jsonschema>=4.26.0.20260518",
     "types-PyYAML",
 ]

@@ -319,9 +319,10 @@ async def test_delete_node_blocked_when_approval_denied() -> None:
     server = create_server(ServerConfig(), bridge=bridge, approval=gate)
     async with Client(server) as client:
         await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
+        # #759: with a webhook configured, approval is bound at describe time.
         result = await client.call_tool(
-            "godot_scene_edit_delete_node",
-            {"node_path": "Player", "confirm": True},
+            "godot_describe_tool",
+            {"tool": "godot_scene_edit_delete_node", "args": {"node_path": "Player"}},
             raise_on_error=False,
         )
     assert result.is_error
@@ -340,8 +341,14 @@ async def test_delete_node_proceeds_when_approval_granted() -> None:
     server = create_server(ServerConfig(), bridge=bridge, approval=gate)
     async with Client(server) as client:
         await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
+        described = await client.call_tool(
+            "godot_describe_tool",
+            {"tool": "godot_scene_edit_delete_node", "args": {"node_path": "Player"}},
+        )
+        token = described.structured_content["token"]
         result = await client.call_tool(
-            "godot_scene_edit_delete_node", {"node_path": "Player", "confirm": True}
+            "godot_scene_edit_delete_node",
+            {"node_path": "Player", "consent": token},
         )
     assert result.structured_content["deleted"] is True
     assert "cmd_delete_node" in _commands(conn)
@@ -363,8 +370,14 @@ async def test_delete_with_confirm_proceeds() -> None:
     server, conn = _build()
     async with Client(server) as client:
         await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
+        described = await client.call_tool(
+            "godot_describe_tool",
+            {"tool": "godot_scene_edit_delete_node", "args": {"node_path": "Player"}},
+        )
+        token = described.structured_content["token"]
         result = await client.call_tool(
-            "godot_scene_edit_delete_node", {"node_path": "Player", "confirm": True}
+            "godot_scene_edit_delete_node",
+            {"node_path": "Player", "consent": token},
         )
     assert result.structured_content["deleted"] is True
     assert "cmd_delete_node" in _commands(conn)

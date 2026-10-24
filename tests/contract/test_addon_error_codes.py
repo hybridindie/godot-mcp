@@ -94,6 +94,7 @@ def test_every_python_error_code_is_used_or_explicitly_unrepresented() -> None:
         "PEER_REPLACED",  # server notice to a replaced peer (#593); the addon only
         # *reads* this code (never emits it via _fail), so the _fail scan misses it
         "UNDECLARED_PARAMETER",  # server-side argument validation (#757)
+        "CONSENT_MISMATCH",  # server-side consent-token verification (#759)
     }
     emitted = set(_collect_codes())
     unused = ALLOWED - emitted - server_only

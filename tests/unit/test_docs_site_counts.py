@@ -2,7 +2,7 @@
 
 The site states the surface size in many places: the tagline, the VitePress
 config description and footer, the ``llms-gen.mjs`` summary, and several
-concept/architecture pages ("194 tools", "29 categories", "the 194-tool
+concept/architecture pages ("195 tools", "29 categories", "the 195-tool
 surface"). Those numbers drift silently on every tool addition — the skills
 had the same problem and #611 fixed it there. This test pins them so a surface
 change that leaves the prose stale fails the suite.

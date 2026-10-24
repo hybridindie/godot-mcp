@@ -296,6 +296,13 @@ handler-specific read-back replaces it as each domain lands.
 - A write the engine silently drops returns `set: false` with a `noop` receipt
   and the read-back value — never an `updated` success.
 
+**Consent tokens (#759).** With a webhook approval gate configured, a destructive
+call must carry `consent=<token>` from `godot_describe_tool(tool, args)`. The token
+is HMAC-bound to the exact canonical args, expires (default 120s), and is
+single-use; `CONSENT_MISMATCH` carries a `next_call` to `godot_describe_tool`.
+Without a webhook, `confirm=True` remains the accident guard, and the elicitation
+guard is the approval.
+
 ### Preconditions
 
 Checked before any side effect. Each is a function in `safety.py` that raises a typed

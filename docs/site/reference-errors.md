@@ -27,7 +27,7 @@ The eight bridge-envelope codes (the `ErrorCode` enum in
 | `APPROVAL_DENIED` | the human declined an approval | n/a — retry with different intent |
 | `PEER_REPLACED` | a server **notice** to the editor that a second editor took over the bridge (not a tool failure) | two editors pointed at one server; the replaced dock shows purple and stops reconnecting (#593) |
 
-Three server-side codes appear in `ToolError` text but never cross the bridge
+Four server-side codes appear in `ToolError` text but never cross the bridge
 (the server rejects before dispatching, or bounds the payload locally):
 
 | Code | Meaning | Typical cause |
@@ -35,6 +35,7 @@ Three server-side codes appear in `ToolError` text but never cross the bridge
 | `PARAM_ERROR` | a path parameter rejected server-side before the bridge call | a script/resource path that isn't `res://`-contained (`res://../…`, `res:///abs`) |
 | `OUTPUT_LIMIT` | a result payload would exceed the 25k character cap | an oversized `snapshot_subtree` — narrow with `max_depth` |
 | `UNDECLARED_PARAMETER` | an argument the tool does not declare (#757) | the `hint` lists the accepted names; `next_call` renames a near-miss |
+| `CONSENT_MISMATCH` | a destructive call’s consent token is missing, expired, replayed, or bound to different args (#759) | call `godot_describe_tool` with the exact args, then pass its `token` as `consent` |
 
 ## The recovery table
 
@@ -42,7 +43,8 @@ Three server-side codes appear in `ToolError` text but never cross the bridge
 |-----------------|-----|
 | `unknown tool` | the toolset isn't enabled → `godot_enable_toolset(...)`; or you mixed a server-side tool with an editor tool |
 | `[required=active_scene]` | `godot_scene_edit_open_scene(path)` or `create_scene` |
-| `[required=confirm]` | destructive call → `dry_run` first, then `confirm=True` |
+| `[required=confirm]` | destructive call → `dry_run` first, then `confirm=True` (or `consent` when approval is configured) |
+| `[required=consent]` | call `godot_describe_tool(tool, args)` and pass its `token` as `consent` |
 | `[required=bridge_connected]` | open Godot with the addon; check the status dock |
 | `[required=runtime_probe]` | register `MCPRuntimeProbe` as an autoload |
 | `[required=game_not_breaked]` | the game is frozen at a debugger break → `godot_debugger_continue_execution` |

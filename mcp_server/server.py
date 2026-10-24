@@ -27,6 +27,8 @@ from mcp_server.bridge import Bridge
 from mcp_server.capabilities import STATIC_CAPABILITY, apply_capability
 from mcp_server.coercion_middleware import ArgumentCoercionMiddleware
 from mcp_server.config import ServerConfig
+from mcp_server.consent import ConsentManager
+from mcp_server.consent_middleware import ConsentMiddleware, apply_consent_schema
 from mcp_server.diagnostics import register_diagnostics
 from mcp_server.logging_setup import install_proactor_reset_demotion
 from mcp_server.prompts import register_prompts
@@ -43,6 +45,7 @@ from mcp_server.tools.audio import register_audio
 from mcp_server.tools.batch import register_batch
 from mcp_server.tools.class_info import register_class_info
 from mcp_server.tools.composite import register_composite
+from mcp_server.tools.consent import register_consent_tool
 from mcp_server.tools.debug_workflow import register_debug_workflow
 from mcp_server.tools.debugger import register_debugger
 from mcp_server.tools.editor import register_editor
@@ -122,6 +125,9 @@ def create_server(
     # Centralized at the tools/call boundary via ApprovalMiddleware (issue #330) so
     # the ``approval`` parameter no longer threads through register modules.
     approval = approval or ApprovalGate.from_config(config)
+    consent = ConsentManager(
+        secret=config.consent_secret.encode() if config.consent_secret else None
+    )
 
     @asynccontextmanager
     async def lifespan(_server: FastMCP) -> AsyncIterator[None]:
@@ -160,6 +166,10 @@ def create_server(
             await apply_receipt_schema(mcp)
         except Exception:
             logger.warning("failed to apply receipt schema", exc_info=True)
+        try:
+            await apply_consent_schema(mcp)
+        except Exception:
+            logger.warning("failed to apply consent schema", exc_info=True)
         # #644: tell the bridge which addon commands are mutating, so a timeout on
         # one is flagged may_have_applied (the editor runs commands serially).
         try:
@@ -201,6 +211,9 @@ def create_server(
     # ``structuredContent`` (error/hint/required/next_call). Outermost so it
     # sees errors raised by every inner middleware and the tool body.
     mcp.add_middleware(AgentErrorMiddleware())
+    # #759: verify consent tokens and strip the synthetic `consent` arg before
+    # argument coercion/validation. Requires a token when approval is configured.
+    mcp.add_middleware(ConsentMiddleware(consent, approval))
     # #756: every successful mutating/destructive result carries a receipt. Precise
     # handler receipts win; this fills a coarse fallback for the domains still
     # rolling out.
@@ -270,6 +283,7 @@ def create_server(
     register_debug_workflow(mcp, bridge, config, runner)
     register_project_scaffold(mcp, bridge)
     register_safety_tools(mcp)
+    register_consent_tool(mcp, consent, approval)
 
     mcp.add_middleware(toolset_mw)
 

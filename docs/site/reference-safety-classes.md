@@ -19,7 +19,7 @@ the machine-checked matrix is [`docs/tool-contracts.md`](https://github.com/hybr
 |-------|------|--------------|----------|
 | `read_only` | Never mutates | none | n/a |
 | `mutating` | Reversible editor change | `dry_run: bool = False` | wrapped |
-| `destructive` | Deletes/overwrites; maybe irreversible | `dry_run` **and** `confirm: bool = True` | wrapped (captures prior state) |
+| `destructive` | Deletes/overwrites; maybe irreversible | `dry_run` **and** (`confirm: bool = True`, or `consent: str` when approval is configured) | wrapped (captures prior state) |
 | `runtime` | Controls game execution | varies | varies |
 
 ## `dry_run`
@@ -49,6 +49,25 @@ The recommended flow: `dry_run=true` first (read what will be affected), then
 `confirm=true` when the preview is acceptable. Destructive tools that remove
 state capture that state for undo (e.g. `remove_audio_bus` restores the whole
 bus + effects on undo; `delete_resource_file` restores exact bytes).
+
+## Consent tokens (#759)
+
+`confirm` is self-set, so it guards against accidents, not against an agent that
+has decided to do something destructive. When a **webhook approval gate** is
+configured, `godot_describe_tool(tool, args)` validates the call and mints a
+short-lived HMAC token bound to the exact `(tool, canonical args)` pair. Send it
+as `consent=<token>` on the destructive call: the server verifies the tool, args,
+expiry and one-time use, then injects `confirm=True`. Any change (different arg,
+expired token, replay) returns `CONSENT_MISMATCH` with a `next_call` to
+`godot_describe_tool`.
+
+The webhook is consulted at describe time, so the approved args are the executed
+args; the call itself is precleared and does not ask twice. With no webhook, the
+elicitation guard (`GODOT_MCP_APPROVAL_REQUIRE`) is itself the approval and stays
+token-optional; `confirm=True` remains the accident guard.
+
+`GODOT_MCP_CONSENT_SECRET` pins the HMAC key; unset, a random per-process key is
+used (tokens do not survive a restart — fine for a short-lived local token).
 
 ## Where the classes come from
 

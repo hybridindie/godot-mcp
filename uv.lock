@@ -595,6 +595,7 @@ source = { editable = "." }
 dependencies = [
     { name = "fastmcp", extra = ["tasks"] },
     { name = "httpx2" },
+    { name = "jsonschema" },
     { name = "mcp" },
     { name = "pydantic" },
     { name = "pypng" },
@@ -603,7 +604,6 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "jsonschema" },
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -616,6 +616,7 @@ dev = [
 requires-dist = [
     { name = "fastmcp", extras = ["tasks"], specifier = "==4.1.0" },
     { name = "httpx2", specifier = ">=2.9" },
+    { name = "jsonschema", specifier = ">=4.26.0" },
     { name = "mcp", specifier = "==2.3.0" },
     { name = "pydantic", specifier = ">=2.13" },
     { name = "pypng", specifier = ">=0.20" },
@@ -624,7 +625,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "jsonschema", specifier = ">=4.26.0" },
     { name = "mypy", specifier = ">=2.1" },
     { name = "pytest", specifier = ">=9.1" },
     { name = "pytest-asyncio", specifier = ">=1.4" },
