@@ -223,7 +223,13 @@ async def _run_delete_open_scene_multi_tab() -> None:
         )
 
         # The victim is open but NOT active — delete it from under the bystander.
-        active = await _ok(bridge, "cmd_get_active_scene", {})
+        # Scene activation is asynchronous (the editor creates the tab on the next
+        # idle frame), so wait for it rather than asserting immediately.
+        for _ in range(40):
+            active = await _ok(bridge, "cmd_get_active_scene", {})
+            if active.get("path") == bystander:
+                break
+            await asyncio.sleep(0.1)
         assert active["path"] == bystander, f"precondition: bystander not active ({active})"
         deleted = await _ok(bridge, "cmd_delete_resource_file", {"path": victim})
         assert deleted["deleted"] is True
