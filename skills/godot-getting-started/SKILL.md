@@ -1,6 +1,6 @@
 ---
 name: godot-getting-started
-description: Connect to and drive a Godot editor through the Godot Editor MCP server. Use at the start of any Godot task via Godot Editor MCP — it teaches the version check, the toolset-gating model (enable a toolset before its tools exist), the dry_run/confirm safety convention, and how to verify the bridge. Triggers on "use godot-mcp", "drive Godot", "control the Godot editor", "Godot Editor MCP tools aren't showing up", "unknown tool from godot", "set up godot-mcp".
+description: "Use at the start of any task in a Godot project when the Godot Editor MCP tools are available — writing or editing scripts, adding or changing nodes and scenes, setting properties, attaching scripts — and whenever a Godot MCP tool is missing or refused. Teaches the version check, toolset gating (enable a toolset before its tools exist), the dry_run/confirm safety convention, and how to verify the bridge."
 ---
 
 # godot: getting started

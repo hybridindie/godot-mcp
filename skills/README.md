@@ -15,6 +15,12 @@ server you're driving is older or newer, trust `godot_get_server_info()`'s
 inventory over anything the skills state, and read the live counts from
 `godot_get_server_info()` / `godot_list_toolsets()` rather than from prose here.
 
+Alongside them, [`godot-rules.md`](godot-rules.md) is a one-page set of always-on
+rules (paths, which tool for which change, "done means verified", GDScript 4.x
+essentials). Put it in your agent's always-on instructions: skills load only when
+the model decides to, and the rules cover what an agent gets wrong before it ever
+reaches for one. See [Always-on rules](#always-on-rules-godot-rulesmd).
+
 Install them once and your agent has the right guidance at the right time.
 
 The companion **documentation site** is at https://hybridindie.github.io/godot-mcp/ — for
@@ -35,7 +41,9 @@ docs in agent-friendly markdown.
 
 ```bash
 git clone --depth 1 https://github.com/hybridindie/godot-mcp /tmp/godot-mcp
-cp -r /tmp/godot-mcp/skills/* ~/.config/opencode/skills/   # Claude: ~/.claude/skills/
+cd /tmp/godot-mcp/skills
+cp -r godot-getting-started godot-playtest-and-debug godot-expert \
+  ~/.config/opencode/skills/   # Claude: ~/.claude/skills/
 ```
 
 Copy **all three** folders — `godot-getting-started/`, `godot-playtest-and-debug/`,
@@ -49,16 +57,34 @@ automatically when their trigger conditions match (see below). You can
 verify they're loaded by asking your agent about any of the trigger
 topics.
 
-### Manual install (no script)
+### Copy, don't symlink
 
-If you prefer not to use the script:
+Install the skill folders as real copies. Some clients don't list files under a
+symlinked skill directory (OpenCode shows an empty file list for it), so the
+`references/` guides become invisible to the agent. Re-copy after you update the repo.
 
-```bash
-# opencode:
-ln -s "$(pwd)/skills/godot-expert" ~/.config/opencode/skills/godot-expert
-ln -s "$(pwd)/skills/godot-getting-started" ~/.config/opencode/skills/godot-getting-started
-ln -s "$(pwd)/skills/godot-playtest-and-debug" ~/.config/opencode/skills/godot-playtest-and-debug
-```
+---
+
+## Always-on rules (godot-rules.md)
+
+[`godot-rules.md`](godot-rules.md) is short on purpose (one page, paid on every model
+call). It covers what a coding agent with file tools gets wrong on a Godot project:
+
+- `res://` is the project root on disk, so never hand a `res://` path to a file tool;
+- scripts are edited directly and then parse-checked, while scenes and nodes change
+  only through the MCP scene tools (the open editor overwrites hand-edited `.tscn`);
+- enable a toolset before using its tools, and save the scene;
+- read the result back before reporting success, and do only what was asked;
+- GDScript 4.x and GUT essentials, and which skill to load for what.
+
+Wire it into your client's always-on instructions:
+
+| Client | How |
+|---|---|
+| OpenCode | `opencode.json`: `"instructions": ["path/to/godot-rules.md"]` |
+| Claude Code | In the project's `CLAUDE.md`, import it on its own line: `@path/to/godot-rules.md` |
+| Cursor | Save as `.cursor/rules/godot.mdc` with `alwaysApply: true` frontmatter |
+| Anything else | Append it to the project's `AGENTS.md` or the client's system prompt / rules |
 
 ---
 
@@ -71,9 +97,10 @@ server. Read this once at the start of any Godot session — it prevents the
 two most common failures: missing tools (toolset not enabled) and
 unconfirmed destructive edits.
 
-**Triggers on:** "use godot-mcp", "drive Godot", "control the Godot
-editor", "Godot Editor MCP tools aren't showing up", "unknown tool from godot",
-"set up godot-mcp".
+**Triggers on:** the start of any Godot task when the MCP tools are available:
+"create a script", "add a node", "edit the scene", "set a property", "attach a
+script". Also on "Godot Editor MCP tools aren't showing up" and "unknown tool from
+godot".
 
 **What it teaches:**
 - Checking the server version + bridge connection (`godot_health_check`, `godot_get_server_info`)
@@ -93,9 +120,9 @@ editor", "Godot Editor MCP tools aren't showing up", "unknown tool from godot",
 tools — play a scene, read the running scene tree, sample live properties,
 simulate input, assert state, and diagnose errors.
 
-**Triggers on:** "play-test in Godot", "run the game and check", "simulate
-input in Godot", "why does my Godot game crash", "debug the running scene",
-"inspect the live game".
+**Triggers on:** "run the game and check", "does it work at runtime", "play-test
+in Godot", "simulate input", "why does my Godot game crash", "debug the running
+scene", "inspect the live game".
 
 **What it teaches:**
 - The two run modes: headless `run_and_capture` vs. the live play session with probe
@@ -121,10 +148,10 @@ knows — learned the hard way by hitting each bug, debugging it, and writing
 a test to pin it. Prevents the common failures: invisible sprites, input
 blocked by overlays, enemies not spawning, parse errors, and more.
 
-**Triggers on:** "build a Godot game", "sprite not showing", "input not
-working", "enemy not spawning", "GDScript parse error", "collision setup",
-"autoload not working", "scene file format", "build a scene", "create a
-scene", "attach a script".
+**Triggers on:** any Godot 4.x game work: "write a script", "add and configure
+nodes", "build a scene", "UI/HUD", "collision setup", "autoload", "shader",
+"animation", "write a GUT test". Also on bugs like "sprite not showing", "input not
+working", "enemy not spawning" and "GDScript parse error".
 
 **What it teaches (10 sections):**
 1. **Node types & rendering** — Control vs Node2D, Polygon2D for

@@ -1,6 +1,6 @@
 ---
 name: godot-expert
-description: "Use when building or modifying a Godot 4.x game through the Godot Editor MCP tools — creating scenes, nodes, scripts, physics, UI, or debugging rendering/input/collision issues. Encodes the Godot 4.x engine rules, node-type constraints, rendering order, autoload lifecycle, and MCP tool patterns that an expert Godot developer knows. Prevents the common pitfalls: Control vs Node2D rendering, z-ordering, autoload-children visibility, input interception, type inference, and scene file format."
+description: "Use for any Godot 4.x game work — writing or fixing GDScript, adding and configuring nodes and scenes, UI/HUD, physics and collision, autoloads, shaders, animation and tests — before you write code or change a scene. Encodes the Godot 4.x engine rules, node-type constraints, rendering order, autoload lifecycle, and MCP tool patterns that prevent the common pitfalls: Control vs Node2D rendering, z-ordering, autoload-children visibility, input interception, type inference, and scene file format."
 ---
 
 # Godot Expert Developer

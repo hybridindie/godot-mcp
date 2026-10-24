@@ -1,6 +1,6 @@
 ---
 name: godot-playtest-and-debug
-description: Run, inspect, and debug a live Godot game through the Godot Editor MCP server — play a scene in the editor, read the running scene tree, sample properties, simulate input, assert state, and diagnose errors. Use when the user wants to play-test, reproduce a bug, or debug runtime behavior in Godot via Godot Editor MCP. Triggers on "play-test in Godot", "run the game and check", "simulate input in Godot", "why does my Godot game crash", "debug the running scene", "inspect the live game".
+description: "Use to run a Godot game and check it — play a scene, read the live scene tree, sample properties, simulate input, assert state, reproduce and debug a crash or runtime error — through the Godot Editor MCP tools, including confirming that a change works at runtime."
 ---
 
 # godot: play-test and debug

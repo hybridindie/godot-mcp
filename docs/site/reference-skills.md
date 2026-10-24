@@ -82,12 +82,31 @@ The expert skill loads detail on demand from `references/` — 12 guides, each
 ```bash
 # Clone (or download) the repo, then copy the three skill folders:
 git clone --depth 1 https://github.com/hybridindie/godot-mcp /tmp/godot-mcp
-cp -r /tmp/godot-mcp/skills/* ~/.config/opencode/skills/   # Claude: ~/.claude/skills/
+cd /tmp/godot-mcp/skills
+cp -r godot-getting-started godot-playtest-and-debug godot-expert \
+  ~/.config/opencode/skills/   # Claude: ~/.claude/skills/
 ```
 
-Copy all three folders — `godot-getting-started/`, `godot-playtest-and-debug/`, and
-`godot-expert/` — and keep `godot-expert/references/` (its guides load on demand).
-Restart the client after installing; skills activate automatically on their triggers.
+Copy all three folders, keeping `godot-expert/references/` (its guides load on demand).
+Copy rather than symlink: some clients don't list files under a symlinked skill
+directory, which hides the references. Restart the client after installing; skills
+activate automatically on their triggers.
+
+## Always-on rules
+
+Skills load only when the model decides to. [`skills/godot-rules.md`](https://github.com/hybridindie/godot-mcp/blob/main/skills/godot-rules.md)
+is a one-page rule set for the agent's **always-on** instructions:
+- `res://` vs disk paths;
+- scripts edited directly and parse-checked, scenes and nodes changed only through MCP;
+- save, then read the result back before reporting done;
+- do only what was asked;
+- GDScript 4.x essentials;
+- which skill to load for what.
+
+Wire it in once per project: OpenCode `instructions`, a `CLAUDE.md` import
+(`@path/to/godot-rules.md`), a Cursor rule with `alwaysApply: true`, or append it to
+`AGENTS.md`. The [skills README](https://github.com/hybridindie/godot-mcp/blob/main/skills/README.md#always-on-rules-godot-rulesmd)
+has the table.
 
 ## These skills stay honest
 
@@ -98,6 +117,8 @@ toolsets** by `tests/unit/test_skills_metadata.py`:
 - the getting-started quick-map must name every registered toolset
 - every registered prompt must appear in a workflow skill
 - every `references/*.md` guide must be linked from its `SKILL.md`
+- `godot-rules.md` names only real tools and stays short enough to be always-on
+- each skill description leads with when to use it and names concrete Godot work
 - the skills and their README must name the current server version
 
 So a surface change without a skills update fails the test suite — the skills

@@ -290,3 +290,60 @@ def test_expert_skill_script_save_claim_is_accurate() -> None:
     assert "godot_scene_edit_save_scene(" in text or "save_scene" in text, (
         "godot-expert must teach save_scene for scene edits"
     )
+
+
+# -- Always-on rules + task-worded triggers (issue #783) --
+# Measured with a stock coding harness: skills whose descriptions trigger on
+# tool-centric phrases ("use godot-mcp") loaded in 1 of 10 tasks, and nothing told
+# a file-editing agent that res:// is the project root. An always-on rules file and
+# task-worded descriptions fixed both.
+
+RULES_FILE = SKILLS_DIR / "godot-rules.md"
+# Always-on text is paid on every model call; keep it a page, not a manual.
+RULES_MAX_CHARS = 8000
+TASK_TERMS = ("script", "node", "scene", "game")
+
+
+def test_rules_file_ships_and_names_only_real_tools() -> None:
+    assert RULES_FILE.is_file(), "skills/godot-rules.md must ship"
+    text = RULES_FILE.read_text(encoding="utf-8")
+    refs = set(_TOOL_CALL_RE.findall(text))
+    assert refs, "the rules must name the tools they rely on as godot_*() calls"
+    server: Any = create_server()
+    asyncio.run(register_tool_transform(server))
+    tool_names = {t.name for t in asyncio.run(list_all_tools(server))}
+    assert refs <= tool_names, f"rules reference unknown tools: {refs - tool_names}"
+
+
+def test_rules_cover_what_a_file_editing_agent_gets_wrong() -> None:
+    text = RULES_FILE.read_text(encoding="utf-8")
+    assert len(text) <= RULES_MAX_CHARS, f"rules are {len(text)} chars; keep them short"
+    # res:// is the project root on disk; never hand it to a file tool.
+    assert "res://" in text and "project root" in text
+    # Scripts: check parse errors after writing. Scenes: MCP only, not hand edits.
+    assert "godot_scripts_get_parse_errors(" in text
+    assert ".tscn" in text
+    assert "godot_enable_toolset(" in text
+    # Verify before reporting success.
+    assert "verif" in text.lower()
+
+
+@pytest.mark.parametrize("skill_name", sorted(EXPECTED_SKILLS))
+def test_description_leads_with_when_to_use_and_names_the_work(skill_name: str) -> None:
+    """Clients pick a skill by matching the user's request against its description.
+    Requests name the work ("create a script", "add a Timer node"), not the server,
+    so the description leads with when to use it and names concrete Godot work."""
+    fm = _parse_frontmatter((SKILLS_DIR / skill_name / "SKILL.md").read_text(encoding="utf-8"))
+    description = fm.get("description", "").strip("\"'").lower()
+    assert description.startswith("use "), f"{skill_name}: lead with 'Use …' (when to load it)"
+    assert any(term in description for term in TASK_TERMS), (
+        f"{skill_name}: name concrete Godot work ({', '.join(TASK_TERMS)})"
+    )
+
+
+def test_readme_documents_rules_and_copy_install() -> None:
+    readme = (SKILLS_DIR / "README.md").read_text(encoding="utf-8")
+    assert "godot-rules.md" in readme, "README must explain how to load the always-on rules"
+    # Symlinked skill dirs hide references/ from some clients (OpenCode lists no
+    # files under a symlinked skill), so the documented install copies.
+    assert "ln -s" not in readme, "install by copying the folders, not symlinking"
