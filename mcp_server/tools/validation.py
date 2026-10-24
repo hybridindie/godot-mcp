@@ -66,13 +66,18 @@ def register_validation(
                 "Godot binary not found. Set GODOT_MCP_GODOT_BIN to your Godot executable.",
                 required="godot_bin",
             )
-        process = await asyncio.create_subprocess_exec(
+        args = [
             binary,
             "--headless",
             "--path",
             str(project_dir),
             "--script",
             runner,
+        ]
+        if include_warnings:
+            args.extend(["--", "--include-warnings"])
+        process = await asyncio.create_subprocess_exec(
+            *args,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -94,16 +99,8 @@ def register_validation(
                     raise AgentToolError(
                         "INTERNAL_ERROR", f"Validator result was not JSON: {exc}"
                     ) from exc
-                findings = payload.get("findings", [])
-                if not include_warnings:
-                    findings = [
-                        f for f in findings if str(f.get("severity", "error")) != "warning"
-                    ]
-                    payload["valid"] = not any(
-                        str(f.get("severity", "error")) == "error" for f in findings
-                    )
                 return ValidateProjectResult(
-                    **{**payload, "findings": findings, "project_dir": str(project_dir)}
+                    **{**payload, "project_dir": str(project_dir)}
                 )
         detail = stderr.decode(errors="replace")[-500:].strip()
         raise AgentToolError(

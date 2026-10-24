@@ -8,6 +8,9 @@ const Validation := preload("validation.gd")
 
 
 func _init() -> void:
-	var result: Dictionary = Validation.run(ProjectSettings.globalize_path("res://"), true)
+	var include_warnings := OS.get_cmdline_user_args().has("--include-warnings")
+	var result: Dictionary = Validation.run(
+		ProjectSettings.globalize_path("res://"), include_warnings
+	)
 	print("GODOT_MCP_VALIDATION " + JSON.stringify(result))
 	quit()
