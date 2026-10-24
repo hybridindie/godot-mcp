@@ -21,7 +21,7 @@ flowchart LR
         AI["AI client (OpenCode / Claude / any MCP client)"]
     end
     subgraph server["Godot Editor MCP server (Python)"]
-        SRV["FastMCP server 200 tools · safety · Pydantic models"]
+        SRV["FastMCP server 201 tools · safety · Pydantic models"]
         BR["WebSocket listener ws://127.0.0.1:9080"]
     end
     subgraph addon["Godot Editor MCP addon (GDScript)"]

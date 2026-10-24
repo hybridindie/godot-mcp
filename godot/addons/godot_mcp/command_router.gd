@@ -42,6 +42,7 @@ const HANDLERS: Array = [
 	preload("./handlers/profiling.gd"),
 	preload("./handlers/project_fs.gd"),
 	preload("./handlers/project_scaffold.gd"),
+	preload("./handlers/project_tools.gd"),
 	preload("./handlers/resources.gd"),
 	preload("./handlers/runtime_inspect.gd"),
 	preload("./handlers/runtime_session.gd"),

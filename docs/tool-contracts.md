@@ -662,6 +662,54 @@ nothing moved. Structured refusals: `RESOURCE_NOT_FOUND` (no source file),
 4.4+) — the in-memory copy would clobber the moved file. `res://` containment is enforced
 server-side for both endpoints before any bridge call (#205/#217 parity).
 
+#### Project-registered tools (issue #761) — category: `project` (gated off by default)
+
+Projects can expose their own operations as tools instead of making the agent
+reconstruct them from generic node edits.
+
+| Tool | Params | Returns | Class |
+|------|--------|---------|-------|
+| `godot_project_scan_tools` | — | `ProjectToolsResult { registered[]{name, script, function, safety_class, description}, rejected[]{script, function?, reason, line?}, count }` | `read_only` |
+
+Annotate a typed function in an `@tool` script; the scanner reads the source (doc
+comments are not available through GDScript reflection) and derives JSON Schema
+from the static types:
+
+```gdscript
+@tool
+extends RefCounted
+
+enum Kind { ENEMY, BOSS }
+
+## Spawn a wave of enemies.
+## @mcp_tool safety=mutating
+func spawn_wave(count: int, kind: Kind = Kind.ENEMY) -> Dictionary:
+	return {"spawned": count}
+```
+
+`godot_project_scan_tools` registers each function as
+`godot_project_<script stem>_<function>` **in this same `project` toolset**,
+announces the change on `notifications/tools/list_changed`, and returns the new
+surface plus every annotation it refused. Re-scanning replaces the previous set,
+so removed annotations disappear. A rejection is partial success, never an error.
+
+Supported parameter types: `int`, `float`, `bool`, `String`/`StringName`/`NodePath`,
+`Vector2`/`Vector3`/`Color`, script-level enums (as a string enum, converted back to
+the enum value on call), and `Array[T]`. `Dictionary`, bare `Array`, an untyped
+parameter, or a non-default parameter after a default one is rejected with a
+reason and line number. Optional parameters carry their default in the schema and
+must be trailing.
+
+Safety is per function: `safety=read_only|mutating|destructive` in the tag
+(default `mutating`). `mutating`/`destructive` gain `dry_run`; `destructive` also
+requires `confirm=True` — enforced **server-side** before any bridge call, like
+every other tool. Execution is `load(script).new()` + `callv`, so project tool
+scripts should extend `RefCounted`; **each function owns its own undo behavior**
+(the addon does not wrap project-tool calls in `EditorUndoRedoManager`), so a
+mutating project tool should make its edits undoable itself or report
+`reversible_by`. Timeouts on the shared `cmd_run_project_tool` bridge command are
+flagged `may_have_applied`. See `examples/project_tools/` for a runnable example.
+
 #### Editor screenshots (issue #33) — category: `editor` (gated off by default)
 
 | Tool | Params | Returns | Class |

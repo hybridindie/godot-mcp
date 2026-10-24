@@ -65,6 +65,8 @@ from mcp_server.tools.physics import register_physics
 from mcp_server.tools.profiling import register_profiling
 from mcp_server.tools.project_fs import register_project_fs
 from mcp_server.tools.project_scaffold import register_project_scaffold
+from mcp_server.tools.project_tools import RUN_COMMAND as PROJECT_TOOL_RUN_COMMAND
+from mcp_server.tools.project_tools import register_project_tools
 from mcp_server.tools.resource_files import register_resource_files
 from mcp_server.tools.runtime import register_runtime
 from mcp_server.tools.runtime_inspect import register_runtime_inspect
@@ -95,6 +97,7 @@ async def register_tool_transform(mcp: FastMCP) -> None:
     without running the lifespan can call this directly.
     """
     mcp.add_transform(await godot_tool_transform(mcp))
+
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +180,7 @@ def create_server(
         # #644: tell the bridge which addon commands are mutating, so a timeout on
         # one is flagged may_have_applied (the editor runs commands serially).
         try:
-            bridge.set_mutating_commands(await mutating_commands(mcp))
+            bridge.set_mutating_commands(await mutating_commands(mcp) | {PROJECT_TOOL_RUN_COMMAND})
         except Exception:
             logger.warning("failed to compute mutating commands (#644)", exc_info=True)
         try:
@@ -301,6 +304,9 @@ def create_server(
     # toggles out to subscribers, so the advertised tools.listChanged is true and
     # capable clients (Claude Code CLI) actually refresh.
     hub = install_toolset_subscriptions(mcp)
+    # #761: the scanner registers project tools at call time, so it needs the hub
+    # to announce the changed surface.
+    register_project_tools(mcp, bridge, hub)
     register_toolset_tools(mcp, manager, hub=hub)
     # #592: on every (re)connect push the enabled set so the addon dock's
     # "Toolsets:" row reflects reality instead of a permanent "(none)".
