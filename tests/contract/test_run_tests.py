@@ -98,9 +98,49 @@ async def test_run_tests_targets_one_file(tmp_path: Path) -> None:
             {"test_file": "res://test/test_one.gd"},
         )
     assert result.data.total == 3
+    assert runner.run_tests_calls == [(str(tmp_path), "res://test", "res://test/test_one.gd")]
+
+
+async def test_run_tests_accepts_a_path_that_is_a_file_or_folder(tmp_path: Path) -> None:
+    _with_gut(tmp_path)
+    (tmp_path / "test" / "suite").mkdir(parents=True)
+    (tmp_path / "test" / "test_one.gd").write_text("extends GutTest\n")
+    output = RunOutput(command=["gut"], stdout=_GUT_FAIL, exit_code=1)
+    server, runner = _build(str(tmp_path), output)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "testing"})
+        as_file = await client.call_tool(
+            "godot_testing_run_tests", {"test_path": "res://test/test_one.gd"}
+        )
+        as_folder = await client.call_tool(
+            "godot_testing_run_tests", {"test_path": "res://test/suite"}
+        )
+    assert as_file.data.total == 3 and as_folder.data.total == 3
     assert runner.run_tests_calls == [
-        (str(tmp_path), "res://test", "res://test/test_one.gd")
+        (str(tmp_path), "res://test", "res://test/test_one.gd"),
+        (str(tmp_path), "res://test/suite", ""),
     ]
+
+
+async def test_run_tests_test_path_conflicts_and_missing_folder(tmp_path: Path) -> None:
+    _with_gut(tmp_path)
+    server, runner = _build(str(tmp_path), RunOutput(command=["gut"]))
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "testing"})
+        conflict = await client.call_tool(
+            "godot_testing_run_tests",
+            {"test_path": "res://test/suite", "test_dir": "res://other"},
+            raise_on_error=False,
+        )
+        missing = await client.call_tool(
+            "godot_testing_run_tests",
+            {"test_path": "res://test/nope"},
+            raise_on_error=False,
+        )
+    assert conflict.structured_content["error"] == "VALIDATION_ERROR"
+    assert conflict.structured_content["required"] == "test_target"
+    assert missing.structured_content["error"] == "RESOURCE_NOT_FOUND"
+    assert runner.run_tests_calls == []
 
 
 async def test_run_tests_rejects_a_missing_or_invalid_file(tmp_path: Path) -> None:

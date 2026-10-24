@@ -40,6 +40,7 @@ from mcp_server.models.testing import (
     ScreenshotDiffResult,
     StressTestResult,
 )
+from mcp_server.paths import ResPath
 from mcp_server.qa import ImageCompareError, compare_images, evaluate_assertion, random_input_events
 from mcp_server.runtime import Runner, resolve_project_dir
 from mcp_server.safety import (
@@ -125,6 +126,7 @@ def register_testing(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
     async def run_tests(
         test_dir: str = "res://test",
         test_file: str = "",
+        test_path: ResPath = "",
         timeout_seconds: TimeoutSeconds = DEFAULT_TEST_RUN_TIMEOUT_SECONDS,
         *,
         ctx: Context,
@@ -133,7 +135,8 @@ def register_testing(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
         structured result: ``passed``/``failed``/``total``, per-failure detail, and
         the raw summary. A neutral capability — it executes tests and reports; it
         does not decide a workflow. ``test_dir`` is the GUT test directory; set
-        ``test_file`` (a ``res://*.gd`` path) to run exactly one test script.
+        ``test_file`` (a ``res://*.gd`` path) to run exactly one test script. Or set
+        ``test_path`` to a ``res://`` file or folder and let the tool pick the mode.
 
         Returns ``framework_absent=true`` (not an error) when GUT is not installed
         (no ``res://addons/gut/``), so the caller can fall back.
@@ -144,6 +147,24 @@ def register_testing(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
         """
         require_godot_binary(runner.binary)
         project_dir = await resolve_project_dir(bridge, config)
+        if test_path:
+            if test_file or test_dir != "res://test":
+                raise PreconditionError(
+                    "Use test_path or test_dir/test_file, not both.",
+                    required="test_target",
+                    error=ErrorCode.VALIDATION_ERROR,
+                )
+            if test_path.endswith(".gd"):
+                test_file = test_path
+            else:
+                test_dir = test_path
+                folder = Path(project_dir) / test_dir.removeprefix("res://")
+                if not folder.is_dir():
+                    raise PreconditionError(
+                        f"No test folder at '{test_dir}'.",
+                        required="test_path",
+                        error=ErrorCode.RESOURCE_NOT_FOUND,
+                    )
         if test_file:
             if not test_file.startswith("res://") or not test_file.endswith(".gd"):
                 raise PreconditionError(
@@ -154,6 +175,14 @@ def register_testing(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
                 raise PreconditionError(
                     f"No test file at '{test_file}'.",
                     required="test_file",
+                    error=ErrorCode.RESOURCE_NOT_FOUND,
+                )
+        elif test_dir != "res://test":
+            folder = Path(project_dir) / test_dir.removeprefix("res://")
+            if not folder.is_dir():
+                raise PreconditionError(
+                    f"No test folder at '{test_dir}'.",
+                    required="test_dir",
                     error=ErrorCode.RESOURCE_NOT_FOUND,
                 )
         if not _gut_present(project_dir):
