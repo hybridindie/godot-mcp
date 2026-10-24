@@ -10,6 +10,7 @@ the event loop — we never call ``asyncio.run`` here
 from __future__ import annotations
 
 import logging
+import sys
 
 from mcp_server.config import ServerConfig
 from mcp_server.logging_setup import configure_logging
@@ -19,7 +20,12 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> None:
-    """Build the server from the environment and run it on the configured transport."""
+    """Run the MCP server, or dispatch a ``config``/``doctor`` subcommand."""
+    argv = sys.argv[1:]
+    if argv and argv[0] in ("config", "doctor"):
+        from mcp_server.cli import main as cli_main
+
+        raise SystemExit(cli_main(argv))
     config = ServerConfig.from_env()
     configure_logging(config.log_level)
     config.validate_http_auth()

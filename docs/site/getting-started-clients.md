@@ -8,6 +8,34 @@ updated: 2026-10-18
 
 # Configure your MCP client
 
+## Generate the config
+
+The server ships a small setup CLI. It prints (or with `--write` merges into)
+the client's MCP config without clobbering other servers:
+
+```bash
+godot-editor-mcp config --client claude-code --project /path/to/game --write
+godot-editor-mcp config --client cursor --project /path/to/game --write
+godot-editor-mcp config --client vscode --project /path/to/game --write
+godot-editor-mcp config --client codex --write
+godot-editor-mcp config --client gemini --write
+godot-editor-mcp config --client opencode --project /path/to/game --write
+```
+
+Without `--write` it prints the merged config. An existing `godot-mcp` entry is
+refused unless you pass `--force`.
+
+Then check the whole install:
+
+```bash
+godot-editor-mcp doctor --project /path/to/game
+```
+
+It checks Python/uv, the Godot binary and version, the addon's presence and
+version match, that the plugin is enabled, and that the bridge listener is
+reachable — with a `fix:` line for every failure and a non-zero exit, so it also
+works in CI.
+
 ## OpenCode (stdio — the default path)
 
 `opencode.json` in the project root (or `~/.config/opencode/opencode.json`):
