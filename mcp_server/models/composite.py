@@ -41,6 +41,7 @@ class ComposeNodeResult(BaseModel):
     saved: bool = False
     dry_run: bool = False
     receipt: ChangeReceipt | None = None
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"
 
 
 class BatchCreateNodesResult(BaseModel):

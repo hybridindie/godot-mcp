@@ -5,7 +5,7 @@ Editing the project's Input Map actions and events (project.godot).
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -15,12 +15,14 @@ class AddInputActionResult(BaseModel):
     added: bool
     deadzone: float = 0.5
     dry_run: bool = False
+    reversible_by: Literal["undo", "vcs", "none"] = "none"
 
 
 class RemoveInputActionResult(BaseModel):
     name: str
     removed: bool
     dry_run: bool = False
+    reversible_by: Literal["undo", "vcs", "none"] = "none"
 
 
 class AddInputEventResult(BaseModel):
@@ -28,12 +30,14 @@ class AddInputEventResult(BaseModel):
     event_index: int = 0
     added: bool
     dry_run: bool = False
+    reversible_by: Literal["undo", "vcs", "none"] = "none"
 
 
 class ClearInputActionEventsResult(BaseModel):
     action: str
     cleared: bool
     dry_run: bool = False
+    reversible_by: Literal["undo", "vcs", "none"] = "none"
 
 
 class InputActionEvents(BaseModel):

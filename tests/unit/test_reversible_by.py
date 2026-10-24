@@ -43,3 +43,69 @@ def test_non_undoable_changes_report_none() -> None:
 def test_undoable_batch_stays_undo() -> None:
     assert BatchSetResult(property="visible", undoable=True).reversible_by == "undo"
     assert BatchCreateNodesResult(undoable=True).reversible_by == "undo"
+
+
+def test_remaining_families_report_their_strategy() -> None:
+    from mcp_server.models.audio import AudioBusResult
+    from mcp_server.models.composite import ComposeNodeResult
+    from mcp_server.models.input_map import AddInputActionResult
+    from mcp_server.models.mutation import CreateSceneResult, SaveSceneResult
+    from mcp_server.models.run_commands import RunCommandsResult
+    from mcp_server.models.scripts import WriteScriptResult
+    from mcp_server.models.undo import UndoResult
+
+    assert AudioBusResult(index=0, name="Master").reversible_by == "undo"
+    assert ComposeNodeResult(node_path="A", created=True).reversible_by == "undo"
+    assert AddInputActionResult(name="jump", added=True).reversible_by == "none"
+    assert SaveSceneResult(saved=True).reversible_by == "none"
+    create_scene = CreateSceneResult(
+        scene_path="res://a.tscn", root_type="Node2D", created=True
+    )
+    assert create_scene.reversible_by == "none"
+    assert RunCommandsResult(ok_all=True, count=1).reversible_by == "none"
+    write = WriteScriptResult(script_path="res://a.gd", created=True)
+    assert write.reversible_by == "undo"
+    assert write.model_dump()["reversible_by"] == "undo"
+    undo = UndoResult(dry_run=False, requested=1, undone=1)
+    assert undo.reversible_by == "undo"
+    assert undo.model_dump()["reversible_by"] == "undo"
+
+
+def test_every_mutation_tool_result_declares_reversibility() -> None:
+    import ast
+    import importlib
+    import pkgutil
+    from pathlib import Path
+
+    import mcp_server.models
+
+    classes: dict[str, object] = {}
+    for mod_info in pkgutil.iter_modules(mcp_server.models.__path__):
+        mod = importlib.import_module(f"mcp_server.models.{mod_info.name}")
+        for name, value in vars(mod).items():
+            if isinstance(value, type) and hasattr(value, "model_fields"):
+                classes.setdefault(name, value)
+
+    missing: list[str] = []
+    for path in sorted(Path("mcp_server/tools").glob("*.py")):
+        tree = ast.parse(path.read_text())
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            mutating = False
+            for dec in node.decorator_list:
+                if not (isinstance(dec, ast.Call) and isinstance(dec.func, ast.Attribute)):
+                    continue
+                if dec.func.attr != "tool":
+                    continue
+                for kw in dec.keywords:
+                    if kw.arg == "meta" and isinstance(kw.value, ast.Name):
+                        if kw.value.id in ("MUTATING", "DESTRUCTIVE"):
+                            mutating = True
+            if not mutating:
+                continue
+            ret = ast.unparse(node.returns).split("[")[0] if node.returns else ""
+            cls = classes.get(ret)
+            if cls is None or "reversible_by" not in getattr(cls, "model_fields", {}):
+                missing.append(f"{path.name}:{node.name} -> {ret}")
+    assert not missing, "mutation results missing reversible_by:\n" + "\n".join(missing)

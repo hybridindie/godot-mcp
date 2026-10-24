@@ -79,6 +79,7 @@ from mcp_server.tools.tilemap import register_tilemap
 from mcp_server.tools.undo import register_undo
 from mcp_server.tools.updates import register_updates
 from mcp_server.tools.validation import register_validation
+from mcp_server.tools.vcs import register_vcs
 from mcp_server.tools.visual_shader import register_visual_shader
 from mcp_server.toolset_middleware import ToolsetMiddleware
 from mcp_server.toolset_protocol import SERVER_INSTRUCTIONS
@@ -244,6 +245,7 @@ def create_server(
     register_health(mcp, bridge, config)
     register_undo(mcp, bridge)
     register_checkpoints(mcp, bridge)
+    register_vcs(mcp, bridge, config)
     register_class_info(mcp, bridge)
     register_inspection(mcp, bridge)
     register_mutation(mcp, bridge)

@@ -8,7 +8,7 @@ updated: 2026-10-18
 
 # Prompts & resources
 
-Beyond the 198 tools, the server exposes two more MCP surfaces: **prompts**
+Beyond the 200 tools, the server exposes two more MCP surfaces: **prompts**
 (step-numbered workflow templates the agent renders for guidance) and
 **resources** (read-only `godot://` snapshots the host can fetch).
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -23,6 +23,7 @@ class CreateResourceResult(BaseModel):
     dry_run: bool = False
     hint: str | None = None
     receipt: ChangeReceipt | None = None
+    reversible_by: Literal["undo", "vcs", "none"] = "none"
 
 
 class SetResourcePropertyResult(BaseModel):
@@ -33,6 +34,7 @@ class SetResourcePropertyResult(BaseModel):
     dry_run: bool = False
     hint: str | None = None
     receipt: ChangeReceipt | None = None
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"
 
 
 class RegisterAutoloadResult(BaseModel):
@@ -40,9 +42,11 @@ class RegisterAutoloadResult(BaseModel):
     path: str
     registered: bool = False
     dry_run: bool = False
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"
 
 
 class UnregisterAutoloadResult(BaseModel):
     name: str
     unregistered: bool = False
     dry_run: bool = False
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"

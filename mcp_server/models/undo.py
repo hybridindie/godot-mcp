@@ -10,7 +10,7 @@ skips the ``None`` fields) so a dry-run preview never carries a
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, model_serializer
 
@@ -37,6 +37,7 @@ class UndoResult(BaseModel):
     # Dry-run preview fields (absent on a real undo).
     has_undo: bool | None = None
     would_undo_next: str | None = None
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"
 
     @model_serializer(mode="plain")
     def _serialize(self) -> dict[str, Any]:
@@ -45,7 +46,11 @@ class UndoResult(BaseModel):
         # preview-only ``has_undo``/``would_undo_next``. A model_serializer (not a
         # model_dump override) is used because FastMCP builds structured_content via
         # pydantic-core serialization, which only honors this hook.
-        data = {"dry_run": self.dry_run, "requested": self.requested}
+        data = {
+            "dry_run": self.dry_run,
+            "requested": self.requested,
+            "reversible_by": self.reversible_by,
+        }
         for field in _UNDO_REDO_FIELDS:
             value = getattr(self, field)
             if value is not None:
@@ -76,12 +81,17 @@ class RedoResult(BaseModel):
     # Dry-run preview fields (absent on a real redo).
     has_redo: bool | None = None
     would_redo_next: str | None = None
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"
 
     @model_serializer(mode="plain")
     def _serialize(self) -> dict[str, Any]:
         # Mirrors UndoResult: drop mode-irrelevant None fields so both emission
         # shapes validate against the one declared schema (#385 family).
-        data = {"dry_run": self.dry_run, "requested": self.requested}
+        data = {
+            "dry_run": self.dry_run,
+            "requested": self.requested,
+            "reversible_by": self.reversible_by,
+        }
         for field in _REDO_REDO_FIELDS:
             value = getattr(self, field)
             if value is not None:

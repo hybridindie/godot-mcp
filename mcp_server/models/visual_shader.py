@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -11,6 +11,7 @@ class CreateVisualShaderResult(BaseModel):
     path: str
     created: bool = False
     dry_run: bool = False
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"
 
 
 class AddShaderNodeResult(BaseModel):
@@ -18,11 +19,13 @@ class AddShaderNodeResult(BaseModel):
     node_type: str
     added: bool = False
     dry_run: bool = False
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"
 
 
 class ConnectShaderNodesResult(BaseModel):
     connected: bool = False
     dry_run: bool = False
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"
 
 
 class SetShaderNodeParamResult(BaseModel):
@@ -31,6 +34,7 @@ class SetShaderNodeParamResult(BaseModel):
     value: Any = None
     set: bool = False
     dry_run: bool = False
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"
 
 
 class ListShaderNodeTypesResult(BaseModel):

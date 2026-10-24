@@ -39,6 +39,7 @@ class CreateMaterialResult(BaseModel):
     created: bool = False
     channels_set: list[str] = Field(default_factory=list)
     dry_run: bool = False
+    reversible_by: Literal["undo", "vcs", "none"] = "none"
 
 
 class ImportStatusResult(BaseModel):

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -17,6 +17,7 @@ class ShaderResult(BaseModel):
     dry_run: bool = False
     hint: str | None = None
     receipt: ChangeReceipt | None = None
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"
 
 
 class ShaderReadResult(BaseModel):

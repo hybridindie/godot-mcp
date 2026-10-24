@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from mcp_server.models.persistence import PersistenceReport
@@ -46,3 +48,4 @@ class DisconnectSignalResult(BaseModel):
     method_name: str
     disconnected: bool
     dry_run: bool = False
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"

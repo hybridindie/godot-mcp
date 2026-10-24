@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_serializer
 
@@ -46,6 +46,7 @@ class WriteScriptResult(BaseModel):
     hint: str | None = None
     dry_run: bool = False
     receipt: ChangeReceipt | None = None
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"
 
     @model_serializer(mode="plain")
     def _serialize(self) -> dict[str, Any]:
@@ -61,7 +62,11 @@ class WriteScriptResult(BaseModel):
             previous_existed = self.previous_existed or self.would_overwrite
         else:
             previous_existed = self.previous_existed
-        data = {"script_path": self.script_path, "created": self.created}
+        data = {
+            "script_path": self.script_path,
+            "created": self.created,
+            "reversible_by": self.reversible_by,
+        }
         if self.dry_run:
             data["dry_run"] = True
             data["would_overwrite"] = self.would_overwrite
@@ -82,6 +87,7 @@ class PatchScriptResult(BaseModel):
     dry_run: bool = False
     hint: str | None = None
     receipt: ChangeReceipt | None = None
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"
 
 
 class ParseError(BaseModel):

@@ -8,7 +8,7 @@ drains commands serially on its main thread (~one frame of latency each).
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -78,3 +78,4 @@ class RunCommandsResult(BaseModel):
     aborted_at: int | None = None
     skipped_count: int = 0
     hint: str | None = None
+    reversible_by: Literal["undo", "vcs", "none"] = "none"

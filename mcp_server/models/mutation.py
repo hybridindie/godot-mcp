@@ -68,6 +68,7 @@ class SaveSceneResult(BaseModel):
     saved: JSONBool
     path: JSONStr | None = None
     dry_run: JSONBool = False
+    reversible_by: Literal["undo", "vcs", "none"] = "none"
 
 
 class CreateSceneResult(BaseModel):
@@ -75,6 +76,7 @@ class CreateSceneResult(BaseModel):
     root_type: JSONStr
     created: JSONBool
     dry_run: JSONBool = False
+    reversible_by: Literal["undo", "vcs", "none"] = "none"
 
 
 class InstanceSceneResult(PersistenceReport):

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel
 
 
@@ -25,3 +27,4 @@ class CheckpointRestoreResult(BaseModel):
     complete: bool = False
     dry_run: bool = False
     hint: str | None = None
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"

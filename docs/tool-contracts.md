@@ -1400,6 +1400,8 @@ capture leave the capture's series intact). Same `request_id` + poll pattern as
 | `godot_list_history` | — | `HistoryResult { version, has_undo, has_redo, can_redo, current_action, depth, recent: [{name}] }` | `read_only` |
 | `godot_checkpoint_create` | `label: str = ""` | `CheckpointInfo { checkpoint_id, label?, scene_path?, current_action, history_count, created_at? }` | `read_only` |
 | `godot_checkpoint_restore` | `checkpoint_id: str, dry_run: bool = False` | `CheckpointRestoreResult { checkpoint_id, label?, scene_path?, requested, undone, complete, dry_run, hint? }` | `mutating` |
+| `godot_vcs_snapshot` | `label: str = "", dry_run: bool = False` | `VcsSnapshotResult { snapshot_id?, label?, ref?, commit?, files_snapshotted, dry_run, reversible_by }` | `mutating` |
+| `godot_vcs_restore` | `snapshot_id: str, confirm: bool = False, dry_run: bool = False` | `VcsRestoreResult { snapshot_id, label?, restored, files_restored, extra_files, dry_run, hint?, reversible_by }` | `destructive` |
 
 `godot_undo` undoes up to `count` actions on the current scene's undo history (falls
 back to the global history when no scene is open). A real undo returns
@@ -1414,9 +1416,15 @@ structured `ToolError`.
 `godot_checkpoint_restore` undoes back to that marker and reports the requested /
 undone counts; a different scene, a cleared history, or a checkpoint ahead of the
 current position is refused. Only **UndoRedo-tracked** actions are covered: file
-writes, project settings and over-threshold batches bypass the undo stack (a VCS
-snapshot backstop is the follow-up). `dry_run=True` reports the delta without
-touching the editor.
+writes, project settings and over-threshold batches bypass the undo stack — use the
+VCS backstop for those. `dry_run=True` reports the delta without touching the editor.
+
+`godot_vcs_snapshot` (#760) commits the project's tracked and untracked files to a
+private `refs/godot-mcp/snapshots/*` ref through a temporary index: HEAD, the branch,
+the real index and the working tree are untouched. The project must be the root of a
+git repository. `godot_vcs_restore` writes the snapshot's files back via a temporary
+index (destructive, requires `confirm=True`); files created after the snapshot are
+left in place and counted in `extra_files`. `dry_run` previews the file counts.
 
 `godot_redo` (#529) mirrors `godot_undo` exactly for the redo direction: a real redo
 returns `{ redone, requested, last_action, nothing_to_redo }`; redoing with nothing to

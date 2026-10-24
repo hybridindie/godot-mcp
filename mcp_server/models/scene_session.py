@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -13,12 +15,14 @@ class OpenSceneResult(BaseModel):
     opened: bool
     already_open: bool = False
     dry_run: bool = False
+    reversible_by: Literal["undo", "vcs", "none"] = "none"
 
 
 class ReloadSceneResult(BaseModel):
     scene_path: str
     reloaded: bool
     dry_run: bool = False
+    reversible_by: Literal["undo", "vcs", "none"] = "none"
 
 
 class RescanFilesystemResult(BaseModel):
@@ -32,6 +36,7 @@ class SaveAllScenesResult(BaseModel):
     saved: bool
     count: int = 0
     dry_run: bool = False
+    reversible_by: Literal["undo", "vcs", "none"] = "none"
 
 
 class OpenSceneInfo(BaseModel):
@@ -47,9 +52,11 @@ class SelectNodesResult(BaseModel):
     selected: list[str] = Field(default_factory=list)
     count: int = 0
     dry_run: bool = False
+    reversible_by: Literal["undo", "vcs", "none"] = "none"
 
 
 class CloseSceneResult(BaseModel):
     scene_path: str
     closed: bool
     dry_run: bool = False
+    reversible_by: Literal["undo", "vcs", "none"] = "none"

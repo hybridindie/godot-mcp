@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -43,6 +43,7 @@ class AudioBusResult(BaseModel):
     index: int
     name: str
     dry_run: bool = False
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"
 
 
 class AudioBusEffectResult(BaseModel):
@@ -51,6 +52,7 @@ class AudioBusEffectResult(BaseModel):
     effect_type: str
     effect_index: int
     dry_run: bool = False
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"
 
 
 class AudioBusRemoveResult(BaseModel):
@@ -61,6 +63,7 @@ class AudioBusRemoveResult(BaseModel):
     index: int
     removed: bool = False
     dry_run: bool = False
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"
 
 
 class AudioBusEffectRemoveResult(BaseModel):
@@ -72,3 +75,4 @@ class AudioBusEffectRemoveResult(BaseModel):
     effect_index: int
     removed: bool = False
     dry_run: bool = False
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"

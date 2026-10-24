@@ -1,14 +1,14 @@
 ---
 type: index
 title: "Toolsets & tools"
-description: "Every tool in the 198-tool surface, grouped by toolset, with safety classes."
+description: "Every tool in the 200-tool surface, grouped by toolset, with safety classes."
 created: 2026-09-19
 updated: 2026-10-24
 ---
 
 # Toolsets & tools
 
-198 tools across 29 categories. Only `core` + `inspection` are enabled by default; enable the rest with `godot_enable_toolset(category)`, which returns the enabled tools' names and input schemas so a client that never refreshes its registry can still call them. `category` also accepts a bundle (`author` / `playtest` / `ship`) or a comma-separated list, so a whole workflow is one call (#653). Class meanings: [safety classes](reference-safety-classes.md).
+200 tools across 29 categories. Only `core` + `inspection` are enabled by default; enable the rest with `godot_enable_toolset(category)`, which returns the enabled tools' names and input schemas so a client that never refreshes its registry can still call them. `category` also accepts a bundle (`author` / `playtest` / `ship`) or a comma-separated list, so a whole workflow is one call (#653). Class meanings: [safety classes](reference-safety-classes.md).
 
 ## `analysis` — Static analysis: dependencies, signal flow, unused resources, circular deps, scene integrity.
 
@@ -89,7 +89,7 @@ updated: 2026-10-24
 
 ## `core` — Always-on: diagnostics, toolset management, undo, the debug_workflow recipe.
 
-16 tools.
+18 tools.
 
 | Tool | Class |
 |------|-------|
@@ -109,6 +109,8 @@ updated: 2026-10-24
 | `godot_read_resource` | read_only |
 | `godot_redo` | mutating |
 | `godot_undo` | mutating |
+| `godot_vcs_restore` | destructive |
+| `godot_vcs_snapshot` | mutating |
 
 ## `debugger` — Breakpoints, force_break, stack frames/variables, expression evaluation, stepping.
 
