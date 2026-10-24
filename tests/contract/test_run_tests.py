@@ -34,7 +34,7 @@ class _FakeRunner:
 
     def __init__(self, output: RunOutput) -> None:
         self._output = output
-        self.run_tests_calls: list[tuple[str, str]] = []
+        self.run_tests_calls: list[tuple[str, str, str]] = []
 
     async def run(self, project_dir: str, scene: str | None, timeout: float) -> RunOutput:
         return RunOutput(command=["fake"])
@@ -50,8 +50,10 @@ class _FakeRunner:
     ) -> RunOutput:
         return RunOutput(command=["fake"])
 
-    async def run_tests(self, project_dir: str, test_dir: str, timeout: float) -> RunOutput:
-        self.run_tests_calls.append((project_dir, test_dir))
+    async def run_tests(
+        self, project_dir: str, test_dir: str, timeout: float, test_file: str = ""
+    ) -> RunOutput:
+        self.run_tests_calls.append((project_dir, test_dir, test_file))
         return self._output
 
 
@@ -80,7 +82,43 @@ async def test_run_tests_returns_structured_results(tmp_path: Path) -> None:
     assert data.passed == 2 and data.failed == 1 and data.total == 3
     assert data.exit_code == 1
     assert any("Expected [3] to equal [2]" in f.message for f in data.failures)
-    assert runner.run_tests_calls == [(str(tmp_path), "res://test")]
+    assert runner.run_tests_calls == [(str(tmp_path), "res://test", "")]
+
+
+async def test_run_tests_targets_one_file(tmp_path: Path) -> None:
+    _with_gut(tmp_path)
+    (tmp_path / "test").mkdir()
+    (tmp_path / "test" / "test_one.gd").write_text("extends GutTest\n")
+    output = RunOutput(command=["gut"], stdout=_GUT_FAIL, exit_code=1)
+    server, runner = _build(str(tmp_path), output)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "testing"})
+        result = await client.call_tool(
+            "godot_testing_run_tests",
+            {"test_file": "res://test/test_one.gd"},
+        )
+    assert result.data.total == 3
+    assert runner.run_tests_calls == [
+        (str(tmp_path), "res://test", "res://test/test_one.gd")
+    ]
+
+
+async def test_run_tests_rejects_a_missing_or_invalid_file(tmp_path: Path) -> None:
+    _with_gut(tmp_path)
+    server, runner = _build(str(tmp_path), RunOutput(command=["gut"]))
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "testing"})
+        missing = await client.call_tool(
+            "godot_testing_run_tests",
+            {"test_file": "res://test/nope.gd"},
+            raise_on_error=False,
+        )
+        invalid = await client.call_tool(
+            "godot_testing_run_tests", {"test_file": "test/one.gd"}, raise_on_error=False
+        )
+    assert missing.structured_content["error"] == "RESOURCE_NOT_FOUND"
+    assert invalid.structured_content["error"] == "PRECONDITION_FAILED"
+    assert runner.run_tests_calls == []
 
 
 async def test_run_tests_reports_framework_absent_without_launching(tmp_path: Path) -> None:

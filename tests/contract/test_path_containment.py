@@ -234,7 +234,9 @@ class _FakeExportRunner:
         self.exports.append(output_path)
         return RunOutput(command=["fake"], exit_code=0)
 
-    async def run_tests(self, project_dir: str, test_dir: str, timeout: float) -> RunOutput:
+    async def run_tests(
+        self, project_dir: str, test_dir: str, timeout: float, test_file: str = ""
+    ) -> RunOutput:
         return RunOutput(command=["fake"], exit_code=0)
 
 

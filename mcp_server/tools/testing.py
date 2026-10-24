@@ -32,6 +32,7 @@ from mcp_server.defaults import (
     DEFAULT_TEST_SETUP_MS,
 )
 from mcp_server.gut_parse import parse_gut_results
+from mcp_server.models.envelope import ErrorCode
 from mcp_server.models.testing import (
     AssertionResult,
     RunTestsResult,
@@ -41,7 +42,13 @@ from mcp_server.models.testing import (
 )
 from mcp_server.qa import ImageCompareError, compare_images, evaluate_assertion, random_input_events
 from mcp_server.runtime import Runner, resolve_project_dir
-from mcp_server.safety import READ_ONLY, RUNTIME, require_godot_binary
+from mcp_server.safety import (
+    READ_ONLY,
+    RUNTIME,
+    PreconditionError,
+    enforce_preconditions,
+    require_godot_binary,
+)
 from mcp_server.tools._progress import safe_info, safe_progress
 from mcp_server.tools._route import poll_ready, route
 
@@ -114,8 +121,10 @@ def register_testing(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
     """Register the testing / QA tools."""
 
     @mcp.tool(meta=RUNTIME, tags=TESTING)
+    @enforce_preconditions
     async def run_tests(
         test_dir: str = "res://test",
+        test_file: str = "",
         timeout_seconds: TimeoutSeconds = DEFAULT_TEST_RUN_TIMEOUT_SECONDS,
         *,
         ctx: Context,
@@ -123,7 +132,8 @@ def register_testing(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
         """Run the project's GDScript test suite (GUT) headlessly and return a
         structured result: ``passed``/``failed``/``total``, per-failure detail, and
         the raw summary. A neutral capability — it executes tests and reports; it
-        does not decide a workflow. ``test_dir`` is the GUT test directory.
+        does not decide a workflow. ``test_dir`` is the GUT test directory; set
+        ``test_file`` (a ``res://*.gd`` path) to run exactly one test script.
 
         Returns ``framework_absent=true`` (not an error) when GUT is not installed
         (no ``res://addons/gut/``), so the caller can fall back.
@@ -134,11 +144,26 @@ def register_testing(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
         """
         require_godot_binary(runner.binary)
         project_dir = await resolve_project_dir(bridge, config)
+        if test_file:
+            if not test_file.startswith("res://") or not test_file.endswith(".gd"):
+                raise PreconditionError(
+                    "test_file must be a res:// .gd path.", required="test_file"
+                )
+            target = Path(project_dir) / test_file.removeprefix("res://")
+            if not target.is_file():
+                raise PreconditionError(
+                    f"No test file at '{test_file}'.",
+                    required="test_file",
+                    error=ErrorCode.RESOURCE_NOT_FOUND,
+                )
         if not _gut_present(project_dir):
             return RunTestsResult(ran=False, framework="gut", framework_absent=True)
-        await safe_info(ctx, f"Running GUT suite in {test_dir} (timeout {timeout_seconds:g}s)…")
+        scope = test_file or test_dir
+        await safe_info(ctx, f"Running GUT suite in {scope} (timeout {timeout_seconds:g}s)…")
         await safe_progress(ctx, 0, 1)
-        output = await runner.run_tests(project_dir, test_dir, timeout=float(timeout_seconds))
+        output = await runner.run_tests(
+            project_dir, test_dir, timeout=float(timeout_seconds), test_file=test_file
+        )
         await safe_progress(ctx, 1, 1)
         if output.timed_out:
             await safe_info(ctx, "Test run timed out")

@@ -95,7 +95,9 @@ class Runner(Protocol):
         self, project_dir: str, preset: str, output_path: str, debug: bool, timeout: float
     ) -> RunOutput: ...
 
-    async def run_tests(self, project_dir: str, test_dir: str, timeout: float) -> RunOutput: ...
+    async def run_tests(
+        self, project_dir: str, test_dir: str, timeout: float, test_file: str = ""
+    ) -> RunOutput: ...
 
 
 @dataclass
@@ -176,8 +178,11 @@ class GodotRunner:
         # Run from the project dir so a relative output_path resolves against it (as documented).
         return await self._exec(command, timeout, cwd=project_dir)
 
-    async def run_tests(self, project_dir: str, test_dir: str, timeout: float) -> RunOutput:
-        """Run the project's GUT suite headlessly (``gut_cmdln.gd``, ``-gexit``)."""
+    async def run_tests(
+        self, project_dir: str, test_dir: str, timeout: float, test_file: str = ""
+    ) -> RunOutput:
+        """Run the project's GUT suite (or one file) headlessly (``-gexit``)."""
+        target = f"-gtest={test_file}" if test_file else f"-gdir={test_dir}"
         command = [
             self.binary,
             "--headless",
@@ -185,7 +190,7 @@ class GodotRunner:
             project_dir,
             "-s",
             "res://addons/gut/gut_cmdln.gd",
-            f"-gdir={test_dir}",
+            target,
             "-gexit",
         ]
         return await self._exec(command, timeout)

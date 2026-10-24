@@ -186,7 +186,9 @@ class _FakeRunner:
     ) -> RunOutput:
         return RunOutput(command=["fake"])
 
-    async def run_tests(self, project_dir: str, test_dir: str, timeout: float) -> RunOutput:
+    async def run_tests(
+        self, project_dir: str, test_dir: str, timeout: float, test_file: str = ""
+    ) -> RunOutput:
         return RunOutput(command=["fake"])
 
 

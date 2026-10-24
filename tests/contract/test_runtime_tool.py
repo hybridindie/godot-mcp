@@ -42,7 +42,9 @@ class FakeRunner:
         self.calls.append((project_dir, f"{preset}->{output_path}", timeout))
         return self._output
 
-    async def run_tests(self, project_dir: str, test_dir: str, timeout: float) -> RunOutput:
+    async def run_tests(
+        self, project_dir: str, test_dir: str, timeout: float, test_file: str = ""
+    ) -> RunOutput:
         return self._output
 
 
