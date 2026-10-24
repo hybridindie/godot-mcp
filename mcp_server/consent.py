@@ -61,6 +61,10 @@ def _unb64(text: str) -> bytes:
 class ConsentManager:
     """Mint and verify HMAC consent tokens (#759)."""
 
+    # Cap the replay set so a client that mints/verifies a flood of tokens cannot
+    # grow it without bound; expired entries are pruned on every mint/verify.
+    _MAX_USED = 10_000
+
     def __init__(
         self,
         *,
@@ -75,6 +79,7 @@ class ConsentManager:
 
     def mint(self, tool: str, args: dict[str, Any]) -> tuple[str, float]:
         """Return ``(token, expires_at)`` for this exact (tool, args)."""
+        self._prune(self._clock())
         expires_at = self._clock() + self._ttl
         payload = {
             "tool": tool,
@@ -123,7 +128,13 @@ class ConsentManager:
         if nonce in self._used:
             raise ConsentError("replayed", "Consent token was already used.")
         self._used[nonce] = float(payload["exp"])
-        # Bound the used set: entries only matter until their expiry.
+        self._prune(now)
+        while len(self._used) > self._MAX_USED:
+            # Remove the oldest-inserted entry; it expires soonest/oldest.
+            self._used.pop(next(iter(self._used)))
+
+    def _prune(self, now: float) -> None:
+        """Drop replay entries whose token has expired."""
         expired = [key for key, exp in self._used.items() if exp < now]
         for key in expired:
             self._used.pop(key, None)
