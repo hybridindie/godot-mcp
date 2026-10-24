@@ -148,13 +148,16 @@ def _tool_path_params() -> list[tuple[str, str, str]]:
 
 
 def test_every_file_path_param_uses_a_containment_type() -> None:
-    def _base(annotation: str) -> str:
-        return annotation.split("|")[0].strip()
+    def _contained(annotation: str) -> bool:
+        base = annotation.split("|")[0].strip()
+        return base in _CONTAINMENT_TYPES or base in {
+            f"list[{t}]" for t in _CONTAINMENT_TYPES
+        }
 
     offenders = [
         f"{func}.{param} ({annotation})"
         for func, param, annotation in _tool_path_params()
-        if _base(annotation) not in _CONTAINMENT_TYPES and (func, param) not in NODE_PATH_PARAMS
+        if not _contained(annotation) and (func, param) not in NODE_PATH_PARAMS
     ]
     assert not offenders, (
         "file-path tool params must use ResPath/ExportPath (issue #637) or be "

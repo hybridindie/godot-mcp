@@ -19,6 +19,7 @@ from mcp_server.bridge import Bridge
 from mcp_server.categories import ANALYSIS_TAG
 from mcp_server.config import ServerConfig
 from mcp_server.models.validation import ValidateProjectResult
+from mcp_server.paths import ResPath
 from mcp_server.runtime import find_godot_binary, resolve_project_dir
 from mcp_server.safety import READ_ONLY, PreconditionError, enforce_preconditions
 
@@ -45,9 +46,12 @@ def register_validation(
 
     @mcp.tool(meta=READ_ONLY, tags=ANALYSIS)
     @enforce_preconditions
-    async def validate_project(include_warnings: bool = False) -> ValidateProjectResult:
+    async def validate_project(
+        include_warnings: bool = False, paths: list[ResPath] | None = None
+    ) -> ValidateProjectResult:
         """Run project validators + built-ins (autoloads, deps, unloadable scripts).
-        Rules: res://.mcp/validators/*.gd."""
+        Rules: res://.mcp/validators/*.gd. Pass ``paths`` (res:// files/folders) to
+        scope the run; empty means the whole project."""
         project_dir = Path(await resolve_project_dir(bridge, config))
         if not project_dir.is_dir():
             raise PreconditionError(
@@ -74,8 +78,17 @@ def register_validation(
             "--script",
             runner,
         ]
+        scopes = list(
+            dict.fromkeys(
+                p if p == "res://" else p.rstrip("/") for p in (paths or []) if p
+            )
+        )
+        extra: list[str] = []
         if include_warnings:
-            args.extend(["--", "--include-warnings"])
+            extra.append("--include-warnings")
+        extra.extend(f"--scope={scope}" for scope in scopes)
+        if extra:
+            args.extend(["--", *extra])
         process = await asyncio.create_subprocess_exec(
             *args,
             stdout=asyncio.subprocess.PIPE,
@@ -100,7 +113,11 @@ def register_validation(
                         "INTERNAL_ERROR", f"Validator result was not JSON: {exc}"
                     ) from exc
                 return ValidateProjectResult(
-                    **{**payload, "project_dir": str(project_dir)}
+                    **{
+                        **payload,
+                        "project_dir": str(project_dir),
+                        "scoped_to": scopes,
+                    }
                 )
         detail = stderr.decode(errors="replace")[-500:].strip()
         raise AgentToolError(

@@ -8,9 +8,14 @@ const Validation := preload("validation.gd")
 
 
 func _init() -> void:
-	var include_warnings := OS.get_cmdline_user_args().has("--include-warnings")
+	var args := OS.get_cmdline_user_args()
+	var include_warnings := args.has("--include-warnings")
+	var scopes: Array = []
+	for arg in args:
+		if str(arg).begins_with("--scope="):
+			scopes.append(str(arg).trim_prefix("--scope="))
 	var result: Dictionary = Validation.run(
-		ProjectSettings.globalize_path("res://"), include_warnings
+		ProjectSettings.globalize_path("res://"), include_warnings, scopes
 	)
 	print("GODOT_MCP_VALIDATION " + JSON.stringify(result))
 	quit()

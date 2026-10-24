@@ -30,5 +30,6 @@ class ValidateProjectResult(BaseModel):
     valid: bool = True
     findings: list[ValidationFinding] = Field(default_factory=list)
     validators: list[str] = Field(default_factory=list)
+    scoped_to: list[str] = Field(default_factory=list)
     project_dir: str | None = None
     hint: str | None = None

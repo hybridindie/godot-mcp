@@ -13,13 +13,20 @@ const VALIDATOR_DIR := "res://.mcp/validators"
 const SKIP_DIRS := {".godot": true, ".git": true, ".import": true}
 
 
-static func run(project_dir: String, include_warnings: bool = true) -> Dictionary:
+static func run(
+	project_dir: String, include_warnings: bool = true, scopes: Array = []
+) -> Dictionary:
 	var findings: Array = []
 	var validators: Array = []
 	_check_autoloads(findings)
-	_check_resource_dependencies(findings)
-	_check_scripts(findings)
-	_run_custom(project_dir, include_warnings, findings, validators)
+	_check_resource_dependencies(findings, scopes)
+	_check_scripts(findings, scopes)
+	_run_custom(project_dir, include_warnings, findings, validators, scopes)
+	if not scopes.is_empty():
+		findings = findings.filter(
+			func(f: Variant) -> bool:
+				return _in_scope(str((f as Dictionary).get("path", "")), scopes)
+		)
 	if not include_warnings:
 		findings = findings.filter(
 			func(f: Variant) -> bool: return str((f as Dictionary).get("severity", "error")) != "warning"
@@ -27,7 +34,12 @@ static func run(project_dir: String, include_warnings: bool = true) -> Dictionar
 	var valid := not findings.any(
 		func(f: Variant) -> bool: return str((f as Dictionary).get("severity", "error")) == "error"
 	)
-	return {"valid": valid, "findings": findings, "validators": validators}
+	return {
+		"valid": valid,
+		"findings": findings,
+		"validators": validators,
+		"scoped_to": scopes,
+	}
 
 
 static func _file(path: String, message: String, severity: String = "error") -> Dictionary:
@@ -47,8 +59,10 @@ static func _check_autoloads(findings: Array) -> void:
 		))
 
 
-static func _check_resource_dependencies(findings: Array) -> void:
+static func _check_resource_dependencies(findings: Array, scopes: Array) -> void:
 	for path in _files("res://"):
+		if not _in_scope(path, scopes):
+			continue
 		if not (path.ends_with(".tscn") or path.ends_with(".tres") or path.ends_with(".res")):
 			continue
 		for dep in ResourceLoader.get_dependencies(path):
@@ -60,8 +74,10 @@ static func _check_resource_dependencies(findings: Array) -> void:
 				findings.append(_file(path, "Missing dependency '%s'." % dep_path))
 
 
-static func _check_scripts(findings: Array) -> void:
+static func _check_scripts(findings: Array, scopes: Array) -> void:
 	for path in _files("res://"):
+		if not _in_scope(path, scopes):
+			continue
 		if not path.ends_with(".gd") or path.contains("/addons/"):
 			continue
 		if ResourceLoader.load(path, "", ResourceLoader.CACHE_MODE_IGNORE) == null:
@@ -69,7 +85,11 @@ static func _check_scripts(findings: Array) -> void:
 
 
 static func _run_custom(
-	project_dir: String, include_warnings: bool, findings: Array, validators: Array
+	project_dir: String,
+	include_warnings: bool,
+	findings: Array,
+	validators: Array,
+	scopes: Array
 ) -> void:
 	if not DirAccess.dir_exists_absolute(VALIDATOR_DIR):
 		return
@@ -93,6 +113,7 @@ static func _run_custom(
 			"project_dir": project_dir,
 			"editor": false,
 			"include_warnings": include_warnings,
+			"paths": scopes,
 		})
 		if not (result is Array):
 			findings.append(_file(path, "Validator must return an Array of findings."))
@@ -110,6 +131,21 @@ static func _run_custom(
 				findings.append(finding)
 		if instance is Object and not (instance is RefCounted):
 			instance.free()
+
+
+## True when `path` is one of `scopes` or inside a scoped folder; empty scopes = all.
+static func _in_scope(path: String, scopes: Array) -> bool:
+	if scopes.is_empty():
+		return true
+	if path.is_empty():
+		return false
+	for scope in scopes:
+		var s := str(scope).trim_suffix("/")
+		if s == "res:" or s == "res://":
+			return true
+		if path == s or path.begins_with(s + "/"):
+			return true
+	return false
 
 
 ## Every file under `dir`, skipping engine/VCS cache directories.

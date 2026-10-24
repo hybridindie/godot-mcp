@@ -1219,7 +1219,7 @@ commands). All `read_only`. The project dir is resolved like the runtime loop
 | `godot_analysis_find_orphaned_resources` | `scan_dir="res://"`, `resource_types` | `FindOrphanedResult { orphaned[]{path, type, estimated_size}, scanned }` |
 | `godot_analysis_validate_scene_integrity` | `scene_path` | `ValidateSceneIntegrityResult { valid, errors[]{severity, message, node_path, property}, warnings[] }` |
 | `godot_analysis_cross_scene_find_refs` | `target_path` | `CrossSceneRefsResult { scenes[], resources[], scripts[] }` |
-| `godot_analysis_validate_project` | `include_warnings=False` | `ValidateProjectResult { valid, findings[]{validator, severity, path, message, next_call?}, validators[], project_dir }` |
+| `godot_analysis_validate_project` | `include_warnings=False, paths=[]` | `ValidateProjectResult { valid, findings[]{validator, severity, path, message, next_call?}, validators[], scoped_to[], project_dir }` |
 
 `godot_analysis_find_unused_resources` flags resource files not referenced by any project file (excluding
 entry points — the main scene, autoloads, plugin scripts). `godot_analysis_analyze_signal_flow` parses
@@ -1235,7 +1235,11 @@ plus built-in checks for missing autoload targets, broken scene/resource
 dependencies and scripts that fail to load, in a headless Godot process. The
 same runner is available in CI, so findings match. `valid` is the *project*
 verdict (an `error` finding sets it false) while the tool call's `ok` stays true
-— the findings remain inspectable. See `examples/validators/` for the interface.
+— the findings remain inspectable. `paths` scopes the run to `res://` files or
+folders (empty = whole project): built-ins scan only in scope, custom validators
+receive `paths` in their context, and all findings outside the scope are dropped
+(including a finding with no `path`). `scoped_to` echoes the normalized scopes.
+See `examples/validators/` for the interface.
 
 Issue #111 adds **dependency-aware** analysis: `godot_analysis_analyze_dependencies` extracts `res://` and
 `uid://` references from a resource file (recursing into sub-dependencies). `godot_analysis_find_orphaned_resources`
