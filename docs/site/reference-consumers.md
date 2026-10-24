@@ -32,9 +32,9 @@ copy the folders (incl. `godot-expert/references/`) into any client's skill dire
   honesty fields, the `godot://` resources, round-trip economy
 - `godot-playtest-and-debug` — runtime play-test, input simulation,
   break-state gate, timeout semantics
-- `godot-expert` — Godot 4.x engine knowledge: 10 sections + 12 reference
-  guides (rendering, physics, UI, authoring, shaders, themes, …) + a
-  documented-bug list
+- `godot-expert` — Godot 4.x engine knowledge: a lean core + 12 reference
+  guides it points to before each kind of work (rendering, physics, UI,
+  authoring, shaders, themes, …) + a documented-bug list
 
 See [Skills](reference-skills.md) for what each teaches and the full guide
 index. They are pinned to the live surface by

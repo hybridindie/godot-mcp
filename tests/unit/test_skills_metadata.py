@@ -347,3 +347,27 @@ def test_readme_documents_rules_and_copy_install() -> None:
     # Symlinked skill dirs hide references/ from some clients (OpenCode lists no
     # files under a symlinked skill), so the documented install copies.
     assert "ln -s" not in readme, "install by copying the folders, not symlinking"
+
+
+# -- Lean godot-expert core + read-before pointers (issue #788) --
+# The 26 KB skill was loaded whole on most tasks (slow), and in every measured run no
+# agent opened a references/ guide: they were listed as an index at the end, with
+# nothing saying when to read one.
+
+EXPERT_MAX_CHARS = 12_000
+
+
+def test_godot_expert_core_stays_lean() -> None:
+    text = (SKILLS_DIR / "godot-expert" / "SKILL.md").read_text(encoding="utf-8")
+    assert len(text) <= EXPERT_MAX_CHARS, (
+        f"godot-expert/SKILL.md is {len(text)} chars; move area depth into references/"
+    )
+
+
+def test_every_reference_has_a_read_before_pointer() -> None:
+    """Each guide is named on a line that says when to read it ("Before …")."""
+    text = (SKILLS_DIR / "godot-expert" / "SKILL.md").read_text(encoding="utf-8")
+    pointer_lines = [line for line in text.splitlines() if line.lstrip("-* ").startswith("Before")]
+    refs = sorted(p.name for p in (SKILLS_DIR / "godot-expert" / "references").glob("*.md"))
+    unpointed = [r for r in refs if not any(r in line for line in pointer_lines)]
+    assert not unpointed, f"no 'Before …' pointer for: {unpointed}"

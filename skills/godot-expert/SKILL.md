@@ -5,642 +5,106 @@ description: "Use for any Godot 4.x game work — writing or fixing GDScript, ad
 
 # Godot Expert Developer
 
-Expert knowledge for building Godot 4.x games through the Godot Editor MCP tools.
-Every rule below was learned the hard way — by hitting the bug, debugging it,
-and writing a test to pin it.
-
-**Companion skills** (read these first for the MCP workflow, not the engine rules):
-- `godot-getting-started` — bridge connection, toolset gating, safety classes
-- `godot-playtest-and-debug` — runtime play-test, input simulation, debugging
-
-This skill covers the **engine knowledge** that prevents bugs. Those skills
-cover **how to call the tools**. Use them together.
-
-## When to use
-
-- Creating scenes, nodes, or scripts via the MCP bridge
-- Debugging "sprite not showing", "input not working", "enemy not spawning"
-- Setting up physics layers/masks, collision shapes, or UI overlays
-- Writing GDScript that parses cleanly on Godot 4.7+
-- Structuring a game project (autoloads, scene composition, state machines)
-
-## When NOT to use
-
-- Modifying the Godot Editor MCP server itself (use the architecture/rules instead)
-- Python-side work (models, tools, bridge, tests)
-- Non-Godot projects
-
----
-
-## 1. Node types and rendering (the #1 source of bugs)
-
-### Control vs Node2D — where things render
-
-**Rule:** `Control` nodes (ColorRect, Label, Button, ProgressBar, etc.) render
-in **screen space** (the CanvasLayer/UI layer). `Node2D` nodes (Polygon2D,
-Sprite2D, Camera2D, etc.) render in **2D world space**.
-
-**Critical:** A `ColorRect` child of a `CharacterBody2D` or `Area2D` will NOT
-render at the parent's world position. It renders as a UI element at its
-offset coordinates, detached from the world transform.
-
-**Do this:**
-- For game-entity visuals (player, enemy, projectile, gem), use `Polygon2D`
-  or `Sprite2D` — these are `Node2D` and inherit the parent's world transform.
-- For HUD/UI (health bars, labels, overlays), use `Control` nodes inside a
-  `CanvasLayer`.
-
-**Don't do this:**
-- ❌ `ColorRect` as a child of `CharacterBody2D` for the player body
-- ❌ `ColorRect` as a child of `Area2D` for a pickup visual
-- ❌ Any `Control` node as a child of a `Node2D` physics body expecting it to
-  render in world space
-
-### Polygon2D — the no-asset colored shape
-
-When you have no image assets, use `Polygon2D` with a `PackedVector2Array`:
-
-```gdscript
-var poly := Polygon2D.new()
-poly.polygon = PackedVector2Array([
-    Vector2(-16, -16), Vector2(16, -16), Vector2(16, 16), Vector2(-16, 16)
-])
-poly.color = Color(0.2, 0.8, 1.0, 1.0)
-body.add_child(poly)
-```
-
-In `.tscn` text format, the same polygon uses flat floats:
-```
-polygon = PackedVector2Array(-16, -16, 16, -16, 16, 16, -16, 16)
-```
-
-### Rendering order (z-ordering)
-
-**Rule:** In Godot 2D, siblings render in tree order — earlier siblings
-draw first (underneath), later siblings draw on top.
-
-**Correct scene tree order for a game:**
-```
-main (Node2D)
-├── Background (Node2D)      ← drawn first (bottom layer)
-├── Obstacles (Node2D)       ← drawn second
-├── Player (CharacterBody2D) ← drawn third (on top of world)
-└── HUD (CanvasLayer)        ← always on top (screen space)
-```
-
-**Don't do this:**
-- ❌ Put `Background` after `Player` — the background covers the player
-- ❌ Put `Obstacles` after `Player` — obstacles cover the player
-
-**For dynamically spawned entities** (enemies, projectiles, gems):
-- Add them as children of the main scene root (`Node2D`), NOT the autoload
-- They render in the order they're added; newer entities draw on top of
-  older ones. Use `z_index` if you need explicit control.
-
----
-
-## 2. Autoloads and entity spawning
-
-### The autoload-children rendering trap
-
-**Rule:** `Polygon2D`, `Sprite2D`, and other `Node2D` visual nodes only render
-when they're inside a `Node2D`/`CanvasItem` subtree with a world transform. An
-autoload that is a plain `Node` (not `Node2D`) provides no 2D world context.
-
-**Critical:** If your GameManager autoload is `extends Node` and you call
-`add_child(enemy)` on it, the enemy's `Polygon2D` body will be **invisible** —
-it exists in the tree but has no world-space render context.
-
-**Do this:**
-```gdscript
-func _get_world() -> Node2D:
-    var scene: Node = get_tree().current_scene
-    if scene is Node2D:
-        return scene as Node2D
-    return null
-
-func _spawn_enemy(player: Node2D) -> void:
-    var world := _get_world()
-    if world == null:
-        return
-    var enemy := ENEMY_SCENE.instantiate()
-    world.add_child(enemy)        # ← add to the scene root, not the autoload
-    enemy.global_position = pos
-```
-
-**Don't do this:**
-- ❌ `add_child(enemy)` on a `Node` autoload — children won't render
-- ❌ `get_tree().root.add_child(enemy)` — the real root is a `Window`, not a `Node2D`
-
-### Autoload state persistence
-
-**Rule:** Autoload singletons persist across scene reloads. Their state
-(variables, timers, signals) is NOT reset when you call
-`get_tree().reload_current_scene()`.
-
-**Do this:** Add an explicit `start_game()` / `reset()` method that clears
-state:
-```gdscript
-func start_game() -> void:
-    # Clear leftover entities
-    for e in get_tree().get_nodes_in_group("enemies"):
-        e.queue_free()
-    # Reset state
-    score = 0
-    wave = 1
-    spawn_timer = 0.0
-    # Reset player
-    var player := get_tree().get_first_node_in_group("player")
-    if player:
-        player.health = 100.0
-        player.global_position = Vector2.ZERO
-```
-
----
-
-## 3. Input handling
-
-### The UI-overlay input trap
-
-**Rule:** `Control` nodes that cover the screen (a full-screen overlay, a
-`ColorRect` background, a `Control` with `anchors_preset = 15`) will
-**intercept all input events** before they reach `_unhandled_input` on
-autoloads or other nodes. The game appears frozen — no keys work, no
-movement, no state transitions.
-
-**Symptom:** The start menu shows, but pressing SPACE/Enter does nothing.
-The game never transitions from MENU to PLAYING.
-
-**Do this:**
-- Set `mouse_filter = Control.MOUSE_FILTER_IGNORE` on the overlay `Control`
-  and its `BG` ColorRect so they render visually but don't block input.
-- The `Button` inside the overlay keeps its own `mouse_filter` (default
-  `STOP`) so it still receives clicks.
-
-```gdscript
-func _ready() -> void:
-    mouse_filter = Control.MOUSE_FILTER_IGNORE  # don't block input
-    # ... connect signals ...
-```
-
-In `.tscn`:
-```
-[node name="GameOverScreen" type="Control" parent="HUD"]
-mouse_filter = 2  # IGNORE
-```
-
-**Don't do this:**
-- ❌ Full-screen `Control` with default `mouse_filter` (STOP) covering the
-  game — it eats all input
-- ❌ `ColorRect` BG with default `mouse_filter` on a full-screen overlay
-
-### Custom input actions
-
-**Rule:** Don't rely on `ui_left`/`ui_right`/`ui_up`/`ui_down` for game
-movement — they're arrow-key defaults and don't include WASD. Define custom
-input actions in `project.godot` under `[input]`.
-
-**Required for WASD:**
-```ini
-[input]
-move_left={...events: [Key A, Left Arrow]...}
-move_right={...events: [Key D, Right Arrow]...}
-move_up={...events: [Key W, Up Arrow]...}
-move_down={...events: [Key S, Down Arrow]...}
-```
-
-Then in GDScript:
-```gdscript
-var input_dir := Input.get_vector("move_left", "move_right", "move_up", "move_down")
-```
-
-**Note:** Changing `project.godot` on disk requires a project reload
-(Project → Reload Current Project) for the editor to pick up new input
-actions.
-
-### Pause and the process mode
-
-**Rule:** `get_tree().paused = true` freezes all nodes with
-`process_mode = PROCESS_MODE_INHERIT` (the default). To keep UI responsive
-while paused, set the overlay's `process_mode = PROCESS_MODE_ALWAYS`:
-
-```gdscript
-func _ready() -> void:
-    process_mode = Node.PROCESS_MODE_ALWAYS
-```
-
-For `_unhandled_input` to fire while paused, the autoload also needs
-`PROCESS_MODE_ALWAYS`.
-
----
-
-## 4. Collision layers and masks
-
-### Layer/mask convention
-
-| Bit | Layer | Who uses it |
-|-----|-------|-------------|
-| 1 | Player | `CharacterBody2D` player |
-| 2 | Enemies | `CharacterBody2D` enemies |
-| 3 | Projectiles | `Area2D` projectiles |
-| 4 | Pickups | `Area2D` XP gems |
-| 5 | Obstacles | `StaticBody2D` world obstacles |
-
-- `collision_layer` = which layer(s) this body IS ON (bitmask)
-- `collision_mask` = which layer(s) this body COLLIDES WITH (bitmask)
-
-**Player:** layer=1, mask=2|16=18 (collides with enemies + obstacles)
-**Enemy:** layer=2, mask=1|16=18 (collides with player + obstacles)
-**Projectile:** layer=4, mask=2 (collides with enemies only)
-**XP Gem:** layer=8, mask=1 (collides with player only)
-**Obstacle:** layer=16, mask=0 (static, doesn't scan for collisions)
-
-**Decimal values:** 1, 2, 4, 8, 16, 32, 64...
-
-### CollisionShape2D and resources
-
-**Rule:** `CollisionShape2D.shape` is a **resource**, not a child node. Set
-it via the `shape` property, not by adding a `RectangleShape2D` as a child.
-
-In `.tscn`:
-```
-[sub_resource type="RectangleShape2D" id="Rect_1"]
-size = Vector2(28, 28)
-
-[node name="Collision" type="CollisionShape2D" parent="."]
-shape = SubResource("Rect_1")
-```
-
-Via the MCP tool (the server coerces the shape resource type):
-```
-godot_scene_edit_set_node_property(
-    node_path='Player/Collision', property='shape',
-    value={'type': 'RectangleShape2D', 'size': {'x': 32, 'y': 32}})
-```
-
----
-
-## 5. GDScript language gotchas
-
-### The `:=` type-inference trap
-
-**Rule:** Godot 4.x GDScript type inference is strict. `var x := expr`
-fails to compile when the expression's type can't be statically determined.
-
-**Common breakage:**
-```gdscript
-var player := get_tree().get_first_node_in_group("player")  # ❌ returns Node
-var dir := (player.global_position - pos).normalized()        # ❌ player is untyped
-var best := null                                              # ❌ can't infer from null
-```
-
-**Fix — explicit type annotations:**
-```gdscript
-var player: Node2D = get_tree().get_first_node_in_group("player")
-var dir: Vector2 = (player.global_position - pos).normalized()
-var best: Node2D = null
-```
-
-**Also breaks with `load().instantiate()`:**
-```gdscript
-var main := load("res://scenes/main.tscn").instantiate()  # ❌ untyped
-var main: Node = load("res://scenes/main.tscn").instantiate()  # ✅
-```
-
-### PackedVector2Array constructor
-
-**Rule:** In GDScript, `PackedVector2Array` takes `Vector2` objects, not
-flat floats:
-```gdscript
-# ❌ Parse error:
-poly.polygon = PackedVector2Array(-16, -16, 16, -16, 16, 16, -16, 16)
-
-# ✅ Correct:
-poly.polygon = PackedVector2Array([
-    Vector2(-16, -16), Vector2(16, -16), Vector2(16, 16), Vector2(-16, 16)
-])
-```
-
-**Exception:** In `.tscn` text format, the flat-float form IS valid:
-```
-polygon = PackedVector2Array(-16, -16, 16, -16, 16, 16, -16, 16)
-```
-
-### Signal list changes are breaking
-
-**Rule:** When you remove or rename a signal on a script that other scripts
-connect to, those connections break at runtime with:
-```
-Invalid access to property or key 'old_signal' on a base object
-```
-
-**Do this:** When migrating a signal:
-1. Update every script that connects to it in the same change
-2. Write a test that pins the signal contract:
-```gdscript
-func test_old_signal_removed() -> void:
-    var sigs := gm.get_signal_list()
-    for sig in sigs:
-        assert_ne(sig["name"], "old_signal", "old_signal should be removed")
-```
-
-### Godot 4.8: strings are no longer comments
-
-**Rule:** GDScript no longer treats a bare string literal as a "multiline
-comment". A dangling quoted line now raises a **standalone-expression warning**
-(and was never a documented feature). Use `#` comments.
-
-```gdscript
-# ❌ warned in 4.8 (was a silent "comment" in 4.3–4.7):
-"this was pretending to be a comment"
-var speed := 120.0
-
-# ✅ correct:
-# this is a real comment
-var speed := 120.0
-```
-
-Note: a string at the **top level** is still accepted (per the engine PR), so
-this is a warning-class migration, not a hard parse break — but it is a common
-copy-paste idiom from other languages, so clean it up when you see it. The
-editor's own parse output (`godot_scripts_get_parse_errors`) surfaces it.
-
-### Godot 4.8: a class cannot inherit from its own inner class
-
-**Rule:** A script or inner class can no longer extend an inner class **defined
-on itself** — that is cyclic inheritance and is now a hard GDScript error. The
-engine reports `Classes can not inherit from their own members.` /
-`Cyclic inheritance.`
-
-```gdscript
-# ❌ Error in 4.8 — B inherits from its own inner class:
-class B extends InnerB:
-    const InnerB = B
-
-# ❌ Also an error — a class extending an inner class of itself:
-class G extends G.InnerG:
-    class InnerG:
-        pass
-
-# ✅ Break the cycle: define the base in a separate script (or at file scope)
-# and extend that.
-```
-
-Fix by moving the base class out of the inheriting class — a separate `.gd`
-file (or a sibling/named class that isn't a member of the extender).
-
----
-
-### Godot 4.6+: EditorDock replaces the bottom-panel API
-
-`EditorPlugin.add_control_to_bottom_panel()` is deprecated in 4.6 in favour of
-`EditorDock` + `EditorPlugin.add_dock()`. `EditorDock` does **not** exist on
-4.4/4.5, so an addon with a 4.4 floor must resolve it at runtime
-(`ClassDB.class_exists("EditorDock")`, `ClassDB.instantiate`) — a `.gd` script
-that `extends EditorDock` fails to parse on the floor. The `EditorDock` is a
-`Control` container: add your existing panel as its child, set `title` and
-`default_slot` (`DOCK_SLOT_BOTTOM`), call `add_dock()`; remove it with
-`remove_dock()` and free it in `_exit_tree()`. Keep the legacy call as the
-4.4/4.5 fallback.
-
-## 6. Scene file format (.tscn)
-
-### Structure
-
-```
-[gd_scene format=3 uid="uid://..."]
-
-[ext_resource type="Script" path="res://scripts/player.gd" id="1_abc"]
-
-[sub_resource type="RectangleShape2D" id="Rect_1"]
-size = Vector2(32, 32)
-
-[node name="Player" type="CharacterBody2D" parent="." groups=["player"]]
-collision_layer = 1
-script = ExtResource("1_abc")
-
-[node name="Body" type="Polygon2D" parent="Player"]
-polygon = PackedVector2Array(-16, -16, 16, -16, 16, 16, -16, 16)
-color = Color(0.2, 0.8, 1, 1)
-
-[node name="Collision" type="CollisionShape2D" parent="Player"]
-shape = SubResource("Rect_1")
-```
-
-### Key rules
-- `ext_resource` = external file reference (scripts, scenes, textures)
-- `sub_resource` = inline resource (shapes, materials, animations)
-- Node order in the file = tree order = render order (for 2D)
-- `parent="."` = child of root; `parent="Player"` = child of Player
-- `groups=["player"]` = the node's groups
-- `unique_id` = Godot's internal node ID (auto-generated, don't reuse)
-
-### Editing scenes and scripts
-
-- **Via the MCP tools:** `godot_scene_edit_create_node`, `godot_scene_edit_set_node_property`, `godot_scene_edit_attach_script`, `godot_scene_edit_save_scene` — enable the right toolsets first (see `godot-getting-started`).
-- **On disk:** edit the `.tscn`/`.gd` file directly, then reload in the editor (`godot_scene_edit_reload_scene` or Project → Reload Current Project).
-- **Saving rules:**
-  - **Scripts** (`godot_scripts_write` / `godot_scripts_patch`) flush to disk immediately — no scene save needed. The editor picks the change up on the next script reload.
-  - **Scene edits** (create/rename/delete nodes, set properties) live in the editor's memory until you call `godot_scene_edit_save_scene()` (or `godot_scene_edit_save_all_scenes()`). Always save before running headless `godot_runtime_run_and_capture` — it runs the files on disk, not the in-memory scene.
-
----
-
-## 7. Infinite/background grids
-
-### Dynamic tile pool pattern
-
-For an infinite scrolling background, don't generate tiles for the entire
-world. Pre-allocate a pool sized to the viewport and reposition tiles as
-the camera moves:
-
-```gdscript
-func _ready() -> void:
-    _calc_view_radius()
-    _init_tile_pool()
-
-func _calc_view_radius() -> void:
-    var vp := get_viewport().get_visible_rect().size
-    var zoom := Vector2.ONE
-    var cam := get_viewport().get_camera_2d()
-    if cam:
-        zoom = cam.zoom
-    _view_radius_x = int(ceil((vp.x / zoom.x) / TILE_SIZE / 2.0)) + 2
-    _view_radius_y = int(ceil((vp.y / zoom.y) / TILE_SIZE / 2.0)) + 2
-
-func _process(_delta: float) -> void:
-    var cam := _camera_pos()
-    var gx := int(floor(cam.x / TILE_SIZE))
-    var gy := int(floor(cam.y / TILE_SIZE))
-    if gx != _last_grid_x or gy != _last_grid_y:
-        _update_tiles(gx, gy)
-```
-
-**Key:** Size the pool from the actual viewport, not a hardcoded constant.
-A hardcoded `VIEW_RADIUS=12` that works at 1280x720 won't fill 1920x1080.
-
----
-
-## 8. MCP tool workflow
-
-The bridge between the server and the editor is managed for you — the Godot addon connects to the MCP server's WebSocket listener automatically (enable the plugin once in Project Settings → Plugins). Agents never talk to the bridge directly; call the `godot_<toolset>_<action>` tools.
-
-### Session start (every session)
-
-```
-godot_health_check()        # bridge connected? server version
-godot_get_server_info()    # toolsets + tool counts, active scene, next_steps
-godot_list_toolsets()      # what's enabled / each toolset's min Godot version
-godot_enable_toolset('scene_edit')
-godot_enable_toolset('scripts')
-```
-
-If the bridge is offline: open your Godot project (with the addon installed and enabled) in Godot 4.4+ — the status dock shows the connection state. For a smoke test, the `godot/` folder of the Godot Editor MCP checkout is a ready-to-open project.
-
-### Common tool calls
-
-| Tool | Purpose |
-|------|---------|
-| `godot_inspection_get_project_info()` | Project name, autoloads, input actions |
-| `godot_inspection_get_scene_tree()` | Current scene tree (max_depth) |
-| `godot_scene_edit_open_scene()` | Open a scene in the editor |
-| `godot_scene_edit_create_node()` | Add a node to the active scene |
-| `godot_scene_edit_set_node_property()` | Set a property (handles type coercion) |
-| `godot_scene_edit_attach_script()` | Attach a .gd script to a node |
-| `godot_scripts_write()` | Write/overwrite a .gd file (flushes to disk) |
-| `godot_scene_edit_add_to_group()` | Add a node to a group |
-| `godot_scene_edit_save_scene()` | Save the active scene to disk |
-| `godot_scene_edit_save_all_scenes()` | Save all open scenes |
-| `godot_runtime_play_scene()` | Play the scene in the editor |
-| `godot_runtime_run_and_capture()` | Headless run + captured errors/output |
-| `godot_debug_workflow()` | One-call diagnostics: parse + tree + run + bridge (core, always on) |
-| `godot_composite_run_commands()` | N editor commands in one round-trip (stop_on_error reports what was skipped) |
-| `godot_batch_set_property()` | Set one property on many nodes (reports `undoable`; >20 nodes bypass undo) |
-| `godot_project_set_setting()` | Write a project.godot setting (refuses unknown keys with a hint) |
-| `godot_scene_edit_close_scene()` | Close a scene tab (destructive, needs confirm) |
-| `godot_undo()` | Undo the last editor action (always-on core) |
-| `godot_redo()` | Re-apply an undone action (mirror of undo; core) |
-| `godot_list_history()` | Inspect the editor undo history (version, depth, recent actions; read-only) |
-| `godot_describe_class()` | ClassDB metadata: properties/methods/signals/enums with Variant.Type names (core) |
-
-**Round-trip economy:** for a multi-step build (create scene → add nodes → attach script → save), prefer one `godot_composite_run_commands` batch over a sequence of single calls — the editor drains each command in ~one frame, so batching is the main throughput lever. Keep `dry_run` previews on unfamiliar mutations.
-
-### Gotchas
-
-- **Scene edits need an explicit save** (`godot_scene_edit_save_scene()`); script writes don't — they hit disk immediately
-- Changing `project.godot` on disk requires **Project → Reload Current Project** (or `godot_scene_edit_reload_scene()` for the scene)
-- `godot_runtime_run_and_capture()` runs the **files on disk** — save the scene first
-- Every small mutation is undoable via `godot_undo()` — but **batch sets above 20 nodes bypass undo** for performance: `godot_batch_set_property` reports `undoable: false` with a hint. Read that flag; undo will not revert the batch. `godot_redo()` re-applies an undone action; `godot_list_history()` shows `has_undo`/`has_redo` and the recent action names before you step.
-- Before guessing property or method names, run `godot_describe_class("Tween")` — its `type` fields are the exact Variant.Type names the coercion layer accepts, and `default` shows the JSON shape to pass. Saves the trial-and-error round-trips.
-- `godot_composite_run_commands` with the default `stop_on_error=true` halts at the first failure — read `aborted_at`/`skipped_count`/`hint` in the result; the trailing commands (e.g. a final `save_scene`) did **not** run.
-- A parse check right after a fresh `class_name` write may report "Could not find type" with `rescan_pending: true` — the editor's rescan hadn't flushed yet. Re-check before rewriting correct code.
-- `godot_project_set_setting` validates keys: a typo inside a known engine section is refused with a did-you-mean hint (`application/config/main_scene` → `application/run/main_scene`). Custom sections (e.g. `my_game/…`) are still accepted.
-- Live inspection/input during play needs the `MCPRuntimeProbe` autoload in the game (see `godot-playtest-and-debug`); input is refused while the game is frozen at a debugger break — continue execution first.
-
----
-
-## 9. Testing with GUT
-
-### Running GDScript tests
-
-```bash
-# Via the MCP tool:
-godot_testing_run_tests(test_dir="res://tests/unit")
-
-# Directly:
-godot --headless --path examples/survivors -s addons/gut/gut_cmdln.gd -gexit
-```
-
-### GUT test patterns
-
-```gdscript
-extends GutTest
-
-var _player: CharacterBody2D
-
-func before_each() -> void:
-    # Instantiate with the script — don't load the full scene (it may
-    # generate a world, spawn enemies, or hang on ready signals).
-    _player = CharacterBody2D.new()
-    _player.set_script(load("res://scripts/player.gd"))
-    add_child(_player)
-
-func after_each() -> void:
-    _player.free()
-
-func test_player_starts_with_full_health() -> void:
-    assert_eq(_player.health, 100.0, "Starts at 100 HP")
-```
-
-### GUT gotchas
-
-- **Don't `await wait_for_signal(node.ready)` on simple nodes** — `_ready`
-  fires synchronously on `add_child`. Awaiting can hang the test.
-- **Don't instantiate heavy scenes in `before_each`** — a scene with
-  world generation or 1600 tiles will hang or time out. Instantiate the
-  node + script directly instead.
-- **GUT 9.7 omits the "Failing Tests" line** when all tests pass. The
-  Godot Editor MCP parser handles this (issue: fixed in `gut_parse.py`).
-- **`assert_contains` doesn't exist** in GUT 9.7. Use
-  `assert_string_contains(str, substring, msg)`.
-- **Autoload state leaks between tests** — reset it in `before_each`:
-  `get_node("/root/GameManager")._change_state(State.MENU)`.
-
----
-
-## 10. Quick checklist — before playing a scene
-
-- [ ] Background/Obstacles nodes are BEFORE Player in the scene tree (z-order)
-- [ ] Entity visuals are `Polygon2D` (Node2D), not `ColorRect` (Control)
-- [ ] Dynamically spawned entities are children of the scene root, not the autoload
-- [ ] Full-screen overlay `Control` has `mouse_filter = IGNORE` (2)
-- [ ] Custom input actions are in `project.godot` and project was reloaded
-- [ ] All scripts parse clean: `godot --headless --check-only --script <path>` or `godot_scripts_get_parse_errors()` (a `rescan_pending: true` result is stale cache — re-check once)
-- [ ] Shaders compile: `godot_shader_validate(shader_path=...)` — `get_parse_errors`/`read_shader` cannot catch an invalid uniform hint or render_mode; scripts need `godot_runtime_run_and_capture` to catch API misuse (#423)
-- [ ] GUT tests pass: `godot_testing_run_tests()` or `godot --headless -s addons/gut/gut_cmdln.gd -gexit`
-- [ ] Scene saved to disk: `godot_scene_edit_save_scene()` after scene edits (scripts flush on write)
-- [ ] If you used `godot_batch_set_property` on >20 nodes: result said `undoable: false` — undo will not revert it
-- [ ] If you used `godot_composite_run_commands`: `aborted_at` absent (or all commands ran) before moving on
-
----
-
-## Specialized reference guides
-
-For deeper detail on specific topics, see the reference files:
-
-- **[references/ui-hud.md](references/ui-hud.md)** — CanvasLayer vs Node2D,
-  Control layout (anchors, presets, mouse_filter), full-screen overlay
-  pattern, the input-blocking trap, ProgressBar/Label/Button patterns
-- **[references/physics-collision.md](references/physics-collision.md)** —
-  Body types (CharacterBody2D vs Area2D vs StaticBody2D), collision
-  layer/mask convention and bitmask values, CollisionShape2D resources,
-  contact detection (slide collisions vs body_entered)
-- **[references/testing-gut.md](references/testing-gut.md)** — GUT setup and
-  install, test patterns (signals, groups, state machines), GUT gotchas
-  (no await ready, no assert_contains, autoload state leak), MCP run_tests
-- **[references/scene-authoring.md](references/scene-authoring.md)** — .tscn
-  format (ext_resource, sub_resource, node blocks), text vs GDScript
-  syntax differences, disk vs bridge editing, common scene patterns
-- **[references/autoload-architecture.md](references/autoload-architecture.md)**
-  — Autoload registration and lifecycle, the autoload-children rendering
-  trap, state persistence across reloads, state machine pattern, signal
-  contracts, entity group convention
-- **[references/scene-templates.md](references/scene-templates.md)** —
-  Ready-to-use .tscn templates for player, enemy, projectile, main scene,
-  and WASD input actions
-- **[references/tileset-gridmap.md](references/tileset-gridmap.md)** —
-  TileSet authoring (create_tileset → atlas source → create_tile → set_cell),
-  GridMap + MeshLibrary authoring, atlas/grid pitfalls, read-back
-- **[references/visual-shader.md](references/visual-shader.md)** — VisualShader
-  graph authoring (node ids, port-index wiring, the output node), text-vs-graph
-  choice, read-back
-- **[references/shader-authoring.md](references/shader-authoring.md)** — text
-  `.gdshader` authoring, `validate_shader` before assigning, `shader_type`
-  matching, per-uniform params, persistence truth
-- **[references/theme-styling.md](references/theme-styling.md)** — Theme vs
-  local override, item names, per-state styleboxes, color/size tools,
-  `get_node_overrides` read-back
-- **[references/particles-animation.md](references/particles-animation.md)** —
-  particles (amount/lifetime/gradient), Animation tracks/keyframes and
-  AnimationTree state machines, Navigation region/bake/agent
-- **[references/common-bugs.md](references/common-bugs.md)** — 11 documented
-  bugs with symptom/root cause/fix from real development
+Godot 4.x engine rules for building games through the Godot Editor MCP tools. Every
+rule here was learned by hitting the bug. This file is the core that applies to all
+work; each area has a guide in `references/`. Read the matching guide **before** you
+start that kind of work.
+
+Companions: `godot-rules.md` (always-on rules), `godot-getting-started` (version check,
+toolset gating, safety), `godot-playtest-and-debug` (run, inspect, debug).
+
+## Read before you build
+
+- Before building UI or a HUD (labels, bars, menus, overlays), read [references/ui-hud.md](references/ui-hud.md).
+- Before collision, physics bodies or layers/masks, read [references/physics-collision.md](references/physics-collision.md).
+- Before writing or running GUT tests, read [references/testing-gut.md](references/testing-gut.md).
+- Before hand-editing a `.tscn`, composing scenes, or looking up a scene/project tool, read [references/scene-authoring.md](references/scene-authoring.md).
+- Before adding an autoload, a state machine or entity spawning, read [references/autoload-architecture.md](references/autoload-architecture.md).
+- Before creating a player, enemy, projectile or main scene from scratch, read [references/scene-templates.md](references/scene-templates.md).
+- Before building a TileMap, TileSet or GridMap, read [references/tileset-gridmap.md](references/tileset-gridmap.md).
+- Before building a VisualShader graph, read [references/visual-shader.md](references/visual-shader.md).
+- Before writing a `.gdshader`, read [references/shader-authoring.md](references/shader-authoring.md).
+- Before theming or styling Controls, read [references/theme-styling.md](references/theme-styling.md).
+- Before particles, animation tracks, AnimationTree or navigation, read [references/particles-animation.md](references/particles-animation.md).
+- Before debugging "it doesn't show / doesn't move / doesn't spawn", read [references/common-bugs.md](references/common-bugs.md).
+
+## 1. Node types and rendering
+
+- `Control` nodes (ColorRect, Label, Button, ProgressBar…) render in **screen space**;
+  `Node2D` nodes (Polygon2D, Sprite2D, Camera2D…) render in **world space**. A
+  `ColorRect` under a `CharacterBody2D`/`Area2D` does **not** follow the body.
+  Entity visuals → `Polygon2D`/`Sprite2D`; HUD → `Control` inside a `CanvasLayer`.
+- No image assets? Use `Polygon2D`. In GDScript the polygon takes `Vector2`s:
+  `PackedVector2Array([Vector2(-16, -16), Vector2(16, -16), Vector2(16, 16), Vector2(-16, 16)])`.
+  In `.tscn` text the flat-float form is valid: `PackedVector2Array(-16, -16, 16, -16, …)`.
+- 2D siblings draw in tree order: earlier is underneath. Put Background and Obstacles
+  **before** Player; a `CanvasLayer` HUD is always on top. Use `z_index` for explicit order.
+- Spawn entities as children of the **scene root** (`get_tree().current_scene`), never on
+  a plain-`Node` autoload (no world transform, so they're invisible) or
+  `get_tree().root` (a `Window`).
+
+## 2. Input and pause
+
+- A full-screen `Control` (overlay, background `ColorRect`, `anchors_preset = 15`) eats
+  all input by default. Set `mouse_filter = Control.MOUSE_FILTER_IGNORE` (`2` in `.tscn`)
+  on it; its `Button`s still get clicks.
+- Use custom actions (`move_left`…) with WASD + arrows in `project.godot`, not `ui_*`.
+  Read with `Input.get_vector("move_left", "move_right", "move_up", "move_down")`.
+- `get_tree().paused = true` freezes `PROCESS_MODE_INHERIT` nodes. UI and autoloads that
+  must keep working need `process_mode = Node.PROCESS_MODE_ALWAYS`.
+
+## 3. Physics in one paragraph
+
+`collision_layer` is what a body **is**; `collision_mask` is what it **hits** (bitmasks
+1, 2, 4, 8, 16…). `CollisionShape2D.shape` is a **resource** property, not a child node:
+`godot_scene_edit_set_node_property(node_path='Player/Collision', property='shape', value={'type': 'RectangleShape2D', 'size': {'x': 32, 'y': 32}})`.
+
+## 4. GDScript gotchas
+
+- `var x := expr` fails when the type can't be inferred: group lookups (return `Node`),
+  `null`, untyped chains, `load(...).instantiate()`. Annotate:
+  `var player: Node2D = get_tree().get_first_node_in_group("player")`,
+  `var main: Node = load("res://scenes/main.tscn").instantiate()`.
+- Renaming or removing a signal breaks every `connect` to it at runtime
+  ("Invalid access to property or key"). Update all connectors in the same change, and
+  pin the contract with a test (`get_signal_list()`).
+- **Godot 4.8:** a bare string literal is no longer a comment (standalone-expression
+  warning). Use `#`. A class can't extend its **own** inner class (`Cyclic inheritance`),
+  so move the base class to its own script.
+- **Godot 4.6+:** `add_control_to_bottom_panel()` is deprecated in favour of `EditorDock`
+  + `add_dock()`. `EditorDock` doesn't exist on 4.4/4.5, so an addon with a 4.4 floor
+  resolves it at runtime (`ClassDB.class_exists("EditorDock")`) and keeps the legacy call
+  as the fallback.
+
+## 5. Scenes, saving and the MCP tools
+
+- Change scenes and nodes through the MCP scene tools (`godot_scene_edit_create_node`,
+  `godot_scene_edit_set_node_property`, `godot_scene_edit_attach_script`). Hand-edit a
+  `.tscn` only when it isn't open in the editor, then `godot_scene_edit_reload_scene()`.
+- Script writes hit disk immediately. Scene edits persist when the tool result says
+  `persisted: true`; otherwise call `godot_scene_edit_save_scene()` (or
+  `godot_scene_edit_save_all_scenes()`). `godot_runtime_run_and_capture()` runs the
+  **files on disk**, so save first.
+- `godot_scripts_get_parse_errors()` after every script write. `rescan_pending: true`
+  right after a new `class_name` is stale cache; re-check before "fixing" correct code.
+- Guessing a property or method? `godot_describe_class("Tween")` gives the exact names,
+  Variant types and default JSON shapes.
+- Read the honesty fields: `godot_composite_run_commands` stops at the first error, so
+  check `aborted_at`/`skipped_count` (trailing commands, like a final save, did **not**
+  run). `godot_batch_set_property` on more than 20 nodes returns `undoable: false`, so undo
+  won't revert it. `godot_project_set_setting` refuses unknown keys with a did-you-mean.
+- Changing `project.godot` on disk (input actions, autoloads) needs Project → Reload
+  Current Project before the editor sees it.
+- Live inspection or input during play needs the `MCPRuntimeProbe` autoload (see
+  `godot-playtest-and-debug`).
+
+## 6. Checklist before you report done
+
+- [ ] Background/Obstacles before Player; entity visuals are Node2D, not Control
+- [ ] Spawned entities go under the scene root, not an autoload
+- [ ] Full-screen overlays have `mouse_filter = IGNORE`
+- [ ] Every script parses (`godot_scripts_get_parse_errors()`); shaders validate
+      (`godot_shader_validate(shader_path=...)`); API misuse only shows at runtime
+      (`godot_runtime_run_and_capture()`)
+- [ ] GUT tests pass when the task involves tests (`godot_testing_run_tests()`)
+- [ ] Scene saved (or `persisted: true`), and the result read back from the scene tree
