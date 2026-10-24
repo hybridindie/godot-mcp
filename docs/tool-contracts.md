@@ -1215,6 +1215,7 @@ commands). All `read_only`. The project dir is resolved like the runtime loop
 | `godot_analysis_find_orphaned_resources` | `scan_dir="res://"`, `resource_types` | `FindOrphanedResult { orphaned[]{path, type, estimated_size}, scanned }` |
 | `godot_analysis_validate_scene_integrity` | `scene_path` | `ValidateSceneIntegrityResult { valid, errors[]{severity, message, node_path, property}, warnings[] }` |
 | `godot_analysis_cross_scene_find_refs` | `target_path` | `CrossSceneRefsResult { scenes[], resources[], scripts[] }` |
+| `godot_analysis_validate_project` | `include_warnings=False` | `ValidateProjectResult { valid, findings[]{validator, severity, path, message, next_call?}, validators[], project_dir }` |
 
 `godot_analysis_find_unused_resources` flags resource files not referenced by any project file (excluding
 entry points — the main scene, autoloads, plugin scripts). `godot_analysis_analyze_signal_flow` parses
@@ -1224,6 +1225,13 @@ entry points — the main scene, autoloads, plugin scripts). `godot_analysis_ana
 breakdown, and the busiest scenes. `godot_analysis_project_structure` returns the raw inventory — the
 actual scene/script/resource `res://` paths (sorted, non-overlapping) plus `entry_points`
 — for an agent to learn what exists before planning edits.
+
+`godot_analysis_validate_project` runs the project's own rules (`res://.mcp/validators/*.gd`),
+plus built-in checks for missing autoload targets, broken scene/resource
+dependencies and scripts that fail to load, in a headless Godot process. The
+same runner is available in CI, so findings match. `valid` is the *project*
+verdict (an `error` finding sets it false) while the tool call's `ok` stays true
+— the findings remain inspectable. See `examples/validators/` for the interface.
 
 Issue #111 adds **dependency-aware** analysis: `godot_analysis_analyze_dependencies` extracts `res://` and
 `uid://` references from a resource file (recursing into sub-dependencies). `godot_analysis_find_orphaned_resources`

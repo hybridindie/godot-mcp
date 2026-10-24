@@ -1,18 +1,18 @@
 ---
 type: index
 title: "Toolsets & tools"
-description: "Every tool in the 195-tool surface, grouped by toolset, with safety classes."
+description: "Every tool in the 196-tool surface, grouped by toolset, with safety classes."
 created: 2026-09-19
 updated: 2026-10-23
 ---
 
 # Toolsets & tools
 
-195 tools across 29 categories. Only `core` + `inspection` are enabled by default; enable the rest with `godot_enable_toolset(category)`, which returns the enabled tools' names and input schemas so a client that never refreshes its registry can still call them. `category` also accepts a bundle (`author` / `playtest` / `ship`) or a comma-separated list, so a whole workflow is one call (#653). Class meanings: [safety classes](reference-safety-classes.md).
+196 tools across 29 categories. Only `core` + `inspection` are enabled by default; enable the rest with `godot_enable_toolset(category)`, which returns the enabled tools' names and input schemas so a client that never refreshes its registry can still call them. `category` also accepts a bundle (`author` / `playtest` / `ship`) or a comma-separated list, so a whole workflow is one call (#653). Class meanings: [safety classes](reference-safety-classes.md).
 
 ## `analysis` — Static analysis: dependencies, signal flow, unused resources, circular deps, scene integrity.
 
-9 tools.
+10 tools.
 
 | Tool | Class |
 |------|-------|
@@ -24,6 +24,7 @@ updated: 2026-10-23
 | `godot_analysis_find_unused_resources` | read_only |
 | `godot_analysis_project_stats` | read_only |
 | `godot_analysis_project_structure` | read_only |
+| `godot_analysis_validate_project` | read_only |
 | `godot_analysis_validate_scene_integrity` | read_only |
 
 ## `animation` — AnimationPlayers and AnimationTrees: author animations, tracks, keyframes, state machines.

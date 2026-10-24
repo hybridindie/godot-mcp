@@ -76,6 +76,7 @@ from mcp_server.tools.theme_ui import register_theme_ui
 from mcp_server.tools.tilemap import register_tilemap
 from mcp_server.tools.undo import register_undo
 from mcp_server.tools.updates import register_updates
+from mcp_server.tools.validation import register_validation
 from mcp_server.tools.visual_shader import register_visual_shader
 from mcp_server.toolset_middleware import ToolsetMiddleware
 from mcp_server.toolset_protocol import SERVER_INSTRUCTIONS
@@ -278,6 +279,7 @@ def create_server(
     register_composite(mcp, bridge, toolset_mw)
     register_debugger(mcp, bridge)
     register_analysis(mcp, bridge, config)
+    register_validation(mcp, bridge, config)
     register_export(mcp, bridge, config, runner)
     register_scripts(mcp, bridge, config, runner)
     register_debug_workflow(mcp, bridge, config, runner)
