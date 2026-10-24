@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
@@ -26,6 +26,10 @@ class PersistenceReport(BaseModel):
     reason: str | None = None
     hint: str | None = None
     receipt: ChangeReceipt | None = None
+    # #760: how this change can be reversed. ``undo`` = UndoRedo-tracked;
+    # ``none`` = outside the undo stack (file moves, settings, imports, etc.);
+    # ``vcs`` is reserved for a VCS snapshot backstop (not shipped yet).
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"
 
 
 def persistence_fields(result: dict[str, Any]) -> dict[str, Any]:

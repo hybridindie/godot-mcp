@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from mcp_server.models.persistence import TargetPersistence
 from mcp_server.models.receipt import ChangeReceipt
@@ -44,6 +44,13 @@ class BatchSetResult(BaseModel):
     # reports ok.
     persistence: list[TargetPersistence] = Field(default_factory=list)
     receipt: ChangeReceipt | None = None
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"
+
+    @model_validator(mode="after")
+    def _over_threshold_not_undoable(self) -> BatchSetResult:
+        if not self.undoable:
+            self.reversible_by = "none"
+        return self
 
 
 class CrossSceneSceneResult(BaseModel):
@@ -57,6 +64,7 @@ class CrossSceneResult(BaseModel):
     total_modified: int = 0
     scenes: int = 0
     dry_run: bool = False
+    reversible_by: Literal["undo", "vcs", "none"] = "none"
 
 
 class Dependency(BaseModel):

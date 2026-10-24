@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -31,6 +31,7 @@ class ImportAssetResult(BaseModel):
     # the import still lands, but the sidecar may take a scan cycle longer.
     scan_deferred: bool = False
     receipt: ChangeReceipt | None = None
+    reversible_by: Literal["undo", "vcs", "none"] = "none"
 
 
 class CreateMaterialResult(BaseModel):

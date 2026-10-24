@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -38,6 +38,7 @@ class SetSettingResult(BaseModel):
     value: Any = None
     set: bool = False
     dry_run: bool = False
+    reversible_by: Literal["undo", "vcs", "none"] = "none"
 
 
 class UidResolution(BaseModel):
@@ -57,6 +58,7 @@ class DeleteResourceFileResult(BaseModel):
     dry_run: bool = False
     hint: str | None = None
     receipt: ChangeReceipt | None = None
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"
 
 
 class MovedRef(BaseModel):
@@ -83,3 +85,4 @@ class MoveResourceFileResult(BaseModel):
     hint: str | None = None
     dry_run: bool = False
     receipt: ChangeReceipt | None = None
+    reversible_by: Literal["undo", "vcs", "none"] = "none"

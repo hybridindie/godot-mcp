@@ -197,6 +197,7 @@ async def test_group_tools() -> None:
         )
     sc = dict(added.structured_content)
     receipt = sc.pop("receipt")
+    reversible_by = sc.pop("reversible_by")
     assert sc == {
         "node_path": "Box",
         "group": "g",
@@ -208,6 +209,7 @@ async def test_group_tools() -> None:
         "hint": None,
     }
     assert receipt["status"] == "updated"  # #756: fallback receipt
+    assert reversible_by == "undo"  # #760
     assert removed.structured_content["in_group"] is False
     assert removed.structured_content["persisted"] is True
 

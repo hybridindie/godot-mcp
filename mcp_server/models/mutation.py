@@ -5,7 +5,7 @@ Each result echoes ``dry_run`` so the agent can tell a preview from a real chang
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
@@ -61,6 +61,7 @@ class ConnectSignalResult(BaseModel):
     dry_run: JSONBool = False
     receipt: ChangeReceipt | None = None
     hint: str | None = None
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"
 
 
 class SaveSceneResult(BaseModel):

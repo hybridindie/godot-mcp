@@ -292,6 +292,10 @@ handler-specific read-back replaces it as each domain lands.
 - File changes report a compact state (`{exists, bytes}`), never the file body;
   the handler still compares the read-back content (or reloads the resource)
   before claiming the change landed.
+- `reversible_by` on the result declares the reverse strategy: `undo` for
+  UndoRedo-tracked edits, `none` for file moves/settings/imports/scaffolds, and
+  `vcs` reserved for the snapshot backstop (#760). Over-threshold batches report
+  `none`.
 - `changes` is bounded (50); `truncated: true` means entries were dropped.
 - A write the engine silently drops returns `set: false` with a `noop` receipt
   and the read-back value — never an `updated` success.

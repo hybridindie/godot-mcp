@@ -6,9 +6,9 @@ the addon runs as a single UndoRedo action. ``snake_case`` fields, typed models.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from mcp_server.models.persistence import TargetPersistence
 from mcp_server.models.receipt import ChangeReceipt
@@ -55,6 +55,13 @@ class BatchCreateNodesResult(BaseModel):
     undoable: bool = True
     hint: str = ""
     receipt: ChangeReceipt | None = None
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"
+
+    @model_validator(mode="after")
+    def _over_threshold_not_undoable(self) -> BatchCreateNodesResult:
+        if not self.undoable:
+            self.reversible_by = "none"
+        return self
 
 
 class ApplyNodeEditsResult(BaseModel):
@@ -72,3 +79,10 @@ class ApplyNodeEditsResult(BaseModel):
     # non-editable instance applies live but is lost on save.
     persistence: list[TargetPersistence] = Field(default_factory=list)
     receipt: ChangeReceipt | None = None
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"
+
+    @model_validator(mode="after")
+    def _over_threshold_not_undoable(self) -> ApplyNodeEditsResult:
+        if not self.undoable:
+            self.reversible_by = "none"
+        return self
