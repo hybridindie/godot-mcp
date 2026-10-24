@@ -23,6 +23,7 @@ import asyncio
 import hmac
 import json
 import logging
+import time
 from collections.abc import Awaitable, Callable
 from contextlib import suppress
 from typing import Any, Protocol
@@ -38,6 +39,10 @@ logger = logging.getLogger(__name__)
 # refused with "busy" while another editor owns the bridge, so a replaced
 # editor never displaces a healthy peer just to test it.
 PROBE_PATH = "/probe"
+
+# #762: an editor that has not sent a heartbeat (or completed a command) within
+# this window is stale — fail fast instead of waiting out a request timeout.
+_STALE_AFTER_SECONDS = 5.0
 
 
 class Connection(Protocol):
@@ -129,6 +134,7 @@ class Bridge:
         serve: Serve | None = None,
         connector: Connector | None = None,
         sleep: Sleep = asyncio.sleep,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._config = config or BridgeConfig()
         self._serve = serve or _default_serve
@@ -138,6 +144,14 @@ class Bridge:
         self._conn: Connection | None = None
         self._reader: asyncio.Task[None] | None = None
         self._pending: dict[str, asyncio.Future[ResponseEnvelope]] = {}
+        # #762 readiness: the addon's heartbeat last reported status, the last
+        # heartbeat time, and the in-flight command names/start times (a pending
+        # command is "busy"; one older than the stale deadline is "stale").
+        self._clock = clock
+        self._editor_status = "unknown"
+        self._last_heartbeat: float | None = None
+        self._pending_commands: dict[str, str] = {}
+        self._pending_started: dict[str, float] = {}
         self._counter = 0
         # Serialises peer adoption so two near-simultaneous editor connections can't
         # race to swap _conn/_reader and leave two readers resolving futures (#276 review).
@@ -193,6 +207,30 @@ class Bridge:
     @property
     def url(self) -> str:
         return self._config.url
+
+    @property
+    def editor_status(self) -> str:
+        """Readiness snapshot: ready/importing/modal/busy/stale/disconnected/unknown (#762)."""
+        if not self.connected:
+            return "disconnected"
+        now = self._clock()
+        if self._pending_started:
+            oldest = min(self._pending_started.values())
+            if now - oldest > _STALE_AFTER_SECONDS:
+                return "stale"
+            return "busy"
+        if self._last_heartbeat is None:
+            return "unknown"
+        if now - self._last_heartbeat > _STALE_AFTER_SECONDS:
+            return "stale"
+        return self._editor_status or "unknown"
+
+    @property
+    def editor_heartbeat_age_ms(self) -> int | None:
+        """Milliseconds since the last addon message, or None before the first."""
+        if self._last_heartbeat is None:
+            return None
+        return int((self._clock() - self._last_heartbeat) * 1000)
 
     @property
     def peer_identity(self) -> dict[str, Any] | None:
@@ -346,6 +384,8 @@ class Bridge:
                     with suppress(asyncio.CancelledError):
                         await old_reader
                 self._fail_pending("BRIDGE_DISCONNECTED", "Replaced by a new editor connection.")
+                self._editor_status = "unknown"
+                self._last_heartbeat = None
                 # #593: tell the replaced editor WHY its link went dark, before
                 # closing it. Best-effort (a dead peer swallows the send) — the
                 # addon consumes this ok-shaped notice and logs it, so an editor
@@ -391,6 +431,8 @@ class Bridge:
                 self._resolve(raw if isinstance(raw, str) else raw.decode("utf-8"))
             self._reader = asyncio.create_task(self._read_loop(conn))
         logger.debug("bridge peer connected")
+        self._editor_status = "unknown"
+        self._last_heartbeat = None
         # #592: now that the peer is live, let the server push state the addon's
         # dock needs (the enabled toolset set). Best-effort — a failed push must
         # never fail adoption, so errors are logged, not raised.
@@ -510,12 +552,16 @@ class Bridge:
         envelope = CommandEnvelope(id=msg_id, command=command, params=params or {})
         future: asyncio.Future[ResponseEnvelope] = asyncio.get_running_loop().create_future()
         self._pending[msg_id] = future
+        self._pending_commands[msg_id] = command
+        self._pending_started[msg_id] = self._clock()
 
         try:
             await conn.send(envelope.model_dump_json())
         except Exception:
             # The transport dropped mid-send: don't leak the waiter or raise.
             self._pending.pop(msg_id, None)
+            self._pending_commands.pop(msg_id, None)
+            self._pending_started.pop(msg_id, None)
             if not future.done():
                 future.cancel()
             # #635: fail the wider pending set only when THIS conn is still the
@@ -528,6 +574,8 @@ class Bridge:
                 msg_id, ErrorCode.BRIDGE_DISCONNECTED, "Lost connection to Godot while sending."
             )
         response = await self._await_response(msg_id, future, timeout)
+        self._pending_commands.pop(msg_id, None)
+        self._pending_started.pop(msg_id, None)
         return self._flag_may_have_applied(command, response)
 
     def _flag_may_have_applied(
@@ -633,6 +681,15 @@ class Bridge:
         except json.JSONDecodeError:
             logger.error("dropping unparseable bridge message")
             return
+        # #762: any addon message is a liveness signal; a status heartbeat is a
+        # control message (no waiting request), consumed here.
+        self._last_heartbeat = self._clock()
+        if isinstance(payload, dict) and payload.get("command") == "cmd_editor_status":
+            params = payload.get("params")
+            status = str(params.get("status", "")) if isinstance(params, dict) else ""
+            if status in ("ready", "importing", "modal", "busy"):
+                self._editor_status = status
+            return
         # Peer identity hello (issue #537): a control message, not a response —
         # no waiter exists for it, so it must be consumed here rather than
         # falling through to the malformed-reply path.
@@ -650,6 +707,8 @@ class Bridge:
         except ValueError:
             self._fail_malformed(payload)
             return
+        self._pending_commands.pop(response.id, None)
+        self._pending_started.pop(response.id, None)
         future = self._pending.pop(response.id, None)
         if future is not None and not future.done():
             future.set_result(response)
@@ -680,6 +739,8 @@ class Bridge:
             if not future.done():
                 future.set_result(ResponseEnvelope.failure(msg_id, error, hint))
         self._pending.clear()
+        self._pending_commands.clear()
+        self._pending_started.clear()
 
     def _next_id(self) -> str:
         self._counter += 1

@@ -22,3 +22,7 @@ class HealthStatus(BaseModel):
     # server owns it) — the cause of a permanently-disconnected bridge, surfaced
     # instead of leaving the agent to guess.
     bridge_bind_error: str | None = None
+    # #762 readiness: ready/importing/modal/busy/stale/disconnected/unknown, and
+    # milliseconds since the addon's last heartbeat (None before the first).
+    editor_status: str | None = None
+    editor_heartbeat_age_ms: int | None = None

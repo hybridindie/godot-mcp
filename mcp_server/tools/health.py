@@ -35,6 +35,8 @@ def build_health(
         addon_version=addon_version,
         version_notice=notice,
         bridge_bind_error=bridge.bind_error,
+        editor_status=bridge.editor_status,
+        editor_heartbeat_age_ms=bridge.editor_heartbeat_age_ms,
     )
 
 

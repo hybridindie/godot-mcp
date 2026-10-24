@@ -32,6 +32,7 @@ from mcp_server.consent_middleware import ConsentMiddleware, apply_consent_schem
 from mcp_server.diagnostics import register_diagnostics
 from mcp_server.logging_setup import install_proactor_reset_demotion
 from mcp_server.prompts import register_prompts
+from mcp_server.readiness_middleware import ReadinessMiddleware
 from mcp_server.receipt_middleware import ReceiptMiddleware, apply_receipt_schema
 from mcp_server.resources.context import register_resources
 from mcp_server.result_validation_middleware import ResultValidationMiddleware
@@ -214,6 +215,7 @@ def create_server(
     mcp.add_middleware(AgentErrorMiddleware())
     # #759: verify consent tokens and strip the synthetic `consent` arg before
     # argument coercion/validation. Requires a token when approval is configured.
+    mcp.add_middleware(ReadinessMiddleware(bridge))
     mcp.add_middleware(ConsentMiddleware(consent, approval))
     # #756: every successful mutating/destructive result carries a receipt. Precise
     # handler receipts win; this fills a coarse fallback for the domains still

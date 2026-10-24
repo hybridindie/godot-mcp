@@ -57,6 +57,9 @@ class BridgeDiagnostics(BaseModel):
     # editor + project support, so agents branch BEFORE authoring .cs.
     # ``csharp_build`` is False until Phase 2 ships the build primitive.
     backend: BackendDiagnostics | None = None
+    # #762 readiness: heartbeat state and its age.
+    editor_status: str | None = None
+    editor_heartbeat_age_ms: int | None = None
 
 
 class BackendDiagnostics(BaseModel):
@@ -155,6 +158,8 @@ async def _fetch_bridge_diagnostics(bridge: Bridge) -> BridgeDiagnostics:
             addon_commands=None,
             peer_identity=None,
             backend=None,
+            editor_status=bridge.editor_status,
+            editor_heartbeat_age_ms=bridge.editor_heartbeat_age_ms,
         )
     response = await bridge.send("cmd_get_project_info", timeout=3.0)
     if response.ok and response.result:
@@ -183,6 +188,8 @@ async def _fetch_bridge_diagnostics(bridge: Bridge) -> BridgeDiagnostics:
         addon_commands=addon_info.get("commands"),
         peer_identity=bridge.peer_identity,
         backend=backend,
+        editor_status=bridge.editor_status,
+        editor_heartbeat_age_ms=bridge.editor_heartbeat_age_ms,
     )
 
 

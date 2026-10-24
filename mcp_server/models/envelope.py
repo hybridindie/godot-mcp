@@ -44,6 +44,9 @@ class ErrorCode(StrEnum):
     # #759: a destructive call's consent token is missing, expired, replayed, or
     # does not match the exact (tool, args) it was minted for.
     CONSENT_MISMATCH = "CONSENT_MISMATCH"
+    # #762: a mutating call was refused because the editor is importing, showing a
+    # modal, or busy with another command; retry when it is ready.
+    EDITOR_BUSY = "EDITOR_BUSY"
 
 
 class NextCall(BaseModel):

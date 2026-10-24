@@ -95,6 +95,7 @@ def test_every_python_error_code_is_used_or_explicitly_unrepresented() -> None:
         # *reads* this code (never emits it via _fail), so the _fail scan misses it
         "UNDECLARED_PARAMETER",  # server-side argument validation (#757)
         "CONSENT_MISMATCH",  # server-side consent-token verification (#759)
+        "EDITOR_BUSY",  # server-side readiness gate (#762)
     }
     emitted = set(_collect_codes())
     unused = ALLOWED - emitted - server_only

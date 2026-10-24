@@ -62,6 +62,8 @@ var _router: MCPCommandRouter = null
 var _url := DEFAULT_URL
 var _active := false  # whether we should keep a connection alive (start/stop)
 var _status: Status = Status.DISCONNECTED
+# #762: readiness heartbeat cadence (the server marks a 5s gap stale).
+var _status_timer := 0.0
 var _retry_delay := _RETRY_MIN
 var _retry_remaining := 0.0  # seconds until the next reconnect attempt
 # #593: consecutive reconnect attempts since the last healthy connection — reset
@@ -181,9 +183,14 @@ func _process(delta: float) -> void:
 				# auth send cannot be missed between attempts (PR #558 review).
 				_send_auth()
 				_send_peer_hello()  # #537: announce identity (project_path etc.)
+				_status_timer = 1.0  # #762: send the first readiness heartbeat now
 			_set_status(Status.CONNECTED)
 			while _peer.get_available_packet_count() > 0:
 				_handle_text(_peer.get_packet().get_string_from_utf8())
+			_status_timer += delta
+			if _status_timer >= 1.0:
+				_status_timer = 0.0
+				_send_editor_status()
 		WebSocketPeer.STATE_CONNECTING:
 			_set_status(Status.CONNECTING)
 		WebSocketPeer.STATE_CLOSING:
@@ -306,6 +313,30 @@ func _schedule_retry() -> void:
 ## surfaces the connected editor's project path in godot_get_server_info, and
 ## logs a structured "peer replaced" entry naming both paths when a second
 ## editor takes over — silence is what a replaced agent can't diagnose.
+## #762: report readiness on the heartbeat. The server adds `busy` (a command
+## is in flight) and `stale` (no message within the deadline); the addon only
+## reports what it can observe — importing and an exclusive modal window.
+func _send_editor_status() -> void:
+	if _peer == null or _peer.get_ready_state() != WebSocketPeer.STATE_OPEN:
+		return
+	_peer.send_text(JSON.stringify({
+		"command": "cmd_editor_status",
+		"params": {"status": _detect_editor_status()},
+	}))
+
+
+func _detect_editor_status() -> String:
+	var fs := EditorInterface.get_resource_filesystem()
+	if fs != null and fs.is_scanning():
+		return "importing"
+	var base := EditorInterface.get_base_control()
+	if base != null and base.get_tree() != null:
+		for child in base.get_tree().get_root().get_children():
+			if child is Window and child.visible and child.exclusive:
+				return "modal"
+	return "ready"
+
+
 func _send_peer_hello() -> void:
 	if _peer == null:
 		return

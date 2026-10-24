@@ -41,6 +41,14 @@ async def _ping_live_bridge() -> None:
     assert connected, "the addon never connected to the bridge (editor not running?)"
     try:
         assert await bridge.ping() is True, "live ping did not return pong"
+        # #762: the addon's 1s readiness heartbeat must reach the bridge.
+        for _ in range(60):
+            if bridge.editor_status not in ("unknown", "disconnected"):
+                break
+            await asyncio.sleep(0.1)
+        assert bridge.editor_status in ("ready", "importing", "modal", "busy"), (
+            f"addon heartbeat never reported a readiness status ({bridge.editor_status!r})"
+        )
     finally:
         await bridge.close()
 

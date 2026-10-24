@@ -23,6 +23,21 @@ Instead, poll-and-cache handlers **always answer within one round-trip**:
 { "ready": true, "samples": [...] }
 ```
 
+## Editor readiness heartbeat (#762)
+
+Separately from a poll's pending reason, the addon sends a 1s heartbeat
+(`cmd_editor_status`) reporting what it can observe: `ready`, `importing`
+(EditorFileSystem is scanning), or `modal` (an exclusive editor window is up).
+The bridge adds `busy` (another command is in flight) and `stale` (no message
+within 5s); `disconnected`/`unknown` cover the rest.
+
+`godot_health_check` and `get_server_info` expose `editor_status` and
+`editor_heartbeat_age_ms`. A mutating/destructive call is refused **before it
+reaches the editor** when the status is `importing`/`modal`/`busy`
+(`EDITOR_BUSY`, `required: editor_ready`) or `stale`
+(`BRIDGE_DISCONNECTED`) — fail fast with a `next_call` to `godot_health_check`,
+never a full request timeout. Dry-runs and read-only tools are not gated.
+
 ## The token table
 
 | Token | Handler | Meaning |

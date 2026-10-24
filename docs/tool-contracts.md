@@ -1419,8 +1419,8 @@ history returns zero-values, not an error.
 
 | Tool | Params | Returns | Notes |
 |------|--------|---------|-------|
-| `godot_health_check` | — | `HealthStatus { server, version, transport, bridge_url, bridge_connected, addon_version?, version_notice?, bridge_bind_error? }` | liveness ping — call first; `version` is the CalVer build (see § contract versioning); `version_notice` flags a server↔addon version mismatch (#629); `bridge_bind_error` is set when the listener could not bind its port (#655) |
-| `godot_get_server_info` | — | `ServerDiagnostics { server, version, contract_version, min_compatible_contract, transport, toolsets[], prompts[], resources[], bridge{connected, url, godot_version?, project_name?, project_path?, addon_version?, addon_commands?, backend?{csharp_supported, csharp_project, csharp_build}}, active_scene?, addon_drift_warning?, version_notice?, update?, common_errors[], next_steps[] }` | capability snapshot — call first |
+| `godot_health_check` | — | `HealthStatus { server, version, transport, bridge_url, bridge_connected, addon_version?, version_notice?, bridge_bind_error?, editor_status?, editor_heartbeat_age_ms? }` | liveness ping — call first; `version` is the CalVer build (see § contract versioning); `version_notice` flags a server↔addon version mismatch (#629); `bridge_bind_error` is set when the listener could not bind its port (#655); `editor_status` is the readiness heartbeat (#762) |
+| `godot_get_server_info` | — | `ServerDiagnostics { server, version, contract_version, min_compatible_contract, transport, toolsets[], prompts[], resources[], bridge{connected, url, godot_version?, project_name?, project_path?, addon_version?, addon_commands?, backend?{csharp_supported, csharp_project, csharp_build}, editor_status?, editor_heartbeat_age_ms?}, active_scene?, addon_drift_warning?, version_notice?, update?, common_errors[], next_steps[] }` | capability snapshot — call first |
 | `godot_check_for_updates` | — | `UpdateStatus { enabled, current, latest?, update_available, url?, checked_at?, error?, hint? }` | opt-in (`GODOT_MCP_CHECK_UPDATES`, off by default → `enabled: false`); when on, queries the release feed and reports a newer version; on finding one it also notifies the editor dock (#629) |
 | `godot_debug_workflow` | `scene="", timeout_seconds=5.0, expected_timeout=False` | `DebugWorkflowResult { bridge{}, scene_tree?, run?, parse{ok, errors[], skipped_reason}, findings[], suggestions[] }` | one-call comprehensive check; `expected_timeout=True` suppresses the timeout/NON-ZERO-EXIT findings for games that never self-quit (#490) |
 | `godot_read_resource` | `uri` | JSON string for any `godot://` URI (see § resources) | the resources-as-tools fallback for clients without resource-protocol support; unknown URIs → structured `ToolError` |
@@ -1428,6 +1428,12 @@ history returns zero-values, not an error.
 `godot_get_server_info` returns the full server surface so an agent can discover everything in one call: toolset summaries with counts, registered prompt names, resource URIs, bridge state, active scene, common errors with fixes, and suggested next steps.
 
 #### Version drift & updates (issue #629)
+
+`editor_status` (#762) is the addon's 1s heartbeat: `ready` / `importing` /
+`modal`, plus `busy` (a command is in flight), `stale` (no heartbeat within 5s),
+`disconnected`, or `unknown` (an older addon). Mutating/destructive calls are
+refused with `EDITOR_BUSY` before reaching the editor when it is not ready, and
+`BRIDGE_DISCONNECTED` when stale; dry-runs and read-only tools are not gated.
 
 Both `godot_health_check` and `godot_get_server_info` report the connected addon's version and, when it differs from the server's, a `version_notice` naming which side is behind — a direct compare that the command-set `addon_drift_warning` proxy can miss (a version bump with no command change). Update checking is **opt-in and offline by default**: with `GODOT_MCP_CHECK_UPDATES` unset, `godot_check_for_updates` returns `enabled: false` and makes no request; when set, it queries the GitHub release feed (falling back to PyPI), caches the result (TTL), and reports `{current, latest, update_available, url}`. A known update is also folded into `godot_get_server_info.update` and its `next_steps`, and pushed to the editor dock via `cmd_update_available` so the human sees it too.
 

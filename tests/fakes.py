@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
+from typing import Any
 
 from pydantic import ValidationError
 
@@ -105,6 +106,12 @@ class FakeAddonConnection:
 
     async def recv(self) -> str:
         return await self._incoming.get()
+
+    async def push(self, payload: dict[str, Any]) -> None:
+        """Queue an unsolicited addon→server message (e.g. a status heartbeat)."""
+        import json
+
+        await self._incoming.put(json.dumps(payload))
 
     async def close(self) -> None:
         self.closed = True
