@@ -40,6 +40,17 @@ async def _ok(bridge: Bridge, command: str, params: dict[str, Any]) -> dict[str,
     return response.result
 
 
+async def _wait_active_scene(bridge: Bridge, scene_path: str) -> None:
+    result: dict[str, Any] = {}
+    for _ in range(80):
+        r = await bridge.send("cmd_get_active_scene")
+        result = r.result or {} if r.ok else {}
+        if result.get("path") == scene_path:
+            return
+        await asyncio.sleep(0.1)
+    raise AssertionError(f"scene {scene_path} did not become active: {result}")
+
+
 async def _run() -> None:
     bridge = Bridge(BridgeConfig(url=BRIDGE_URL))
     if not await serve_and_await_editor(bridge):
@@ -205,6 +216,7 @@ async def _run_delete_open_scene_multi_tab() -> None:
             {"root_type": "Node3D", "scene_path": victim},
         )
         assert created["created"] is True
+        await _wait_active_scene(bridge, victim)
         await _ok(
             bridge,
             "cmd_create_node",
@@ -216,6 +228,7 @@ async def _run_delete_open_scene_multi_tab() -> None:
             {"root_type": "Node3D", "scene_path": bystander},
         )
         assert created["created"] is True
+        await _wait_active_scene(bridge, bystander)
         await _ok(
             bridge,
             "cmd_create_node",
@@ -223,14 +236,6 @@ async def _run_delete_open_scene_multi_tab() -> None:
         )
 
         # The victim is open but NOT active — delete it from under the bystander.
-        # Scene activation is asynchronous (the editor creates the tab on the next
-        # idle frame), so wait for it rather than asserting immediately.
-        for _ in range(40):
-            active = await _ok(bridge, "cmd_get_active_scene", {})
-            if active.get("path") == bystander:
-                break
-            await asyncio.sleep(0.1)
-        assert active["path"] == bystander, f"precondition: bystander not active ({active})"
         deleted = await _ok(bridge, "cmd_delete_resource_file", {"path": victim})
         assert deleted["deleted"] is True
         assert deleted["tab_closed"] is True
