@@ -5,7 +5,7 @@ visits could open ``ws://127.0.0.1:9080``. The real listener must therefore
 reject a handshake that carries a browser ``Origin`` header, while the Godot
 addon — whose ``WebSocketPeer`` sends **no** Origin — still connects. Exercised
 against a real loopback listener on an ephemeral port (the production
-``_default_serve`` path the fakes bypass).
+``default_serve`` path the fakes bypass).
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from websockets.asyncio.client import connect
 from websockets.exceptions import InvalidStatus
 from websockets.typing import Origin
 
-from mcp_server.bridge import _default_serve
+from mcp_server.bridge_helpers import default_serve
 
 pytestmark = pytest.mark.asyncio
 
@@ -27,7 +27,7 @@ async def _keep_open(conn: Any) -> None:
 
 
 async def test_originless_handshake_succeeds_and_browser_origin_is_rejected() -> None:
-    server: Any = await _default_serve(_keep_open, "127.0.0.1", 0, 1024)
+    server: Any = await default_serve(_keep_open, "127.0.0.1", 0, 1024)
     port = server.sockets[0].getsockname()[1]
     try:
         # The Godot addon's WebSocketPeer sends no Origin header — accepted.

@@ -32,9 +32,11 @@ def test_bridge_message_limit_admits_full_screenshot_frames() -> None:
     assert config.max_inbound_message_bytes == DEFAULT_MAX_INBOUND_MESSAGE_BYTES
     assert config.max_inbound_message_bytes >= 16 * 1024 * 1024
     # The real listener must actually apply it (no dead config field).
-    src = inspect.getsource(__import__("mcp_server.bridge", fromlist=["_default_serve"]))
-    default_serve = src.split("async def _default_serve", 1)[1].split("\nasync def ", 1)[0]
-    assert "max_size" in default_serve, "_default_serve must pass max_size to websockets.serve"
+    src = inspect.getsource(
+        __import__("mcp_server.bridge_helpers", fromlist=["default_serve"])
+    )
+    listener = src.split("async def default_serve", 1)[1].split("\nasync def ", 1)[0]
+    assert "max_size" in listener, "default_serve must pass max_size to websockets.serve"
 
 
 def test_from_env_reads_overrides(monkeypatch: pytest.MonkeyPatch) -> None:

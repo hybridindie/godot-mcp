@@ -26,12 +26,25 @@ import logging
 import time
 from collections.abc import Awaitable, Callable
 from contextlib import suppress
-from typing import Any, Protocol
-from urllib.parse import urlparse
+from typing import Any
 
 from mcp_server import __version__
+from mcp_server.bridge_helpers import (
+    Connection,
+    Server,
+    bind_target,
+    default_serve,
+    supplied_token,
+)
 from mcp_server.config import BridgeConfig
 from mcp_server.models.envelope import CommandEnvelope, ErrorCode, ResponseEnvelope
+
+# Injectable transport seams (tests pass fakes; production uses the defaults).
+Connector = Callable[[str], Awaitable[Connection]]
+Serve = Callable[
+    [Callable[[Connection], Awaitable[None]], str, int, int], Awaitable[Server]
+]
+Sleep = Callable[[float], Awaitable[None]]
 
 logger = logging.getLogger(__name__)
 
@@ -43,85 +56,6 @@ PROBE_PATH = "/probe"
 # #762: an editor that has not sent a heartbeat (or completed a command) within
 # this window is stale — fail fast instead of waiting out a request timeout.
 _STALE_AFTER_SECONDS = 5.0
-
-
-class Connection(Protocol):
-    """The minimal transport the bridge needs (an accepted WebSocket peer)."""
-
-    async def send(self, message: str) -> None: ...
-    async def recv(self) -> str | bytes: ...
-    async def close(self) -> None: ...
-
-
-class Server(Protocol):
-    """The minimal listener handle the bridge needs (what ``serve`` returns)."""
-
-    def close(self) -> None: ...
-    async def wait_closed(self) -> None: ...
-
-
-# A connector yields the peer to adopt (the fake addon, in tests). Production binds a
-# real listener instead and adopts whatever connects, so connector is None there.
-Connector = Callable[[str], Awaitable[Connection]]
-# A serve function: start listening, dispatching each accepted peer to ``handler``.
-# ``max_size`` is the inbound message cap the real listener must apply (#563).
-Serve = Callable[
-    [Callable[[Connection], Awaitable[None]], str, int, int], Awaitable[Server]
-]
-Sleep = Callable[[float], Awaitable[None]]
-
-
-def _bind_target(url: str) -> tuple[str, int]:
-    """Host/port to bind from the configured bridge URL. ``localhost`` is normalised to
-    ``127.0.0.1`` so the addon's IPv4 connect can never miss an IPv6-only listener."""
-    parsed = urlparse(url)
-    host = parsed.hostname or "127.0.0.1"
-    if host == "localhost":
-        host = "127.0.0.1"
-    return host, parsed.port or 9080
-
-
-def _supplied_token(raw: str | bytes) -> tuple[str, bool]:
-    """The token a peer's auth envelope carries, and whether it IS an auth envelope.
-
-    The auth message is ``{id, command: cmd_auth, params: {token}}`` — the
-    addon's first message when it is configured with a token (issue #538).
-    Any other shape reports ``(, False)`` so the handshake loop can skip it
-    (a control message racing ahead of the auth envelope) instead of falsely
-    refusing."""
-    try:
-        payload: Any = json.loads(raw if isinstance(raw, str) else raw.decode("utf-8"))
-    except (json.JSONDecodeError, UnicodeDecodeError):
-        return "", False
-    if not isinstance(payload, dict):
-        return "", False
-    params = payload.get("params")
-    if payload.get("command") != "cmd_auth" or not isinstance(params, dict):
-        return "", False
-    return str(params.get("token", "")), True
-
-
-async def _default_serve(
-    handler: Callable[[Connection], Awaitable[None]],
-    host: str,
-    port: int,
-    max_size: int,
-) -> Server:
-    # Imported lazily so importing this module performs no I/O and does not hard-require
-    # the websockets package until the listener is actually started.
-    from websockets.asyncio.server import serve
-
-    async def _on_connect(ws: Any) -> None:
-        await handler(ws)
-
-    # #563: max_size must exceed the largest frame the addon sends — the library
-    # default (1 MiB) silently drops full-screenshot responses (over the wire the
-    # addon sees a closed connection and just reconnects; the tool times out).
-    # #636: origins=[None] rejects any handshake carrying a browser Origin (a page
-    # the user visits can reach ws://127.0.0.1:9080 — WebSockets are exempt from
-    # same-origin policy). The Godot addon's WebSocketPeer sends no Origin, so it
-    # still connects.
-    return await serve(_on_connect, host, port, max_size=max_size, origins=[None])
 
 
 class Bridge:
@@ -137,7 +71,7 @@ class Bridge:
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._config = config or BridgeConfig()
-        self._serve = serve or _default_serve
+        self._serve = serve or default_serve
         self._connector = connector
         self._sleep = sleep
         self._server: Server | None = None
@@ -303,7 +237,7 @@ class Bridge:
             return
         if self._server is not None:
             return
-        host, port = _bind_target(self._config.url)
+        host, port = bind_target(self._config.url)
         self._server = await self._serve(
             self._handle_peer, host, port, self._max_inbound_message_bytes
         )
@@ -484,7 +418,7 @@ class Bridge:
                 with suppress(Exception):
                     await conn.close()
                 return False, []
-            supplied, is_auth = _supplied_token(raw)
+            supplied, is_auth = supplied_token(raw)
             if not is_auth:
                 skipped.append(raw)  # replay after adoption (identity, etc.)
                 continue
