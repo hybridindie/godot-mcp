@@ -153,26 +153,17 @@ nodes", "build a scene", "UI/HUD", "collision setup", "autoload", "shader",
 "animation", "write a GUT test". Also on bugs like "sprite not showing", "input not
 working", "enemy not spawning" and "GDScript parse error".
 
-**What it teaches (10 sections):**
-1. **Node types & rendering** — Control vs Node2D, Polygon2D for
-   no-asset shapes, z-ordering in the scene tree
-2. **Autoloads & entity spawning** — the autoload-children rendering trap,
-   state persistence across scene reloads
-3. **Input handling** — the UI-overlay input trap (`mouse_filter`),
-   custom WASD input actions, pause/process mode
-4. **Collision layers & masks** — bitmask convention table, layer/mask
-   values per entity, CollisionShape2D resources
-5. **GDScript language gotchas** — the `:=` inference trap, `PackedVector2Array`
-   constructor, signal rename breakage, and two 4.8 changes (bare strings are no
-   longer comments; a class can't inherit its own inner class)
-6. **Scene file format (.tscn)** — ext_resource, sub_resource, node
-   blocks, text vs GDScript syntax, disk vs bridge editing
-7. **Infinite background grids** — dynamic tile pool sized from viewport
-8. **MCP tool workflow** — session-start checks, the common tool-calls
-   table, and round-trip economy (the bridge is managed for you)
-9. **Testing with GUT** — setup, test patterns, gotchas (no await ready,
-   no `assert_contains`, autoload state leak), MCP `run_tests` tool
-10. **Quick checklist** — verify before playing a scene
+**What it teaches:** a lean core (about 7.5 KB) that applies to all work, plus 12 guides
+it tells the agent to read **before** each kind of work (#788):
+- **Read before you build:** one "Before X, read `references/…`" line per guide (UI, physics,
+  GUT, scene authoring, autoloads, templates, tilemaps, shaders, themes, animation, bugs)
+1. **Node types & rendering:** Control vs Node2D, Polygon2D, draw order, spawn under the scene root
+2. **Input & pause:** the overlay `mouse_filter` trap, custom WASD actions, `PROCESS_MODE_ALWAYS`
+3. **Physics in one paragraph:** layer vs mask, the shape is a resource
+4. **GDScript gotchas:** `:=` inference, signal renames, the 4.8 changes, `EditorDock` on 4.6+
+5. **Scenes, saving & MCP tools:** MCP over hand edits, save/`persisted`, parse checks,
+   `describe_class`, the honesty fields
+6. **Checklist before you report done**
 
 **Reference guides (loaded on demand):**
 
@@ -276,8 +267,8 @@ skills/
 ├── godot-playtest-and-debug/          # MCP workflow: runtime + input + debugger recipe
 │   └── SKILL.md
 └── godot-expert/                      # Engine knowledge: Godot 4.x expert rules
-    ├── SKILL.md                       # 10 sections
-    └── references/                    # 7 specialized guides
+    ├── SKILL.md                       # lean core + read-before pointers
+    └── references/                    # 12 specialized guides
         ├── ui-hud.md
         ├── physics-collision.md
         ├── testing-gut.md

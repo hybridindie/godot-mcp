@@ -71,21 +71,17 @@ def register_physics(mcp: FastMCP, bridge: Bridge) -> None:
     ) -> CollisionShapeResult:
         """Add a collision shape under the body/area at ``node_path``: creates a
         ``collision_node_type`` (CollisionShape2D/3D) holding a ``shape_type`` shape
-        (e.g. RectangleShape2D) with ``properties`` (size/radius/…).
+        with ``properties`` (size/radius/…).
 
-        The shape must match the dimension of BOTH the collision node and the
-        target body: a 3D shape (BoxShape3D) with the default CollisionShape2D
-        fails, and a 2D shape (RectangleShape2D) on a StaticBody3D fails too —
-        a 2D shape can never collide in a 3D physics world. A VALIDATION_ERROR
-        naming the mismatch is returned in both cases. For 3D bodies pass
-        ``shape_type`` like ``BoxShape3D`` and ``collision_node_type="CollisionShape3D"``.
+        Shape, collision node, and target body must all share one dimension — a
+        2D shape can never collide in a 3D world, and a 3D shape under a
+        CollisionShape2D fails. A mismatch returns VALIDATION_ERROR naming the
+        conflict. For 3D bodies pass ``shape_type="BoxShape3D"`` and
+        ``collision_node_type="CollisionShape3D"``.
 
-        IF THIS FAILS with "Node not found":
-          -> The node_path is wrong. Use get_scene_tree() to verify the path.
-        IF THIS FAILS with "Dimension mismatch":
-          -> shape_type and collision_node_type (or the target body) disagree
-             (2D vs 3D). Pass a collision_node_type of the same dimension as
-             shape_type AND a shape of the same dimension as the target body.
+        IF "Node not found": verify the path with get_scene_tree().
+        IF "Dimension mismatch": make ``shape_type``, ``collision_node_type`` and
+        the body the same dimension (2D vs 3D).
         """
         await require_node_exists(bridge, node_path)
         params = {

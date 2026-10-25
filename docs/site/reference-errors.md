@@ -13,8 +13,8 @@ silent, and every failure names a fix.
 
 ## The error-code enum
 
-The eight bridge-envelope codes (the `ErrorCode` enum in
-`mcp_server/models/envelope.py` — what the addon can emit):
+The `ErrorCode` enum (`mcp_server/models/envelope.py`) has **sixteen** members.
+Ten can cross the bridge from the addon:
 
 | Code | Meaning | Typical cause |
 |------|---------|---------------|
@@ -26,14 +26,17 @@ The eight bridge-envelope codes (the `ErrorCode` enum in
 | `INTERNAL_ERROR` | a handler failed without producing a response | a GDScript error inside the addon (see the editor's Output panel) |
 | `APPROVAL_DENIED` | the human declined an approval | n/a — retry with different intent |
 | `PEER_REPLACED` | a server **notice** to the editor that a second editor took over the bridge (not a tool failure) | two editors pointed at one server; the replaced dock shows purple and stops reconnecting (#593) |
+| `UNSUPPORTED` | the capability exists but this Godot version cannot provide it | paused-frame stack/eval not exposed to debugger plugins on 4.7 (#677); upgrade or use a supported path |
+| `RESPONSE_TOO_LARGE` | an addon reply exceeded the outbound buffer and was dropped | an oversized payload from the editor; narrow the request (#647) |
 
-Five server-side codes appear in `ToolError` text but never cross the bridge
-(the server rejects before dispatching, or bounds the payload locally):
+Six are **server-side** decisions that never reach the bridge (the server rejects
+before dispatching, or bounds the payload locally):
 
 | Code | Meaning | Typical cause |
 |------|---------|---------------|
 | `PARAM_ERROR` | a path parameter rejected server-side before the bridge call | a script/resource path that isn't `res://`-contained (`res://../…`, `res:///abs`) |
 | `OUTPUT_LIMIT` | a result payload would exceed the 25k character cap | an oversized `snapshot_subtree` — narrow with `max_depth` |
+| `DOWNLOAD_FAILED` | fetching a remote asset failed | a bad URL, an HTTP error status, or a transport failure in `import_asset` |
 | `UNDECLARED_PARAMETER` | an argument the tool does not declare (#757) | the `hint` lists the accepted names; `next_call` renames a near-miss |
 | `CONSENT_MISMATCH` | a destructive call’s consent token is missing, expired, replayed, or bound to different args (#759) | call `godot_describe_tool` with the exact args, then pass its `token` as `consent` |
 | `EDITOR_BUSY` | a mutating call was refused because the editor is importing, showing a modal, or busy (#762) | wait for the editor to finish, then retry; `godot_health_check` shows `editor_status` |

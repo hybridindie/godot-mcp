@@ -3,7 +3,7 @@ type: index
 title: "Changelog"
 description: "Release history for godot-mcp."
 created: 2026-09-19
-updated: 2026-10-20
+updated: 2026-10-24
 ---
 
 # Changelog
@@ -11,6 +11,53 @@ updated: 2026-10-20
 Full release notes live on
 [GitHub Releases](https://github.com/hybridindie/godot-mcp/releases). This page
 summarizes the recent ones.
+
+## Unreleased — the stable-line batch
+
+The largest surface change since the stable line began: agent trust (receipts,
+consent, readiness), project-owned verification, and project-defined tools.
+All of it is **additive** — `CONTRACT_VERSION` stays `1`.
+
+### Project-defined tools (#761)
+
+- **`godot_project_scan_tools`** discovers `## @mcp_tool` functions in `@tool`
+  scripts and registers each as a `godot_project_*` tool in the gated `project`
+  toolset. JSON Schema is derived from GDScript static types; untyped or
+  unsupported parameters are rejected with a reason + line, and safety
+  (`dry_run` / `confirm`) is enforced server-side. See `examples/project_tools/`.
+
+### Verification you can trust
+
+- **Change receipts (#756)** — every mutating result reports what changed,
+  before/after where available, and `reversible_by`.
+- **Consent tokens (#759)** — destructive calls can require a token bound to the
+  exact tool + args, minted by `godot_describe_tool`.
+- **Undo checkpoints + VCS backstop (#760)** — non-undoable changes say how to
+  reverse them; checkpoint/restore tools cover editor history.
+- **`validate_project` (#758, #778)** — project-registered validators under
+  `res://.mcp/validators/`, plus built-ins for autoload targets, broken
+  dependencies, and unloadable scripts. Runs headless so CI uses the same rules;
+  `paths` scopes the run.
+- **Readiness (#762)** — a busy or importing editor is refused with
+  `EDITOR_BUSY` instead of timing out; `config`/`doctor` cover setup readiness.
+
+### Testing
+
+- **`run_tests` targeting (#775, #785)** — run one GUT script (`test_file`) or
+  one `test_path` (file *or* folder). Missing targets and conflicting arguments
+  return structured errors instead of a silent empty run.
+
+### Agent guidance
+
+- **Always-on rules (#783)** — `skills/godot-rules.md`, task-worded skill
+  triggers, and copy-based install (symlinked skill dirs hide `references/`).
+
+### Fixes
+
+- **Tool-description headroom (#792)** — the catalog sits well under its budget
+  again, and the budget test now enforces slack so routine edits cannot fail CI.
+- **Error codes (#791)** — every emitted code is a member of `ErrorCode`, and
+  the reference page lists all sixteen.
 
 ## 2026.10.21b2 — 4.8 shims in the beta
 

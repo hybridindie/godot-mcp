@@ -104,7 +104,7 @@ Three AI skills ship in [`skills/`](skills/README.md) — copy the skill folders
 
 - `godot-getting-started` — bridge connection, toolset gating, safety classes, reading honesty fields (`undoable`/`aborted_at`/`rescan_pending`), round-trip economy
 - `godot-playtest-and-debug` — runtime play-test, input simulation, break-state gate, timeout semantics, debugging
-- `godot-expert` — Godot 4.x engine knowledge, 10 sections + 12 reference guides + 11 documented bugs
+- `godot-expert` — Godot 4.x engine knowledge: a lean core (#788) with "Before X, read `references/…`" pointers to 12 reference guides + 11 documented bugs
 
 [`skills/godot-rules.md`](skills/godot-rules.md) is the one-page **always-on** companion (#783): paths, which tool for which change, "done means verified", GDScript 4.x essentials. Users wire it into their client's always-on instructions. Skills load only when the model picks them, so the rules carry what must apply on every task. Copy the skill folders, don't symlink them (some clients hide `references/` behind a symlink).
 

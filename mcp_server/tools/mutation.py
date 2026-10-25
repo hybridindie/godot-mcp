@@ -341,25 +341,20 @@ def register_mutation(
         save_current: bool = False,
         dry_run: bool = False,
     ) -> ExtractSceneResult:
-        """Extract the subtree at ``node_path`` into a reusable scene file at
+        """Extract the subtree at ``node_path`` into a reusable scene at
         ``scene_path`` (``res://…​.tscn``) — the prefab workflow (issue #531):
-        build a subtree once, extract it, then instance it N copies with
-        ``instance_scene`` and batch-edit the prefab.
+        build once, extract, then instance N copies with ``instance_scene``.
 
-        With ``replace_with_instance=True`` the original subtree is replaced by an
-        instance of the new scene in one undoable action (the editor's own
-        "Save Branch as Scene" move). With ``save_current=True`` the edited scene is
-        saved right after extraction so the new prefab file and the (possibly
-        replaced) tree are on disk together. Reversible via the editor's undo;
-        refuses subtrees inside non-editable instanced children — those would be
-        silently dropped on save (enable Editable Children or extract in the
-        source scene).
+        ``replace_with_instance=True`` swaps the original subtree for an instance
+        in one undoable action (the editor's own "Save Branch as Scene" move).
+        ``save_current=True`` saves the edited scene right after extraction.
+        Reversible via undo. Refuses subtrees inside non-editable instanced
+        children — they would be silently dropped on save (enable Editable
+        Children or extract in the source scene).
 
-        IF THIS FAILS with "comes from the instanced scene":
-          -> The target subtree belongs to another .tscn. Extract there, or call
-             set_editable_children(instance_path, True) first and re-try.
-        IF THIS FAILS with "already exists":
-          -> Pick another ``scene_path`` (or delete_resource_file first).
+        IF "comes from the instanced scene": extract there, or call
+        set_editable_children(instance_path, True) first.
+        IF "already exists": pick another ``scene_path`` (or delete the file).
         """
         await require_active_scene(bridge)
         await require_node_exists(bridge, node_path)

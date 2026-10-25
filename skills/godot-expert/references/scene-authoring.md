@@ -108,7 +108,8 @@ lives in the editor's in-memory scene until you call `godot_scene_edit_save_scen
 
 ### On disk (no editor needed)
 
-Use when the editor is closed or for bulk changes:
+Use when the editor is closed or for bulk changes. If the editor has the scene open,
+don't hand-edit it: the editor overwrites the file when it next saves.
 
 1. Edit the `.tscn` file directly
 2. Edit `project.godot` if needed
@@ -173,3 +174,35 @@ siblings draw first (underneath):
 Godot 4.4+ generates `.gd.uid` files alongside each script. These contain
 a unique identifier for the script resource. They're safe to commit (small,
 one line). If missing, Godot regenerates them on import.
+## MCP tools for scene and project work
+
+Moved from the `godot-expert` core (#788). Enable the matching toolset first
+(`godot-getting-started`).
+
+| Tool | Purpose |
+|------|---------|
+| `godot_inspection_get_project_info()` | Project name, autoloads, input actions |
+| `godot_inspection_get_scene_tree()` | Current scene tree (max_depth) |
+| `godot_scene_edit_open_scene()` | Open a scene in the editor |
+| `godot_scene_edit_create_node()` | Add a node to the active scene |
+| `godot_scene_edit_set_node_property()` | Set a property (handles type coercion) |
+| `godot_scene_edit_attach_script()` | Attach a .gd script to a node |
+| `godot_scripts_write()` | Write/overwrite a .gd file (flushes to disk) |
+| `godot_scene_edit_add_to_group()` | Add a node to a group |
+| `godot_scene_edit_save_scene()` | Save the active scene to disk |
+| `godot_scene_edit_save_all_scenes()` | Save all open scenes |
+| `godot_scene_edit_reload_scene()` | Reload a scene from disk after a hand edit |
+| `godot_runtime_play_scene()` | Play the scene in the editor |
+| `godot_runtime_run_and_capture()` | Headless run + captured errors/output (runs files on disk) |
+| `godot_debug_workflow()` | One-call diagnostics: parse + tree + run + bridge (core, always on) |
+| `godot_composite_run_commands()` | N editor commands in one round-trip (stop_on_error reports what was skipped) |
+| `godot_batch_set_property()` | Set one property on many nodes (reports `undoable`; >20 nodes bypass undo) |
+| `godot_project_set_setting()` | Write a project.godot setting (refuses unknown keys with a hint) |
+| `godot_scene_edit_close_scene()` | Close a scene tab (destructive, needs confirm) |
+| `godot_undo()` / `godot_redo()` | Undo / re-apply the last editor action (always-on core) |
+| `godot_list_history()` | Editor undo history: version, depth, recent actions (read-only) |
+| `godot_describe_class()` | ClassDB metadata: properties/methods/signals/enums with Variant.Type names |
+
+**Round-trip economy:** for a multi-step build (create scene → add nodes → attach
+script → save), prefer one `godot_composite_run_commands` batch over a sequence of
+single calls; the editor drains each command in about one frame.
