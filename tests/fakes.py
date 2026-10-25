@@ -15,7 +15,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from mcp_server.bridge import Connection
+from mcp_server.bridge_helpers import Connection
 from mcp_server.models.envelope import CommandEnvelope, ResponseEnvelope
 
 # A responder maps a received command to a response, or None to stay silent

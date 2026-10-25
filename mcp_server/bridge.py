@@ -46,6 +46,10 @@ Serve = Callable[
 ]
 Sleep = Callable[[float], Awaitable[None]]
 
+# Re-exported for existing importers (fakes, type aliases); the helpers module
+# owns their definitions (#829).
+__all__ = ["Bridge", "Connection", "Server"]
+
 logger = logging.getLogger(__name__)
 
 # #702: a replaced editor probes this path before reconnecting. The probe is
