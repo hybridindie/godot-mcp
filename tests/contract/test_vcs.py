@@ -34,7 +34,7 @@ def _server(project: Path) -> FastMCP:
     return create_server(config, bridge=bridge)
 
 
-async def _call(client: Client, tool: str, **arguments: Any) -> Any:
+async def _call(client: Any, tool: str, **arguments: Any) -> Any:
     return await client.call_tool(tool, arguments, raise_on_error=False)
 
 
@@ -175,7 +175,7 @@ async def test_project_must_be_the_repository_root(tmp_path: Path) -> None:
 async def test_missing_git_binary_is_refused(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(vcs.shutil, "which", lambda _name: None)
+    monkeypatch.setattr("mcp_server.tools.vcs.shutil.which", lambda _name: None)
 
     async with Client(_server(_repo(tmp_path))) as client:
         result = await _call(client, "godot_vcs_snapshot")
