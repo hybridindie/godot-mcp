@@ -13,7 +13,26 @@ start that kind of work.
 Companions: `godot-rules.md` (always-on rules), `godot-getting-started` (version check,
 toolset gating, safety), `godot-playtest-and-debug` (run, inspect, debug).
 
+## Small edits: the short path
+
+A one-node or one-property change needs no reference guide:
+
+1. `godot_enable_toolset(category="scene_edit")` (the key is `category`; for scripts use `"scripts"`).
+2. `godot_inspection_get_scene_tree()` to find the parent path.
+3. `godot_scene_edit_create_node(parent_path=..., node_type=..., node_name=...)`, then
+   `godot_scene_edit_set_node_property(...)` for each property.
+4. Result not `persisted: true`? Call `godot_scene_edit_save_scene()`.
+5. Verify from the editor (`godot_inspection_get_scene_tree()`,
+   `godot_inspection_get_node_properties(node_path=...)`), then stop.
+
+Saving rewrites the whole `.tscn`: it drops `load_steps`, adds `unique_id` and reorders
+sections. A large `git diff` after a one-node change is normal, not damage, so don't
+diff or hand-read the file to verify.
+
 ## Read before you build
+
+These are for multi-step work in an area; a single node or property follows the short
+path above.
 
 - Before building UI or a HUD (labels, bars, menus, overlays), read [references/ui-hud.md](references/ui-hud.md).
 - Before collision, physics bodies or layers/masks, read [references/physics-collision.md](references/physics-collision.md).
