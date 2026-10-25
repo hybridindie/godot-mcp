@@ -371,3 +371,22 @@ def test_every_reference_has_a_read_before_pointer() -> None:
     refs = sorted(p.name for p in (SKILLS_DIR / "godot-expert" / "references").glob("*.md"))
     unpointed = [r for r in refs if not any(r in line for line in pointer_lines)]
     assert not unpointed, f"no 'Before …' pointer for: {unpointed}"
+
+
+# -- Short path for one-node edits (issue #832) --
+# The lean core was 3-8x slower on one-node scene tasks: agents guessed the
+# enable_toolset keyword, then read a 141-line .tscn diff (Godot re-serializes the
+# file on save) as damage and spent ~40 calls investigating it.
+
+
+def test_godot_expert_teaches_the_short_path_for_small_edits() -> None:
+    text = (SKILLS_DIR / "godot-expert" / "SKILL.md").read_text(encoding="utf-8")
+    assert "## Small edits" in text, "godot-expert needs a short path for one-node edits"
+    assert 'godot_enable_toolset(category="scene_edit")' in text, (
+        "show the enable_toolset keyword; agents guess `toolset=` otherwise"
+    )
+    assert "godot_inspection_get_scene_tree(" in text, "verify from the editor's scene tree"
+    assert re.search(r"[Ss]aving rewrites the whole `\.tscn`", text), (
+        "say that save re-serializes the .tscn, so a large diff is expected"
+    )
+    assert "then stop" in text, "the short path ends once the editor confirms the change"
