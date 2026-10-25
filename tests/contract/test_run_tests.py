@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from fastmcp import Client, FastMCP
 
 from mcp_server.bridge import Bridge
@@ -141,6 +142,29 @@ async def test_run_tests_test_path_conflicts_and_missing_folder(tmp_path: Path) 
     assert conflict.structured_content["required"] == "test_target"
     assert missing.structured_content["error"] == "RESOURCE_NOT_FOUND"
     assert runner.run_tests_calls == []
+
+
+async def test_run_tests_checks_a_test_path_folder_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#798: a ``test_path`` folder is validated once, not once per code path."""
+    _with_gut(tmp_path)
+    suite = tmp_path / "test" / "suite"
+    suite.mkdir(parents=True)
+    server, runner = _build(str(tmp_path), RunOutput(command=["gut"]))
+    checked: list[Path] = []
+    real_is_dir = Path.is_dir
+
+    def counting(self: Path) -> bool:
+        checked.append(self)
+        return real_is_dir(self)
+
+    monkeypatch.setattr(Path, "is_dir", counting)
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "testing"})
+        await client.call_tool("godot_testing_run_tests", {"test_path": "res://test/suite"})
+
+    assert sum(1 for path in checked if path == suite) == 1
 
 
 async def test_run_tests_rejects_a_missing_or_invalid_file(tmp_path: Path) -> None:
