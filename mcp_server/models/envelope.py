@@ -47,6 +47,14 @@ class ErrorCode(StrEnum):
     # #762: a mutating call was refused because the editor is importing, showing a
     # modal, or busy with another command; retry when it is ready.
     EDITOR_BUSY = "EDITOR_BUSY"
+    # #791: a parameter failed server-side containment/shape validation before any
+    # bridge call (res:// path escape, bad run_commands sub-command).
+    PARAM_ERROR = "PARAM_ERROR"
+    # #791: a result payload would exceed the server's 25k character cap; the caller
+    # narrows the request (e.g. max_depth) instead of receiving a truncated reply.
+    OUTPUT_LIMIT = "OUTPUT_LIMIT"
+    # #791: fetching a remote asset failed (HTTP status or transport error).
+    DOWNLOAD_FAILED = "DOWNLOAD_FAILED"
 
 
 class NextCall(BaseModel):

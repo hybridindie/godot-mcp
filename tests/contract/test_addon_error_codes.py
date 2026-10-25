@@ -96,6 +96,9 @@ def test_every_python_error_code_is_used_or_explicitly_unrepresented() -> None:
         "UNDECLARED_PARAMETER",  # server-side argument validation (#757)
         "CONSENT_MISMATCH",  # server-side consent-token verification (#759)
         "EDITOR_BUSY",  # server-side readiness gate (#762)
+        "PARAM_ERROR",  # server-side path/shape validation before the bridge (#791)
+        "OUTPUT_LIMIT",  # server-side 25k payload cap (#791)
+        "DOWNLOAD_FAILED",  # server-side remote-asset fetch failure (#791)
     }
     emitted = set(_collect_codes())
     unused = ALLOWED - emitted - server_only
@@ -103,4 +106,34 @@ def test_every_python_error_code_is_used_or_explicitly_unrepresented() -> None:
         f"ErrorCode members neither emitted by the addon nor accounted for as "
         f"server-only: {unused}. If a new code is server-only, list it in "
         f"`server_only` here; if the addon should emit it, wire it up."
+    )
+
+
+# Python-side scan (#791): the mirror of the addon scan above. A server-side
+# literal that isn't in the enum is the same drift bug — it just lives in the
+# other language. Covers the two shapes the server uses: a ToolError/
+# AgentToolError first argument and a `"error": "CODE"` dict.
+_PY_TOOL_ERROR = re.compile(r'(?:AgentToolError|ToolError)\(\s*f?["\']([A-Z][A-Z_]{3,})')
+_PY_ERROR_DICT = re.compile(r'"error":\s*"([A-Z][A-Z_]{3,})"')
+
+
+def _collect_server_codes() -> dict[str, list[str]]:
+    found: dict[str, list[str]] = {}
+    for path in sorted((REPO_ROOT / "mcp_server").rglob("*.py")):
+        rel = str(path.relative_to(REPO_ROOT))
+        src = path.read_text()
+        for pattern in (_PY_TOOL_ERROR, _PY_ERROR_DICT):
+            for match in pattern.finditer(src):
+                found.setdefault(match.group(1), []).append(rel)
+    return found
+
+
+def test_server_emits_only_enumerated_error_codes() -> None:
+    """The Python half of the same closed-set rule (#791)."""
+    found = _collect_server_codes()
+    unknown = {code: locs for code, locs in found.items() if code not in ALLOWED}
+    assert not unknown, (
+        f"Server emits error codes outside the ErrorCode enum: {unknown}. "
+        "Add the code to mcp_server/models/envelope.py deliberately, or reuse "
+        "an existing one (rule: error-handling.md)."
     )
