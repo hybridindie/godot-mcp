@@ -37,6 +37,7 @@ SMOKES = [
     ("probe_pause_smoke.gd", "PROBE_PAUSE_TEST_OK"),
     ("prop_cache_smoke.gd", "PROP_CACHE_TEST_OK"),
     ("run_commands_smoke.gd", "RUN_COMMANDS_TEST_OK"),
+    ("scene_inspect_smoke.gd", "SCENE_INSPECT_TEST_OK"),
     ("theme_read_smoke.gd", "THEME_READ_TEST_OK"),
     ("threshold_smoke.gd", "THRESHOLD_TEST_OK"),
     ("type_coerce_smoke.gd", "TYPE_COERCE_TEST_OK"),

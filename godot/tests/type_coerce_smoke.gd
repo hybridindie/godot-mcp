@@ -185,6 +185,14 @@ func _test_to_json_extended_shapes() -> void:
 		{"r": 1.0, "g": 0.0, "b": 0.0, "a": 1.0}
 	])
 	_check("packed_byte", Coerce.to_json(PackedByteArray([1, 2, 255])), [1, 2, 255])
+	_check("projection", Coerce.to_json(Projection(
+		Vector4(1, 0, 0, 0), Vector4(0, 1, 0, 0), Vector4(0, 0, 1, 0), Vector4(0, 0, 0, 1)
+	)), {
+		"x": {"x": 1.0, "y": 0.0, "z": 0.0, "w": 0.0},
+		"y": {"x": 0.0, "y": 1.0, "z": 0.0, "w": 0.0},
+		"z": {"x": 0.0, "y": 0.0, "z": 1.0, "w": 0.0},
+		"w": {"x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0},
+	})
 	# Non-finite floats have no JSON literal — explicit string sentinels (#641).
 	_check("nan_sentinel", Coerce.to_json(NAN), "__nan__")
 	_check("inf_sentinel", Coerce.to_json(INF), "__inf__")
@@ -219,6 +227,20 @@ func _test_from_json_extended() -> void:
 		TYPE_TRANSFORM3D
 	)
 	_check_roundtrip("basis", Basis.from_euler(Vector3(0.1, 0.2, 0.3)), TYPE_BASIS)
+	_check_roundtrip("projection", Projection(
+		Vector4(1, 0, 0, 0.5), Vector4(0, 1, 0, 0), Vector4(0, 0, 1, 0), Vector4(0, 0, 0, 1)
+	), TYPE_PROJECTION)
+	# Projection accepts the compact array form for each column, and an empty
+	# dict falls back to the identity — same contract as the other math types.
+	var proj_arr: Variant = Coerce.from_json(
+		{"x": [1, 0, 0, 0], "y": [0, 1, 0, 0], "z": [0, 0, 1, 0], "w": [0, 0, 0, 1]},
+		TYPE_PROJECTION,
+	)
+	if typeof(proj_arr) != TYPE_PROJECTION or not (proj_arr as Projection).x.is_equal_approx(Vector4(1, 0, 0, 0)):
+		_failures.append("projection array form: %s" % str(proj_arr))
+	var proj_empty: Variant = Coerce.from_json({}, TYPE_PROJECTION)
+	if typeof(proj_empty) != TYPE_PROJECTION or not (proj_empty as Projection).x.is_equal_approx(Vector4(1, 0, 0, 0)):
+		_failures.append("projection empty-dict identity: %s" % str(proj_empty))
 	_check_roundtrip("plane", Plane(Vector3(0.0, 0.6, 0.8), 2.0), TYPE_PLANE)
 	_check_roundtrip("packed_byte", PackedByteArray([1, 2, 255]), TYPE_PACKED_BYTE_ARRAY)
 	_check_roundtrip("packed_vec2", PackedVector2Array([Vector2(1, 2), Vector2(3, 4)]), TYPE_PACKED_VECTOR2_ARRAY)

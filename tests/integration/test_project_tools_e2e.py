@@ -39,6 +39,21 @@ func spawn_point(where: Vector2) -> Vector2:
 ## @mcp_tool
 func loose(x) -> int:
 	return 0
+
+## Broken: a type the schema cannot describe.
+## @mcp_tool
+func resource_arg(res: Resource) -> int:
+	return 0
+
+## Broken: a required parameter after a default one.
+## @mcp_tool
+func bad_default(a: int = 1, b: int) -> int:
+	return b
+
+## Broken: the safety class is not one of the three.
+## @mcp_tool safety=chaos
+func wrong_safety() -> int:
+	return 0
 """
 
 
@@ -75,7 +90,11 @@ def test_scanner_generates_schemas_and_rejects_untyped_parameters() -> None:
     assert point["safety_class"] == "read_only"
     assert point["parameters"]["properties"]["where"]["required"] == ["x", "y"]
 
-    rejected = payload["rejected"]
-    assert len(rejected) == 1
-    assert rejected[0]["function"] == "loose"
-    assert "untyped parameter 'x'" in rejected[0]["reason"]
+    # Every rejected annotation names the function and the precise reason — one
+    # bad function never hides the valid ones.
+    rejected = {entry["function"]: entry["reason"] for entry in payload["rejected"]}
+    assert set(rejected) == {"loose", "resource_arg", "bad_default", "wrong_safety"}
+    assert "untyped parameter 'x'" in rejected["loose"]
+    assert "unsupported type 'Resource'" in rejected["resource_arg"]
+    assert "non-default parameter 'b'" in rejected["bad_default"]
+    assert "unknown safety class 'chaos'" in rejected["wrong_safety"]
