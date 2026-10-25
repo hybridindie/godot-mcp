@@ -7,6 +7,8 @@ these tests pin the server half: registration, gating, safety and the wire shape
 
 from __future__ import annotations
 
+import asyncio
+import time
 from typing import Any
 
 from fastmcp import Client
@@ -166,3 +168,44 @@ async def test_mutating_project_tool_schema_gets_dry_run_and_confirm_only_where_
     assert "dry_run" in props and "confirm" in props
     assert destructive.meta["safety_class"] == "destructive"
     assert "confirm=True" in destructive.description
+
+
+SCAN_TOOLS: list[dict[str, Any]] = SCAN_PAYLOAD["tools"]
+
+
+async def test_filesystem_notice_rescans_and_replaces_the_surface() -> None:
+    """#802: the addon's debounced notice triggers a scan — no explicit call."""
+    scans = 0
+
+    def responder(command: CommandEnvelope) -> ResponseEnvelope | None:
+        nonlocal scans
+        if command.command == "cmd_scan_project_tools":
+            scans += 1
+            tools = [SCAN_TOOLS[0]] if scans == 1 else [SCAN_TOOLS[1]]
+            return ResponseEnvelope.success(command.id, {"tools": tools, "rejected": []})
+        return ping_responder(command)
+
+    fake = FakeAddonConnection(responder)
+    config = ServerConfig(godot_project_dir="/tmp/project")
+    bridge = Bridge(config.bridge, connector=connector_for(fake))
+    server = create_server(config, bridge=bridge)
+
+    async with Client(server) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "project"})
+        await client.call_tool("godot_project_scan_tools", {})
+        first = {tool.name for tool in await client.list_tools()}
+        assert "godot_project_waves_spawn_wave" in first
+
+        # The addon's filesystem-change notice (control message, no reply).
+        await fake.push({"command": "cmd_project_tools_changed", "params": {}})
+
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline:
+            names = {tool.name for tool in await client.list_tools()}
+            if "godot_project_loot_add_item" in names:
+                break
+            await asyncio.sleep(0.1)
+
+    assert scans >= 2, "the notice did not trigger a rescan"
+    assert "godot_project_loot_add_item" in names
+    assert "godot_project_waves_spawn_wave" not in names  # removed annotations go

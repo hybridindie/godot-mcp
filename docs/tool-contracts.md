@@ -700,7 +700,10 @@ func spawn_wave(count: int, kind: Kind = Kind.ENEMY) -> Dictionary:
 `godot_project_<script stem>_<function>` **in this same `project` toolset**,
 announces the change on `notifications/tools/list_changed`, and returns the new
 surface plus every annotation it refused. Re-scanning replaces the previous set,
-so removed annotations disappear. A rejection is partial success, never an error.
+so removed annotations disappear. A project filesystem change schedules a
+**debounced** rescan automatically (#802); the explicit tool remains the
+deterministic fallback, and a failed rescan keeps the previous surface. A
+rejection is partial success, never an error.
 
 Supported parameter types: `int`, `float`, `bool`, `String`/`StringName`/`NodePath`,
 `Vector2`/`Vector3`/`Color`, script-level enums (as a string enum, converted back to

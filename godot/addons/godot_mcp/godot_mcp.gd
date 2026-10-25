@@ -41,6 +41,9 @@ var _latest_available := ""
 # so external edits (agent/git/other tools) are picked up without editor focus.
 # Off by default (env var or dock toggle); the env value seeds the checkbox.
 var _auto_refresh_timer: Timer
+# #802: debounced notice that the project filesystem changed, so the server can
+# re-scan project-registered tools without an explicit call.
+var _project_tools_timer: Timer
 var _auto_refresh_enabled := false
 # #539: the lazily-built, cached status-icon textures (a RefCounted helper, so
 # the textures live exactly as long as the plugin).
@@ -112,6 +115,19 @@ func _enter_tree() -> void:
 	if _auto_refresh_enabled:
 		_auto_refresh_timer.autostart = true
 
+	# #802: a filesystem change (the editor's own scan, or the opt-in auto-refresh
+	# scan above) schedules one debounced project-tool rescan. The debounce
+	# coalesces an import burst into a single notice; the server re-registers the
+	# project tools and publishes tools/list_changed.
+	_project_tools_timer = Timer.new()
+	_project_tools_timer.one_shot = true
+	_project_tools_timer.wait_time = 0.75
+	_project_tools_timer.timeout.connect(_notify_project_tools_changed)
+	add_child(_project_tools_timer)
+	var filesystem := EditorInterface.get_resource_filesystem()
+	if filesystem != null:
+		filesystem.filesystem_changed.connect(_on_filesystem_changed)
+
 	_refresh_all()
 
 
@@ -155,6 +171,14 @@ func _exit_tree() -> void:
 		_refresh_timer.stop()
 		_refresh_timer.queue_free()
 		_refresh_timer = null
+
+	if _project_tools_timer != null:
+		_project_tools_timer.stop()
+		_project_tools_timer.queue_free()
+		_project_tools_timer = null
+	var filesystem := EditorInterface.get_resource_filesystem()
+	if filesystem != null and filesystem.filesystem_changed.is_connected(_on_filesystem_changed):
+		filesystem.filesystem_changed.disconnect(_on_filesystem_changed)
 
 	if _auto_refresh_timer != null:
 		_auto_refresh_timer.stop()
@@ -242,6 +266,19 @@ func _on_scene_changed(scene_root: Node) -> void:
 	_dock.set_active_scene(_scene_label(scene_root))
 	# #591: re-apply the dirty marker immediately (set_active_scene clears it).
 	_update_editor_state_rows()
+
+
+## #802: restart the one-shot debounce; an import burst collapses to one notice.
+func _on_filesystem_changed() -> void:
+	if _project_tools_timer != null:
+		_project_tools_timer.start()
+
+
+## #802: tell the server the project tools may have changed. A control message —
+## the server consumes it without replying and re-scans on its own debounce.
+func _notify_project_tools_changed() -> void:
+	if _bridge != null:
+		_bridge.send_control("cmd_project_tools_changed", {})
 
 
 func _on_selection_changed() -> void:

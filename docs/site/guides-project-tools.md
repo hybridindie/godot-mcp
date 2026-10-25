@@ -88,8 +88,10 @@ built-in tools.
   annotation removes the tool.
 - A scan publishes `notifications/tools/list_changed`; subscribed clients refresh
   their registry.
-- Re-scan is explicit today — automatic refresh on filesystem change is tracked
-  as [#802](https://github.com/hybridindie/godot-mcp/issues/802).
+- A project **filesystem change** (the editor's scan, including the opt-in
+  auto-refresh scan) triggers a **debounced rescan** automatically — notices are
+  coalesced, so an import burst causes one rescan. The explicit
+  `godot_project_scan_tools()` remains the deterministic fallback.
 - The tools are gated with the `project` toolset (off by default), so the surface
   stays small until a project opts in.
 

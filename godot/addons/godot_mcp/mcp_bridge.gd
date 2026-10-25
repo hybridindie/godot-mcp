@@ -352,6 +352,16 @@ func _send_peer_hello() -> void:
 	_peer.send_text(JSON.stringify(info))
 
 
+## Send a control envelope the server consumes without replying (no ``id``, no
+## waiter). Same shape as ``cmd_editor_status``; today used for the debounced
+## project-tools filesystem notice (#802). The addon still never originates
+## commands — the server initiates every ``cmd_*`` request.
+func send_control(command: String, params: Dictionary = {}) -> void:
+	if _peer == null or _peer.get_ready_state() != WebSocketPeer.STATE_OPEN:
+		return
+	_peer.send_text(JSON.stringify({"command": command, "params": params}))
+
+
 ## Authenticate the connection (issue #538): the FIRST message after connecting
 ## when a token is configured. The server verifies it before serving anything —
 ## a mismatch answers a structured refusal envelope and closes the peer, which

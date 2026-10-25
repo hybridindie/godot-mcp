@@ -185,6 +185,11 @@ class Bridge:
         # needs — today the enabled toolset set. Injected by server.py; None in
         # unit tests that don't care.
         self.on_peer_ready: Callable[[], Awaitable[None]] | None = None
+        # #802: the addon sends a debounced control message when the project
+        # filesystem changes; the server coalesces it into a project-tool rescan.
+        # Synchronous on purpose (it only schedules a task) so the read loop never
+        # blocks on a scan. Injected by server.py; None in unit tests.
+        self.on_project_tools_changed: Callable[[], None] | None = None
         # #644: addon commands whose tool safety_class is mutating/destructive. A
         # TIMEOUT on one of these means the editor (single-threaded, drains serially)
         # may still run it AFTER the caller gave up — so the timeout envelope is
@@ -701,6 +706,15 @@ class Bridge:
                     "bridge peer identity",
                     extra={"project_path": str(params.get("project_path", ""))},
                 )
+            return
+        # #802: filesystem-change notice from the addon (control message, no
+        # waiter). The handler only schedules a debounced rescan.
+        if isinstance(payload, dict) and payload.get("command") == "cmd_project_tools_changed":
+            if self.on_project_tools_changed is not None:
+                try:
+                    self.on_project_tools_changed()
+                except Exception:
+                    logger.warning("project-tools change handler failed", exc_info=True)
             return
         try:
             response = ResponseEnvelope.model_validate(payload)

@@ -12,7 +12,10 @@ addon owns discovery and execution.
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import re
+from collections.abc import Awaitable, Callable
 from typing import Any, Literal, cast
 
 from fastmcp import FastMCP
@@ -41,6 +44,8 @@ _SLUG = re.compile(r"[^a-z0-9_]+")
 
 SCAN_COMMAND = "cmd_scan_project_tools"
 RUN_COMMAND = "cmd_run_project_tool"
+
+logger = logging.getLogger(__name__)
 
 
 def _slug(value: str) -> str:
@@ -131,11 +136,54 @@ def _build_tool(bridge: Bridge, entry: dict[str, Any]) -> FunctionTool:
 class ProjectToolRegistrar:
     """Registers, refreshes and replaces the project tools for one server."""
 
-    def __init__(self, mcp: FastMCP, bridge: Bridge, hub: Any | None = None) -> None:
+    def __init__(
+        self,
+        mcp: FastMCP,
+        bridge: Bridge,
+        hub: Any | None = None,
+        *,
+        debounce: float = 0.5,
+        sleep: Callable[[float], Awaitable[None]] | None = None,
+    ) -> None:
         self._mcp = mcp
         self._bridge = bridge
         self._hub = hub
         self._registered: set[str] = set()
+        self._debounce = debounce
+        self._sleep = sleep or asyncio.sleep
+        self._pending = False
+        self._task: asyncio.Task[None] | None = None
+
+    def schedule_rescan(self) -> None:
+        """Schedule one debounced rescan for a filesystem-change notice (#802).
+
+        Called from the bridge read loop, so it must not block: it sets a flag
+        and starts a task. Repeated notices during the debounce or the scan
+        coalesce into a single follow-up pass.
+        """
+        self._pending = True
+        if self._task is None or self._task.done():
+            self._task = asyncio.create_task(self._rescan_loop())
+
+    async def _rescan_loop(self) -> None:
+        while self._pending:
+            self._pending = False
+            await self._sleep(self._debounce)
+            try:
+                await self.scan()
+            except Exception:
+                # Keep the previous surface; a transient bridge failure must not
+                # unregister tools the agent is mid-way through using.
+                logger.warning(
+                    "project-tool rescan failed; keeping the previous surface",
+                    exc_info=True,
+                )
+
+    async def flush(self) -> None:
+        """Await the in-flight debounce/rescan (tests and release checks)."""
+        task = self._task
+        if task is not None:
+            await asyncio.shield(task)
 
     async def scan(self) -> ProjectToolsResult:
         payload = await route(self._bridge, SCAN_COMMAND, {})
@@ -188,6 +236,8 @@ class ProjectToolRegistrar:
 def register_project_tools(mcp: FastMCP, bridge: Bridge, hub: Any | None = None) -> None:
     """Register the project-tool scanner in the gated ``project`` toolset."""
     registrar = ProjectToolRegistrar(mcp, bridge, hub)
+    # #802: the addon sends a debounced notice when the project filesystem changes.
+    bridge.on_project_tools_changed = registrar.schedule_rescan
 
     @mcp.tool(meta=READ_ONLY, tags=PROJECT)
     @enforce_preconditions
