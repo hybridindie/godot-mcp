@@ -192,23 +192,16 @@ def register_import_asset(mcp: FastMCP, bridge: Bridge) -> None:
     ) -> ImportAssetResult:
         """Bring an external file into the Godot project.
 
-        ``source`` may be a local filesystem path or an HTTP(S) URL.  The file is
-        copied into ``target_path`` (``res://…``) and the editor filesystem is
-        updated so Godot imports it on the next scan.
+        ``source`` is a local path or an HTTP(S) URL; the file is copied to
+        ``target_path`` (``res://…``) and the editor rescans so Godot imports it.
 
-        ``options`` (optional dict):
-        - ``overwrite`` (bool, default ``False``)
-        - ``import_settings`` (dict, type-specific — e.g.
-          ``{"type": "Texture2D", "compress": "lossy"}``). For a ``.wav``
-          (AudioStreamWAV): ``{"loop_mode": 1, "loop_begin": 0, "loop_end": N}``
-          (#418) — looping music/ambience through the MCP surface; the loop
-          config lands in the ``.import`` sidecar and the artifact is reimported
-          (``loop_applied`` in the result reports whether it was applied).
+        ``options`` (optional): ``overwrite`` (bool) and ``import_settings``
+        (type-specific dict, e.g. ``{"type": "Texture2D", "compress": "lossy"}``;
+        for ``.wav``: ``{"loop_mode": 1, "loop_begin": 0, "loop_end": N}``, with
+        ``loop_applied`` reporting whether it landed).
 
-        ``wait_for_scan`` (default ``False``): after copying, poll the import
-        status until the editor's async scan has produced the ``.import``
-        sidecar (up to ``timeout_ms``); ``scan_complete`` in the result reports
-        whether the import artifacts are ready (vs just the copy landing).
+        ``wait_for_scan`` polls until the ``.import`` sidecar exists (up to
+        ``timeout_ms``); ``scan_complete`` reports whether it is ready.
         """
         _require_res_path(target_path)
         opts = options or ImportOptions()

@@ -116,16 +116,17 @@ def register_shader(
         dry_run: bool = False,
     ) -> ShaderParamResult:
         """Set the shader uniform ``name`` to ``value`` on the node's ShaderMaterial.
-        ``param_type`` coerces ``value``: float / int / bool / vector2 / vector3 /
-        vector4 / color (omit to infer — number/bool as-is, ``[x,y,z]`` → vector,
-        HTML string → color). The node must have a ShaderMaterial assigned.
-        ``value`` accepts JSON for the target Godot type — Vector2/3 as
-        ``{"x":1,"y":2}``/``[1,2]``, Color as ``{"r":1,"g":0,"b":0,"a":1}`` or
-        ``"#ff0000"``, Rect2 as ``{"position":{...},"size":{...}}``, NodePath/StringName
-        as a string, primitives as-is. See docs/tool-contracts.md#value-shapes.
-        Reports ``persisted`` like ``assign_shader_material``: ``False`` when the edit will
-        not be saved — the node is inside an instance without Editable Children, or the
-        material is embedded in another scene/resource file (``reason`` says which).
+        ``param_type`` coerces ``value``: float/int/bool/vector2/3/4/color (omit to
+        infer — numbers as-is, ``[x,y,z]`` → vector, HTML string → color). The node
+        must already have a ShaderMaterial.
+
+        JSON value forms: Vector2/3 as ``{"x":1,"y":2}`` or ``[1,2]``; Color as
+        ``{"r":1,"g":0,"b":0,"a":1}`` or ``"#ff0000"``; Rect2/NodePath/StringName as
+        documented in docs/tool-contracts.md#value-shapes.
+
+        Reports ``persisted``: ``False`` when the edit will not be saved (an
+        instanced child without Editable Children, or a material embedded
+        elsewhere); ``reason`` says which.
         """
         await require_node_exists(bridge, node_path)
         params = {"node_path": node_path, "name": name, "value": value, "param_type": param_type}

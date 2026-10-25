@@ -47,21 +47,16 @@ def register_input_sim(mcp: FastMCP, bridge: Bridge) -> None:
         meta: bool = False,
     ) -> SimInputResult:
         """Send a key event to the running game. ``key`` is a Godot key name
-        ("A", "Space", "Enter", "Escape", …); ``pressed`` false sends a release. Optional
-        modifier flags (shift/ctrl/alt/meta). Requires a play session + runtime probe.
-        The injected event carries both keycode and physical_keycode (like real
-        hardware), so Input Map actions bound either way fire.
+        ("A", "Space", "Enter", …); ``pressed=False`` sends a release. Optional
+        shift/ctrl/alt/meta modifiers. Requires a play session + runtime probe.
+        The event carries both keycode and physical_keycode (like real hardware),
+        so Input Map actions bound either way fire.
 
-        WHEN TO USE: You need to send a SINGLE key press or release (e.g., tap
-        Space to jump, or hold Shift for sprint). Simple, one-off interactions.
-        WHEN NOT TO USE: You need a timed sequence of many inputs — use
-        play_input_sequence(events=[...], delay_ms=...) instead. That replays a
-        whole macro with configurable delays between events.
+        WHEN TO USE: one key press/release (tap Space, hold Shift).
+        WHEN NOT TO USE: a timed sequence — use play_input_sequence(events, delay_ms).
 
-        IF THIS FAILS with "No play session":
-          → Call play_scene(scene_path) first, then retry.
-        IF THIS FAILS with "probe not connected":
-          → Register MCPRuntimeProbe as autoload (get_project_info() to check).
+        IF "No play session": call play_scene(scene_path) first.
+        IF "probe not connected": register MCPRuntimeProbe as an autoload.
         """
         params = {
             "key": key,

@@ -44,22 +44,18 @@ def register_runtime_session(mcp: FastMCP, bridge: Bridge) -> None:
 
     @mcp.tool(meta=RUNTIME, tags=RUNTIME_SET)
     async def play_scene(scene_path: ResPath = "") -> PlayResult:
-        """Run the game from the editor: play ``scene_path`` (a ``res://*.tscn``) or the
-        project's main scene when omitted. The game connects to the editor debugger, so
-        runtime inspection/input tools can reach it.
+        """Run the game from the editor: play ``scene_path`` (``res://*.tscn``) or
+        the project's main scene when omitted. The game connects to the editor
+        debugger, so runtime inspection/input tools can reach it.
 
-        WHEN TO USE: You need to interact with the running game (simulate input,
-        inspect live nodes, debug, test assertions).
-        WHEN NOT TO USE: Headless CI/automation without an editor — use
-        run_and_capture() instead. That runs Godot in a subprocess and returns
-        logs without an editor session.
+        WHEN TO USE: you need to interact with the running game (simulate input,
+        inspect live nodes, debug, assert).
+        WHEN NOT TO USE: headless CI — use run_and_capture() instead (subprocess,
+        returns logs, no editor session).
 
-        IF THIS FAILS with "scene not found":
-          -> The scene_path is wrong. Use get_project_info() to find the main scene,
-             or get_scene_tree() to see available scenes.
-        IF THIS FAILS with "editor not connected":
-          -> The Godot editor is not running or the addon is disabled. Check
-             get_server_info() for bridge state and follow the troubleshoot prompt.
+        IF "scene not found": check the path with get_project_info()/get_scene_tree().
+        IF "editor not connected": start Godot with the addon enabled; see
+        get_server_info() for bridge state.
         """
         params = {"scene_path": scene_path}
         return PlayResult(**await route(bridge, "cmd_play_scene", params))
@@ -169,22 +165,14 @@ def register_runtime_session(mcp: FastMCP, bridge: Bridge) -> None:
     @mcp.tool(meta=READ_ONLY, tags=RUNTIME_SET)
     async def get_game_output(since_seq: int = 0) -> GameOutputResult:
         """Read the running game's captured output — ``print()`` lines, script
-        errors (with the engine's text), and warnings — as a ring of
-        ``{seq, kind, text, time_ms}`` entries (issue #534).
+        errors, and warnings — as a ring of ``{seq, kind, text, time_ms}`` entries
+        (issue #534). Keeps working while the game is frozen at a debugger break,
+        which is exactly when crash traces are readable. ``since_seq`` is an
+        incremental cursor: pass the previous ``next_seq`` to fetch only newer
+        entries. The ring is bounded (500); ``dropped`` counts evicted entries.
 
-        Use it during a play-test to read crash traces and log-based
-        assertions: the capture keeps working while the game is frozen at a
-        debugger break (that is exactly when crash traces are readable).
-        ``since_seq`` is an incremental cursor — pass the ``next_seq`` from
-        your previous call to fetch only newer entries. The ring is bounded
-        (500); ``dropped`` counts evicted entries honestly, so never assume
-        the ring holds the whole session.
-
-        IF THIS FAILS with "No play session":
-          -> Call play_scene(scene_path) first.
-        IF THIS FAILS with "probe is not connected":
-          -> Register MCPRuntimeProbe as an autoload in the game, then
-             play_scene again.
+        IF "No play session": call play_scene(scene_path) first.
+        IF "probe is not connected": register MCPRuntimeProbe as an autoload.
         """
         return GameOutputResult(
             **await route(bridge, "cmd_get_game_output", {"since_seq": since_seq})
