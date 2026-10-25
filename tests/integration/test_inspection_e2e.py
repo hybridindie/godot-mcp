@@ -92,12 +92,14 @@ async def _run_checks() -> None:
             assert made.ok, made
             for command in ("cmd_get_node_groups", "cmd_get_node_property_list"):
                 response = await bridge.send(command, {"node_path": "root/Holder"})
-                assert response.ok, response
+                assert response.ok and response.result is not None, response
                 assert response.result["node_path"] == "Holder", response.result
             exists = await bridge.send("cmd_node_exists", {"node_path": "/root/Holder"})
-            assert exists.ok and exists.result["exists"] is True, exists
+            assert exists.ok and exists.result is not None, exists
+            assert exists.result["exists"] is True, exists
             props = await bridge.send("cmd_get_node_properties", {"node_path": "root/Holder"})
-            assert props.ok and props.result["node_path"] == "Holder", props
+            assert props.ok and props.result is not None, props
+            assert props.result["node_path"] == "Holder", props
         finally:
             await bridge.send(
                 "cmd_delete_resource_file", {"path": scene_path, "confirm": True}
