@@ -46,15 +46,19 @@ async def collect_parse_errors(
     return parse_errors, None
 
 
-async def collect_scene_tree(bridge: Bridge) -> dict[str, Any] | None:
-    """Fetch the active scene tree, or None if unavailable."""
+async def collect_scene_tree(bridge: Bridge) -> tuple[dict[str, Any] | None, str | None]:
+    """Fetch the active scene tree. Returns ``(tree, error)``.
+
+    A failed command must not be reported as "no scene is open" — the caller
+    gets the cause and surfaces it (#796).
+    """
     try:
         tree_response = await route(bridge, "cmd_get_scene_tree", {"max_depth": -1})
         if tree_response:
-            return tree_response
-    except Exception:
-        pass
-    return None
+            return tree_response, None
+        return None, None
+    except Exception as exc:
+        return None, str(exc)
 
 
 async def collect_run(
@@ -72,8 +76,12 @@ async def collect_run(
         return None, str(exc)
 
 
-async def collect_bridge_info(bridge: Bridge) -> dict[str, Any]:
-    """Bridge connectivity plus project/version info when reachable."""
+async def collect_bridge_info(bridge: Bridge) -> tuple[dict[str, Any], str | None]:
+    """Bridge connectivity plus project/version info. Returns ``(info, error)``.
+
+    ``connected`` is the transport's view; ``error`` names why the project-info
+    probe failed, so the report doesn't silently look healthy (#796).
+    """
     bridge_info: dict[str, Any] = {"connected": bridge.connected}
     try:
         info_response = await route(bridge, "cmd_get_project_info")
@@ -85,9 +93,9 @@ async def collect_bridge_info(bridge: Bridge) -> dict[str, Any]:
                 "main_scene": info_response.get("main_scene"),
                 "autoloads": info_response.get("autoloads"),
             }
-    except Exception:
-        pass
-    return bridge_info
+    except Exception as exc:
+        return bridge_info, str(exc)
+    return bridge_info, None
 
 
 def build_report(
@@ -99,12 +107,18 @@ def build_report(
     parse_errors: list[ParseError],
     parse_skipped: str | None,
     expected_timeout: bool = False,
+    tree_error: str | None = None,
+    bridge_error: str | None = None,
 ) -> tuple[list[str], list[str]]:
     """Turn the collected diagnostics into (findings, suggestions). Pure.
 
     ``expected_timeout`` marks runs of games that legitimately never quit on
     their own (sandbox/live-service games): a timeout then means the game ran
     as designed, so no timeout finding is emitted (issue #490).
+
+    ``tree_error``/``bridge_error`` carry why a probe failed (#796). A failed
+    probe is never reported as the *symptom* ("no scene open", "disconnected"),
+    because that sends the agent to the wrong fix.
     """
     findings: list[str] = []
     suggestions: list[str] = []
@@ -118,13 +132,26 @@ def build_report(
             "Open Godot with the addon enabled\n"
             "(Project Settings → Plugins → godot_mcp → Enable)."
         )
+    elif bridge_error:
+        findings.append(f"BRIDGE INFO UNAVAILABLE: {bridge_error}")
+        suggestions.append(
+            "The bridge is connected but the project-info probe failed — call "
+            "godot_health_check() to inspect the bridge/editor state, then retry."
+        )
 
     if tree_result is None or not tree_result.get("tree"):
-        findings.append("NO ACTIVE SCENE: No .tscn scene is currently open in the editor.")
-        suggestions.append(
-            "Open a scene in Godot or call godot_scene_edit_create_scene("
-            "root_type=…, scene_path=…) to make one (enable the scene_edit toolset first)."
-        )
+        if tree_error:
+            findings.append(f"SCENE TREE UNAVAILABLE: {tree_error}")
+            suggestions.append(
+                "The scene-tree request failed — call godot_health_check() to check "
+                "the bridge/editor state, then retry."
+            )
+        else:
+            findings.append("NO ACTIVE SCENE: No .tscn scene is currently open in the editor.")
+            suggestions.append(
+                "Open a scene in Godot or call godot_scene_edit_create_scene("
+                "root_type=…, scene_path=…) to make one (enable the scene_edit toolset first)."
+            )
 
     if run_result:
         if run_result.errors:
@@ -184,9 +211,9 @@ async def run_debug_workflow(
 ) -> DebugWorkflowResult:
     """Run all diagnostics and assemble the unified report model."""
     parse_errors, parse_skipped = await collect_parse_errors(bridge, config, runner)
-    tree_result = await collect_scene_tree(bridge)
+    tree_result, tree_error = await collect_scene_tree(bridge)
     run_result, run_skipped = await collect_run(bridge, config, runner, scene, timeout_seconds)
-    bridge_info = await collect_bridge_info(bridge)
+    bridge_info, bridge_error = await collect_bridge_info(bridge)
 
     findings, suggestions = build_report(
         bridge_connected=bridge.connected,
@@ -196,6 +223,8 @@ async def run_debug_workflow(
         parse_errors=parse_errors,
         parse_skipped=parse_skipped,
         expected_timeout=expected_timeout,
+        tree_error=tree_error,
+        bridge_error=bridge_error,
     )
 
     return DebugWorkflowResult(

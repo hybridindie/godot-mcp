@@ -113,6 +113,62 @@ async def _wait_connected(bridge: Bridge, timeout_ms: int) -> bool:
     return False
 
 
+def _require_test_folder(project_dir: str, test_dir: str, required: str) -> None:
+    """Raise a structured ``RESOURCE_NOT_FOUND`` when the GUT folder is missing.
+
+    ``required`` names the argument the caller actually used (``test_path`` vs
+    ``test_dir``), so the recovery hint points at the right parameter (#798).
+    """
+    folder = Path(project_dir) / test_dir.removeprefix("res://")
+    if not folder.is_dir():
+        raise PreconditionError(
+            f"No test folder at '{test_dir}'.",
+            required=required,
+            error=ErrorCode.RESOURCE_NOT_FOUND,
+        )
+
+
+def _resolve_test_target(
+    project_dir: str, test_dir: str, test_file: str, test_path: str
+) -> tuple[str, str]:
+    """Resolve the GUT target as ``(test_dir, test_file)``, or raise a structured error.
+
+    ``test_path`` is a ``res://`` file or folder and wins when set; combining it
+    with an explicit ``test_dir``/``test_file`` is refused. The folder is checked
+    exactly once — the duplicate check that used to run for ``test_path`` is gone
+    (#798) — and every error names the argument the caller used.
+    """
+    if test_path:
+        if test_file or test_dir != "res://test":
+            raise PreconditionError(
+                "Use test_path or test_dir/test_file, not both.",
+                required="test_target",
+                error=ErrorCode.VALIDATION_ERROR,
+            )
+        mode, target = ("file", test_path) if test_path.endswith(".gd") else ("dir", test_path)
+        required = "test_path"
+    elif test_file:
+        mode, target, required = "file", test_file, "test_file"
+    elif test_dir != "res://test":
+        mode, target, required = "dir", test_dir, "test_dir"
+    else:
+        return test_dir, test_file
+
+    if mode == "file":
+        if not (target.startswith("res://") and target.endswith(".gd")):
+            raise PreconditionError(f"{required} must be a res:// .gd path.", required=required)
+        if not (Path(project_dir) / target.removeprefix("res://")).is_file():
+            raise PreconditionError(
+                f"No test file at '{target}'.",
+                required=required,
+                error=ErrorCode.RESOURCE_NOT_FOUND,
+            )
+        return test_dir, target
+
+    _require_test_folder(project_dir, target, required)
+    return target, ""
+
+
 def _gut_present(project_dir: str) -> bool:
     """True when the project has GUT installed (its command-line runner exists)."""
     return (Path(project_dir) / "addons" / "gut" / "gut_cmdln.gd").is_file()
@@ -147,44 +203,7 @@ def register_testing(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
         """
         require_godot_binary(runner.binary)
         project_dir = await resolve_project_dir(bridge, config)
-        if test_path:
-            if test_file or test_dir != "res://test":
-                raise PreconditionError(
-                    "Use test_path or test_dir/test_file, not both.",
-                    required="test_target",
-                    error=ErrorCode.VALIDATION_ERROR,
-                )
-            if test_path.endswith(".gd"):
-                test_file = test_path
-            else:
-                test_dir = test_path
-                folder = Path(project_dir) / test_dir.removeprefix("res://")
-                if not folder.is_dir():
-                    raise PreconditionError(
-                        f"No test folder at '{test_dir}'.",
-                        required="test_path",
-                        error=ErrorCode.RESOURCE_NOT_FOUND,
-                    )
-        if test_file:
-            if not test_file.startswith("res://") or not test_file.endswith(".gd"):
-                raise PreconditionError(
-                    "test_file must be a res:// .gd path.", required="test_file"
-                )
-            target = Path(project_dir) / test_file.removeprefix("res://")
-            if not target.is_file():
-                raise PreconditionError(
-                    f"No test file at '{test_file}'.",
-                    required="test_file",
-                    error=ErrorCode.RESOURCE_NOT_FOUND,
-                )
-        elif test_dir != "res://test":
-            folder = Path(project_dir) / test_dir.removeprefix("res://")
-            if not folder.is_dir():
-                raise PreconditionError(
-                    f"No test folder at '{test_dir}'.",
-                    required="test_dir",
-                    error=ErrorCode.RESOURCE_NOT_FOUND,
-                )
+        test_dir, test_file = _resolve_test_target(project_dir, test_dir, test_file, test_path)
         if not _gut_present(project_dir):
             return RunTestsResult(ran=False, framework="gut", framework_absent=True)
         scope = test_file or test_dir
