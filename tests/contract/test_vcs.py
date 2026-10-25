@@ -18,7 +18,6 @@ from fastmcp import Client, FastMCP
 from mcp_server.bridge import Bridge
 from mcp_server.config import ServerConfig
 from mcp_server.server import create_server
-from mcp_server.tools import vcs
 from tests.fakes import FakeAddonConnection, connector_for
 
 

@@ -70,6 +70,7 @@ const SECTIONS = [
       'guides-build-scene.md',
       'guides-playtest-debug.md',
       'guides-verify.md',
+      'guides-project-tools.md',
       'guides-ship.md',
       'guides-examples.md',
     ],
