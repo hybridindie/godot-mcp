@@ -307,6 +307,14 @@ single-use; `CONSENT_MISMATCH` carries a `next_call` to `godot_describe_tool`.
 Without a webhook, `confirm=True` remains the accident guard, and the elicitation
 guard is the approval.
 
+| Tool | Params | Returns | Class |
+|------|--------|---------|-------|
+| `godot_describe_tool` | `tool, args={}` | `ConsentToken { tool, consent_required, token?, expires_at?, hint? }` | `read_only` |
+
+`consent_required` is `false` (and no token is minted) for `read_only`/`mutating`
+tools; `args` is validated against the target tool's input schema, so a malformed
+describe is a `VALIDATION_ERROR` rather than a token bound to the wrong call.
+
 ### Preconditions
 
 Checked before any side effect. Each is a function in `safety.py` that raises a typed
@@ -434,22 +442,22 @@ UndoRedo-wrapped `cmd_*` handler and runs preconditions first.
 |------|--------|---------|-------|
 | `godot_scene_edit_create_node` | `parent_path, node_type, node_name` | `CreateNodeResult { node_path, created, persisted, reason?, hint? }` | `mutating` |
 | `godot_scene_edit_rename_node` | `node_path, new_name` | `RenameNodeResult { node_path, old_name?, new_name, renamed }` | `mutating` |
-
-  `rename_node` refuses (`VALIDATION_ERROR`) the renames the editor itself refuses
-  (#473): a node inside an instanced scene (Editable Children or not) and a node the
-  edited scene inherits from its base — renaming either corrupts the save (dropped /
-  duplicated node). The error hint names the source scene to rename in. Still allowed:
-  scene-owned nodes, instance roots the scene owns, and the edited root (inherited
-  roots included).
 | `godot_scene_edit_set_node_property` | `node_path, property, value` | `SetPropertyResult { node_path, property, value, set }` | `mutating` |
 | `godot_scene_edit_delete_node` | `node_path, confirm=False` | `DeleteNodeResult { node_path, deleted, persisted, reason?, hint? }` | **`destructive`** |
 | `godot_scene_edit_attach_script` | `node_path, script_path` | `AttachScriptResult { node_path, script_path, attached }` | `mutating` |
 | `godot_scene_edit_connect_signal` | `source_path, signal_name, target_path, method_name` | `ConnectSignalResult { …, connected }` | `mutating` |
- | `godot_scene_edit_save_scene` | — | `SaveSceneResult { path?, saved }` | `mutating` |
- | `godot_scene_edit_create_scene` | `root_type, scene_path` | `CreateSceneResult { scene_path, root_type, created }` | `mutating` |
- | `godot_scene_edit_instance_scene` | `parent_path, scene_path, name=""` | `InstanceSceneResult { node_path, scene_path, instanced, persisted, reason?, hint? }` | `mutating` |
- | `godot_scene_edit_extract_scene` | `node_path, scene_path, replace_with_instance=False, save_current=False` | `ExtractSceneResult { node_path, scene_path, extracted, replaced, saved, node_count, instance_path?, persisted, reason?, hint? }` | `mutating` |
- | `godot_scene_edit_set_editable_children` | `node_path, editable=True` | `SetEditableChildrenResult { node_path, editable, persisted, reason?, hint? }` | `mutating` |
+| `godot_scene_edit_save_scene` | — | `SaveSceneResult { path?, saved }` | `mutating` |
+| `godot_scene_edit_create_scene` | `root_type, scene_path` | `CreateSceneResult { scene_path, root_type, created }` | `mutating` |
+| `godot_scene_edit_instance_scene` | `parent_path, scene_path, name=""` | `InstanceSceneResult { node_path, scene_path, instanced, persisted, reason?, hint? }` | `mutating` |
+| `godot_scene_edit_extract_scene` | `node_path, scene_path, replace_with_instance=False, save_current=False` | `ExtractSceneResult { node_path, scene_path, extracted, replaced, saved, node_count, instance_path?, persisted, reason?, hint? }` | `mutating` |
+| `godot_scene_edit_set_editable_children` | `node_path, editable=True` | `SetEditableChildrenResult { node_path, editable, persisted, reason?, hint? }` | `mutating` |
+
+`godot_scene_edit_rename_node` refuses (`VALIDATION_ERROR`) the renames the editor itself refuses
+(#473): a node inside an instanced scene (Editable Children or not) and a node the
+edited scene inherits from its base — renaming either corrupts the save (dropped /
+duplicated node). The error hint names the source scene to rename in. Still allowed:
+scene-owned nodes, instance roots the scene owns, and the edited root (inherited
+roots included).
 
 `godot_scene_edit_set_editable_children` toggles Editable Children on an instanced
 scene (#487) — the action the persistence verdicts name when they report
@@ -498,7 +506,8 @@ Node parity (issue #31), also in `scene_edit`:
 |------|--------|---------|-------|
 | `godot_scene_edit_duplicate_node` | `node_path` | `DuplicateNodeResult { node_path, source_path, persisted, reason?, hint? }` | `mutating` |
 | `godot_scene_edit_move_node` | `node_path, new_parent_path, index=-1` | `MoveNodeResult { node_path, moved, persisted, reason?, hint? }` | `mutating` |
-| `godot_scene_edit_add_to_group` / `godot_scene_edit_remove_from_group` | `node_path, group` | `GroupResult { node_path, group, in_group, changed }` | `mutating` |
+| `godot_scene_edit_add_to_group` | `node_path, group` | `GroupResult { node_path, group, in_group, changed, persisted?, reason?, hint? }` | `mutating` |
+| `godot_scene_edit_remove_from_group` | `node_path, group` | `GroupResult { node_path, group, in_group, changed, persisted?, reason?, hint? }` | `mutating` |
 | `godot_scene_edit_list_signal_connections` | `node_path` | `SignalConnectionList { node_path, connections: [{signal, target_path, method, persistent}] }` | `read_only` |
 | `godot_scene_edit_disconnect_signal` | `source_path, signal_name, target_path, method_name, confirm=False, dry_run=False` | `DisconnectSignalResult { …, disconnected }` | `destructive` |
 
@@ -507,37 +516,37 @@ into a descendant. Group membership is persistent (saved into the scene). All re
 the editor's undo. The `mutating` tools also accept `dry_run: bool = False` and echo it in
  the result (omitted from the table for brevity, per the `dry_run`/`confirm` convention above).
 
- #### Scene session (issue #79) — category: `scene_edit` (gated off by default)
+#### Scene session (issue #79) — category: `scene_edit` (gated off by default)
 
- Editor session management. `godot_scene_edit_reload_scene` discards unsaved changes and is
- **`destructive`** (`confirm=True` required); the rest are `mutating` or `read_only`.
+Editor session management. `godot_scene_edit_reload_scene` discards unsaved changes and is
+**`destructive`** (`confirm=True` required); the rest are `mutating` or `read_only`.
 
-  | Tool | Params | Returns | Class |
-  |------|--------|---------|-------|
-  | `godot_scene_edit_open_scene` | `scene_path` | `OpenSceneResult { scene_path, opened, already_open }` | `mutating` |
-  | `godot_scene_edit_close_scene` | `scene_path="", confirm=False` | `CloseSceneResult { scene_path, closed }` | **`destructive`** |
-  | `godot_scene_edit_reload_scene` | `scene_path, confirm=False` | `ReloadSceneResult { scene_path, reloaded }` | **`destructive`** |
-  | `godot_scene_edit_rescan_filesystem` | — | `RescanFilesystemResult { scanned, scanning }` | `runtime` |
-  | `godot_scene_edit_save_all_scenes` | — | `SaveAllScenesResult { saved, count }` | `mutating` |
-  | `godot_scene_edit_list_open_scenes` | — | `ListOpenScenesResult { scenes[{path}] }` | `read_only` |
-  | `godot_scene_edit_select_nodes` | `node_paths: str[]` | `SelectNodesResult { scene_path, selected[], count }` | `mutating` |
+| Tool | Params | Returns | Class |
+|------|--------|---------|-------|
+| `godot_scene_edit_open_scene` | `scene_path` | `OpenSceneResult { scene_path, opened, already_open }` | `mutating` |
+| `godot_scene_edit_close_scene` | `scene_path="", confirm=False` | `CloseSceneResult { scene_path, closed }` | **`destructive`** |
+| `godot_scene_edit_reload_scene` | `scene_path, confirm=False` | `ReloadSceneResult { scene_path, reloaded }` | **`destructive`** |
+| `godot_scene_edit_rescan_filesystem` | — | `RescanFilesystemResult { scanned, scanning }` | `runtime` |
+| `godot_scene_edit_save_all_scenes` | — | `SaveAllScenesResult { saved, count }` | `mutating` |
+| `godot_scene_edit_list_open_scenes` | — | `ListOpenScenesResult { scenes[{path}] }` | `read_only` |
+| `godot_scene_edit_select_nodes` | `node_paths: str[]` | `SelectNodesResult { scene_path, selected[], count }` | `mutating` |
 
-  `godot_scene_edit_open_scene` uses `EditorInterface.open_scene_from_path`.
-  `godot_scene_edit_close_scene` (issue #355) closes the active scene (or a
-  specific open scene when `scene_path` is set; the addon activates it first),
-  discarding unsaved changes — `confirm=True` required; call `save_scene`
-  first to keep edits. `godot_scene_edit_reload_scene` requires
-  the scene to already be open. `godot_scene_edit_select_nodes` replaces the current editor
-  selection with the resolved nodes. All accept `dry_run: bool = False` (the
-  destructive tools also accept `confirm`).
+`godot_scene_edit_open_scene` uses `EditorInterface.open_scene_from_path`.
+`godot_scene_edit_close_scene` (issue #355) closes the active scene (or a
+specific open scene when `scene_path` is set; the addon activates it first),
+discarding unsaved changes — `confirm=True` required; call `save_scene`
+first to keep edits. `godot_scene_edit_reload_scene` requires
+the scene to already be open. `godot_scene_edit_select_nodes` replaces the current editor
+selection with the resolved nodes. All accept `dry_run: bool = False` (the
+destructive tools also accept `confirm`).
 
-  `godot_scene_edit_rescan_filesystem` triggers `EditorFileSystem.scan()` so external file
-  edits (made by other tools/agents/git) are picked up (#486). Non-destructive — the scan
-  discards no editor state (unlike `reload_scene`, which discards unsaved changes and stays
-  confirm-gated). The scan is asynchronous: `scanning` reports whether it is still in flight
-  (the #459/#453 read-side keys on the same state).
+`godot_scene_edit_rescan_filesystem` triggers `EditorFileSystem.scan()` so external file
+edits (made by other tools/agents/git) are picked up (#486). Non-destructive — the scan
+discards no editor state (unlike `reload_scene`, which discards unsaved changes and stays
+confirm-gated). The scan is asynchronous: `scanning` reports whether it is still in flight
+(the #459/#453 read-side keys on the same state).
 
- #### Scripts (issue #10) — category: `scripts` (gated off by default)
+#### Scripts (issue #10) — category: `scripts` (gated off by default)
 
 Read/write/patch route through the addon (single path; the editor re-scans after
 writes, and writes register `UndoRedo`). `godot_scripts_get_parse_errors` shells out to
