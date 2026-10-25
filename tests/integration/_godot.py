@@ -19,6 +19,7 @@ import subprocess
 import time
 from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -229,6 +230,46 @@ async def serve_and_await_editor(
     # listener here or its port leaks and breaks the rest of the suite (#276 review).
     await bridge.close()  # type: ignore[attr-defined]
     return False
+
+
+async def wait_for_active_scene(
+    bridge: Any,
+    scene_path: str = "",
+    *,
+    timeout: float = 30.0,
+    interval: float = 0.25,
+) -> dict[str, Any]:
+    """Poll until ``scene_path`` is the active scene (any open scene when empty).
+
+    Returns the last ``cmd_get_active_scene`` result on success. On timeout the
+    AssertionError carries the observed state and the open-tab list, so a flake is
+    diagnosable from CI output instead of a bare "did not become active" (#811).
+
+    The budget is deliberately generous: the editor's async filesystem scan can
+    delay activation on a contended runner, and a slow pass is cheaper than a
+    false failure.
+    """
+    deadline = time.monotonic() + timeout
+    last: dict[str, Any] = {}
+    while True:
+        response = await bridge.send("cmd_get_active_scene")
+        last = dict(response.result or {}) if response.ok else {"error": response.error}
+        if last.get("is_open") and (not scene_path or last.get("path") == scene_path):
+            return last
+        if time.monotonic() >= deadline:
+            break
+        await asyncio.sleep(interval)
+
+    opened: list[str] = []
+    try:
+        tabs = await bridge.send("cmd_list_open_scenes")
+        opened = [str(entry.get("path")) for entry in (tabs.result or {}).get("scenes", [])]
+    except Exception:  # diagnostics only — never mask the activation failure
+        pass
+    raise AssertionError(
+        f"scene {scene_path or '<any>'} did not become active within {timeout:g}s; "
+        f"active={last}; open={opened}"
+    )
 
 
 def stop_editor(proc: subprocess.Popen[bytes], *, timeout: float = 10.0) -> None:

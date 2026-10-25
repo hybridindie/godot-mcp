@@ -22,6 +22,7 @@ from tests.integration._godot import (
     GODOT_PROJECT,
     e2e_bridge_url,
     serve_and_await_editor,
+    wait_for_active_scene,
 )
 
 pytestmark = pytest.mark.skipif(GODOT_BIN is None, reason="Godot binary not installed")
@@ -43,16 +44,6 @@ async def _ok(bridge: Bridge, command: str, params: dict[str, Any] | None = None
     return response.result
 
 
-async def _wait_scene_open(bridge: Bridge, path: str = "") -> None:
-    for _ in range(40):
-        response = await bridge.send("cmd_get_active_scene")
-        if response.ok and (response.result or {}).get("is_open"):
-            if path == "" or (response.result or {}).get("path") == path:
-                return
-        await asyncio.sleep(0.25)
-    raise AssertionError("the scene never became the active scene")
-
-
 async def _cleanup() -> None:
     for f in [SCENE_A_FILE, SCENE_B_FILE]:
         uid = f.with_suffix(".tscn.uid")
@@ -68,10 +59,10 @@ async def _run_roundtrip() -> None:
     try:
         # Create two scene files to open/close/list.
         await _ok(bridge, "cmd_create_scene", {"root_type": "Node2D", "scene_path": SCENE_A})
-        await _wait_scene_open(bridge, SCENE_A)
+        await wait_for_active_scene(bridge, SCENE_A)
 
         await _ok(bridge, "cmd_create_scene", {"root_type": "Node2D", "scene_path": SCENE_B})
-        await _wait_scene_open(bridge, SCENE_B)
+        await wait_for_active_scene(bridge, SCENE_B)
 
         # list_open_scenes should report both A and B.
         listed = await _ok(bridge, "cmd_list_open_scenes")

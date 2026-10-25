@@ -22,6 +22,7 @@ from tests.integration._godot import (
     GODOT_PROJECT,
     e2e_bridge_url,
     serve_and_await_editor,
+    wait_for_active_scene,
 )
 
 pytestmark = pytest.mark.skipif(GODOT_BIN is None, reason="Godot binary not installed")
@@ -41,15 +42,6 @@ async def _ok(bridge: Bridge, command: str, params: dict[str, Any] | None = None
     return response.result
 
 
-async def _wait_scene_open(bridge: Bridge) -> None:
-    for _ in range(40):
-        response = await bridge.send("cmd_get_active_scene")
-        if response.ok and (response.result or {}).get("is_open"):
-            return
-        await asyncio.sleep(0.25)
-    raise AssertionError("the created scene never became the active scene")
-
-
 async def _run_roundtrip() -> None:
     bridge = Bridge(BridgeConfig(url=BRIDGE_URL))
     if not await serve_and_await_editor(bridge):
@@ -57,7 +49,7 @@ async def _run_roundtrip() -> None:
 
     try:
         await _ok(bridge, "cmd_create_scene", {"root_type": "Node2D", "scene_path": SCRATCH})
-        await _wait_scene_open(bridge)
+        await wait_for_active_scene(bridge)
 
         created = await _ok(
             bridge, "cmd_create_node", {"parent_path": ".", "node_type": "Sprite2D", "name": "Hero"}
@@ -145,7 +137,7 @@ async def _run_object_property_coercion() -> None:
             {"root_type": "MeshInstance3D", "scene_path": scratch},
         )
         assert created["created"] is True
-        await _wait_scene_open(bridge)
+        await wait_for_active_scene(bridge)
 
         # Happy path: res:// path coerces via load() for the Object property.
         was_set = await _ok(

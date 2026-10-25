@@ -21,6 +21,7 @@ from tests.integration._godot import (
     GODOT_PROJECT,
     e2e_bridge_url,
     serve_and_await_editor,
+    wait_for_active_scene,
 )
 
 pytestmark = pytest.mark.skipif(GODOT_BIN is None, reason="Godot binary not installed")
@@ -38,17 +39,6 @@ async def _ok(bridge: Bridge, command: str, params: dict[str, Any]) -> dict[str,
         f"{command}: {response.error} {response.hint}"
     )
     return response.result
-
-
-async def _wait_active_scene(bridge: Bridge, scene_path: str) -> None:
-    result: dict[str, Any] = {}
-    for _ in range(80):
-        r = await bridge.send("cmd_get_active_scene")
-        result = r.result or {} if r.ok else {}
-        if result.get("path") == scene_path:
-            return
-        await asyncio.sleep(0.1)
-    raise AssertionError(f"scene {scene_path} did not become active: {result}")
 
 
 async def _run() -> None:
@@ -216,7 +206,7 @@ async def _run_delete_open_scene_multi_tab() -> None:
             {"root_type": "Node3D", "scene_path": victim},
         )
         assert created["created"] is True
-        await _wait_active_scene(bridge, victim)
+        await wait_for_active_scene(bridge, victim)
         await _ok(
             bridge,
             "cmd_create_node",
@@ -228,7 +218,7 @@ async def _run_delete_open_scene_multi_tab() -> None:
             {"root_type": "Node3D", "scene_path": bystander},
         )
         assert created["created"] is True
-        await _wait_active_scene(bridge, bystander)
+        await wait_for_active_scene(bridge, bystander)
         await _ok(
             bridge,
             "cmd_create_node",

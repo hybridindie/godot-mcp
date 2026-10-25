@@ -20,6 +20,7 @@ from tests.integration._godot import (
     GODOT_PROJECT,
     e2e_bridge_url,
     serve_and_await_editor,
+    wait_for_active_scene,
 )
 
 pytestmark = pytest.mark.skipif(GODOT_BIN is None, reason="Godot binary not installed")
@@ -45,17 +46,6 @@ async def _ok(bridge: Bridge, command: str, params: dict[str, Any]) -> dict[str,
     return response.result
 
 
-async def _wait_active_scene(bridge: Bridge, scene_path: str) -> None:
-    result: dict[str, Any] = {}
-    for _ in range(80):
-        r = await bridge.send("cmd_get_active_scene")
-        result = r.result or {} if r.ok else {}
-        if result.get("path") == scene_path:
-            return
-        await asyncio.sleep(0.1)
-    raise AssertionError(f"scene {scene_path} did not become active: {result}")
-
-
 async def _run() -> None:
     bridge = Bridge(BridgeConfig(url=BRIDGE_URL))
     if not await serve_and_await_editor(bridge):
@@ -63,7 +53,7 @@ async def _run() -> None:
 
     try:
         await _ok(bridge, "cmd_create_scene", {"root_type": "Node2D", "scene_path": SCRATCH})
-        await _wait_active_scene(bridge, SCRATCH)
+        await wait_for_active_scene(bridge, SCRATCH)
         for name, node_type in (("Box", "Node2D"), ("Inner", "Node2D"), ("Clock", "Timer")):
             await _ok(
                 bridge,
@@ -142,7 +132,7 @@ async def _run_instance_ownership() -> None:
     try:
         # A reusable sub-scene with a distinguishable internal node.
         await _ok(bridge, "cmd_create_scene", {"root_type": "Node2D", "scene_path": SUB})
-        await _wait_active_scene(bridge, SUB)
+        await wait_for_active_scene(bridge, SUB)
         await _ok(
             bridge,
             "cmd_create_node",
@@ -153,7 +143,7 @@ async def _run_instance_ownership() -> None:
         # The main scene instances the sub-scene, then moves the instance into a
         # holder — the move triggers own_recursive over the instance.
         await _ok(bridge, "cmd_create_scene", {"root_type": "Node2D", "scene_path": INST_SCENE})
-        await _wait_active_scene(bridge, INST_SCENE)
+        await wait_for_active_scene(bridge, INST_SCENE)
         await _ok(
             bridge, "cmd_create_node", {"parent_path": ".", "node_type": "Node2D", "name": "Holder"}
         )

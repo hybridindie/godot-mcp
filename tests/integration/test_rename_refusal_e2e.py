@@ -25,6 +25,7 @@ from tests.integration._godot import (
     GODOT_PROJECT,
     e2e_bridge_url,
     serve_and_await_editor,
+    wait_for_active_scene,
 )
 
 pytestmark = pytest.mark.skipif(GODOT_BIN is None, reason="Godot binary not installed")
@@ -94,6 +95,7 @@ async def _run() -> None:
     try:
         # --- Case 1: instanced child (editable and not) is refused, name survives reload.
         await _ok(bridge, "cmd_open_scene", {"scene_path": MAIN})
+        await wait_for_active_scene(bridge, MAIN)
         refused = await bridge.send(
             "cmd_rename_node", {"node_path": "Relic/Cold", "new_name": "Warm"}
         )
@@ -112,6 +114,7 @@ async def _run() -> None:
 
         # --- Case 2: a node an inherited scene gets from its base is refused.
         await _ok(bridge, "cmd_open_scene", {"scene_path": DERIVED})
+        await wait_for_active_scene(bridge, DERIVED)
         refused_base = await bridge.send(
             "cmd_rename_node", {"node_path": "Cold", "new_name": "Warm"}
         )
@@ -148,6 +151,7 @@ async def _run() -> None:
         await _ok(bridge, "cmd_rename_node", {"node_path": "RenamedOwned", "new_name": "Owned"})
         await _ok(bridge, "cmd_save_scene", {})
         reloaded = await _ok(bridge, "cmd_open_scene", {"scene_path": DERIVED})
+        await wait_for_active_scene(bridge, DERIVED)
         assert reloaded.get("is_open", True) is True
         tree = await _ok(bridge, "cmd_get_scene_tree", {})
         # The rename survived save + reload: the root kept its live name and the
