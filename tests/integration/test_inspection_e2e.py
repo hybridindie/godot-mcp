@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import os
 import subprocess
+import uuid
 
 import pytest
 
@@ -69,6 +70,38 @@ async def _run_checks() -> None:
         assert groups.ok is False
         assert groups.error == "PRECONDITION_FAILED"
         assert groups.required == "active_scene"
+
+        # #797: the four node handlers share one resolver and echo the NORMALIZED
+        # path ("root/" and a leading "/" are stripped), so a caller can compare
+        # the response to the path it passed without re-normalizing it.
+        scene_path = f"res://tmp_inspection_norm_{uuid.uuid4().hex[:8]}.tscn"
+        try:
+            created = await bridge.send(
+                "cmd_create_scene", {"root_type": "Node2D", "scene_path": scene_path}
+            )
+            assert created.ok, created
+            for _ in range(40):
+                active = await bridge.send("cmd_get_active_scene")
+                if active.ok and (active.result or {}).get("path") == scene_path:
+                    break
+                await asyncio.sleep(0.25)
+            made = await bridge.send(
+                "cmd_create_node",
+                {"parent_path": ".", "node_type": "Node2D", "name": "Holder"},
+            )
+            assert made.ok, made
+            for command in ("cmd_get_node_groups", "cmd_get_node_property_list"):
+                response = await bridge.send(command, {"node_path": "root/Holder"})
+                assert response.ok, response
+                assert response.result["node_path"] == "Holder", response.result
+            exists = await bridge.send("cmd_node_exists", {"node_path": "/root/Holder"})
+            assert exists.ok and exists.result["exists"] is True, exists
+            props = await bridge.send("cmd_get_node_properties", {"node_path": "root/Holder"})
+            assert props.ok and props.result["node_path"] == "Holder", props
+        finally:
+            await bridge.send(
+                "cmd_delete_resource_file", {"path": scene_path, "confirm": True}
+            )
     finally:
         await bridge.close()
 

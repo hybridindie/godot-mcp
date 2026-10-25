@@ -120,14 +120,11 @@ func _cmd_get_selected_node(_params: Dictionary) -> Dictionary:
 func _cmd_get_node_properties(params: Dictionary) -> Dictionary:
 	if not params.has("node_path"):
 		return _router._fail("VALIDATION_ERROR", "'node_path' is required.")
-	var root: Node = EditorInterface.get_edited_scene_root()
-	if root == null:
-		return _router._fail("PRECONDITION_FAILED", "No scene is open.", "active_scene")
 	var node_path := Inspect.normalize_node_path(str(params["node_path"]))
-	var node: Node = root.get_node_or_null(NodePath(node_path))
-	if node == null:
-		return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(params["node_path"]))
-	return _router._ok(Inspect.node_info(node, root))
+	var found := _router._resolve(node_path)
+	if not found["ok"]:
+		return found
+	return _router._ok(Inspect.node_info(found["node"], EditorInterface.get_edited_scene_root()))
 
 
 func _cmd_node_exists(params: Dictionary) -> Dictionary:
@@ -136,13 +133,9 @@ func _cmd_node_exists(params: Dictionary) -> Dictionary:
 	# heavy cmd_get_node_properties round-trip on every node-targeted mutation.
 	if not params.has("node_path"):
 		return _router._fail("VALIDATION_ERROR", "'node_path' is required.")
-	var root: Node = EditorInterface.get_edited_scene_root()
-	if root == null:
-		return _router._fail("PRECONDITION_FAILED", "No scene is open.", "active_scene")
-	var node_path := Inspect.normalize_node_path(str(params["node_path"]))
-	var node: Node = root.get_node_or_null(NodePath(node_path))
-	if node == null:
-		return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(params["node_path"]))
+	var found := _router._resolve(Inspect.normalize_node_path(str(params["node_path"])))
+	if not found["ok"]:
+		return found
 	return _router._ok({"exists": true})
 
 
@@ -260,31 +253,26 @@ func _cmd_get_node_property(params: Dictionary) -> Dictionary:
 func _cmd_get_node_groups(params: Dictionary) -> Dictionary:
 	if not params.has("node_path"):
 		return _router._fail("VALIDATION_ERROR", "'node_path' is required.")
-	var root: Node = EditorInterface.get_edited_scene_root()
-	if root == null:
-		return _router._fail("PRECONDITION_FAILED", "No scene is open.", "active_scene")
 	var node_path := Inspect.normalize_node_path(str(params["node_path"]))
-	var node: Node = root.get_node_or_null(NodePath(node_path))
-	if node == null:
-		return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(params["node_path"]))
-	return _router._ok({"node_path": str(params["node_path"]), "groups": Inspect.node_groups(node)})
+	var found := _router._resolve(node_path)
+	if not found["ok"]:
+		return found
+	return _router._ok({"node_path": node_path, "groups": Inspect.node_groups(found["node"])})
 
 
 func _cmd_get_node_property_list(params: Dictionary) -> Dictionary:
 	if not params.has("node_path"):
 		return _router._fail("VALIDATION_ERROR", "'node_path' is required.")
-	var root: Node = EditorInterface.get_edited_scene_root()
-	if root == null:
-		return _router._fail("PRECONDITION_FAILED", "No scene is open.", "active_scene")
 	var node_path := Inspect.normalize_node_path(str(params["node_path"]))
-	var node: Node = root.get_node_or_null(NodePath(node_path))
-	if node == null:
-		return _router._fail("RESOURCE_NOT_FOUND", "No node at '%s'." % str(params["node_path"]))
+	var found := _router._resolve(node_path)
+	if not found["ok"]:
+		return found
+	var node: Node = found["node"]
 	var names: Array = []
 	for entry in node.get_property_list():
 		names.append(str(entry["name"]))
 	return _router._ok({
-		"node_path": str(params["node_path"]),
+		"node_path": node_path,
 		"type": node.get_class(),
 		"properties": names,
 	})
