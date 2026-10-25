@@ -238,7 +238,7 @@ updated: 2026-10-24
 
 ## `project` — Filesystem tree, file search, project settings, UID resolution.
 
-7 tools.
+8 tools.
 
 | Tool | Class |
 |------|-------|
