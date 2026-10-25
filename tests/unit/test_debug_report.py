@@ -129,7 +129,10 @@ def test_run_debug_workflow_orchestrates_to_model() -> None:
         assert result.scene_tree is None
         assert result.run is None
         assert result.parse["skipped_reason"] is not None
-        assert any(f.startswith("NO ACTIVE SCENE") for f in result.findings)
+        # The fake addon does not answer cmd_get_scene_tree, so the report must
+        # name that failure rather than claiming no scene is open (#796).
+        assert any(f.startswith("SCENE TREE UNAVAILABLE") for f in result.findings)
+        assert not any(f.startswith("NO ACTIVE SCENE") for f in result.findings)
         await bridge.close()
 
     asyncio.run(go())
