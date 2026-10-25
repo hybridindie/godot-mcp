@@ -81,6 +81,7 @@ export default withMermaid(defineConfig({
           { text: 'Build a scene', link: '/guides-build-scene' },
           { text: 'Play-test & debug', link: '/guides-playtest-debug' },
           { text: 'Verify your work', link: '/guides-verify' },
+          { text: 'Project-defined tools', link: '/guides-project-tools' },
           { text: 'Ship: export, tests & CI', link: '/guides-ship' },
           { text: 'Examples', link: '/guides-examples' }
         ]

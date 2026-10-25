@@ -251,6 +251,10 @@ updated: 2026-10-24
 | `godot_project_search_files` | read_only |
 | `godot_project_set_setting` | destructive |
 
+`godot_project_scan_tools` (issue #761) registers a project's own annotated
+functions as `godot_project_*` tools in this same toolset — see
+[Project-defined tools](guides-project-tools.md).
+
 ## `project_scaffold` — Scaffold a new project skeleton (directories, base scenes).
 
 1 tools.
