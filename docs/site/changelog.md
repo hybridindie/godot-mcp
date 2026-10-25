@@ -12,7 +12,7 @@ Full release notes live on
 [GitHub Releases](https://github.com/hybridindie/godot-mcp/releases). This page
 summarizes the recent ones.
 
-## Unreleased — the stable-line batch
+## 2026.10.24 — the stable-line batch
 
 The largest surface change since the stable line began: agent trust (receipts,
 consent, readiness), project-owned verification, and project-defined tools.
@@ -51,6 +51,8 @@ All of it is **additive** — `CONTRACT_VERSION` stays `1`.
 
 - **Always-on rules (#783)** — `skills/godot-rules.md`, task-worded skill
   triggers, and copy-based install (symlinked skill dirs hide `references/`).
+- **Leaner `godot-expert` (#788)** — a smaller core with explicit "before X, read
+  `references/…`" pointers, so the reference guides load only when they are needed.
 
 ### Fixes
 
