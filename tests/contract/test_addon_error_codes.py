@@ -111,9 +111,13 @@ def test_every_python_error_code_is_used_or_explicitly_unrepresented() -> None:
 
 # Python-side scan (#791): the mirror of the addon scan above. A server-side
 # literal that isn't in the enum is the same drift bug — it just lives in the
-# other language. Covers the two shapes the server uses: a ToolError/
-# AgentToolError first argument and a `"error": "CODE"` dict.
-_PY_TOOL_ERROR = re.compile(r'(?:AgentToolError|ToolError)\(\s*f?["\']([A-Z][A-Z_]{3,})')
+# other language. Covers the two shapes the server uses: any exception class
+# whose first argument is a code literal, and a `"error": "CODE"` dict.
+#
+# The literal must be a standalone code (`CODE: …` or the whole argument); that
+# check is what keeps an ordinary message like
+# `ValueError("HTTP transport requires …")` out of the set.
+_PY_ERROR_CALL = re.compile(r'\b\w*(?:Error|Exception)\(\s*f?["\']([A-Z][A-Z_]{3,})')
 _PY_ERROR_DICT = re.compile(r'"error":\s*"([A-Z][A-Z_]{3,})"')
 
 
@@ -122,9 +126,12 @@ def _collect_server_codes() -> dict[str, list[str]]:
     for path in sorted((REPO_ROOT / "mcp_server").rglob("*.py")):
         rel = str(path.relative_to(REPO_ROOT))
         src = path.read_text()
-        for pattern in (_PY_TOOL_ERROR, _PY_ERROR_DICT):
-            for match in pattern.finditer(src):
-                found.setdefault(match.group(1), []).append(rel)
+        for match in _PY_ERROR_CALL.finditer(src):
+            if src[match.end(1) : match.end(1) + 1] not in (":", "'", '"'):
+                continue
+            found.setdefault(match.group(1), []).append(rel)
+        for match in _PY_ERROR_DICT.finditer(src):
+            found.setdefault(match.group(1), []).append(rel)
     return found
 
 
