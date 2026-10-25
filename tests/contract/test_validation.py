@@ -77,7 +77,7 @@ def _patch_process(
         captured["args"] = args
         return process
 
-    monkeypatch.setattr(validation.asyncio, "create_subprocess_exec", fake_exec)
+    monkeypatch.setattr("asyncio.create_subprocess_exec", fake_exec)
     monkeypatch.setattr(validation, "find_godot_binary", lambda _config: "godot-fake")
     return captured
 
