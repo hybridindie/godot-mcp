@@ -109,7 +109,11 @@ adds commit churn.
   `No module named 'openai'`, reinstall with:
   `uv tool install graphifyy --with mcp --with openai --force`.
 
-- After any `graphify` upgrade/reinstall, re-run `scripts/graphify_gdscript_support.py`
-  with the pinned interpreter — the site-packages `.gd` patch is wiped on reinstall.
+- After any `graphify` upgrade/reinstall (including the `--force` reinstall above),
+  re-run `graphify-gdscript` — the site-packages `.gd` patch is wiped on reinstall.
+  It lives in the genesis machine layer (`system/bin`, installed to `~/.local/bin`
+  where graphify and a Godot project are present); `graphify-gdscript --check`
+  verifies it, and `--python <interpreter>` targets a pinned interpreter that
+  isn't the `graphify` on PATH.
 - `.graphifyignore` keeps the graph focused on the MCP itself (server + addon + docs);
   flip a line to `!` to re-include an excluded tree.

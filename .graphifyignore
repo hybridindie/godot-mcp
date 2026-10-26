@@ -3,8 +3,9 @@
 #   - godot/addons/godot_mcp/     the Godot addon (the .gd half of the MCP)
 #   - docs/ + .opencode/rules/    its architecture/contract docs + grounding rules
 #
-# GDScript (.gd) support is added to the installed graphify by
-# scripts/graphify_gdscript_support.py (re-run after any `graphify install`/upgrade).
+# GDScript (.gd) support is added to the machine's graphify by
+# `graphify-gdscript` (the genesis machine layer; re-run after any graphify
+# install/upgrade — `graphify-gdscript --check` tells).
 #
 # Everything below is a SEPARATE project, a harness/consumer, or a generated/
 # meta artifact that otherwise dominates the graph (e.g. FakeAddonConnection,
