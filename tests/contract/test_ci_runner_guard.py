@@ -42,8 +42,12 @@ def test_every_ci_job_skips_fork_prs() -> None:
 def test_ci_jobs_use_the_self_hosted_runner() -> None:
     """Guard against a silent 'guard added but runner changed' — the guard is only
     meaningful while jobs target the self-hosted runner."""
+    # Scale-set runners advertise `self-hosted` plus the scale-set name, and the
+    # workflow targets that name directly instead of a label list.
+    scale_set = "hybridindie-godot-mcp-linux"
     for name, job in _jobs(_CI).items():
-        assert "self-hosted" in str(job.get("runs-on")), name
+        runs_on = job.get("runs-on")
+        assert runs_on == scale_set or "self-hosted" in str(runs_on), name
 
 
 def test_e2e_guard_matches_ci_guard() -> None:

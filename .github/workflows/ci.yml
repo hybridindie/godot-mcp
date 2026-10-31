@@ -21,19 +21,19 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Self-hosted runners share /runner/_work/_cache; keep uv's package and
-# Python caches there instead of setup-uv's actions/cache restore, which
-# hangs on the self-hosted cache service (#579). Step timeouts fail a hung
-# download fast instead of stalling the job.
+# Keep uv's package and Python caches out of the workspace. Scale-set runners
+# are ephemeral, so /tmp is as durable as anything and works on both the
+# official and classic images. Step timeouts fail a hung download fast
+# instead of stalling the job (#579).
 env:
-  UV_CACHE_DIR: /runner/_work/_cache/uv
-  UV_PYTHON_INSTALL_DIR: /runner/_work/_cache/uv-python
+  UV_CACHE_DIR: /tmp/uv-cache
+  UV_PYTHON_INSTALL_DIR: /tmp/uv-python
 
 jobs:
   lint:
     name: lint (ruff)
     timeout-minutes: 20
-    runs-on: [self-hosted, linux, hybridindie]
+    runs-on: hybridindie-godot-mcp-linux
     # SECURITY (public repo + self-hosted runner, issue #650): never execute
     # untrusted fork code on the runner. Only same-repo branch PRs and pushes
     # run; fork PRs skip this job. Mirrors e2e.yml — pair it with the repo
@@ -66,7 +66,7 @@ jobs:
   types:
     name: types (mypy)
     timeout-minutes: 20
-    runs-on: [self-hosted, linux, hybridindie]
+    runs-on: hybridindie-godot-mcp-linux
     # SECURITY (public repo + self-hosted runner, issue #650): never execute
     # untrusted fork code on the runner. Only same-repo branch PRs and pushes
     # run; fork PRs skip this job. Mirrors e2e.yml — pair it with the repo
@@ -95,8 +95,10 @@ jobs:
 
   tests:
     name: tests (pytest)
-    timeout-minutes: 20
-    runs-on: [self-hosted, linux, hybridindie]
+    # ~5 min on an idle runner; the shared scale-set pools can be CPU-starved by
+    # other repos' CI, so allow 4x headroom rather than cancelling mid-suite.
+    timeout-minutes: 40
+    runs-on: hybridindie-godot-mcp-linux
     # SECURITY (public repo + self-hosted runner, issue #650): never execute
     # untrusted fork code on the runner. Only same-repo branch PRs and pushes
     # run; fork PRs skip this job. Mirrors e2e.yml — pair it with the repo
@@ -126,7 +128,7 @@ jobs:
   camelcase:
     name: camelCase gate (compat bridge off)
     timeout-minutes: 20
-    runs-on: [self-hosted, linux, hybridindie]
+    runs-on: hybridindie-godot-mcp-linux
     # SECURITY (public repo + self-hosted runner, issue #650): never execute
     # untrusted fork code on the runner. Only same-repo branch PRs and pushes
     # run; fork PRs skip this job. Mirrors e2e.yml — pair it with the repo
