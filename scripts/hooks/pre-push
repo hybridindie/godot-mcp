@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Harness guardrails (pre-push). This clone's core.hooksPath is scripts/hooks (see
+# install.sh), so delegate to the tracked genesis hook in .githooks/.
+exec "$(git rev-parse --show-toplevel)/.githooks/pre-push" "$@"

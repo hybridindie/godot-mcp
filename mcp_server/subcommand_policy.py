@@ -5,7 +5,7 @@ in one round-trip. The outer tool is tagged ``mutating``, so without this module
 single batch could run **destructive** commands without ``confirm``, reach
 commands whose toolset is gated off, and skip the server's per-command path
 preflight — breaking the rule that safety lives in the server
-(``.opencode/rules/mcp-tools.md``, ``.opencode/rules/architecture.md``).
+(``.claude/rules/mcp-tools.md``, ``.claude/rules/architecture.md``).
 
 This module is the single source of truth for a sub-command's policy. Every
 entry is resolved back to the exposed tool that backs it (the registry is the

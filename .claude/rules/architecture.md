@@ -1,9 +1,10 @@
 ---
+read_when: "Adding or moving server logic, or deciding which side of the addon/server boundary code belongs on"
 paths:
   - "mcp_server/**/*.py"
 ---
 
-# Architecture: Library-First & the Addon/Server Boundary (Articles I & II)
+# Architecture: Library-First & the Addon/Server Boundary
 
 The system is two halves joined by one seam. Keep the seam clean; keep logic out of the handlers.
 
@@ -11,7 +12,7 @@ The system is two halves joined by one seam. Keep the seam clean; keep logic out
 AI client ──stdio──> FastMCP server (Python) ──WebSocket──> Godot addon (GDScript) ──> live project
 ```
 
-## Library-First (Article I)
+## Library-First
 
 MUST:
 - Tool/resource/prompt handlers in `mcp_server/{tools,resources,prompts}/` are **delegation only** — validate args, call a service or the bridge, return a typed model. Zero domain logic in `@mcp.tool()` / `@mcp.resource()` / `@mcp.prompt()` bodies.
@@ -22,12 +23,12 @@ SHOULD:
 - Functions composition-focused and under ~40 lines.
 - Split a module once it spans two unrelated concerns.
 
-ANTI-PATTERNS (BLOCKING):
+ANTI-PATTERNS:
 - Domain branching inside a tool handler.
 - A handler reaching into Godot semantics directly instead of sending a bridge command.
 - Module-level mutable state holding per-request data (the server is long-lived).
 
-## Service Isolation (Article II)
+## Service Isolation
 
 MUST:
 - The bridge client is the **only** way Python talks to Godot. No Godot/editor knowledge leaks into tool handlers or models.

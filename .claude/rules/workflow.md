@@ -1,4 +1,5 @@
 ---
+read_when: "Starting or finishing a unit of work, opening a PR, or addressing review"
 paths:
   - "**/*"
 ---

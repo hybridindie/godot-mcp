@@ -14,7 +14,7 @@ extends RefCounted
 ##   - the #443 break gate (input while frozen at a break) lives here too.
 ##
 ## Handlers receive the router so _fail/_ok envelope builders stay centralized.
-## See .opencode/rules/error-handling.md; safety/preconditions are owned by the
+## See .claude/rules/error-handling.md; safety/preconditions are owned by the
 ## MCP server — these are the local guards needed to return a structured error
 ## instead of crashing.
 

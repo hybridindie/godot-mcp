@@ -1,4 +1,4 @@
-# CI gates — kept in sync with .opencode/rules/enforcement.md.
+# CI gates — kept in sync with .claude/rules/enforcement.md.
 # Suite health (zero skips) · lint (ruff) · type check (mypy) · tests (pytest).
 #
 # Split into parallel jobs (lint, types, tests, camelCase) so they run
@@ -58,7 +58,12 @@ jobs:
         run: uv sync --frozen
 
       - name: Zero-skip scan (suite health)
-        run: ./.opencode/hooks/check-no-skipped-tests.sh
+        run: .claude/hooks/check-no-skipped-tests.sh
+
+      # Harness gate: secret scan, Claude/OpenCode mirror drift, rule-index drift.
+      # The venv's python3 runs the checks (the runner image need not ship one).
+      - name: Harness guardrails
+        run: PATH="$PWD/.venv/bin:$PATH" bash .claude/hooks/guardrails.sh --ci
 
       - name: Lint (ruff check)
         run: uv run ruff check .
@@ -160,7 +165,7 @@ jobs:
         env:
           FASTMCP_MCP_CAMELCASE_COMPAT: "false"
         run: uv run pytest -q tests/contract/test_tool_transform.py
-  # Godot 4.4 is the addon's supported floor (docs, .opencode/rules/addon.md).
+  # Godot 4.4 is the addon's supported floor (docs, .claude/rules/addon.md).
   # The e2e lane only exercises 4.7, so a 4.5+ API in the addon used to ship
   # undetected (issues #648, #738, #701). This job loads the addon in the real
   # 4.4 editor (editor load parses every preloaded script) and runs the

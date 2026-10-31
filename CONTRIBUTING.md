@@ -30,7 +30,7 @@ uv run pytest -q                    # full test suite
 uv run pytest tests/unit/test_smoke.py  # single file
 uv run ruff check .                 # lint
 uv run mypy                         # type check
-./.opencode/hooks/check-no-skipped-tests.sh  # zero-skip suite health gate
+.claude/hooks/check-no-skipped-tests.sh  # zero-skip suite health gate
 uv run godot-editor-mcp             # start the MCP server (stdio)
 ```
 
@@ -56,7 +56,7 @@ the surface changes.
 
 ## Workflow
 
-Follow the issue-driven pipeline (see `.opencode/rules/workflow.md`):
+Follow the issue-driven pipeline (see `.claude/rules/workflow.md`):
 
 1. **Issue exists** — every merge traces to a GitHub issue
 2. **Failing test** — write a red test that pins the behavior or reproduces the bug
@@ -68,18 +68,7 @@ Follow the issue-driven pipeline (see `.opencode/rules/workflow.md`):
 
 ## Grounding rules
 
-The constitutional rules live in `.opencode/rules/` and are the source of truth for how to build here. Read the relevant rule before writing code in that area:
-
-| Rule | Governs |
-|------|---------|
-| `architecture.md` | Library-first; the addon/server boundary |
-| `mcp-tools.md` | Tool/resource/prompt contract; safety classes |
-| `error-handling.md` | The versioned JSON envelope; structured errors |
-| `async-patterns.md` | Async FastMCP; bridge timeouts, reconnect |
-| `addon.md` | GDScript addon conventions (`@tool`, UndoRedo, serialization) |
-| `testing.md` | TDD mandate; suite health (zero skips) |
-| `workflow.md` | Issue → red test → green → preflight → PR → merge |
-| `enforcement.md` | Gates, PR checklist, versioning |
+The rules live in `.claude/rules/` and are the source of truth for how to build here. [`AGENTS.md`](AGENTS.md#rule-index) indexes them by when to read each one; read the relevant rule before writing code in that area.
 
 ## Architecture
 
@@ -107,7 +96,7 @@ Every tool is tagged:
 
 ## Testing
 
-TDD is mandated (see `.opencode/rules/testing.md`):
+TDD is mandated (see `.claude/rules/testing.md`):
 
 - **Contract** — envelope shapes and tool schemas (`tests/contract/`)
 - **Integration** — server ↔ fake bridge; precondition and safety paths (`tests/integration/`)
