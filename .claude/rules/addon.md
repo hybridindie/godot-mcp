@@ -1,4 +1,5 @@
 ---
+read_when: "Writing or changing the GDScript addon: handlers, the command router, UndoRedo, serialization, the dock"
 paths:
   - "godot/addons/godot_mcp/**/*.gd"
 ---

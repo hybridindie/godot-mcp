@@ -1,10 +1,11 @@
 ---
+read_when: "Adding or changing an error path, error code, the JSON envelope, or logging"
 paths:
   - "mcp_server/**/*.py"
   - "godot/addons/godot_mcp/**/*.gd"
 ---
 
-# Error Handling & the JSON Envelope (Article IV)
+# Error Handling & the JSON Envelope
 
 Every message across the bridge is a versioned JSON envelope. Errors are structured data an agent can act on — never a stack trace, never silent.
 

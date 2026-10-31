@@ -88,7 +88,7 @@ constraint-dependencies = ["fastmcp-slim==4.1.0", "fastmcp-tasks==4.1.0"]
 packages = ["mcp_server"]
 
 [tool.pytest.ini_options]
-# Contract -> Integration -> Unit (see .opencode/rules/testing.md).
+# Contract -> Integration -> Unit (see .claude/rules/testing.md).
 testpaths = ["tests"]
 asyncio_mode = "auto"
 # Forbidden skips are a blocking gate; surface them loudly.
@@ -97,6 +97,8 @@ filterwarnings = ["error::pytest.PytestUnraisableExceptionWarning"]
 [tool.ruff]
 target-version = "py311"
 line-length = 100
+# The agent harness scripts are rendered from genesis and linted there.
+extend-exclude = [".claude", ".opencode"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

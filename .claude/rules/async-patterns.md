@@ -1,9 +1,10 @@
 ---
+read_when: "Writing async server code, the bridge transport, timeouts, reconnect, or id correlation"
 paths:
   - "mcp_server/**/*.py"
 ---
 
-# Async-First & the Bridge Transport (Article V)
+# Async-First & the Bridge Transport
 
 FastMCP runs an async server. The WebSocket bridge is the one place latency and failure live — handle both explicitly.
 

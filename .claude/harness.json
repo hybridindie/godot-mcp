@@ -1,0 +1,42 @@
+{
+  "schema": 2,
+  "generated_by": "templates/scripts/render.py",
+  "project_name": "godot-mcp",
+  "project_slug": "godot-mcp",
+  "stacks": [
+    "python",
+    "mcp",
+    "godot",
+    "godot-addon"
+  ],
+  "packs": [],
+  "paths": {
+    "python": ".",
+    "godot": "godot",
+    "frontend": null,
+    "rust": null
+  },
+  "python_version": "3.11",
+  "python": {
+    "version": "3.11",
+    "pkg_manager": "uv",
+    "type_checker": "mypy",
+    "sync_cmd": "uv sync --locked",
+    "lint_cmd": "uv run ruff check .",
+    "type_cmd": "uv run mypy .",
+    "test_cmd": "uv run pytest",
+    "has_mlflow": false,
+    "has_langgraph": false,
+    "db_provider": null
+  },
+  "frontend": {},
+  "godot": {
+    "version": "4.7",
+    "own_addons": [
+      "godot_mcp"
+    ],
+    "test_cmd": "godot --headless --script res://tests/run_tests.gd"
+  },
+  "ci_platform": "github",
+  "ci_runs_on": "ubuntu-latest"
+}

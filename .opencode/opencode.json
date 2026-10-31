@@ -6,20 +6,11 @@
     { "action": "shell", "resource": "git push *", "effect": "ask" },
     { "action": "shell", "resource": "rm *", "effect": "ask" },
     { "action": "websearch", "resource": "*", "effect": "allow" },
-    { "action": "webfetch", "resource": "*", "effect": "allow" }
+    { "action": "webfetch", "resource": "*", "effect": "allow" },
+    { "action": "read", "resource": "**/.env", "effect": "deny" }
   ],
-  "instructions": [
-    "AGENTS.md",
-    ".opencode/rules/architecture.md",
-    ".opencode/rules/mcp-tools.md",
-    ".opencode/rules/error-handling.md",
-    ".opencode/rules/async-patterns.md",
-    ".opencode/rules/addon.md",
-    ".opencode/rules/testing.md",
-    ".opencode/rules/workflow.md",
-    ".opencode/rules/enforcement.md",
-    ".opencode/rules/graphify.md"
-  ],
+  "instructions": ["AGENTS.md", "my-workflows.md"],
+  "skills": [".opencode/skills"],
   "mcp": {
     "servers": {
       "godot": {

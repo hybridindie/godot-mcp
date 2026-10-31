@@ -1,7 +1,7 @@
 # .graphifyignore — focus the knowledge graph on the MCP *itself*:
 #   - mcp_server/                 the Python FastMCP server (the AI-facing product)
 #   - godot/addons/godot_mcp/     the Godot addon (the .gd half of the MCP)
-#   - docs/ + .opencode/rules/    its architecture/contract docs + grounding rules
+#   - docs/ + .claude/rules/      its architecture/contract docs + grounding rules
 #
 # GDScript (.gd) support is added to the machine's graphify by
 # `graphify-gdscript` (the genesis machine layer; re-run after any graphify
@@ -36,10 +36,10 @@ godot/tests/
 # Generated graph output + its extraction cache.
 graphify-out/
 
-# CI / harness / agent meta — not the product. The grounding rules now live in
-# .opencode/rules/ (kept — durable design rationale the graph wants; see the
-# docs/ note above). .claude/ and docs/superpowers/plans/ were removed from the
-# repo (8f4b1ab / #347); their entries below are harmless belt-and-braces.
+# CI / harness / agent meta — not the product. The grounding rules live in
+# .claude/rules/ (kept — durable design rationale the graph wants; see the
+# docs/ note above); the rest of .claude/ (hooks, skills, commands) is excluded.
+# docs/superpowers/plans/ was removed (8f4b1ab / #347); its entry is belt-and-braces.
 
 .github/
 .claude/*
@@ -57,6 +57,5 @@ uv.lock
 *.uid
 *.import
 
-# Local plugin deps (js) — vendored packages, not project architecture.
-.opencode/node_modules/
-.opencode/package-lock.json
+# OpenCode harness meta (commands, skills, plugin deps) — not project architecture.
+.opencode/

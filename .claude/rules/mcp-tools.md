@@ -1,11 +1,12 @@
 ---
+read_when: "Adding or changing an MCP tool, resource, or prompt, its safety class, preconditions, or toolset"
 paths:
   - "mcp_server/tools/**/*.py"
   - "mcp_server/resources/**/*.py"
   - "mcp_server/prompts/**/*.py"
 ---
 
-# MCP Tool, Resource & Prompt Contract (Article VI + Safety Classes)
+# MCP Tool, Resource, Prompt Contract & Safety Classes
 
 The tool surface is the API. Agents call it with no human in the loop, so the contract — types, safety, preconditions — is the product.
 
