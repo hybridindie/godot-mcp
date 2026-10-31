@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: [self-hosted, linux, hybridindie]
+    runs-on: hybridindie-godot-mcp-linux
     steps:
       - uses: actions/checkout@v7
 

@@ -1,9 +1,9 @@
 name: Setup uv (pinned, cached)
 description: >
-  Install the pinned uv binary from the self-hosted runners' shared cache,
-  downloading it with hard timeouts on a cache miss. Replaces
-  astral-sh/setup-uv on the self-hosted pools, where the binary download
-  intermittently stalls for minutes (#750/#752).
+  Install the pinned uv binary, downloading it with hard timeouts on a cache
+  miss. Uses RUNNER_TEMP so it works on the classic and scale-set runner
+  images. Replaces astral-sh/setup-uv on the self-hosted pools, where the
+  binary download intermittently stalls for minutes (#750/#752).
 
 inputs:
   version:
@@ -25,7 +25,9 @@ runs:
           *) echo "::error::unsupported runner arch $(uname -m)"; exit 1 ;;
         esac
         asset="uv-${target}.tar.gz"
-        bin_dir="/runner/_work/_cache/bin"
+        # RUNNER_TEMP exists on every runner image. Scale-set runners are
+        # ephemeral, so there is no shared /runner volume to cache into.
+        bin_dir="${RUNNER_TEMP}/uv-bin"
         bin="${bin_dir}/uv-${version}"
         mkdir -p "$bin_dir"
         if [ ! -x "$bin" ] || ! "$bin" --version | grep -q " ${version}"; then
