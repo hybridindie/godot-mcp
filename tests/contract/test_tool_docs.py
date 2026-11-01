@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+from collections import Counter
 from pathlib import Path
 
 from mcp_server.server import create_server
@@ -43,3 +44,11 @@ def test_contract_rows_start_at_column_zero() -> None:
     text = _CONTRACTS.read_text(encoding="utf-8")
     indented = [match.group(0).strip() for match in _INDENTED_ROW.finditer(text)]
     assert not indented, f"table rows must start at column 0: {indented}"
+
+
+def test_no_tool_has_more_than_one_contract_row() -> None:
+    """One row per tool: a duplicated row hides registry drift and splits the contract."""
+    text = _CONTRACTS.read_text(encoding="utf-8")
+    counts = Counter(_ROW.findall(text))
+    duplicated = sorted(tool for tool, count in counts.items() if count > 1)
+    assert not duplicated, f"tools with more than one row in docs/tool-contracts.md: {duplicated}"
