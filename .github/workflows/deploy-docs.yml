@@ -42,7 +42,7 @@ jobs:
       # The workflow builds on `main` and deploys as a gh-pages artifact —
       # no orphan branch to maintain by hand (same shape as wiki-fabric's deploy).
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: docs/site/dist
 
