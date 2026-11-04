@@ -13,6 +13,20 @@ Godot Editor MCP is a **standalone MCP server** — generic Godot editor control
 
 It has **no dependency on any specific consumer.** Other projects depend on Godot Editor MCP, never the reverse — e.g. the `godot-agents` orchestrator is coded specifically against this server's tool surface, but Godot Editor MCP must **never** couple back to it (no agent-harness-specific tools, prompts, assumptions, or imports). Keep the surface generic; let consumers adapt to it.
 
+## Branches and release channels
+
+Two long-lived branches coexist:
+
+- **`main`** — beta/preview line (Godot 4.8-only surface; prerelease versions,
+  beta tags cut here).
+- **`stable`** — stable line (Godot 4.4–4.7, no 4.8-only tools; stable tags cut
+  here).
+
+Fixes land on `main` first, then cherry-pick to `stable` for a stable patch.
+Never merge `stable` into `main` (it would revert preview work); merge `main`
+into `stable` only to promote the preview. See `CONTRIBUTING.md` for the full
+policy.
+
 ## Current state
 
 The planned ecosystem is **feature-complete**: the engine (scaffold #1, addon + dock #2, bridge #3, server #4, inspection #5, safety #14, mutation #6, scripts #10, `godot://` resources #11, runtime loop #13, toolset gating #26) plus every content domain and capability — physics #41, animation #39, 3D scene #40, particles #42, navigation #43, audio #44, tilemap #45, theme/UI #46, shaders #47, the runtime session bridge #66 (live inspection #35, input sim #36 + recording #68, profiling #38), play-testing/QA #37, batch refactor #48, static analysis #49, and export #50 — are merged. TileSet authoring #82 and MeshLibrary authoring #83 add the resource-authoring tools that let the tilemap and gridmap surfaces place real content. 208 tools across 29 categories — always-on `core` plus 28 toggleable toolsets, of which only `inspection` is enabled by default (the other 28 gated off). New work now means new GitHub issues; the issues remain the authoritative spec, so read the relevant one before implementing. `docs/tool-contracts.md` is the source of truth for the current tool surface.
