@@ -1,7 +1,7 @@
 """Tool safety: classes, preconditions, confirmation, and dry-run (issue #14).
 
 All safety/permission logic lives here, never in the addon
-(see .opencode/rules/mcp-tools.md). Tools are tagged with a ``safety_class`` via the
+(see .claude/rules/mcp-tools.md). Tools are tagged with a ``safety_class`` via the
 ``READ_ONLY`` / ``MUTATING`` / ``DESTRUCTIVE`` / ``RUNTIME`` meta constants.
 
 Preconditions raise a typed :class:`PreconditionError`; the
@@ -307,7 +307,7 @@ class ApprovalGate:
     ``InputRequiredResult`` (an elicitation the client fulfils and re-calls),
     rather than raising. This is durable (no server-side state) and works on
     the sessionless protocol Godot Editor MCP uses by design. See
-    ``.opencode/rules/async-patterns.md``.
+    ``.claude/rules/async-patterns.md``.
     """
 
     webhook_url: str | None = None

@@ -1,7 +1,7 @@
 """Bridge configuration (issue #3).
 
 The bridge URL and request timeout are configuration, never hard-coded in
-library code (see .opencode/rules/architecture.md). Defaults are localhost-only
+library code (see .claude/rules/architecture.md). Defaults are localhost-only
 with no auth, per the v1 design.
 """
 
@@ -27,7 +27,7 @@ DEFAULT_HTTP_PORT = 9090
 BRIDGE_URL_ENV = "GODOT_MCP_BRIDGE_URL"
 # Opt-in shared secret for the bridge handshake (issue #538). Unset = no auth
 # (zero-config local dev); when set, both sides must agree.
-BRIDGE_TOKEN_ENV = "GODOT_MCP_BRIDGE_TOKEN"
+BRIDGE_TOKEN_ENV = "GODOT_MCP_BRIDGE_TOKEN"  # pragma: allowlist secret (env var name)
 # HTTP Host/Origin protection (issue #636). Unset = "auto" (protect loopback);
 # set "false" to opt out, or "true"/"strict" to validate every request.
 HOST_ORIGIN_PROTECTION_ENV = "GODOT_MCP_HTTP_HOST_ORIGIN_PROTECTION"
@@ -120,7 +120,7 @@ class ServerConfig(BaseModel):
     # Guard-pattern approval (issue #346). Opt-in: with no webhook, a
     # mutating/destructive tool returns an InputRequiredResult (an elicitation
     # the client fulfils and re-calls) instead of raising. Durable + stateless;
-    # see .opencode/rules/async-patterns.md. Ignored when a webhook is set
+    # see .claude/rules/async-patterns.md. Ignored when a webhook is set
     # (the webhook path keeps its existing raise-on-deny behavior).
     approval_require: bool = False
     # Consent-token HMAC key (#759). Unset → a random per-process key (tokens do

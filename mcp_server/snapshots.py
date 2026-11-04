@@ -3,7 +3,7 @@
 Snapshots are plain dicts the server owns, keyed by a stable id (``s1``, ``s2``,
 …). The store is a bounded LRU: the oldest entry is evicted past ``max_entries``
 so an agent taking many snapshots never grows server memory unboundedly. Pure
-data plumbing — no bridge or Godot knowledge (per .opencode/rules/architecture.md).
+data plumbing — no bridge or Godot knowledge (per .claude/rules/architecture.md).
 """
 
 from __future__ import annotations

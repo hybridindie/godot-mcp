@@ -23,7 +23,7 @@ from tests.fakes import FakeAddonConnection, connector_for
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _SRC = _REPO_ROOT / "mcp_server"
-_TOKEN = re.compile(r"\bgodot_[a-z0-9_]+")
+_TOKEN = re.compile(r"\bgodot_[a-z0-9_]+")  # pragma: allowlist secret (tool-name regex)
 # `godot_project_dir` is a config field, not a tool (its "project_" prefix makes
 # it look like the `project` toolset).
 _NON_TOOL = {"godot_project_dir"}
