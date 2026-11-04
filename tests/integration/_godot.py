@@ -9,8 +9,10 @@ testing rules permit (CI has no editor; a dev machine with Godot 4.4+ does).
 from __future__ import annotations
 
 import asyncio
+import functools
 import inspect
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -43,6 +45,36 @@ def find_godot() -> str | None:
 
 GODOT_BIN = find_godot()
 
+
+@functools.lru_cache(maxsize=1)
+def engine_version() -> tuple[int, int, int] | None:
+    """The resolved engine's ``(major, minor, patch)``, or None when unavailable.
+
+    Parses ``4.8.beta2.official.cafc17a19`` / ``4.7.2-stable (official)``. Used
+    only for genuine engine-precondition gates (e.g. scene metadata is 4.8+).
+    """
+    if GODOT_BIN is None:
+        return None
+    try:
+        result = subprocess.run(
+            [GODOT_BIN, "--version"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    match = re.match(r"^(\d+)\.(\d+)(?:\.(\d+))?", result.stdout.strip())
+    if not match:
+        return None
+    return (int(match.group(1)), int(match.group(2)), int(match.group(3) or 0))
+
+
+def engine_at_least(major: int, minor: int) -> bool:
+    """Whether the resolved engine is >= ``major.minor`` (False when unknown)."""
+    version = engine_version()
+    return version is not None and version[:2] >= (major, minor)
 
 def _has_display() -> bool:
     """Whether a display server is available for play sessions.

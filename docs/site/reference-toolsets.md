@@ -8,7 +8,7 @@ updated: 2026-10-24
 
 # Toolsets & tools
 
-206 tools across 29 categories. Only `core` + `inspection` are enabled by default; enable the rest with `godot_enable_toolset(category)`, which returns the enabled tools' names and input schemas so a client that never refreshes its registry can still call them. `category` also accepts a bundle (`author` / `playtest` / `ship`) or a comma-separated list, so a whole workflow is one call (#653). Class meanings: [safety classes](reference-safety-classes.md).
+208 tools across 29 categories. Only `core` + `inspection` are enabled by default; enable the rest with `godot_enable_toolset(category)`, which returns the enabled tools' names and input schemas so a client that never refreshes its registry can still call them. `category` also accepts a bundle (`author` / `playtest` / `ship`) or a comma-separated list, so a whole workflow is one call (#653). Class meanings: [safety classes](reference-safety-classes.md).
 
 ## `analysis` — Static analysis: dependencies, signal flow, unused resources, circular deps, scene integrity.
 
@@ -277,7 +277,7 @@ functions as `godot_project_*` tools in this same toolset — see
 
 ## `runtime` — Headless run + output capture; live play session lifecycle.
 
-11 tools.
+13 tools.
 
 | Tool | Class |
 |------|-------|
@@ -286,8 +286,10 @@ functions as `godot_project_*` tools in this same toolset — see
 | `godot_runtime_get_game_output` | read_only |
 | `godot_runtime_get_game_scene_tree` | read_only |
 | `godot_runtime_get_property_samples` | read_only |
+| `godot_runtime_get_velocity_at_point` | read_only |
 | `godot_runtime_is_playing` | read_only |
 | `godot_runtime_monitor_property` | runtime |
+| `godot_runtime_physics_space_query` | read_only |
 | `godot_runtime_play_scene` | runtime |
 | `godot_runtime_read_property` | read_only |
 | `godot_runtime_run_and_capture` | runtime |
