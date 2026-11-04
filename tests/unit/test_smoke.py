@@ -44,15 +44,15 @@ def test_fastmcp_pinned_to_4_stable() -> None:
     # promise "follow stable 4.x when it ships"). GA is built on MCP SDK v2 and
     # the 2026-07-28 sessionless protocol revision. The pin is exact — the
     # slim/tasks constraint block in [tool.uv] must move in lockstep, which the
-    # upgrade updates alongside this test. 4.1.0 = latest stable; mcp is pinned
+    # upgrade updates alongside this test. 4.1.6 = latest stable; mcp is pinned
     # explicitly (we import its server-side subscriptions/listen machinery, #620).
     pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
     dependencies = pyproject["project"]["dependencies"]
     fastmcp = next((d for d in dependencies if d.replace(" ", "").startswith("fastmcp")), None)
     assert fastmcp is not None, "fastmcp dependency missing from pyproject"
     spec = fastmcp.replace(" ", "")
-    assert spec == "fastmcp[tasks]==4.1.0", (
-        f"fastmcp must pin exactly fastmcp[tasks]==4.1.0, got {fastmcp!r}"
+    assert spec == "fastmcp[tasks]==4.1.6", (
+        f"fastmcp must pin exactly fastmcp[tasks]==4.1.6, got {fastmcp!r}"
     )
     mcp = next(
         (d.replace(" ", "") for d in dependencies if d.replace(" ", "").startswith("mcp==")),
@@ -60,8 +60,8 @@ def test_fastmcp_pinned_to_4_stable() -> None:
     )
     assert mcp == "mcp==2.3.0", f"mcp must pin exactly mcp==2.3.0, got {mcp!r}"
     constraints = pyproject["tool"]["uv"]["constraint-dependencies"]
-    assert "fastmcp-slim==4.1.0" in constraints, "slim must ride the same stable pin"
-    assert "fastmcp-tasks==4.1.0" in constraints, "tasks must ride the same stable pin"
+    assert "fastmcp-slim==4.1.6" in constraints, "slim must ride the same stable pin"
+    assert "fastmcp-tasks==4.1.6" in constraints, "tasks must ride the same stable pin"
 
 
 @pytest.mark.parametrize(
