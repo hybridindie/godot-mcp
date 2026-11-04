@@ -1024,7 +1024,12 @@ to the text-shader `shader` toolset (issue #47). All mutating tools support `dry
 | `godot_visual_shader_connect_nodes` | `shader_path, from_node, from_port, to_node, to_port` | `ConnectShaderNodesResult { connected }` | `mutating` |
 | `godot_visual_shader_set_node_param` | `shader_path, node_id, property, value` | `SetShaderNodeParamResult { node_id, property, value, set }` | `mutating` |
 | `godot_visual_shader_list_node_types` | — | `ListShaderNodeTypesResult { types[] }` | `read_only` |
-| `godot_visual_shader_read` | `shader_path` | `VisualShaderGraph { shader_path, mode, nodes[{id, type, position, parameters}], connections[{from_node, from_port, to_node, to_port}] }` | `read_only` |
+| `godot_visual_shader_read` | `shader_path` | `VisualShaderGraph { shader_path, mode, nodes[{id, type, position, parameters, group}], connections[{from_node, from_port, to_node, to_port}], groups[{node_id, name, members[]}] }` | `read_only` |
+| `godot_visual_shader_create_group` | `shader_path, name, node_id, position=[x,y]` | `CreateShaderGroupResult { node_id, name, created }` | `mutating` |
+| `godot_visual_shader_rename_group` | `shader_path, node_id, name` | `RenameShaderGroupResult { node_id, name, renamed }` | `mutating` |
+| `godot_visual_shader_remove_group` | `shader_path, node_id, confirm=False` | `RemoveShaderGroupResult { node_id, name, removed }` | **`destructive`** |
+| `godot_visual_shader_add_group_node` | `shader_path, group_node_id, node_type, node_id, position=[x,y]` | `AddShaderGroupNodeResult { group_node_id, node_id, node_type, added }` | `mutating` |
+| `godot_visual_shader_remove_group_node` | `shader_path, group_node_id, node_id, confirm=False` | `RemoveShaderGroupNodeResult { group_node_id, node_id, removed }` | **`destructive`** |
 
 `godot_visual_shader_create` creates a `VisualShader` resource with `shader_type` set from
 `type` (`"2d"` → canvas_item, `"3d"` → spatial, `"particles"` | `"sky"` | `"fog"`).
@@ -1035,6 +1040,23 @@ integer ids. `godot_visual_shader_set_node_param` sets a property on the node (v
 `VisualShaderNode*` classes so agents know what's available. `godot_visual_shader_read` is the
 inverse read — it serializes the whole graph (mode, every node with its class/position/
 parameters, and the connections) for rollback before edits.
+
+##### Node groups / subgraphs (Godot 4.8+, issue #601)
+
+`godot_visual_shader_create_group` adds a `VisualShaderNodeGroup` (backed by a
+`VisualShaderGroup` resource) to the shader at `node_id`, so the group is addressable by that
+id in the parent graph. `godot_visual_shader_add_group_node` adds a node to the group's internal
+graph — its `node_id` is local to the group (id 0 is available there, unlike the shader graph
+where 0/1 are reserved). `godot_visual_shader_rename_group` renames it;
+`godot_visual_shader_remove_group` removes the group node and its subgraph, and
+`godot_visual_shader_remove_group_node` removes one member. Every mutation is UndoRedo-tracked
+(removes restore the node and its connections), and both remove verbs are `destructive`, so
+they require `confirm=True` (`dry_run=True` previews without changing anything).
+
+Groups are gated on `ClassDB.class_exists("VisualShaderGroup")`. On Godot 4.4–4.7 every group
+verb returns a structured `UNSUPPORTED` error (`required=godot_version`) rather than failing
+opaquely; `godot_visual_shader_read` reports `groups: []`. On 4.8+, `read` lists each group's
+`{node_id, name, members}` and each member carries its owning group's `group` node id.
 
 #### Project scaffold (issue #112) — category: `project_scaffold` (gated off by default)
 

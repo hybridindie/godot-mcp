@@ -185,11 +185,16 @@ BARE_TO_COMMAND: dict[str, str] = {
     "tilemap_layers": "cmd_tilemap_layers",
     "tilemap_set_cell": "cmd_tilemap_set_cell",
     "undo": "cmd_undo",
+    "visual_shader_add_group_node": "cmd_add_shader_group_node",
     "visual_shader_add_node": "cmd_add_shader_node",
     "visual_shader_connect_nodes": "cmd_connect_shader_nodes",
     "visual_shader_create": "cmd_create_visual_shader",
+    "visual_shader_create_group": "cmd_create_shader_group",
     "visual_shader_list_node_types": "cmd_list_shader_node_types",
     "visual_shader_read": "cmd_read_visual_shader",
+    "visual_shader_remove_group": "cmd_remove_shader_group",
+    "visual_shader_remove_group_node": "cmd_remove_shader_group_node",
+    "visual_shader_rename_group": "cmd_rename_shader_group",
     "visual_shader_set_node_param": "cmd_set_shader_node_param",
 }
 

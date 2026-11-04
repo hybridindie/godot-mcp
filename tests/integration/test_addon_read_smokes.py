@@ -42,6 +42,7 @@ SMOKES = [
     ("threshold_smoke.gd", "THRESHOLD_TEST_OK"),
     ("type_coerce_smoke.gd", "TYPE_COERCE_TEST_OK"),
     ("ui_elements_gate_smoke.gd", "UI_ELEMENTS_GATE_TEST_OK"),
+    ("visual_shader_group_smoke.gd", "VISUAL_SHADER_GROUP_TEST_OK"),
     ("visual_shader_read_smoke.gd", "VISUAL_SHADER_READ_TEST_OK"),
 ]
 
