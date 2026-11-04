@@ -6,7 +6,28 @@ Thanks for your interest in contributing! Godot Editor MCP (repo: `godot-mcp`) i
 
 - **Python 3.11+** managed with [uv](https://docs.astral.sh/uv/)
 - **Godot 4.4+** (validated on 4.7-stable)
-- **FastMCP 4.1.0** on **mcp 2.3.0** (stable — MCP SDK v2, the 2026-07-28 sessionless protocol)
+- **FastMCP 4.1.6** on **mcp 2.3.0** (stable — MCP SDK v2, the 2026-07-28 sessionless protocol)
+
+## Branches and release channels
+
+Two long-lived branches carry the two support channels, side by side:
+
+- **`main`** — the **beta / preview** line. Carries the Godot 4.8-only surface
+  (those tools return `UNSUPPORTED` on 4.4–4.7) and is versioned as a
+  prerelease (e.g. `2026.11.04b2`). Beta tags are cut here.
+- **`stable`** — the **stable** line. Godot 4.4–4.7, no 4.8-only tools, and the
+  branch stable tags are cut from (e.g. `2026.11.04`).
+
+Rules:
+
+- Target the branch matching the change: preview work → `main`, stable fixes →
+  `stable`. Bug fixes land on `main` first and are cherry-picked to `stable` as
+  a backport when the stable line needs them.
+- **Never merge `stable` into `main`** — it would revert preview work. Merge
+  `main` → `stable` only when the preview is ready to become stable (e.g. after
+  Godot 4.8-stable), then cut a new stable CalVer.
+- After cutting a stable release, bump `main` to the next beta CalVer so a later
+  beta cannot sort below the stable.
 
 ## Setup
 

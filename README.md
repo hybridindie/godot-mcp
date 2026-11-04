@@ -26,7 +26,7 @@
 
 > **Status:** feature-complete. **201 tools** across **29 categories** — always-on `core` plus 28 toggleable toolsets, of which only `inspection` is enabled by default (the rest are gated off until the agent asks).
 >
-> **Two channels:** **stable `2026.11.04`** (Godot 4.4–4.7, validated on 4.7) and **beta `2026.11.04b2`**, verified against **Godot 4.8-beta2** and adding the 4.8-only surface (engine support reporting, scene metadata, physics read-back, VisualShader groups). The floor stays Godot 4.4. `godot-editor-mcp` on [PyPI](https://pypi.org/project/godot-editor-mcp/) · `ghcr.io/hybridindie/godot-mcp`.
+> **Two channels:** **stable `2026.11.04`** (Godot 4.4–4.7, validated on 4.7) and **beta `2026.11.04b2`**, verified against **Godot 4.8-beta2** and adding the 4.8-only surface (engine support reporting, scene metadata, physics read-back, VisualShader groups). The floor stays Godot 4.4. Development mirrors the channels: **`main` is the beta line**, **`stable` is the stable line** (see [CONTRIBUTING](CONTRIBUTING.md#branches-and-release-channels)). `godot-editor-mcp` on [PyPI](https://pypi.org/project/godot-editor-mcp/) · `ghcr.io/hybridindie/godot-mcp`.
 
 > **Project-defined tools** (new in 2026.11.04): annotate a typed GDScript function with `## @mcp_tool` and register it as a `godot_project_*` tool — [guide](docs/site/guides-project-tools.md).
 
