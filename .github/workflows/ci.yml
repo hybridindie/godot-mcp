@@ -10,7 +10,9 @@ name: ci
 
 on:
   push:
-    branches: [main]
+    # Both long-lived channels: main (beta) and stable. PRs already run on every
+    # base branch; this covers direct pushes to the stable line too.
+    branches: [main, stable]
   pull_request:
   # Manual re-run (e.g. after a runner-level flake in `uv python install`).
   workflow_dispatch:
