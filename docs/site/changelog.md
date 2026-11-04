@@ -18,6 +18,12 @@ The largest surface change since the stable line began: agent trust (receipts,
 consent, readiness), project-owned verification, and project-defined tools.
 All of it is **additive** — `CONTRACT_VERSION` stays `1`.
 
+This is the **stable** channel: 201 tools on the Godot 4.4 floor, validated on
+4.7. The Godot 4.8-only surface (engine support reporting, scene metadata,
+physics read-back, VisualShader groups) ships separately in the
+[`2026.11.04b2` prerelease](https://github.com/hybridindie/godot-mcp/releases/tag/2026.11.04b2);
+it will fold into a future stable after 4.8-stable.
+
 ### Project-defined tools (#761)
 
 - **`godot_project_scan_tools`** discovers `## @mcp_tool` functions in `@tool`
