@@ -108,7 +108,11 @@ func _test_serialize_tree(failures: Array[String]) -> void:
 	world.add_child(sprite)
 	sprite.add_child(deep)
 
+	# #600: metadata rides the detailed tree only when present, and never in
+	# lightweight mode (which promises {name, type, path, children}).
+	sprite.set_meta("highlight", true)
 	var full: Dictionary = Inspect.serialize_tree(world)
+	var lightweight: Dictionary = Inspect.serialize_tree(world, -1, true)
 	_eq(failures, "tree.name", full.get("name"), "World")
 	_eq(failures, "tree.type", full.get("type"), "Node2D")
 	_eq(failures, "tree.script", full.get("script"), null)
@@ -123,6 +127,9 @@ func _test_serialize_tree(failures: Array[String]) -> void:
 	else:
 		_eq(failures, "tree.child.path", children[0].get("path"), "Sprite")
 		_eq(failures, "tree.grandchild.path", children[0].get("children")[0].get("path"), "Sprite/Deep")
+		_eq(failures, "tree.metadata", children[0].get("metadata"), {"highlight": true})
+		var light_children: Array = lightweight.get("children")
+		_eq(failures, "tree.lightweight_no_metadata", light_children[0].has("metadata"), false)
 
 	# max_depth=1 ⇒ root + immediate children, but their children truncated.
 	var shallow: Dictionary = Inspect.serialize_tree(world, 1)
@@ -212,6 +219,21 @@ func _test_node_info(failures: Array[String]) -> void:
 	_eq(failures, "info.children", info.get("children"), ["Sprite2D"])
 	# Root resolves to "." relative to itself.
 	_eq(failures, "info.root_path", Inspect.node_info(root, root).get("node_path"), ".")
+	# #600: metadata is reported separately from properties, JSON-coerced.
+	_eq(failures, "info.metadata_empty", info.get("metadata"), {})
+	player.set_meta("tier", 2)
+	player.set_meta("offset", Vector2(3, 4))
+	player.set_meta("tag", "boss")
+	# Editor-internal metadata is state, not scene data: never reported.
+	player.set_meta("_edit_group_", true)
+	_eq(
+		failures,
+		"info.metadata",
+		Inspect.node_info(player, root).get("metadata"),
+		{"tier": 2, "offset": {"x": 3.0, "y": 4.0}, "tag": "boss"},
+	)
+	# Metadata is not a property — it must not leak into `properties`.
+	_eq(failures, "info.metadata_not_property", info.get("properties", {}).has("tier"), false)
 	root.free()
 
 

@@ -33,6 +33,9 @@ class ActiveScene(BaseModel):
     # #738: get_unsaved_scenes() is Godot 4.7+. On 4.4–4.6 the addon cannot tell,
     # so `dirty` is False and this is False — never present an unknown as clean.
     dirty_known: bool = True
+    # #600: scene-level metadata from the text scene (Godot 4.8+); {} when the
+    # scene has none or the editor predates metadata serialization.
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class SceneEntry(BaseModel):
@@ -73,6 +76,9 @@ class SceneNode(BaseModel):
     script: str | None = None
     owner: str | None = None
     editable_children: bool | None = None
+    # #600: user metadata on the node, JSON-coerced. Omitted when empty (local
+    # nodes stay as small as before); the detail view always includes it.
+    metadata: dict[str, Any] | None = None
     children: list[SceneNode] = Field(default_factory=list)
 
     @model_serializer(mode="plain")
@@ -90,6 +96,8 @@ class SceneNode(BaseModel):
             data["owner"] = self.owner
         if self.editable_children is not None:
             data["editable_children"] = self.editable_children
+        if self.metadata is not None:
+            data["metadata"] = self.metadata
         data["children"] = self.children
         return data
 
@@ -98,6 +106,8 @@ class SceneTree(BaseModel):
     """The active scene tree, or ``tree=None`` when no scene is open."""
 
     tree: SceneNode | None = None
+    # #600: scene-level metadata (Godot 4.8+); {} when none / older editor.
+    metadata: dict[str, Any] = Field(default_factory=dict)
     # Output bounding (issue #222): set when the full tree exceeded the character
     # limit and a lightweight view was returned instead; ``hint`` says how to narrow.
     truncated: bool = False
@@ -111,6 +121,8 @@ class NodeInfo(BaseModel):
     type: str
     script: str | None = None
     properties: dict[str, Any] = Field(default_factory=dict)
+    # #600: node metadata (`Node.get_meta_list`), JSON-coerced; {} when none.
+    metadata: dict[str, Any] = Field(default_factory=dict)
     children: list[str] = Field(default_factory=list)
 
 

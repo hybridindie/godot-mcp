@@ -76,6 +76,15 @@ def test_diagnostics_contains_next_steps(server: FastMCP) -> None:
     assert "next_steps" in result_text
 
 
+def test_diagnostics_reports_godot_support(server: FastMCP) -> None:
+    """#588: the snapshot names the engine support surface, even disconnected."""
+    result_text = asyncio.run(_call_tool(server, "godot_get_server_info"))
+    assert "godot_support" in result_text
+    assert "verified_against" in result_text
+    assert "4.8-beta2" in result_text
+    assert "disconnected" in result_text
+
+
 def test_diagnostics_exposes_contract_version(server: FastMCP) -> None:
     """The response carries a machine-readable contract/compat surface (#196).
 

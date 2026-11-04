@@ -35,7 +35,13 @@ def _populated(cmd: CommandEnvelope) -> ResponseEnvelope | None:
             )
         case "cmd_get_active_scene":
             return ResponseEnvelope.success(
-                cmd.id, {"is_open": True, "path": "res://main.tscn", "name": "main.tscn"}
+                cmd.id,
+                {
+                    "is_open": True,
+                    "path": "res://main.tscn",
+                    "name": "main.tscn",
+                    "metadata": {"author": "demo"},
+                },
             )
         case "cmd_get_scene_tree":
             return ResponseEnvelope.success(
@@ -52,10 +58,12 @@ def _populated(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                                 "type": "CharacterBody2D",
                                 "path": "Player",
                                 "script": None,
+                                "metadata": {"role": "hero"},
                                 "children": [],
                             }
                         ],
-                    }
+                    },
+                    "metadata": {"author": "demo"},
                 },
             )
         case "cmd_get_selected_node":
@@ -83,6 +91,7 @@ def _populated(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                     "type": "Sprite2D",
                     "script": None,
                     "properties": {},
+                    "metadata": {"tier": 2},
                     "children": [],
                 },
             )
@@ -223,6 +232,22 @@ async def test_scene_tree_carries_path_round_trips_into_tool() -> None:
             "godot_inspection_get_node_properties", {"node_path": child_path}
         )
     assert info.structured_content["node_path"] == "Player"
+
+
+async def test_scene_and_node_metadata_are_reported() -> None:
+    # #600: scene metadata rides the tree result; per-node metadata rides the node
+    # (not `properties`, which is script vars only).
+    async with Client(_build(FakeAddonConnection(responder=_populated))) as client:
+        tree = await client.call_tool("godot_inspection_get_scene_tree", {})
+        info = await client.call_tool(
+            "godot_inspection_get_node_properties", {"node_path": "Player"}
+        )
+        scene = await client.call_tool("godot_inspection_get_active_scene", {})
+    assert tree.structured_content["metadata"] == {"author": "demo"}
+    assert tree.structured_content["tree"]["children"][0]["metadata"] == {"role": "hero"}
+    assert info.structured_content["metadata"] == {"tier": 2}
+    assert "tier" not in info.structured_content["properties"]
+    assert scene.structured_content["metadata"] == {"author": "demo"}
 
 
 async def test_get_scene_tree_lightweight_passes_flag() -> None:
