@@ -14,6 +14,9 @@ extends Node
 const MAX_DEPTH := 32
 # #641: share the editor's JSON coercion (single implementation of the shapes).
 const Coerce := preload("type_coerce.gd")
+# #599: Godot 4.8 runtime physics read-back capability gate + query vocabulary
+# (shared with the editor handlers; ClassDB-only so the 4.4 floor still parses).
+const PhysicsRead := preload("physics_read.gd")
 
 var force_break_pending: bool = false  ## Set true by the editor via force_break message.
 
@@ -94,6 +97,16 @@ func _capture(message: String, data: Array) -> bool:
 			# immediately, never touching the monitor slot, so a one-shot assert
 			# cannot replace a running monitor_property capture.
 			EngineDebugger.send_message("godot_mcp:read_property", [_read_property(_payload(data))])
+			return true
+		"get_velocity_at_point":
+			# #599: velocity-at-arbitrary-point reads only on a physics frame; the
+			# request is queued and answered from _physics_process (never inline).
+			_enqueue_physics("velocity_at_point", _payload(data))
+			return true
+		"physics_space_query":
+			# #599: non-allocating space-state queries have the same physics-frame
+			# requirement — queue and answer from _physics_process.
+			_enqueue_physics("physics_space_query", _payload(data))
 			return true
 		"find_ui":
 			EngineDebugger.send_message("godot_mcp:ui_elements", [_find_ui(_payload(data))])
@@ -470,6 +483,358 @@ func _read_property(d: Dictionary) -> Dictionary:
 		"request_id": request_id, "node_path": node_path, "property": property,
 		"value": Coerce.to_json(node.get(property)), "error": "", "ready": true,
 	}
+
+
+# --- runtime physics read-back (issue #599) ---------------------------------
+#
+# Both reads are 4.8-only and must run on a physics frame, so _capture only
+# enqueues and _physics_process answers one request per frame. The 4.8 APIs are
+# reached through ClassDB/call() — a static reference would break the 4.4 parse.
+
+const PHYSICS_QUEUE_MAX := 8
+
+var _physics_queue: Array = []
+## Last reply produced by _physics_process (smoke-test seam; also handy in a
+## debugger). Never sent over the bridge as-is.
+var _last_physics_reply: Dictionary = {}
+
+
+func _enqueue_physics(kind: String, d: Dictionary) -> void:
+	if _physics_queue.size() >= PHYSICS_QUEUE_MAX:
+		# Bounded and honest: a full queue is reported, never silently dropped.
+		_send_physics_reply(kind, {
+			"request_id": str(d.get("request_id", "")),
+			"ready": true,
+			"error": "physics query queue is full (%d pending); retry in a frame." % PHYSICS_QUEUE_MAX,
+		})
+		return
+	_physics_queue.append({"kind": kind, "params": d})
+
+
+## Answer one queued physics read per physics frame (never from _capture, and
+## never more than one — a query that blocks the game thread is worse than slow).
+func _physics_process(_delta: float) -> void:
+	if _physics_queue.is_empty():
+		return
+	var request: Dictionary = _physics_queue.pop_front()
+	var reply := _run_physics_request(str(request.get("kind", "")), request.get("params", {}))
+	_send_physics_reply(str(request.get("kind", "")), reply)
+
+
+func _send_physics_reply(kind: String, reply: Dictionary) -> void:
+	_last_physics_reply = reply
+	if not EngineDebugger.is_active():
+		return  # headless smoke / exported build: no debugger channel to answer on
+	var channel := "velocity_at_point" if kind == "velocity_at_point" else "physics_space_query"
+	EngineDebugger.send_message("godot_mcp:" + channel, [reply])
+
+
+## Produce one reply dict (also called directly by the headless smoke).
+func _run_physics_request(kind: String, d: Dictionary) -> Dictionary:
+	if kind == "velocity_at_point":
+		return _velocity_at_point(d)
+	if kind == "physics_space_query":
+		return _physics_space_query(d)
+	return {
+		"request_id": str(d.get("request_id", "")),
+		"ready": true,
+		"error": "unknown physics read request '%s'." % kind,
+	}
+
+
+## Velocity at an arbitrary point on a live RigidBody2D/3D (Godot 4.8+).
+func _velocity_at_point(d: Dictionary) -> Dictionary:
+	var request_id := str(d.get("request_id", ""))
+	var node_path := str(d.get("node_path", ""))
+	var reply := {
+		"request_id": request_id, "ready": true, "node_path": node_path,
+		"node_class": "", "dimension": "", "local": bool(d.get("local", false)),
+		"point": {}, "velocity": {}, "error": "",
+	}
+	if not PhysicsRead.velocity_supported():
+		return _unsupported_physics_reply(reply, PhysicsRead.velocity_hint())
+	var node := get_node_or_null(NodePath(node_path))
+	if node == null:
+		reply["error"] = "node not found at '%s'" % node_path
+		return reply
+	var dimension := ""
+	if node is RigidBody2D:
+		dimension = "2d"
+	elif node is RigidBody3D:
+		dimension = "3d"
+	if dimension.is_empty():
+		reply["error"] = "node at '%s' is %s, not a RigidBody2D or RigidBody3D" % [
+			node_path, node.get_class(),
+		]
+		return reply
+	var engine_method := (
+		"get_velocity_at_local_position" if bool(d.get("local", false))
+		else "get_velocity_at_position"
+	)
+	if not node.has_method(engine_method):
+		return _unsupported_physics_reply(reply, PhysicsRead.velocity_hint())
+	if not _has_point_components(d.get("point")):
+		reply["error"] = "'point' must contain x and y (a {x, y[, z]} object or an [x, y[, z]] array)."
+		return reply
+	var point: Variant = _physics_vector(d.get("point"), dimension)
+	reply["node_class"] = node.get_class()
+	reply["dimension"] = dimension
+	reply["point"] = Coerce.to_json(point)
+	reply["velocity"] = Coerce.to_json(node.call(engine_method, point))
+	return reply
+
+
+## A non-allocating PhysicsDirectSpaceState2D/3D *_into query (Godot 4.8+).
+func _physics_space_query(d: Dictionary) -> Dictionary:
+	var method := str(d.get("method", ""))
+	var dimension := str(d.get("dimension", "2d"))
+	var reply := {
+		"request_id": str(d.get("request_id", "")), "ready": true,
+		"method": method, "dimension": dimension, "hit": false, "count": 0,
+		"results": [], "safe_fraction": null, "unsafe_fraction": null, "error": "",
+	}
+	if not PhysicsRead.QUERY_METHODS.has(method):
+		reply["error"] = "unknown physics space query method '%s'." % method
+		return reply
+	if not PhysicsRead.space_query_supported(method, dimension):
+		return _unsupported_physics_reply(
+			reply, PhysicsRead.space_query_hint(method, dimension)
+		)
+	var node_path := str(d.get("node_path", ""))
+	if not node_path.is_empty() and get_node_or_null(NodePath(node_path)) == null:
+		reply["error"] = "node not found at '%s'" % node_path
+		return reply
+	var space_state: Variant = _space_state(dimension, node_path)
+	if space_state == null:
+		reply["error"] = "physics space is unavailable (no active World%s)." % dimension.to_upper()
+		return reply
+	var built := _build_space_query(method, dimension, d)
+	if not bool(built.get("ok", false)):
+		reply["error"] = str(built.get("error", "could not build the physics query."))
+		return reply
+	var hit: Variant = space_state.call(
+		str(PhysicsRead.QUERY_METHODS[method]), built["query"], built["result"]
+	)
+	reply["hit"] = bool(hit)
+	_collect_space_query_results(method, built["result"], reply)
+	return reply
+
+
+func _unsupported_physics_reply(reply: Dictionary, hint: String) -> Dictionary:
+	# The editor handler turns this into the structured UNSUPPORTED envelope; the
+	# flag exists so a 4.8 editor with an older copied probe still fails honestly.
+	reply["unsupported"] = true
+	reply["hint"] = hint
+	reply["error"] = hint
+	return reply
+
+
+func _physics_vector(raw: Variant, dimension: String) -> Variant:
+	if dimension == "3d":
+		return Coerce.from_json(raw, TYPE_VECTOR3)
+	return Coerce.from_json(raw, TYPE_VECTOR2)
+
+
+## A point is usable when it carries x/y explicitly (or is a non-empty string
+## form). An empty dict would silently become the origin — refuse instead.
+func _has_point_components(raw: Variant) -> bool:
+	if raw is Dictionary:
+		return (raw as Dictionary).has("x") and (raw as Dictionary).has("y")
+	if raw is Array:
+		return (raw as Array).size() >= 2
+	if raw is String:
+		return not (raw as String).strip_edges().is_empty()
+	return false
+
+
+## Resolve the 2D/3D space state for the target world (a node's world, or the
+## root viewport's when node_path is empty). Null when no world is available.
+func _space_state(dimension: String, node_path: String) -> Variant:
+	var node := get_node_or_null(NodePath(node_path)) if not node_path.is_empty() else null
+	if dimension == "3d":
+		if node is Node3D and node.get_world_3d() != null:
+			return node.get_world_3d().direct_space_state
+		var viewport_3d := get_viewport()
+		if viewport_3d != null and viewport_3d.world_3d != null:
+			return viewport_3d.world_3d.direct_space_state
+		return null
+	if node is CanvasItem and node.get_world_2d() != null:
+		return node.get_world_2d().direct_space_state
+	var viewport_2d := get_viewport()
+	if viewport_2d != null and viewport_2d.world_2d != null:
+		return viewport_2d.world_2d.direct_space_state
+	return null
+
+
+## Build the existing Physics*QueryParameters object + the preallocated typed
+## result object, coercing every JSON value through type_coerce.gd.
+func _build_space_query(method: String, dimension: String, d: Dictionary) -> Dictionary:
+	var suffix := "2D" if dimension == "2d" else "3D"
+	var family := str(PhysicsRead.QUERY_PARAMETER_FAMILIES[method])
+	var query_class := "Physics%sQueryParameters%s" % [family, suffix]
+	var result_class := str(PhysicsRead.QUERY_RESULTS[method]) + suffix
+	var query: Variant = ClassDB.instantiate(query_class)
+	var result: Variant = ClassDB.instantiate(result_class)
+	if query == null or result == null:
+		return {"ok": false, "error": "could not allocate %s / %s." % [query_class, result_class]}
+	var raw_query: Variant = d.get("query", {})
+	if raw_query is Dictionary:
+		for key in raw_query:
+			var prop := str(key)
+			if prop == "shape" or prop == "shape_rid" or prop == "exclude":
+				return {
+					"ok": false,
+					"error": "'%s' is not accepted in 'query'; pass shape_type/shape_properties or exclude instead." % prop,
+				}
+			var prop_type := _class_property_type(query_class, prop)
+			if prop_type == -1:
+				return {"ok": false, "error": "unknown %s field '%s'." % [query_class, prop]}
+			query.set(prop, Coerce.from_json(raw_query[key], prop_type))
+	if family == "Shape":
+		var shape_built := _build_shape(d)
+		if not bool(shape_built.get("ok", false)):
+			return shape_built
+		query.set("shape", shape_built["shape"])
+	var excluded: Array = []
+	var exclude_paths: Variant = d.get("exclude", [])
+	if exclude_paths is Array:
+		for path in exclude_paths:
+			var target := get_node_or_null(NodePath(str(path)))
+			if target == null:
+				return {"ok": false, "error": "exclude node not found at '%s'." % str(path)}
+			if not (target is CollisionObject2D or target is CollisionObject3D):
+				return {
+					"ok": false,
+					"error": "exclude target '%s' is %s, not a CollisionObject2D/3D." % [
+						str(path), target.get_class(),
+					],
+				}
+			excluded.append(target.get_rid())
+	if not excluded.is_empty():
+		query.set("exclude", excluded)
+	var max_results := clampi(int(d.get("max_results", 32)), 1, 1024)
+	if "max_intersections" in result:
+		result.set("max_intersections", max_results)
+	elif "max_collisions" in result:
+		result.set("max_collisions", max_results)
+	return {"ok": true, "query": query, "result": result}
+
+
+## Instantiate the query shape from shape_type/shape_properties (JSON can carry
+## a Shape resource directly).
+func _build_shape(d: Dictionary) -> Dictionary:
+	var shape_type := str(d.get("shape_type", ""))
+	if shape_type.is_empty():
+		return {"ok": false, "error": "shape queries require 'shape_type' (e.g. 'SphereShape3D')."}
+	var shape: Variant = ClassDB.instantiate(shape_type)
+	if shape == null:
+		return {"ok": false, "error": "could not instantiate shape_type '%s'." % shape_type}
+	if not (shape is Shape2D or shape is Shape3D):
+		shape = null
+		return {"ok": false, "error": "'%s' is not a Shape2D/Shape3D." % shape_type}
+	var properties: Variant = d.get("shape_properties", {})
+	if properties is Dictionary:
+		for key in properties:
+			var prop := str(key)
+			var prop_type := _class_property_type(shape_type, prop)
+			if prop_type == -1:
+				return {"ok": false, "error": "unknown %s property '%s'." % [shape_type, prop]}
+			shape.set(prop, Coerce.from_json(properties[key], prop_type))
+	return {"ok": true, "shape": shape}
+
+
+func _class_property_type(type_name: String, prop: String) -> int:
+	for entry in ClassDB.class_get_property_list(type_name, true):
+		if str((entry as Dictionary).get("name", "")) == prop:
+			return int((entry as Dictionary).get("type", -1))
+	return -1
+
+
+## Serialize the typed result object method-by-method. Never sends a Godot
+## object: a collider becomes {path, class}, a RID becomes its numeric id.
+func _collect_space_query_results(method: String, result: Object, reply: Dictionary) -> void:
+	match method:
+		"intersect_ray":
+			if not bool(reply["hit"]):
+				return
+			reply["count"] = 1
+			reply["results"] = [_ray_hit(result)]
+		"get_rest_info":
+			if not bool(reply["hit"]):
+				return
+			reply["count"] = 1
+			reply["results"] = [_rest_hit(result)]
+		"intersect_point", "intersect_shape":
+			var intersections := int(result.call("get_intersection_count"))
+			reply["count"] = intersections
+			var hits: Array = []
+			for i in intersections:
+				var hit := _collider_entry(result.call("get_collider", i))
+				hit["collider_id"] = int(result.call("get_collider_id", i))
+				hit["collider_rid"] = _rid_id(result.call("get_collider_rid", i))
+				hit["shape"] = int(result.call("get_collider_shape", i))
+				hits.append(hit)
+			reply["results"] = hits
+		"collide_shape":
+			var collisions := int(result.call("get_collision_count"))
+			reply["count"] = collisions
+			var pairs: Array = []
+			for i in collisions:
+				pairs.append({
+					"point_on_queried_shape": Coerce.to_json(
+						result.call("get_point_on_queried_shape", i)
+					),
+					"point_on_colliding_shape": Coerce.to_json(
+						result.call("get_point_on_colliding_shape", i)
+					),
+				})
+			reply["results"] = pairs
+		"cast_motion":
+			reply["count"] = 1 if bool(reply["hit"]) else 0
+			reply["safe_fraction"] = float(result.get("safe_fraction"))
+			reply["unsafe_fraction"] = float(result.get("unsafe_fraction"))
+
+
+func _ray_hit(result: Object) -> Dictionary:
+	var hit := _collider_entry(result.get("collider"))
+	hit["collider_id"] = int(result.get("collider_id"))
+	hit["collider_rid"] = _rid_id(result.get("collider_rid"))
+	hit["shape"] = int(result.get("collider_shape"))
+	hit["position"] = Coerce.to_json(result.get("position"))
+	hit["normal"] = Coerce.to_json(result.get("normal"))
+	hit["face_index"] = (
+		int(result.get("collider_face_index")) if "collider_face_index" in result else -1
+	)
+	return hit
+
+
+func _rest_hit(result: Object) -> Dictionary:
+	var collider_id := int(result.get("collider_id"))
+	var collider: Variant = instance_from_id(collider_id) if collider_id != 0 else null
+	var hit := _collider_entry(collider)
+	hit["collider_id"] = collider_id
+	hit["collider_rid"] = _rid_id(result.get("collider_rid"))
+	hit["shape"] = int(result.get("collider_shape"))
+	hit["position"] = Coerce.to_json(result.get("point"))
+	hit["normal"] = Coerce.to_json(result.get("normal"))
+	hit["collider_velocity"] = Coerce.to_json(result.get("collider_velocity"))
+	return hit
+
+
+func _collider_entry(value: Variant) -> Dictionary:
+	var entry := {"collider_path": "", "collider_class": ""}
+	if value == null:
+		return entry
+	if value is Node:
+		entry["collider_path"] = String(value.get_path())
+	entry["collider_class"] = value.get_class()
+	return entry
+
+
+func _rid_id(value: Variant) -> int:
+	if value != null and typeof(value) == TYPE_RID:
+		return int(value.get_id())
+	return 0
 
 
 func _start_monitor(d: Dictionary) -> void:

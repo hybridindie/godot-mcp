@@ -1453,6 +1453,8 @@ play session (issue #638).
 | `godot_runtime_get_property_samples` | — | `PropertySamplesResult { ready, connected, node_path, property, samples[], error, requested?, dropped_duplicates?, sampling_usec?, on_change_only? }` |
 | `godot_runtime_read_property` | `node_path, property, timeout_ms=2000` | `ReadPropertyResult { ready, node_path, property, value, error }` |
 | `godot_runtime_find_ui_elements` | `name_contains="", class_filter="", visible_only=False, timeout_ms=2000` | `UiElementsResult { ready, elements[] }` |
+| `godot_runtime_get_velocity_at_point` | `node_path, point, local=False, timeout_ms=2000` | `VelocityAtPointResult { ready, node_path, node_class, dimension, local, point, velocity, error }` |
+| `godot_runtime_physics_space_query` | `method, query={}, dimension="2d", node_path="", exclude=[], shape_type="", shape_properties={}, max_results=32, timeout_ms=2000` | `PhysicsSpaceQueryResult { ready, method, dimension, hit, count, results[], safe_fraction?, unsafe_fraction?, error }` |
 
 `godot_runtime_monitor_property` captures `samples` readings of a live node's property (one per frame —
 `node_path` is an absolute path from `godot_runtime_get_game_scene_tree`); collect the `[{frame, value}]`
@@ -1476,6 +1478,30 @@ JSON-coerced value — the dedicated #571 one-shot path that never touches the
 `monitor_property` capture slot (assertions and single-value reads during a running
 capture leave the capture's series intact). Same `request_id` + poll pattern as
 `find_ui_elements`; `reason: "read_pending"` while the probe reply is in flight.
+
+**Physics read-back (issue #599, Godot 4.8+).** These live in the `runtime` toolset (not `physics`): they read the running game, so they need a play session + the runtime probe, while `physics` stays editor-side configuration. `godot_runtime_get_velocity_at_point`
+returns the linear velocity at an arbitrary point on a live `RigidBody2D`/`RigidBody3D`
+(`get_velocity_at_position`, or `get_velocity_at_local_position` with `local=true`) —
+not just the centre-of-mass `linear_velocity`. `godot_runtime_physics_space_query` runs
+the non-allocating `PhysicsDirectSpaceState2D/3D.*_into` family with a preallocated typed
+result object: `method` is `intersect_ray` / `intersect_point` / `intersect_shape` /
+`cast_motion` / `collide_shape` / `get_rest_info`. `query` carries that method's
+`Physics*QueryParameters` fields (ray: `from`/`to`; point: `position`; shape:
+`transform`/`motion`/`margin`/`collision_mask`/`collide_with_bodies`/`collide_with_areas`),
+`shape_type` + `shape_properties` build the query shape (e.g. `SphereShape3D` +
+`{"radius": 1.0}`), and `exclude` is a list of live node paths whose colliders are ignored.
+`dimension` selects the 2D/3D space and `node_path` (optional) selects that node's world
+(root viewport by default). The reply is JSON-safe: colliders are reported as
+`{collider_path, collider_class, collider_id, collider_rid (numeric id), shape}`, a ray adds
+`position`/`normal`/`face_index`, `get_rest_info` adds `collider_velocity`, `collide_shape`
+returns `point_on_queried_shape`/`point_on_colliding_shape` pairs, and `cast_motion` adds
+`safe_fraction`/`unsafe_fraction`. A query that hits nothing is `hit=false` with an empty
+`results` list — not an error. Both reads run in the game and are deferred to the probe's
+`_physics_process` (one request per physics frame), so they are legal space-state queries and
+never block the game thread. Both are gated on the 4.8 API via `ClassDB` (never a version-string
+parse): on 4.4–4.7 the addon returns `{ok:false, error:"UNSUPPORTED", hint:"…requires Godot
+4.8+…"}`, surfaced to the agent unchanged. Pending polls report `velocity_pending` /
+`query_pending` through the same readiness envelope as the other probe reads.
 
 ### Editor history — `mutating` / `read_only` (category: `core`)
 
@@ -1661,6 +1687,8 @@ in their `TIMEOUT` expiry error so an agent can act on the cause:
 | `recording_pending` | `godot_input_stop_recording` | the stop push hasn't landed from the probe yet |
 | `capture_pending` | `godot_runtime_get_property_samples`, game-frame capture | the monitor/capture request is dispatched; the probe answers on a later frame |
 | `read_pending` | `godot_runtime_read_property` | the one-shot read is dispatched; the probe replies on a later frame (#571) |
+| `velocity_pending` | `godot_runtime_get_velocity_at_point` | the velocity read is queued for the next physics frame (#599) |
+| `query_pending` | `godot_runtime_physics_space_query` | the space-state query is queued for the next physics frame (#599) |
 | `output_pending` | `godot_runtime_get_game_output` (cold start) | the first probe pull is in flight; the ring is empty until it lands |
 | `scan_in_flight` | `godot_runtime_find_ui_elements` | the full-Control scan is dispatched and runs over the next frames |
 | `probe_pending` | `godot_profiling_get_performance_monitors` | the probe hasn't answered the first monitor pull |

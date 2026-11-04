@@ -44,6 +44,12 @@ var _evaluation_result: Variant = null  # last godot_mcp:evaluation payload (#67
 var _scene_tree_request := "__none__"
 var _performance_request := "__none__"
 var _evaluation_request := "__none__"
+# #599 runtime physics read-back: one request slot per probe read, each gated on
+# its own in-flight request_id (mirrors the #571 read_property pattern).
+var _velocity_at_point: Variant = null
+var _velocity_pending := "__none__"
+var _space_query: Variant = null
+var _space_query_pending := "__none__"
 
 
 func _has_capture(capture: String) -> bool:
@@ -120,6 +126,22 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 			var ev: Variant = data[0] if not data.is_empty() else null
 			if ev is Dictionary and str((ev as Dictionary).get("request_id", "")) == _evaluation_request:
 				_evaluation_result = ev
+			return true
+		"godot_mcp:velocity_at_point":
+			# #599: same request_id gate as read_property — a delayed reply to an
+			# older request can never be served as the current one's velocity.
+			var velocity_reply: Variant = data[0] if not data.is_empty() else null
+			if velocity_reply is Dictionary:
+				var pending_velocity := _velocity_pending
+				if pending_velocity != "__none__" and str((velocity_reply as Dictionary).get("request_id", "")) == pending_velocity:
+					_velocity_at_point = velocity_reply
+			return true
+		"godot_mcp:physics_space_query":
+			var query_reply: Variant = data[0] if not data.is_empty() else null
+			if query_reply is Dictionary:
+				var pending_query := _space_query_pending
+				if pending_query != "__none__" and str((query_reply as Dictionary).get("request_id", "")) == pending_query:
+					_space_query = query_reply
 			return true
 	return false
 
@@ -201,6 +223,10 @@ func _on_stopped() -> void:
 	_frame_request_id = "__none__"
 	_evaluation_result = null
 	_evaluation_request = "__none__"
+	_velocity_at_point = null
+	_velocity_pending = "__none__"
+	_space_query = null
+	_space_query_pending = "__none__"
 
 
 ## Release the plugin's own references so it can be freed when the editor exits.
@@ -388,6 +414,36 @@ func begin_evaluation_request(request_id: String) -> void:
 ## in _evaluation_result via _capture("godot_mcp:evaluation", data).
 func request_evaluation(request_id: String, expression: String) -> void:
 	send_to_probe("godot_mcp:evaluate", [{"request_id": request_id, "expression": expression}])
+
+
+# #599 runtime physics read-back: request_id-gated cache slots (mirror #571).
+
+func get_velocity_at_point() -> Variant:
+	return _velocity_at_point
+
+
+func get_pending_velocity_request() -> String:
+	return _velocity_pending
+
+
+## Mark a new velocity-at-point read in-flight and drop any prior (stale) reply.
+func begin_velocity_request(request_id: String) -> void:
+	_velocity_pending = request_id
+	_velocity_at_point = null
+
+
+func get_space_query() -> Variant:
+	return _space_query
+
+
+func get_pending_space_query() -> String:
+	return _space_query_pending
+
+
+## Mark a new space-state query in-flight and drop any prior (stale) reply.
+func begin_space_query(request_id: String) -> void:
+	_space_query_pending = request_id
+	_space_query = null
 
 
 ## Return the current session ID so handlers can call get_session().
