@@ -1,5 +1,5 @@
 # Build and push the custom Godot-capable GitHub Actions runner image to GHCR.
-# The image is used by the [self-hosted, godot] RunnerDeployment that serves
+# The image is used by the `hybridindie-godot-mcp-godot` scale set that serves
 # the e2e (godot-mcp) and gle-bench (godot-agents) workflows.
 #
 # Manual dispatch is the primary trigger (rebuild only when the Godot version

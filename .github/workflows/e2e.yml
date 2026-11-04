@@ -33,7 +33,7 @@
 # closed. The remaining `if:` on the job is NOT a disable — it is the
 # fork-PR protection for the self-hosted runner (see SECURITY below).
 #
-# RUNNER REQUIREMENTS (k3s self-hosted, label `godot`):
+# RUNNER REQUIREMENTS (scale set `hybridindie-godot-mcp-godot`, fedora-only):
 #   - Godot 4.7 *editor* binary (not the export-template/server build — the suites
 #     need `--editor`). The editor runs headless via `--headless` (dummy audio), but
 #     the *play-session* suites need a display: `xvfb-run` provides a virtual one
@@ -42,8 +42,8 @@
 #   - Python 3.11+ and uv available (or installed by the steps below).
 #   - The binary path is `$GODOT_BIN` — set the `GODOT_BIN` repo/org Actions
 #     variable, or bake it at the default path below in the runner image.
-# The eval workflow uses the same self-hosted convention (label `godot-eval`); a
-# single runner can carry both labels if it has Godot installed.
+# The `godot-eval` GPU pool is dormant (no workflow targets it); if it is
+# revived it should become its own scale set rather than a label list.
 #
 # 4.8 BETA LANE (#739): a second, ADVISORY job runs the same suites against the
 # pinned Godot 4.8-beta1 binary (`/opt/godot48/godot`, baked by the runner image;
@@ -88,17 +88,19 @@ concurrency:
 permissions:
   contents: read
 
-# Self-hosted runners share /runner/_work/_cache; keep uv's package and
-# Python caches there instead of setup-uv's actions/cache restore, which
-# hangs on the self-hosted cache service (#579).
+# Self-hosted runners share the `hybridindie-godot-mcp-godot-cache` NFS volume,
+# mounted at /opt/uv-cache — outside the runner work dir, because a PVC at or
+# below /home/runner/_work makes the work dir root-owned and the runner cannot
+# start. Keep uv's package and Python caches there instead of setup-uv's
+# actions/cache restore, which hangs on the self-hosted cache service (#579).
 env:
-  UV_CACHE_DIR: /runner/_work/_cache/uv
-  UV_PYTHON_INSTALL_DIR: /runner/_work/_cache/uv-python
+  UV_CACHE_DIR: /opt/uv-cache/uv
+  UV_PYTHON_INSTALL_DIR: /opt/uv-cache/uv-python
 
 jobs:
   editor-suites:
     name: live editor (e2e + addon smoke)
-    runs-on: [self-hosted, godot]
+    runs-on: hybridindie-godot-mcp-godot
     # SECURITY (public repo + self-hosted runner): never execute untrusted fork code
     # on the runner. Only same-repo branch PRs and manual dispatch run; fork PRs skip
     # this job (it reports as skipped, non-blocking). Defense-in-depth on top of the
@@ -187,7 +189,7 @@ jobs:
 
   godot-4-8-beta:
     name: live editor (Godot 4.8 beta, advisory)
-    runs-on: [self-hosted, godot]
+    runs-on: hybridindie-godot-mcp-godot
     # SECURITY: same fork-PR protection as the 4.7 lane (see the header).
     if: >-
       github.event_name != 'pull_request' ||

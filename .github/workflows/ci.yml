@@ -171,7 +171,7 @@ jobs:
   # the pinned release with Godot's published SHA512 checksum.
   godot-floor:
     name: godot 4.4 floor (parse + smoke)
-    runs-on: [self-hosted, godot]
+    runs-on: hybridindie-godot-mcp-godot
     # SECURITY (public repo + self-hosted runner, issue #650): never execute
     # untrusted fork code on the runner. Only same-repo branch PRs and pushes
     # run; fork PRs skip this job. Mirrors e2e.yml.
