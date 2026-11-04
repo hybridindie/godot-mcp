@@ -3,7 +3,7 @@ type: index
 title: "Changelog"
 description: "Release history for godot-mcp."
 created: 2026-09-19
-updated: 2026-10-24
+updated: 2026-11-04
 ---
 
 # Changelog
@@ -12,7 +12,7 @@ Full release notes live on
 [GitHub Releases](https://github.com/hybridindie/godot-mcp/releases). This page
 summarizes the recent ones.
 
-## 2026.10.24 — the stable-line batch
+## 2026.11.04 — the stable-line batch
 
 The largest surface change since the stable line began: agent trust (receipts,
 consent, readiness), project-owned verification, and project-defined tools.
@@ -25,6 +25,10 @@ All of it is **additive** — `CONTRACT_VERSION` stays `1`.
   toolset. JSON Schema is derived from GDScript static types; untyped or
   unsupported parameters are rejected with a reason + line, and safety
   (`dry_run` / `confirm`) is enforced server-side. See `examples/project_tools/`.
+- **Auto-refresh (#802)** — annotated functions are re-scanned when their files
+  change on disk (debounced), so a new or removed `## @mcp_tool` updates the
+  surface without calling `godot_project_scan_tools` again. The explicit scan
+  remains the deterministic fallback.
 
 ### Verification you can trust
 
@@ -60,6 +64,21 @@ All of it is **additive** — `CONTRACT_VERSION` stays `1`.
   again, and the budget test now enforces slack so routine edits cannot fail CI.
 - **Error codes (#791)** — every emitted code is a member of `ErrorCode`, and
   the reference page lists all sixteen.
+- **Honest diagnostics (#796)** — a probe failure now reports
+  `SCENE TREE UNAVAILABLE` / `BRIDGE INFO UNAVAILABLE` with the cause instead of
+  mislabelling it as "no active scene" or "bridge disconnected".
+
+### Compatibility
+
+- **Verified against Godot 4.8-beta2** (`4.8.beta2.official.cafc17a19`) on the
+  advisory lane: the full addon/bridge/integration suite passes, including the
+  `MeshLibrary` serialization that was broken in beta1
+  ([godotengine/godot#124712](https://github.com/godotengine/godot/issues/124712),
+  fixed upstream). The floor stays **Godot 4.4**; **4.7** is the validated
+  stable target and `4.8-stable` is not claimed yet.
+- **FastMCP 4.1.6** — the 4.1 line's fix/security releases (including the
+  certificate-authority follow-up in 4.1.3). No tool-surface or envelope change;
+  `CONTRACT_VERSION` stays `1`.
 
 ## 2026.10.21b2 — 4.8 shims in the beta
 
