@@ -176,9 +176,8 @@ def register_visual_shader(mcp: FastMCP, bridge: Bridge) -> None:
         position: list[float] | None = None,
         dry_run: bool = False,
     ) -> CreateShaderGroupResult:
-        """Create a VisualShader node group (Godot 4.8+) named ``name`` at
-        ``node_id`` (>=2) in the shader at ``shader_path``. Add members with
-        ``add_group_node``. Returns ``UNSUPPORTED`` before 4.8.
+        """Create a node group named ``name`` at ``node_id`` (>=2) in the shader
+        at ``shader_path``. Add members with ``add_group_node``. Godot 4.8+.
         """
         params: dict[str, Any] = {
             "shader_path": shader_path,
@@ -204,7 +203,7 @@ def register_visual_shader(mcp: FastMCP, bridge: Bridge) -> None:
         dry_run: bool = False,
     ) -> RenameShaderGroupResult:
         """Rename the group at group-node ``node_id`` in the shader at
-        ``shader_path``. Returns ``UNSUPPORTED`` before Godot 4.8.
+        ``shader_path``. Godot 4.8+.
         """
         params: dict[str, Any] = {
             "shader_path": shader_path,
@@ -229,9 +228,8 @@ def register_visual_shader(mcp: FastMCP, bridge: Bridge) -> None:
         confirm: bool = False,
         dry_run: bool = False,
     ) -> RemoveShaderGroupResult:
-        """Remove the group at ``node_id`` and its subgraph (Godot 4.8+). Undo
-        restores both; destructive, so pass ``confirm=True``. Returns
-        ``UNSUPPORTED`` before 4.8.
+        """Remove the group at ``node_id`` and its subgraph; undo restores both.
+        Destructive (``confirm=True``). Godot 4.8+.
         """
         if not dry_run:
             require_confirmation(confirm, "remove_shader_group")
@@ -258,10 +256,8 @@ def register_visual_shader(mcp: FastMCP, bridge: Bridge) -> None:
         position: list[float] | None = None,
         dry_run: bool = False,
     ) -> AddShaderGroupNodeResult:
-        """Add a ``node_type`` node at group-local ``node_id`` to the group at
-        ``group_node_id`` in the shader at ``shader_path`` (Godot 4.8+).
-        ``position`` is ``[x,y]``; group ids start at 0. Returns ``UNSUPPORTED``
-        before 4.8.
+        """Add a ``node_type`` at group-local ``node_id`` to the group at
+        ``group_node_id``; ``position`` is [x,y], group ids start at 0. Godot 4.8+.
         """
         params: dict[str, Any] = {
             "shader_path": shader_path,
@@ -294,9 +290,8 @@ def register_visual_shader(mcp: FastMCP, bridge: Bridge) -> None:
         confirm: bool = False,
         dry_run: bool = False,
     ) -> RemoveShaderGroupNodeResult:
-        """Remove node ``node_id`` from the group at ``group_node_id`` (Godot
-        4.8+). Undo restores it and its connections; destructive, so pass
-        ``confirm=True``. Returns ``UNSUPPORTED`` before 4.8.
+        """Remove node ``node_id`` from the group at ``group_node_id``; undo
+        restores it and its connections. Destructive (``confirm=True``). Godot 4.8+.
         """
         if not dry_run:
             require_confirmation(confirm, "remove_shader_group_node")
@@ -326,15 +321,10 @@ def register_visual_shader(mcp: FastMCP, bridge: Bridge) -> None:
 
     @mcp.tool(meta=READ_ONLY, tags=VISUAL_SHADER)
     async def read_visual_shader(shader_path: ResPath) -> VisualShaderGraph:
-        """Read the VisualShader graph at ``shader_path`` (a ``res://*.tres``): its
-        ``mode`` plus every ``node`` ({id, type, position, parameters}) and
-        ``connection`` ({from_node, from_port, to_node, to_port}). ``groups``
-        reports each node group's ``{node_id, name, members}`` — members carry
-        their owning group's ``group`` node id (issue #601; empty before Godot
-        4.8). The inverse of ``create_visual_shader`` / ``add_shader_node`` /
-        ``connect_shader_nodes`` / ``set_shader_node_param`` — snapshot a shader
-        graph before editing it for rollback. Errors if the path isn't a
-        VisualShader resource.
+        """Read the VisualShader at ``shader_path``: ``mode``, every ``node``
+        ({id, type, position, parameters}), ``connection``, and ``groups``
+        ({node_id, name, members}; empty before 4.8). Snapshot before editing
+        for rollback. Errors if the path isn't a VisualShader resource.
         """
         return VisualShaderGraph(
             **await route(bridge, "cmd_read_visual_shader", {"shader_path": shader_path})

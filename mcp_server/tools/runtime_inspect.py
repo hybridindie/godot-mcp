@@ -133,12 +133,10 @@ def register_runtime_inspect(mcp: FastMCP, bridge: Bridge) -> None:
         local: bool = False,
         timeout_ms: TimeoutMs = DEFAULT_RUNTIME_INSPECT_TIMEOUT_MS,
     ) -> VelocityAtPointResult:
-        """Velocity of a live ``RigidBody2D``/``RigidBody3D`` at an arbitrary point
-        (Godot 4.8+). ``point`` is ``{x, y}`` for 2D or ``{x, y, z}`` for 3D;
-        ``local`` treats it as an offset from the body origin instead of a global
-        position. Requires a play session + runtime probe. On 4.4–4.7 returns
-        UNSUPPORTED — use ``read_property("linear_velocity")`` for the
-        centre-of-mass value instead.
+        """Velocity of a live RigidBody2D/3D at an arbitrary point (Godot 4.8+).
+        ``point`` is {x,y} or {x,y,z}; ``local`` offsets from the body origin.
+        Needs a play session. UNSUPPORTED before 4.8 — use
+        ``read_property("linear_velocity")`` for the centre-of-mass value.
         """
         params = {
             "node_path": node_path,
@@ -170,15 +168,12 @@ def register_runtime_inspect(mcp: FastMCP, bridge: Bridge) -> None:
         max_results: PhysicsMaxResults = DEFAULT_PHYSICS_QUERY_MAX_RESULTS,
         timeout_ms: TimeoutMs = DEFAULT_RUNTIME_INSPECT_TIMEOUT_MS,
     ) -> PhysicsSpaceQueryResult:
-        """Run a non-allocating physics space query in the running game (Godot 4.8+).
-        ``method``: intersect_ray, intersect_point, intersect_shape, cast_motion,
-        collide_shape, get_rest_info. ``query`` holds the matching
-        Physics*QueryParameters fields (ray: from/to; point: position; shape:
-        transform/motion/margin); shape_type + shape_properties supply a shape;
-        ``exclude`` lists live node paths to ignore. Returns ``hit``, ``count`` and
-        JSON-safe ``results`` (collider path/class/id, position/normal; cast_motion
-        adds safe/unsafe_fraction). ``hit=false`` is empty space, not an error.
-        On 4.4–4.7 returns UNSUPPORTED.
+        """Non-allocating physics query in the running game (Godot 4.8+).
+        ``method`` is intersect_ray/point/shape, cast_motion, collide_shape or
+        get_rest_info; ``query`` holds that method's Physics*QueryParameters
+        fields, ``shape_type``+``shape_properties`` supply a shape, ``exclude``
+        skips node paths. Returns ``hit``, ``count`` and JSON-safe ``results``
+        (``hit=false`` is empty space). UNSUPPORTED before 4.8.
         """
         params = {
             "method": method,
