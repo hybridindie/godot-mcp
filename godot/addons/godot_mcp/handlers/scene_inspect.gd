@@ -50,6 +50,8 @@ func _cmd_get_active_scene(_params: Dictionary) -> Dictionary:
 		# scene itself or the tab looks clean and closing discards the edits.
 		"dirty": unsaved != null and not path.is_empty() and path in (unsaved as Array),
 		"dirty_known": unsaved != null,
+		# #600: scene-level metadata (4.8+; {} on older editors).
+		"metadata": Inspect.scene_metadata(root),
 	})
 
 
@@ -106,7 +108,11 @@ func _cmd_get_scene_tree(params: Dictionary) -> Dictionary:
 		return _router._ok({"tree": null})
 	var max_depth := int(params.get("max_depth", -1))
 	var lightweight := bool(params.get("lightweight", false))
-	return _router._ok({"tree": Inspect.serialize_tree(root, max_depth, lightweight)})
+	return _router._ok({
+		"tree": Inspect.serialize_tree(root, max_depth, lightweight),
+		# #600: scene-level metadata (4.8+; {} on older editors).
+		"metadata": Inspect.scene_metadata(root),
+	})
 
 
 func _cmd_get_selected_node(_params: Dictionary) -> Dictionary:

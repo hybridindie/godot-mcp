@@ -33,6 +33,11 @@ static func serialize_tree(
 	}
 	if not lightweight:
 		data["script"] = script_path(node)
+		# #600: user metadata rides the node, not `properties`. Only emitted when
+		# present so ordinary trees stay small (lightweight stays metadata-free).
+		var meta := node_metadata(node)
+		if not meta.is_empty():
+			data["metadata"] = meta
 		# #487: instance metadata. A node the edited root does not own comes from
 		# another scene; the owner IS that scene's instance (null owner = unowned
 		# editor artifact, reported as null).
@@ -69,8 +74,42 @@ static func node_info(node: Node, scene_root: Node) -> Dictionary:
 		"type": node.get_class(),
 		"script": script_path(node),
 		"properties": node_properties(node),
+		# #600: always present in the detail view (empty when the node has none).
+		"metadata": node_metadata(node),
 		"children": child_names,
 	}
+
+
+## Node metadata (`Node.get_meta_list`), JSON-coerced (#600). Metadata is user
+## data, not a property, so it never appears in `properties`. Editor-internal
+## keys (`_edit_group_`, `_edit_lock_`, …) are dropped — they are editor state,
+## not scene data, and would otherwise flood every node.
+static func node_metadata(node: Node) -> Dictionary:
+	var meta: Dictionary = {}
+	for key in node.get_meta_list():
+		var name := String(key)
+		if name.begins_with("_edit_"):
+			continue
+		meta[name] = Coerce.to_json(node.get_meta(key))
+	return meta
+
+
+## Scene-level metadata on the edited scene's PackedScene (#600). Godot 4.8
+## serializes `metadata/` on the text-scene resource; on 4.4–4.7 the list is
+## empty, so this degrades to {} rather than failing.
+static func scene_metadata(root: Node) -> Dictionary:
+	if root == null or root.scene_file_path.is_empty():
+		return {}
+	var packed := ResourceLoader.load(root.scene_file_path) as PackedScene
+	if packed == null:
+		return {}
+	var meta: Dictionary = {}
+	for key in packed.get_meta_list():
+		var name := String(key)
+		if name.begins_with("_edit_"):
+			continue
+		meta[name] = Coerce.to_json(packed.get_meta(key))
+	return meta
 
 
 ## Exported / script-declared properties, JSON-coerced.

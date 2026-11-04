@@ -1,7 +1,8 @@
-"""Runtime inspection tools (issue #35).
+"""Runtime inspection tools (issues #35, #599).
 
 Inspect a *running* game on the #66 runtime-session rails: watch a node property over
-time and locate live UI (Control) elements. Requires a play session with the Godot Editor MCP
+time, locate live UI (Control) elements, and read physics state (velocity at a point,
+non-allocating space-state queries — Godot 4.8+). Requires a play session with the Godot Editor MCP
 runtime probe. All `read_only` against the live session, in the `runtime` toolset.
 (``get_game_scene_tree`` — the third piece of #35 — already shipped with #66.)
 """
@@ -9,21 +10,25 @@ runtime probe. All `read_only` against the live session, in the `runtime` toolse
 from __future__ import annotations
 
 import uuid
+from typing import Any, Literal
 
 from fastmcp import FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import RUNTIME_TAG
-from mcp_server.constraints import Samples, TimeoutMs
+from mcp_server.constraints import PhysicsMaxResults, Samples, TimeoutMs
 from mcp_server.defaults import (
     DEFAULT_MONITOR_SAMPLES,
+    DEFAULT_PHYSICS_QUERY_MAX_RESULTS,
     DEFAULT_RUNTIME_INSPECT_TIMEOUT_MS,
 )
 from mcp_server.models.runtime_inspect import (
     MonitorResult,
+    PhysicsSpaceQueryResult,
     PropertySamplesResult,
     ReadPropertyResult,
     UiElementsResult,
+    VelocityAtPointResult,
 )
 from mcp_server.safety import READ_ONLY, RUNTIME
 from mcp_server.tools._route import poll_ready, route
@@ -120,3 +125,66 @@ def register_runtime_inspect(mcp: FastMCP, bridge: Bridge) -> None:
         # scan for this request_id) until it reflects this request or timeout_ms elapses.
         result = await poll_ready(bridge, "cmd_find_ui_elements", params, timeout_ms)
         return UiElementsResult(**result)
+
+    @mcp.tool(meta=READ_ONLY, tags=RUNTIME_SET)
+    async def get_velocity_at_point(
+        node_path: str,
+        point: dict[str, Any],
+        local: bool = False,
+        timeout_ms: TimeoutMs = DEFAULT_RUNTIME_INSPECT_TIMEOUT_MS,
+    ) -> VelocityAtPointResult:
+        """Velocity of a live RigidBody2D/3D at an arbitrary point (Godot 4.8+).
+        ``point`` is {x,y} or {x,y,z}; ``local`` offsets from the body origin.
+        Needs a play session. UNSUPPORTED before 4.8 — use
+        ``read_property("linear_velocity")`` for the centre-of-mass value.
+        """
+        params = {
+            "node_path": node_path,
+            "point": point,
+            "local": local,
+            # Stable per-invocation id (constant across the poll loop) so the addon
+            # serves the probe reply for THIS request, never a prior one (#670).
+            "request_id": uuid.uuid4().hex,
+        }
+        result = await poll_ready(bridge, "cmd_get_velocity_at_point", params, timeout_ms)
+        return VelocityAtPointResult(**result)
+
+    @mcp.tool(meta=READ_ONLY, tags=RUNTIME_SET)
+    async def physics_space_query(
+        method: Literal[
+            "intersect_ray",
+            "intersect_point",
+            "intersect_shape",
+            "cast_motion",
+            "collide_shape",
+            "get_rest_info",
+        ],
+        query: dict[str, Any] | None = None,
+        dimension: Literal["2d", "3d"] = "2d",
+        node_path: str = "",
+        exclude: list[str] | None = None,
+        shape_type: str = "",
+        shape_properties: dict[str, Any] | None = None,
+        max_results: PhysicsMaxResults = DEFAULT_PHYSICS_QUERY_MAX_RESULTS,
+        timeout_ms: TimeoutMs = DEFAULT_RUNTIME_INSPECT_TIMEOUT_MS,
+    ) -> PhysicsSpaceQueryResult:
+        """Non-allocating physics query in the running game (Godot 4.8+).
+        ``method`` is intersect_ray/point/shape, cast_motion, collide_shape or
+        get_rest_info; ``query`` holds that method's Physics*QueryParameters
+        fields, ``shape_type``+``shape_properties`` supply a shape, ``exclude``
+        skips node paths. Returns ``hit``, ``count`` and JSON-safe ``results``
+        (``hit=false`` is empty space). UNSUPPORTED before 4.8.
+        """
+        params = {
+            "method": method,
+            "query": query or {},
+            "dimension": dimension,
+            "node_path": node_path,
+            "exclude": exclude or [],
+            "shape_type": shape_type,
+            "shape_properties": shape_properties or {},
+            "max_results": max_results,
+            "request_id": uuid.uuid4().hex,
+        }
+        result = await poll_ready(bridge, "cmd_physics_space_query", params, timeout_ms)
+        return PhysicsSpaceQueryResult(**result)

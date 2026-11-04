@@ -36,6 +36,12 @@ MaxDepth = Annotated[int, Field(ge=-1, le=1000)]
 # --- inter-event delays in milliseconds -------------------------------------
 DelayMs = Annotated[int, Field(ge=0, le=600_000)]
 
+# --- physics query result capacity (issue #599) ------------------------------
+# The preallocated 4.8 result object's max_intersections/max_collisions. Godot's
+# own default is 32; cap well below MaxResults so a query cannot allocate a huge
+# result buffer per call.
+PhysicsMaxResults = Annotated[int, Field(ge=1, le=1024)]
+
 # --- TileMap / TileSet identifiers ------------------------------------------
 # source_id -1 is Godot's "empty/erase" sentinel; layer and alternative_tile are
 # non-negative indices. No upper cap — these are open-ended Godot ids.

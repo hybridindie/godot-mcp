@@ -3,7 +3,7 @@ type: index
 title: "Changelog"
 description: "Release history for godot-mcp."
 created: 2026-09-19
-updated: 2026-10-24
+updated: 2026-11-04
 ---
 
 # Changelog
@@ -12,11 +12,40 @@ Full release notes live on
 [GitHub Releases](https://github.com/hybridindie/godot-mcp/releases). This page
 summarizes the recent ones.
 
-## 2026.10.24 — the stable-line batch
+## 2026.11.04b2 — Godot 4.8-beta2
+
+**Prerelease**, verified against **Godot 4.8-beta2** (`4.8.beta2.official.cafc17a19`).
+Install with `pip install --pre godot-editor-mcp`; the stable channel stays on
+`2026.10.20.1` until the next stable. The 4.4 floor and the 4.7 validated target
+are unchanged.
+
+This release carries the stable-line batch below plus the first 4.8-only
+surface. All of it is **additive** — `CONTRACT_VERSION` stays `1`.
+
+### Godot 4.8 surface
+
+- **Engine support reporting (#846)** — `godot_health_check` and
+  `godot_get_server_info` report `godot_support` for the engine actually
+  attached: `disconnected` / `unknown` / `below_floor` / `supported` /
+  `validated` / `prerelease` / `newer`, against floor 4.4, validated 4.7, and
+  `verified_against` 4.8-beta2. A prerelease engine is named, not assumed to be
+  the validated target.
+- **Scene and node metadata (#600)** — node metadata in the node detail view
+  (and the detailed tree when present), scene-level metadata on
+  `get_active_scene` / `get_scene_tree`. `_edit_*` editor state is filtered.
+  `{}` on editors below 4.8.
+- **Physics runtime read-back (#599)** — `get_velocity_at_point` and
+  `physics_space_query` read the running game: velocity at an arbitrary point
+  plus non-allocating `*_into` space queries (`intersect_ray`, `cast_motion`,
+  `collide_shape`, …). Structured `UNSUPPORTED` below 4.8.
+- **VisualShader groups (#601)** — create/rename/remove groups and add/remove
+  group members, with UndoRedo and connection restore. Structured
+  `UNSUPPORTED` below 4.8.
+
+### Stable-line batch
 
 The largest surface change since the stable line began: agent trust (receipts,
 consent, readiness), project-owned verification, and project-defined tools.
-All of it is **additive** — `CONTRACT_VERSION` stays `1`.
 
 ### Project-defined tools (#761)
 
@@ -25,6 +54,10 @@ All of it is **additive** — `CONTRACT_VERSION` stays `1`.
   toolset. JSON Schema is derived from GDScript static types; untyped or
   unsupported parameters are rejected with a reason + line, and safety
   (`dry_run` / `confirm`) is enforced server-side. See `examples/project_tools/`.
+- **Auto-refresh (#802)** — annotated functions are re-scanned when their files
+  change on disk (debounced), so a new or removed `## @mcp_tool` updates the
+  surface without calling `godot_project_scan_tools` again. The explicit scan
+  remains the deterministic fallback.
 
 ### Verification you can trust
 
@@ -60,6 +93,22 @@ All of it is **additive** — `CONTRACT_VERSION` stays `1`.
   again, and the budget test now enforces slack so routine edits cannot fail CI.
 - **Error codes (#791)** — every emitted code is a member of `ErrorCode`, and
   the reference page lists all sixteen.
+- **Honest diagnostics (#796)** — a probe failure now reports
+  `SCENE TREE UNAVAILABLE` / `BRIDGE INFO UNAVAILABLE` with the cause instead of
+  mislabelling it as "no active scene" or "bridge disconnected".
+
+### Compatibility
+
+- **Verified against Godot 4.8-beta2** (`4.8.beta2.official.cafc17a19`) on the
+  advisory lane: the full addon/bridge/integration suite passes, including the
+  `MeshLibrary` serialization that was broken in beta1
+  ([godotengine/godot#124712](https://github.com/godotengine/godot/issues/124712),
+  fixed upstream). The floor stays **Godot 4.4**; **4.7** is the validated
+  stable target and `4.8-stable` is not claimed yet. The 4.8-only tools above
+  are inert (`UNSUPPORTED`) on 4.4–4.7.
+- **FastMCP 4.1.6** — the 4.1 line's fix/security releases (including the
+  certificate-authority follow-up in 4.1.3). No tool-surface or envelope change;
+  `CONTRACT_VERSION` stays `1`.
 
 ## 2026.10.21b2 — 4.8 shims in the beta
 

@@ -45,6 +45,9 @@ DEFAULT_PARTICLE_LIFETIME: float = 1.0
 
 # -- Runtime inspect -----------------------------------------------------------
 DEFAULT_MONITOR_SAMPLES: int = 30
+# #599: capacity of the preallocated physics query result object (Godot's own
+# default for Physics*Result*.max_intersections / max_collisions is 32).
+DEFAULT_PHYSICS_QUERY_MAX_RESULTS: int = 32
 
 # -- 3D scene -------------------------------------------------------------------
 DEFAULT_MESH_TYPE: str = "BoxMesh"

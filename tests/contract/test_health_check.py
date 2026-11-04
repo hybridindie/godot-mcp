@@ -13,6 +13,7 @@ from mcp_server import __version__
 from mcp_server.bridge import Bridge
 from mcp_server.config import ServerConfig
 from mcp_server.server import create_server
+from mcp_server.tools.health import build_health
 from tests.fakes import FakeAddonConnection, connector_for, null_serve
 
 pytestmark = pytest.mark.asyncio
@@ -53,6 +54,28 @@ async def test_health_check_reports_disconnected_when_editor_absent() -> None:
     async with Client(server) as client:
         result = await client.call_tool("godot_health_check", {})
     assert result.structured_content["bridge_connected"] is False
+
+
+async def test_health_reports_the_attached_engine_support() -> None:
+    # #588: health classifies the engine from the peer hello against the support
+    # surface (floor 4.4, validated 4.7, verified 4.8-beta2). Pure build_health:
+    # the hello is populated by the bridge, not by a tool round-trip.
+    bridge = Bridge(ServerConfig().bridge)
+    bridge._peer_identity = {"godot_version": "4.8.beta2.official.cafc17a1"}
+    status = build_health(bridge, ServerConfig())
+    assert status.godot_version == "4.8.beta2.official.cafc17a1"
+    assert status.godot_support is not None
+    assert status.godot_support.status == "prerelease"
+    assert status.godot_support.validated == "4.7"
+    assert status.godot_support.verified_against == "4.8-beta2"
+
+
+async def test_health_check_without_editor_reports_disconnected_support() -> None:
+    bridge = Bridge(ServerConfig().bridge, serve=null_serve)
+    server = _server_with_bridge(bridge)
+    async with Client(server) as client:
+        result = await client.call_tool("godot_health_check", {})
+    assert result.structured_content["godot_support"]["status"] == "disconnected"
 
 
 async def test_list_tools_by_safety_class_groups_health_check() -> None:

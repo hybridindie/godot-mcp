@@ -33,6 +33,7 @@ SMOKES = [
     ("one_shot_read_smoke.gd", "ONE_SHOT_READ_TEST_OK"),
     ("peer_hello_smoke.gd", "PEER_HELLO_TEST_OK"),
     ("particle_read_smoke.gd", "PARTICLE_READ_TEST_OK"),
+    ("physics_runtime_read_smoke.gd", "PHYSICS_RUNTIME_READ_TEST_OK"),
     ("probe_change_smoke.gd", "PROBE_CHANGE_TEST_OK"),
     ("probe_pause_smoke.gd", "PROBE_PAUSE_TEST_OK"),
     ("prop_cache_smoke.gd", "PROP_CACHE_TEST_OK"),
@@ -42,6 +43,7 @@ SMOKES = [
     ("threshold_smoke.gd", "THRESHOLD_TEST_OK"),
     ("type_coerce_smoke.gd", "TYPE_COERCE_TEST_OK"),
     ("ui_elements_gate_smoke.gd", "UI_ELEMENTS_GATE_TEST_OK"),
+    ("visual_shader_group_smoke.gd", "VISUAL_SHADER_GROUP_TEST_OK"),
     ("visual_shader_read_smoke.gd", "VISUAL_SHADER_READ_TEST_OK"),
 ]
 

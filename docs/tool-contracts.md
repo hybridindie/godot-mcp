@@ -385,11 +385,11 @@ states return an empty model (`is_open=False` / `tree=None` / `selected=None`), 
 | Tool | Params | Returns | Bridge command |
 |------|--------|---------|----------------|
 | `godot_inspection_get_project_info` | — | `ProjectInfo { name, godot_version, main_scene?, autoloads, input_actions }` | `cmd_get_project_info` |
-| `godot_inspection_get_active_scene` | — | `ActiveScene { is_open, path?, name?, dirty, dirty_known }` | `cmd_get_active_scene` |
+| `godot_inspection_get_active_scene` | — | `ActiveScene { is_open, path?, name?, dirty, dirty_known, metadata }` | `cmd_get_active_scene` |
 | `godot_inspection_list_scenes` | — | `ScenesResult { scenes: [SceneEntry { path, is_main, is_open, is_active }], main_scene? }` | `cmd_list_scenes` |
-| `godot_inspection_get_scene_tree` | `max_depth: int = -1, lightweight: bool = False` | `SceneTree { tree: SceneNode? }` | `cmd_get_scene_tree` |
+| `godot_inspection_get_scene_tree` | `max_depth: int = -1, lightweight: bool = False` | `SceneTree { tree: SceneNode?, metadata }` | `cmd_get_scene_tree` |
 | `godot_inspection_get_selected_node` | — | `SelectedNode { selected: NodeInfo? }` | `cmd_get_selected_node` |
-| `godot_inspection_get_node_properties` | `node_path: str` | `NodeInfo { node_path, type, script?, properties, children }` | `cmd_get_node_properties` |
+| `godot_inspection_get_node_properties` | `node_path: str` | `NodeInfo { node_path, type, script?, properties, metadata, children }` | `cmd_get_node_properties` |
 | `godot_inspection_get_node_property` | `node_path: str, property: str` | `NodeProperty { node_path, property, value, exists }` | `cmd_get_node_property` |
 | `godot_inspection_get_node_property_list` | `node_path: str` | `NodePropertyList { node_path, type, properties[] }` | `cmd_get_node_property_list` |
 | `godot_inspection_get_node_groups` | `node_path: str` | `NodeGroups { node_path, groups[] }` | `cmd_get_node_groups` |
@@ -1024,7 +1024,12 @@ to the text-shader `shader` toolset (issue #47). All mutating tools support `dry
 | `godot_visual_shader_connect_nodes` | `shader_path, from_node, from_port, to_node, to_port` | `ConnectShaderNodesResult { connected }` | `mutating` |
 | `godot_visual_shader_set_node_param` | `shader_path, node_id, property, value` | `SetShaderNodeParamResult { node_id, property, value, set }` | `mutating` |
 | `godot_visual_shader_list_node_types` | — | `ListShaderNodeTypesResult { types[] }` | `read_only` |
-| `godot_visual_shader_read` | `shader_path` | `VisualShaderGraph { shader_path, mode, nodes[{id, type, position, parameters}], connections[{from_node, from_port, to_node, to_port}] }` | `read_only` |
+| `godot_visual_shader_read` | `shader_path` | `VisualShaderGraph { shader_path, mode, nodes[{id, type, position, parameters, group}], connections[{from_node, from_port, to_node, to_port}], groups[{node_id, name, members[]}] }` | `read_only` |
+| `godot_visual_shader_create_group` | `shader_path, name, node_id, position=[x,y]` | `CreateShaderGroupResult { node_id, name, created }` | `mutating` |
+| `godot_visual_shader_rename_group` | `shader_path, node_id, name` | `RenameShaderGroupResult { node_id, name, renamed }` | `mutating` |
+| `godot_visual_shader_remove_group` | `shader_path, node_id, confirm=False` | `RemoveShaderGroupResult { node_id, name, removed }` | **`destructive`** |
+| `godot_visual_shader_add_group_node` | `shader_path, group_node_id, node_type, node_id, position=[x,y]` | `AddShaderGroupNodeResult { group_node_id, node_id, node_type, added }` | `mutating` |
+| `godot_visual_shader_remove_group_node` | `shader_path, group_node_id, node_id, confirm=False` | `RemoveShaderGroupNodeResult { group_node_id, node_id, removed }` | **`destructive`** |
 
 `godot_visual_shader_create` creates a `VisualShader` resource with `shader_type` set from
 `type` (`"2d"` → canvas_item, `"3d"` → spatial, `"particles"` | `"sky"` | `"fog"`).
@@ -1035,6 +1040,23 @@ integer ids. `godot_visual_shader_set_node_param` sets a property on the node (v
 `VisualShaderNode*` classes so agents know what's available. `godot_visual_shader_read` is the
 inverse read — it serializes the whole graph (mode, every node with its class/position/
 parameters, and the connections) for rollback before edits.
+
+##### Node groups / subgraphs (Godot 4.8+, issue #601)
+
+`godot_visual_shader_create_group` adds a `VisualShaderNodeGroup` (backed by a
+`VisualShaderGroup` resource) to the shader at `node_id`, so the group is addressable by that
+id in the parent graph. `godot_visual_shader_add_group_node` adds a node to the group's internal
+graph — its `node_id` is local to the group (id 0 is available there, unlike the shader graph
+where 0/1 are reserved). `godot_visual_shader_rename_group` renames it;
+`godot_visual_shader_remove_group` removes the group node and its subgraph, and
+`godot_visual_shader_remove_group_node` removes one member. Every mutation is UndoRedo-tracked
+(removes restore the node and its connections), and both remove verbs are `destructive`, so
+they require `confirm=True` (`dry_run=True` previews without changing anything).
+
+Groups are gated on `ClassDB.class_exists("VisualShaderGroup")`. On Godot 4.4–4.7 every group
+verb returns a structured `UNSUPPORTED` error (`required=godot_version`) rather than failing
+opaquely; `godot_visual_shader_read` reports `groups: []`. On 4.8+, `read` lists each group's
+`{node_id, name, members}` and each member carries its owning group's `group` node id.
 
 #### Project scaffold (issue #112) — category: `project_scaffold` (gated off by default)
 
@@ -1431,6 +1453,8 @@ play session (issue #638).
 | `godot_runtime_get_property_samples` | — | `PropertySamplesResult { ready, connected, node_path, property, samples[], error, requested?, dropped_duplicates?, sampling_usec?, on_change_only? }` |
 | `godot_runtime_read_property` | `node_path, property, timeout_ms=2000` | `ReadPropertyResult { ready, node_path, property, value, error }` |
 | `godot_runtime_find_ui_elements` | `name_contains="", class_filter="", visible_only=False, timeout_ms=2000` | `UiElementsResult { ready, elements[] }` |
+| `godot_runtime_get_velocity_at_point` | `node_path, point, local=False, timeout_ms=2000` | `VelocityAtPointResult { ready, node_path, node_class, dimension, local, point, velocity, error }` |
+| `godot_runtime_physics_space_query` | `method, query={}, dimension="2d", node_path="", exclude=[], shape_type="", shape_properties={}, max_results=32, timeout_ms=2000` | `PhysicsSpaceQueryResult { ready, method, dimension, hit, count, results[], safe_fraction?, unsafe_fraction?, error }` |
 
 `godot_runtime_monitor_property` captures `samples` readings of a live node's property (one per frame —
 `node_path` is an absolute path from `godot_runtime_get_game_scene_tree`); collect the `[{frame, value}]`
@@ -1454,6 +1478,30 @@ JSON-coerced value — the dedicated #571 one-shot path that never touches the
 `monitor_property` capture slot (assertions and single-value reads during a running
 capture leave the capture's series intact). Same `request_id` + poll pattern as
 `find_ui_elements`; `reason: "read_pending"` while the probe reply is in flight.
+
+**Physics read-back (issue #599, Godot 4.8+).** These live in the `runtime` toolset (not `physics`): they read the running game, so they need a play session + the runtime probe, while `physics` stays editor-side configuration. `godot_runtime_get_velocity_at_point`
+returns the linear velocity at an arbitrary point on a live `RigidBody2D`/`RigidBody3D`
+(`get_velocity_at_position`, or `get_velocity_at_local_position` with `local=true`) —
+not just the centre-of-mass `linear_velocity`. `godot_runtime_physics_space_query` runs
+the non-allocating `PhysicsDirectSpaceState2D/3D.*_into` family with a preallocated typed
+result object: `method` is `intersect_ray` / `intersect_point` / `intersect_shape` /
+`cast_motion` / `collide_shape` / `get_rest_info`. `query` carries that method's
+`Physics*QueryParameters` fields (ray: `from`/`to`; point: `position`; shape:
+`transform`/`motion`/`margin`/`collision_mask`/`collide_with_bodies`/`collide_with_areas`),
+`shape_type` + `shape_properties` build the query shape (e.g. `SphereShape3D` +
+`{"radius": 1.0}`), and `exclude` is a list of live node paths whose colliders are ignored.
+`dimension` selects the 2D/3D space and `node_path` (optional) selects that node's world
+(root viewport by default). The reply is JSON-safe: colliders are reported as
+`{collider_path, collider_class, collider_id, collider_rid (numeric id), shape}`, a ray adds
+`position`/`normal`/`face_index`, `get_rest_info` adds `collider_velocity`, `collide_shape`
+returns `point_on_queried_shape`/`point_on_colliding_shape` pairs, and `cast_motion` adds
+`safe_fraction`/`unsafe_fraction`. A query that hits nothing is `hit=false` with an empty
+`results` list — not an error. Both reads run in the game and are deferred to the probe's
+`_physics_process` (one request per physics frame), so they are legal space-state queries and
+never block the game thread. Both are gated on the 4.8 API via `ClassDB` (never a version-string
+parse): on 4.4–4.7 the addon returns `{ok:false, error:"UNSUPPORTED", hint:"…requires Godot
+4.8+…"}`, surfaced to the agent unchanged. Pending polls report `velocity_pending` /
+`query_pending` through the same readiness envelope as the other probe reads.
 
 ### Editor history — `mutating` / `read_only` (category: `core`)
 
@@ -1506,8 +1554,8 @@ history returns zero-values, not an error.
 
 | Tool | Params | Returns | Notes |
 |------|--------|---------|-------|
-| `godot_health_check` | — | `HealthStatus { server, version, transport, bridge_url, bridge_connected, addon_version?, version_notice?, bridge_bind_error?, editor_status?, editor_heartbeat_age_ms? }` | liveness ping — call first; `version` is the CalVer build (see § contract versioning); `version_notice` flags a server↔addon version mismatch (#629); `bridge_bind_error` is set when the listener could not bind its port (#655); `editor_status` is the readiness heartbeat (#762) |
-| `godot_get_server_info` | — | `ServerDiagnostics { server, version, contract_version, min_compatible_contract, transport, toolsets[], prompts[], resources[], bridge{connected, url, godot_version?, project_name?, project_path?, addon_version?, addon_commands?, backend?{csharp_supported, csharp_project, csharp_build}, editor_status?, editor_heartbeat_age_ms?}, active_scene?, addon_drift_warning?, version_notice?, update?, common_errors[], next_steps[] }` | capability snapshot — call first |
+| `godot_health_check` | — | `HealthStatus { server, version, transport, bridge_url, bridge_connected, godot_version?, godot_support?, addon_version?, version_notice?, bridge_bind_error?, editor_status?, editor_heartbeat_age_ms? }` | liveness ping — call first; `version` is the CalVer build (see § contract versioning); `godot_version`/`godot_support` report the attached engine and its support status (#588); `version_notice` flags a server↔addon version mismatch (#629); `bridge_bind_error` is set when the listener could not bind its port (#655); `editor_status` is the readiness heartbeat (#762) |
+| `godot_get_server_info` | — | `ServerDiagnostics { server, version, contract_version, min_compatible_contract, transport, toolsets[], prompts[], resources[], bridge{connected, url, godot_version?, project_name?, project_path?, addon_version?, addon_commands?, backend?{csharp_supported, csharp_project, csharp_build}, editor_status?, editor_heartbeat_age_ms?}, godot_support{detected?, status, floor, validated, verified_against, notice?}, active_scene?, addon_drift_warning?, version_notice?, update?, common_errors[], next_steps[] }` | capability snapshot — call first |
 | `godot_check_for_updates` | — | `UpdateStatus { enabled, current, latest?, update_available, url?, checked_at?, error?, hint? }` | opt-in (`GODOT_MCP_CHECK_UPDATES`, off by default → `enabled: false`); when on, queries the release feed and reports a newer version; on finding one it also notifies the editor dock (#629) |
 | `godot_debug_workflow` | `scene="", timeout_seconds=5.0, expected_timeout=False` | `DebugWorkflowResult { bridge{}, scene_tree?, run?, parse{ok, errors[], skipped_reason}, findings[], suggestions[] }` | one-call comprehensive check; `expected_timeout=True` suppresses the timeout/NON-ZERO-EXIT findings for games that never self-quit (#490) |
 | `godot_read_resource` | `uri` | JSON string for any `godot://` URI (see § resources) | the resources-as-tools fallback for clients without resource-protocol support; unknown URIs → structured `ToolError` |
@@ -1521,6 +1569,8 @@ history returns zero-values, not an error.
 `disconnected`, or `unknown` (an older addon). Mutating/destructive calls are
 refused with `EDITOR_BUSY` before reaching the editor when it is not ready, and
 `BRIDGE_DISCONNECTED` when stale; dry-runs and read-only tools are not gated.
+
+`godot_support` describes the engine that is **actually attached**, classified against the support surface: `floor` 4.4, `validated` 4.7, and `verified_against` naming the newest prerelease the advisory lane verifies (currently `4.8-beta2`). `status` is one of `disconnected` (no editor), `unknown` (unparseable version), `below_floor`, `supported` (4.4–4.6), `validated` (4.7.x), `prerelease` (alpha/beta/rc/dev), or `newer` (a stable newer than 4.7). `notice` is populated only when the agent should act differently — below-floor upgrade advice, a prerelease/validated-target warning, or a newer-than-validated warning. This is how the MCP reflects the real binary instead of assuming the validation target.
 
 Both `godot_health_check` and `godot_get_server_info` report the connected addon's version and, when it differs from the server's, a `version_notice` naming which side is behind — a direct compare that the command-set `addon_drift_warning` proxy can miss (a version bump with no command change). Update checking is **opt-in and offline by default**: with `GODOT_MCP_CHECK_UPDATES` unset, `godot_check_for_updates` returns `enabled: false` and makes no request; when set, it queries the GitHub release feed (falling back to PyPI), caches the result (TTL), and reports `{current, latest, update_available, url}`. A known update is also folded into `godot_get_server_info.update` and its `next_steps`, and pushed to the editor dock via `cmd_update_available` so the human sees it too.
 
@@ -1637,6 +1687,8 @@ in their `TIMEOUT` expiry error so an agent can act on the cause:
 | `recording_pending` | `godot_input_stop_recording` | the stop push hasn't landed from the probe yet |
 | `capture_pending` | `godot_runtime_get_property_samples`, game-frame capture | the monitor/capture request is dispatched; the probe answers on a later frame |
 | `read_pending` | `godot_runtime_read_property` | the one-shot read is dispatched; the probe replies on a later frame (#571) |
+| `velocity_pending` | `godot_runtime_get_velocity_at_point` | the velocity read is queued for the next physics frame (#599) |
+| `query_pending` | `godot_runtime_physics_space_query` | the space-state query is queued for the next physics frame (#599) |
 | `output_pending` | `godot_runtime_get_game_output` (cold start) | the first probe pull is in flight; the ring is empty until it lands |
 | `scan_in_flight` | `godot_runtime_find_ui_elements` | the full-Control scan is dispatched and runs over the next frames |
 | `probe_pending` | `godot_profiling_get_performance_monitors` | the probe hasn't answered the first monitor pull |
