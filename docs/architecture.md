@@ -3,7 +3,7 @@
 This document is the contract for the seam between the two halves of Godot Editor MCP (repo: `godot-mcp`). It is
 authoritative for the **transport** and the **JSON envelope**; the tool/resource/prompt
 surface is specified in [`tool-contracts.md`](tool-contracts.md). The grounding rules in
-[`../.opencode/rules/`](../.opencode/rules/) govern *how* code on each side is written.
+[`../.claude/rules/`](../.claude/rules/) govern *how* code on each side is written.
 The server is sessionless by design (MCP 2026-07-28 shape, issue #386).
 
 > Status: the bridge is implemented (issue #3) with the connection direction inverted
@@ -172,7 +172,7 @@ parameter (`-1` = unlimited, `0` = the node with no children). Node detail seria
 The `godot_runtime_run_and_capture` tool is the one place the server launches a **Godot process
 directly** (`godot --headless --path <project> [scene]`) rather than going through
 the bridge. This is a deliberate, reasoned exception to "the bridge is the only path
-to Godot" (Article II): running the game for verification is *process execution*,
+to Godot" (service isolation, `.claude/rules/architecture.md`): running the game for verification is *process execution*,
 not *editor control*, and Godot exposes no public GDScript API to read the editor's
 Output/error log, so the addon cannot capture a separate game process's stdio. The
 bridge stays the only path for editor control; the runner is isolated in

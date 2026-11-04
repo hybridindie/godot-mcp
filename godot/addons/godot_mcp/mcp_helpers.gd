@@ -13,7 +13,7 @@ extends RefCounted
 ## router-owned commands.
 ##
 ## Everything returning to the bridge stays JSON-safe (see
-## .opencode/rules/addon.md); Godot type coercion lives in type_coerce.gd and
+## .claude/rules/addon.md); Godot type coercion lives in type_coerce.gd and
 ## is never duplicated here.
 
 const Inspect := preload("./scene_inspect.gd")

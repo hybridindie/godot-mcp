@@ -2,7 +2,7 @@
 
 Pure, bridge-free helpers used by the testing tools: image comparison (perceptual-ish
 per-pixel diff), assertion evaluation, and random-input generation. Kept out of the tool
-handlers per Article I (handlers delegate; logic lives here).
+handlers per the library-first rule (handlers delegate; logic lives here).
 """
 
 from __future__ import annotations

@@ -5,5 +5,5 @@
 # AST-only, LLM-free, best-effort. Deliberately does NOT ship a vendored
 # "graphify hook install" block — that variant hardcoded a machine-specific
 # python path (/Users/...) and rebuilt the graph a second time. See
-# .opencode/rules/graphify.md.
+# .claude/rules/graphify.md.
 exec "$(git rev-parse --show-toplevel)/scripts/hooks/_graphify_refresh.sh" post-commit

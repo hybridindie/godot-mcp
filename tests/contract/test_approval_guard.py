@@ -6,7 +6,7 @@ needs human approval. The client fulfils the request and calls again; the
 second round sees the answer in ``ctx.input_responses`` and either proceeds or
 denies. This is durable (no server-side state, no worker pinning) and works on
 the sessionless protocol godot-mcp uses by design
-(see ``.opencode/rules/async-patterns.md``).
+(see ``.claude/rules/async-patterns.md``).
 
 These tests drive the real FastMCP server over the in-memory client with a
 fake addon peer, mirroring ``tests/contract/test_mutation.py``. The approval

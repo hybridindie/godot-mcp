@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Chain the repo graphify hook so either hooksPath (.githooks or scripts/hooks)
+# keeps the knowledge graph current (see .claude/rules/graphify.md).
+set -euo pipefail
+ROOT="$(git rev-parse --show-toplevel)"
+exec "$ROOT/scripts/hooks/post-checkout" "$@"

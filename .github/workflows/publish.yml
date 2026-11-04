@@ -42,7 +42,7 @@ jobs:
           version: "0.11.29"
 
       - name: Zero-skip scan (suite health)
-        run: ./.opencode/hooks/check-no-skipped-tests.sh
+        run: .claude/hooks/check-no-skipped-tests.sh
 
       - name: Lint (ruff check)
         run: uv run ruff check .

@@ -1,11 +1,12 @@
 ---
+read_when: "Writing or fixing tests, or touching test infrastructure"
 paths:
   - "mcp_server/**/*.py"
   - "tests/**/*.py"
   - "godot/addons/godot_mcp/**/*.gd"
 ---
 
-# Testing: TDD Mandate (Article III)
+# Testing: TDD Mandate
 
 Code is written only after a failing test pins the behavior. Every bug gets a regression test before its fix.
 
@@ -29,7 +30,7 @@ The bridge is the seam most worth a contract test: assert the JSON envelope (`id
 | Tool & bridge logic | 70%+ |
 | Domain models, helpers | 50%+ |
 
-## Suite health (BLOCKING)
+## Suite health
 
 - Zero failing or erroring tests checked in. A clean-checkout run of the suite exits zero.
 - Zero unconditional skips: no `@pytest.mark.skip`, no `xfail`, no bare `pytest.skip("not implemented")`. Fix the code or delete the test. Conditional `skipif` is allowed only on a genuine environmental precondition (e.g. "Godot binary not installed").

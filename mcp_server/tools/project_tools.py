@@ -5,7 +5,7 @@ returns their signatures. This module turns each descriptor into a real MCP tool
 under the gated ``project`` toolset, so a project's own operations are callable
 by name instead of being reconstructed from generic node edits.
 
-Library-first (see .opencode/rules/architecture.md): the handler is delegation
+Library-first (see .claude/rules/architecture.md): the handler is delegation
 only; safety (``dry_run``/``confirm``) is enforced here, never in the addon; the
 addon owns discovery and execution.
 """

@@ -1,7 +1,7 @@
 """Contract: list_tools_by_safety_class returns a typed Pydantic model (issue #366).
 
 The tool previously returned a raw ``dict[str, list[str]]``, violating
-``.opencode/rules/mcp-tools.md`` ("return a typed Pydantic model — never a
+``.claude/rules/mcp-tools.md`` ("return a typed Pydantic model — never a
 raw ``dict``"). It now returns a :class:`SafetyClassListing` model with one
 field ``tools_by_safety_class``.
 """

@@ -3,7 +3,7 @@
 Godot Editor MCP is a single-user, locally-run MCP server — one client per Godot
 instance. Per-session isolation was dead code on the sessionless
 ``2026-07-28`` protocol real clients use (a fresh ``session_id`` per call), and
-``Middleware.on_initialize`` violated ``.opencode/rules/async-patterns.md``.
+``Middleware.on_initialize`` violated ``.claude/rules/async-patterns.md``.
 
 The enabled set is a single server-global set: ``enable_toolset`` /
 ``disable_toolset`` mutate it directly, and every client sees the same surface.

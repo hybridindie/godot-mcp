@@ -20,9 +20,6 @@ _COPIES: dict[str, str] = {
     "README.md": r"version-([0-9][^-]*)-brightgreen",
     "skills/README.md": r"as of \*\*([0-9][^*]*)\*\*",
     "skills/godot-getting-started/SKILL.md": r"\*\*([0-9][^*]*)\*\* surface",
-    # The rules file states the current version too; miss it and a release ships
-    # a rule that contradicts the package (2026.11.04b1 vs b2 did exactly that).
-    ".opencode/rules/enforcement.md": r"Current: \*\*([0-9][^*]*)\*\*",
 }
 
 

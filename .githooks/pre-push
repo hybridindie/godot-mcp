@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Push gate: same checks as pre-commit against the full tree, plus the project's
+# `make check` target when one exists. CI remains the backstop.
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+exec bash "$ROOT/.claude/hooks/guardrails.sh" --all

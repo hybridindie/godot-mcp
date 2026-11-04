@@ -2,7 +2,7 @@
 
 Pure, bridge-free analysis over a Godot project's files: unused resources, signal flow,
 circular script dependencies, and scene-complexity stats. Kept out of the tool handlers
-(Article I) — the tools just resolve the project dir and call these.
+(library-first) — the tools just resolve the project dir and call these.
 
 These are text/heuristic analyses of ``.tscn`` / ``.tres`` / ``.gd`` / ``project.godot``,
 so dynamically-built paths (string-concatenated ``load()``, etc.) aren't tracked — callers
