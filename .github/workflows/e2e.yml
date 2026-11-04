@@ -46,13 +46,13 @@
 # revived it should become its own scale set rather than a label list.
 #
 # 4.8 BETA LANE (#739): a second, ADVISORY job runs the same suites against the
-# pinned Godot 4.8-beta1 binary (`/opt/godot48/godot`, baked by the runner image;
+# pinned Godot 4.8-beta2 binary (`/opt/godot48/godot`, baked by the runner image;
 # a SHA512-verified download is the fallback until that image rolls out). It
 # shares the trigger policy above (dispatch + the addon/server paths filter) and
 # is `continue-on-error`: a beta regression is visible but does not block — the
-# 4.7 lane remains the stable gate. The known upstream MeshLibrary regression
-# (godotengine/godot#124712) is asserted as the expected beta1 shape, not a
-# blanket skip, so the rest of the suite still runs.
+# 4.7 lane remains the stable gate. The beta1 MeshLibrary regression
+# (godotengine/godot#124712) was fixed upstream before beta2 (#842), so the
+# suites now run with their strict expectations and no known-bad branches.
 #
 # SECURITY (public repo): a self-hosted runner must never execute untrusted fork
 # code. The job below is guarded so only same-repo branch PRs and manual dispatch
@@ -218,24 +218,27 @@ jobs:
         run: uv sync --frozen
 
       - name: Resolve Godot 4.8 beta (baked, else verified download)
-        # Pinned to beta commit 4d10419ca (4.8.beta1.official). Betas have no
+        # Pinned to beta2 commit cafc17a1 (4.8.beta2.official). Betas have no
         # GitHub release checksum file, so the SHA512 below is the pinned hash of
         # the official downloads.godotengine.org zip. Update both together.
         run: |
           set -euo pipefail
-          if [ -x "$GODOT_BIN" ]; then
+          version=4.8-beta2
+          pattern='^4[.-]8[.-]beta2([.-]|$)'
+          # A baked binary only short-circuits when it is the pinned beta; an
+          # older beta in the image falls through to the verified download.
+          if [ -x "$GODOT_BIN" ] && "$GODOT_BIN" --version | grep -Eq "$pattern"; then
             "$GODOT_BIN" --version
             exit 0
           fi
-          version=4.8-beta1
           asset="Godot_v${version}_linux.x86_64.zip"
-          sha512="aee4cbf3c5f86eee875c0f2f77cc9d816a3fbb220774e6ffc95fd5a557a6c5ec917f2b6118c0aa2008bd10f4b2a021225dc78ba7b7c54745411e0f2721f70a67"
+          sha512="77470f53a9039cd22837935380230220167e098324e82ec448ee4b1f943f00afc424885f7d6631f385123d7a630a9399b3cc1b0e1dad1a4ac45c6356b3a0aa45"
           dir="$RUNNER_TEMP/godot48"
           mkdir -p "$dir"
           cd "$dir"
-          if [ ! -x godot ]; then
+          if [ ! -x godot ] || ! ./godot --version | grep -Eq "$pattern"; then
             curl -fsSL -o "$asset" \
-              "https://downloads.godotengine.org/?version=4.8&flavor=beta1&slug=linux.x86_64.zip"
+              "https://downloads.godotengine.org/?version=4.8&flavor=beta2&slug=linux.x86_64.zip"
             echo "${sha512}  ${asset}" | sha512sum -c -
             unzip -o -q "$asset"
             chmod +x "Godot_v${version}_linux.x86_64"
@@ -257,10 +260,10 @@ jobs:
             echo "| Binary | \`$GODOT_BIN\` |"
             echo "| Version | \`$ver\` |"
             echo "| Gate | advisory — the 4.7 lane remains the stable gate |"
-            echo "| Known upstream | [godotengine/godot#124712](https://github.com/godotengine/godot/issues/124712) (MeshLibrary items save empty; asserted as the beta1 shape) |"
+            echo "| Known upstream | none — beta1's MeshLibrary regression ([#124712](https://github.com/godotengine/godot/issues/124712)) is fixed in beta2 |"
           } >> "$GITHUB_STEP_SUMMARY"
-          if ! printf '%s' "$ver" | grep -Eq '^4[.-]8[.-]beta1([.-]|$)'; then
-            echo "::error::expected Godot 4.8-beta1 on the beta lane, got '$ver'"
+          if ! printf '%s' "$ver" | grep -Eq '^4[.-]8[.-]beta2([.-]|$)'; then
+            echo "::error::expected Godot 4.8-beta2 on the beta lane, got '$ver'"
             exit 1
           fi
 
@@ -268,9 +271,8 @@ jobs:
         run: 'timeout 180 "$GODOT_BIN" --headless --import --path godot/ || true'
 
       - name: Editor e2e + addon smoke suites (4.8 beta)
-        # Same suites as the stable lane. The MeshLibrary assertion is branch-gated
-        # on 4.8-beta1 in test_persistence_e2e.py (upstream #124712) — the rest of
-        # the suite runs normally.
+        # Same suites as the stable lane, with no beta-version expected-failure
+        # branches: the beta1 MeshLibrary regression is fixed in beta2 (#842).
         run: |
           if ! command -v xvfb-run >/dev/null 2>&1; then
             echo "::error::xvfb-run not found on the runner; the play-session e2e would silently skip. Install xvfb (issue #672)."
