@@ -47,15 +47,14 @@ GODOT_BIN = find_godot()
 
 
 @functools.lru_cache(maxsize=1)
-def godot_version() -> str:
-    """The resolved engine's ``--version`` string (``""`` when unavailable).
+def engine_version() -> tuple[int, int, int] | None:
+    """The resolved engine's ``(major, minor, patch)``, or None when unavailable.
 
-    Used to isolate engine-version-specific behavior (currently the 4.8-beta1
-    MeshLibrary regression, godotengine/godot#124712) without skipping the rest
-    of a suite.
+    Parses ``4.8.beta2.official.cafc17a19`` / ``4.7.2-stable (official)``. Used
+    only for genuine engine-precondition gates (e.g. scene metadata is 4.8+).
     """
     if GODOT_BIN is None:
-        return ""
+        return None
     try:
         result = subprocess.run(
             [GODOT_BIN, "--version"],
@@ -65,21 +64,17 @@ def godot_version() -> str:
             check=False,
         )
     except (OSError, subprocess.SubprocessError):
-        return ""
-    return result.stdout.strip()
+        return None
+    match = re.match(r"^(\d+)\.(\d+)(?:\.(\d+))?", result.stdout.strip())
+    if not match:
+        return None
+    return (int(match.group(1)), int(match.group(2)), int(match.group(3) or 0))
 
 
-def is_godot_48_beta1() -> bool:
-    """Whether the resolved binary is the pinned Godot 4.8-beta1 (#739).
-
-    Betas are verified targets, not supported releases; an upstream failure is
-    asserted as the known-bad shape so the rest of the suite still runs.
-
-    Anchored so ``4.8.beta10``/``4.8.stable`` never satisfy the gate; both the
-    dotted (``4.8.beta1``) and hyphenated (``4.8-beta1``) spellings are accepted.
-    """
-    return bool(re.match(r"^4[.-]8[.-]beta1(?:[.-]|$)", godot_version()))
-
+def engine_at_least(major: int, minor: int) -> bool:
+    """Whether the resolved engine is >= ``major.minor`` (False when unknown)."""
+    version = engine_version()
+    return version is not None and version[:2] >= (major, minor)
 
 def _has_display() -> bool:
     """Whether a display server is available for play sessions.

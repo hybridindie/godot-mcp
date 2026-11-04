@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
+from mcp_server.godot_support import GodotSupportInfo
+
 
 class HealthStatus(BaseModel):
     """Server status and Godot bridge connection state."""
@@ -13,6 +15,10 @@ class HealthStatus(BaseModel):
     transport: str
     bridge_url: str
     bridge_connected: bool
+    # The engine actually attached (from the peer hello), and how it relates to
+    # the support surface. None/"disconnected" when no editor is connected.
+    godot_version: str | None = None
+    godot_support: GodotSupportInfo | None = None
     # The connected addon's version (from the handshake, #530) and a hint when it
     # differs from the server's (#629). Both None when no addon is connected or it
     # predates the handshake.

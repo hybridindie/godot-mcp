@@ -10,7 +10,9 @@ name: ci
 
 on:
   push:
-    branches: [main]
+    # Both long-lived channels: main (beta) and stable. PRs already run on every
+    # base branch; this covers direct pushes to the stable line too.
+    branches: [main, stable]
   pull_request:
   # Manual re-run (e.g. after a runner-level flake in `uv python install`).
   workflow_dispatch:
@@ -176,7 +178,7 @@ jobs:
   # the pinned release with Godot's published SHA512 checksum.
   godot-floor:
     name: godot 4.4 floor (parse + smoke)
-    runs-on: [self-hosted, godot]
+    runs-on: hybridindie-godot-mcp-godot
     # SECURITY (public repo + self-hosted runner, issue #650): never execute
     # untrusted fork code on the runner. Only same-repo branch PRs and pushes
     # run; fork PRs skip this job. Mirrors e2e.yml.

@@ -110,7 +110,8 @@ TOOLSETS: dict[str, str] = {
     ASSET_IMPORT_TAG: "Import external assets (local files or URLs) into the project and "
     "assemble PBR materials from textures.",
     VISUAL_SHADER_TAG: "Create and edit Visual Shader node graphs: create shaders, add "
-    "nodes, wire connections, and set node parameters.",
+    "nodes, wire connections, set node parameters, and author node groups/subgraphs "
+    "(Godot 4.8+).",
     PROJECT_SCAFFOLD_TAG: "Generate a project skeleton (directories, settings, autoloads, "
     "root scene) for common game types so agents start from a known structure.",
     COMPOSITE_TAG: "Macro tools that collapse multi-step scene edits into one atomic, "

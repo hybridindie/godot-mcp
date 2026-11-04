@@ -37,3 +37,6 @@ graphify-out/
 
 # docs site (VitePress)
 docs/site/node_modules/
+
+# Local direnv env (never commit; may hold credentials)
+.envrc

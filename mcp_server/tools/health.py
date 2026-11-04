@@ -13,6 +13,7 @@ from mcp_server import __version__
 from mcp_server.bridge import Bridge
 from mcp_server.categories import CORE_TAG
 from mcp_server.config import ServerConfig
+from mcp_server.godot_support import classify_godot_version
 from mcp_server.models.health import HealthStatus
 from mcp_server.safety import READ_ONLY
 from mcp_server.versions import version_notice
@@ -26,12 +27,17 @@ def build_health(
     notice: str | None = None,
 ) -> HealthStatus:
     """Assemble the current health status from injected state (pure, testable)."""
+    # The hello carries the engine string at connect time, so health can report
+    # support without an extra bridge round-trip.
+    godot_version = (bridge.peer_identity or {}).get("godot_version")
     return HealthStatus(
         server="godot-mcp",
         version=__version__,
         transport=config.transport,
         bridge_url=config.bridge.url,
         bridge_connected=bridge.connected,
+        godot_version=godot_version,
+        godot_support=classify_godot_version(godot_version),
         addon_version=addon_version,
         version_notice=notice,
         bridge_bind_error=bridge.bind_error,

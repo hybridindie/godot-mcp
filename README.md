@@ -14,7 +14,8 @@
   <a href="https://pypi.org/project/godot-editor-mcp/"><img src="https://img.shields.io/badge/PyPI-godot--editor--mcp-4a9eff.svg" alt="PyPI" /></a>
   <a href="https://github.com/hybridindie/godot-mcp/pkgs/container/godot-mcp"><img src="https://img.shields.io/badge/Docker-ghcr.io-2496ed.svg" alt="Docker" /></a>
   <a href="https://hybridindie.github.io/godot-mcp/"><img src="https://img.shields.io/badge/docs-github%20pages-8A2BE2" alt="Documentation" /></a>
-  <a href="https://github.com/hybridindie/godot-mcp/releases"><img src="https://img.shields.io/badge/version-2026.10.24-brightgreen.svg" alt="Version" /></a>
+  <a href="https://github.com/hybridindie/godot-mcp/releases"><img src="https://img.shields.io/badge/version-2026.11.04b2-brightgreen.svg" alt="Version" /></a>
+  <a href="https://github.com/hybridindie/godot-mcp/releases/tag/2026.10.20.1"><img src="https://img.shields.io/badge/stable-2026.10.20.1-blue.svg" alt="Stable" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" /></a>
 </p>
 
@@ -23,9 +24,11 @@
 >
 > For LLM agents: [`llms.txt`](https://hybridindie.github.io/godot-mcp/llms.txt) (page index) · [`llms-full.txt`](https://hybridindie.github.io/godot-mcp/llms-full.txt) (the whole site as one markdown document).
 
-> **Status:** feature-complete. **201 tools** across **29 categories** — always-on `core` plus 28 toggleable toolsets, of which only `inspection` is enabled by default (the rest are gated off until the agent asks). `godot-editor-mcp` on [PyPI](https://pypi.org/project/godot-editor-mcp/) · `ghcr.io/hybridindie/godot-mcp` · **version `2026.10.24`**.
+> **Status:** feature-complete. **208 tools** across **29 categories** — always-on `core` plus 28 toggleable toolsets, of which only `inspection` is enabled by default (the rest are gated off until the agent asks).
+>
+> **Two channels:** **stable `2026.10.20.1`** (Godot 4.4–4.7, validated on 4.7) and **beta `2026.11.04b2`**, verified against **Godot 4.8-beta2** and adding the 4.8-only surface (engine support reporting, scene metadata, physics read-back, VisualShader groups). The floor stays Godot 4.4. Development mirrors the channels: **`main` is the beta line**, **`stable` is the stable line** (see [CONTRIBUTING](CONTRIBUTING.md#branches-and-release-channels)). `godot-editor-mcp` on [PyPI](https://pypi.org/project/godot-editor-mcp/) · `ghcr.io/hybridindie/godot-mcp`.
 
-> **Project-defined tools** (new in 2026.10.24): annotate a typed GDScript function with `## @mcp_tool` and register it as a `godot_project_*` tool — [guide](docs/site/guides-project-tools.md).
+> **Project-defined tools** (new in 2026.11.04b2): annotate a typed GDScript function with `## @mcp_tool` and register it as a `godot_project_*` tool — [guide](docs/site/guides-project-tools.md).
 
 > **One name, three identifiers.** **Godot Editor MCP** is the product: it drives the
 > **editor** as its surface, through the addon. The repository and MCP server ID stay
@@ -55,7 +58,7 @@ AI client ──stdio / HTTP──▶ FastMCP server ──WebSocket──▶ Go
 
 | Component | Minimum | Recommended |
 |-----------|---------|-------------|
-| **Godot** | 4.4 | 4.7 (validated target) |
+| **Godot** | 4.4 | 4.7 stable (validated) · 4.8-beta2 (beta channel) |
 | **Python** | 3.11 | 3.13 |
 | **Package manager** | [uv](https://docs.astral.sh/uv/) | uv |
 
@@ -64,14 +67,23 @@ AI client ──stdio / HTTP──▶ FastMCP server ──WebSocket──▶ Go
 **1. Install the server**
 
 ```bash
-pip install godot-editor-mcp      # or run without installing: uvx godot-editor-mcp
+pip install godot-editor-mcp          # stable 2026.10.20.1 (Godot 4.7 validated)
+pip install --pre godot-editor-mcp    # beta 2026.11.04b2 (Godot 4.8-beta2)
 ```
+
+`pip install` and `uvx godot-editor-mcp` resolve the **stable** release. The beta is opt-in via `--pre` (PyPI normalizes it to `2026.11.4b2`).
 
 **2. Install the Godot addon** into your project, then enable it in *Project → Project Settings → Plugins → Godot Editor MCP - Addon*:
 
 ```bash
+# stable addon (2026.10.20.1)
 curl -L -o godot_mcp_addon.zip \
   https://github.com/hybridindie/godot-mcp/releases/latest/download/godot_mcp_addon.zip
+
+# beta addon (2026.11.04b2) — use the matching server release
+curl -L -o godot_mcp_addon.zip \
+  https://github.com/hybridindie/godot-mcp/releases/download/2026.11.04b2/godot_mcp_addon.zip
+
 unzip godot_mcp_addon.zip -d /path/to/your/project/
 ```
 

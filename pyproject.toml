@@ -1,6 +1,6 @@
 [project]
 name = "godot-editor-mcp"
-version = "2026.10.24"
+version = "2026.11.04b2"
 description = "MCP server that drives a live Godot editor for AI-driven game development"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -31,7 +31,7 @@ dependencies = [
     # snapshots, response caching, auth hardening) with breaking changes we
     # already migrated ahead of: no ctx.elicit (guard pattern since #346), no
     # session state (#364), canonical imports.
-    "fastmcp[tasks]==4.1.0",
+    "fastmcp[tasks]==4.1.6",
     # MCP SDK. FastMCP pulls it transitively, but we now import the server-side
     # `subscriptions/listen` machinery directly (mcp.server.subscriptions,
     # mcp.shared.subscriptions; issue #620), so pin it explicitly to keep that
@@ -77,12 +77,12 @@ build-backend = "hatchling.build"
 
 # FastMCP 4 stable pinning (issue #403): fastmcp is a thin wrapper over
 # fastmcp-slim at the same version, and background tasks live in fastmcp-tasks.
-# All three ride the same 4.1.0 stable release now, so the constraint block is
+# All three ride the same 4.1.x stable line now, so the constraint block is
 # belt-and-suspenders rather than a prerelease-resolution workaround (its
 # original purpose at the b3 pin, issue #311) — kept so the slim/tasks pins can
 # never drift below the wrapper pin.
 [tool.uv]
-constraint-dependencies = ["fastmcp-slim==4.1.0", "fastmcp-tasks==4.1.0"]
+constraint-dependencies = ["fastmcp-slim==4.1.6", "fastmcp-tasks==4.1.6"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["mcp_server"]

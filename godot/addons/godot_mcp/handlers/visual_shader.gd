@@ -22,6 +22,11 @@ func register(handlers: Dictionary) -> void:
 	handlers["cmd_set_shader_node_param"] = _cmd_set_shader_node_param
 	handlers["cmd_list_shader_node_types"] = _cmd_list_shader_node_types
 	handlers["cmd_read_visual_shader"] = _cmd_read_visual_shader
+	handlers["cmd_create_shader_group"] = _cmd_create_shader_group
+	handlers["cmd_rename_shader_group"] = _cmd_rename_shader_group
+	handlers["cmd_remove_shader_group"] = _cmd_remove_shader_group
+	handlers["cmd_add_shader_group_node"] = _cmd_add_shader_group_node
+	handlers["cmd_remove_shader_group_node"] = _cmd_remove_shader_group_node
 
 
 # -- helpers -----------------------------------------------------------------
@@ -219,3 +224,281 @@ func _cmd_read_visual_shader(params: Dictionary) -> Dictionary:
 	var data: Dictionary = VisualShaderRead.serialize(resource)
 	data["shader_path"] = path
 	return _router._ok(data)
+
+
+# -- node groups / subgraphs (Godot 4.8, issue #601) --------------------------
+
+## VisualShaderGroup / VisualShaderNodeGroup are 4.8+. ClassDB.class_exists()
+## gate keeps this script parsing on the 4.4–4.7 floor and lets every verb fail
+## honestly there instead of crashing on an unknown class.
+func _groups_supported() -> bool:
+	return ClassDB.class_exists("VisualShaderGroup") and ClassDB.class_exists("VisualShaderNodeGroup")
+
+
+func _groups_unsupported() -> Dictionary:
+	return _router._fail(
+		"UNSUPPORTED",
+		"VisualShader node groups require Godot 4.8+; this editor is %s." % Engine.get_version_info().get("string", ""),
+		"godot_version",
+	)
+
+
+## Resolve a group's representative node + resource by its node id in the shader.
+## Returns {ok, node, group} or {ok: false, error, hint}.
+func _resolve_group(shader: VisualShader, mode: int, node_id: int) -> Dictionary:
+	if not (node_id in shader.get_node_list(mode)):
+		return {"ok": false, "error": "RESOURCE_NOT_FOUND", "hint": "No node with id %d in shader." % node_id}
+	var node: VisualShaderNode = shader.get_node(mode, node_id)
+	if node == null or not node.has_method("get_group"):
+		return {"ok": false, "error": "VALIDATION_ERROR", "hint": "Node id %d is not a VisualShader group node." % node_id}
+	var group: Variant = node.call("get_group")
+	if not (group is Resource):
+		return {"ok": false, "error": "PRECONDITION_FAILED", "hint": "Group node id %d has no VisualShaderGroup resource." % node_id}
+	return {"ok": true, "node": node, "group": group}
+
+
+## Connections touching `node_id` from a get_node_connections() array — captured so
+## undo restores the wiring a remove_node would otherwise drop.
+func _connections_touching(connections: Array, node_id: int) -> Array:
+	var touching: Array = []
+	for connection in connections:
+		if int(connection["from_node"]) == node_id or int(connection["to_node"]) == node_id:
+			touching.append(connection)
+	return touching
+
+
+## Undo helper for remove_shader_group: re-add the group node and re-wire it.
+func _restore_shader_group_node(shader: VisualShader, mode: int, node: VisualShaderNode, position: Vector2, node_id: int, connections: Array) -> void:
+	shader.add_node(mode, node, position, node_id)
+	for connection in connections:
+		shader.connect_nodes_forced(
+			mode,
+			int(connection["from_node"]),
+			int(connection["from_port"]),
+			int(connection["to_node"]),
+			int(connection["to_port"]),
+		)
+
+
+## Undo helper for remove_shader_group_node: re-add the member node and re-wire it
+## inside the group's graph.
+func _restore_group_node(group: Resource, node: VisualShaderNode, position: Vector2, node_id: int, connections: Array) -> void:
+	group.call("add_node", node, position, node_id)
+	for connection in connections:
+		group.call(
+			"connect_nodes_forced",
+			int(connection["from_node"]),
+			int(connection["from_port"]),
+			int(connection["to_node"]),
+			int(connection["to_port"]),
+		)
+
+
+func _cmd_create_shader_group(params: Dictionary) -> Dictionary:
+	if not _groups_supported():
+		return _groups_unsupported()
+	var path := str(params.get("shader_path", ""))
+	var group_name := str(params.get("name", ""))
+	var node_id := int(params.get("node_id", -1))
+	var position := Coerce.from_json(params.get("position", [0.0, 0.0]), TYPE_VECTOR2)
+
+	if not path.begins_with("res://"):
+		return _router._fail("VALIDATION_ERROR", "shader_path must start with res://.")
+	if group_name.is_empty():
+		return _router._fail("VALIDATION_ERROR", "'name' must be non-empty.")
+	if node_id < 2:
+		return _router._fail("VALIDATION_ERROR", "'node_id' must be >= 2 (0 and 1 are reserved).")
+	if not ResourceLoader.exists(path):
+		return _router._fail("RESOURCE_NOT_FOUND", "No shader at '%s'." % path)
+	var shader: VisualShader = ResourceLoader.load(path)
+	if shader == null:
+		return _router._fail("INTERNAL_ERROR", "Failed to load shader '%s'." % path)
+
+	var mode: int = int(shader.get_mode())
+	if node_id in shader.get_node_list(mode):
+		return _router._fail("VALIDATION_ERROR", "Node id %d already exists." % node_id)
+
+	var group: Resource = ClassDB.instantiate("VisualShaderGroup")
+	if group == null:
+		return _router._fail("INTERNAL_ERROR", "Could not instantiate VisualShaderGroup.")
+	group.call("set_group_name", group_name)
+	var group_node: VisualShaderNode = ClassDB.instantiate("VisualShaderNodeGroup")
+	if group_node == null:
+		return _router._fail("INTERNAL_ERROR", "Could not instantiate VisualShaderNodeGroup.")
+	group_node.call("set_group", group)
+
+	var ur := EditorInterface.get_editor_undo_redo()
+	ur.create_action("Create shader group %s" % group_name)
+	ur.add_do_method(shader, "add_node", mode, group_node, position, node_id)
+	ur.add_undo_method(shader, "remove_node", mode, node_id)
+	ur.add_do_method(self, "_save_visual_shader", shader, path)
+	ur.add_undo_method(self, "_save_visual_shader", shader, path)
+	ur.add_do_reference(shader)
+	ur.add_undo_reference(group_node)
+	ur.commit_action()
+
+	return _router._ok({"node_id": node_id, "name": group_name, "created": true})
+
+
+func _cmd_rename_shader_group(params: Dictionary) -> Dictionary:
+	if not _groups_supported():
+		return _groups_unsupported()
+	var path := str(params.get("shader_path", ""))
+	var node_id := int(params.get("node_id", -1))
+	var new_name := str(params.get("name", ""))
+
+	if not path.begins_with("res://"):
+		return _router._fail("VALIDATION_ERROR", "shader_path must start with res://.")
+	if new_name.is_empty():
+		return _router._fail("VALIDATION_ERROR", "'name' must be non-empty.")
+	if not ResourceLoader.exists(path):
+		return _router._fail("RESOURCE_NOT_FOUND", "No shader at '%s'." % path)
+	var shader: VisualShader = ResourceLoader.load(path)
+	if shader == null:
+		return _router._fail("INTERNAL_ERROR", "Failed to load shader '%s'." % path)
+
+	var resolved := _resolve_group(shader, int(shader.get_mode()), node_id)
+	if not resolved["ok"]:
+		return _router._fail(str(resolved["error"]), str(resolved["hint"]))
+	var group: Resource = resolved["group"]
+	var old_name := str(group.call("get_group_name"))
+
+	var ur := EditorInterface.get_editor_undo_redo()
+	ur.create_action("Rename shader group")
+	ur.add_do_method(group, "set_group_name", new_name)
+	ur.add_undo_method(group, "set_group_name", old_name)
+	ur.add_do_method(self, "_save_visual_shader", shader, path)
+	ur.add_undo_method(self, "_save_visual_shader", shader, path)
+	ur.add_do_reference(shader)
+	ur.add_undo_reference(group)
+	ur.commit_action()
+
+	return _router._ok({"node_id": node_id, "name": new_name, "renamed": true})
+
+
+func _cmd_remove_shader_group(params: Dictionary) -> Dictionary:
+	if not _groups_supported():
+		return _groups_unsupported()
+	var path := str(params.get("shader_path", ""))
+	var node_id := int(params.get("node_id", -1))
+
+	if not path.begins_with("res://"):
+		return _router._fail("VALIDATION_ERROR", "shader_path must start with res://.")
+	if not ResourceLoader.exists(path):
+		return _router._fail("RESOURCE_NOT_FOUND", "No shader at '%s'." % path)
+	var shader: VisualShader = ResourceLoader.load(path)
+	if shader == null:
+		return _router._fail("INTERNAL_ERROR", "Failed to load shader '%s'." % path)
+
+	var mode: int = int(shader.get_mode())
+	var resolved := _resolve_group(shader, mode, node_id)
+	if not resolved["ok"]:
+		return _router._fail(str(resolved["error"]), str(resolved["hint"]))
+	var group_node: VisualShaderNode = resolved["node"]
+	var group: Resource = resolved["group"]
+	var group_name := str(group.call("get_group_name"))
+	var position: Vector2 = shader.get_node_position(mode, node_id)
+	var connections: Array = _connections_touching(shader.get_node_connections(mode), node_id)
+
+	var ur := EditorInterface.get_editor_undo_redo()
+	ur.create_action("Remove shader group %s" % group_name)
+	ur.add_do_method(shader, "remove_node", mode, node_id)
+	ur.add_undo_method(self, "_restore_shader_group_node", shader, mode, group_node, position, node_id, connections)
+	ur.add_do_method(self, "_save_visual_shader", shader, path)
+	ur.add_undo_method(self, "_save_visual_shader", shader, path)
+	ur.add_do_reference(shader)
+	ur.add_undo_reference(group_node)
+	ur.commit_action()
+
+	return _router._ok({"node_id": node_id, "name": group_name, "removed": true})
+
+
+func _cmd_add_shader_group_node(params: Dictionary) -> Dictionary:
+	if not _groups_supported():
+		return _groups_unsupported()
+	var path := str(params.get("shader_path", ""))
+	var group_node_id := int(params.get("group_node_id", -1))
+	var node_type := str(params.get("node_type", ""))
+	var node_id := int(params.get("node_id", -1))
+	var position := Coerce.from_json(params.get("position", [0.0, 0.0]), TYPE_VECTOR2)
+
+	if not path.begins_with("res://"):
+		return _router._fail("VALIDATION_ERROR", "shader_path must start with res://.")
+	# Group graphs have no reserved output node, so id 0 is available here.
+	if node_id < 0:
+		return _router._fail("VALIDATION_ERROR", "'node_id' must be >= 0.")
+	if not ClassDB.class_exists(node_type):
+		return _router._fail("VALIDATION_ERROR", "Unknown node type '%s'." % node_type)
+	if not ClassDB.can_instantiate(node_type):
+		return _router._fail("VALIDATION_ERROR", "'%s' cannot be instantiated." % node_type)
+	if not ResourceLoader.exists(path):
+		return _router._fail("RESOURCE_NOT_FOUND", "No shader at '%s'." % path)
+	var shader: VisualShader = ResourceLoader.load(path)
+	if shader == null:
+		return _router._fail("INTERNAL_ERROR", "Failed to load shader '%s'." % path)
+
+	var resolved := _resolve_group(shader, int(shader.get_mode()), group_node_id)
+	if not resolved["ok"]:
+		return _router._fail(str(resolved["error"]), str(resolved["hint"]))
+	var group: Resource = resolved["group"]
+	if node_id in group.call("get_node_list"):
+		return _router._fail("VALIDATION_ERROR", "Node id %d already exists in group." % node_id)
+
+	var instance: Object = ClassDB.instantiate(node_type)
+	if not (instance is VisualShaderNode):
+		if not (instance is RefCounted):
+			instance.free()
+		return _router._fail("VALIDATION_ERROR", "'%s' is not a VisualShaderNode." % node_type)
+	var node: VisualShaderNode = instance
+
+	var ur := EditorInterface.get_editor_undo_redo()
+	ur.create_action("Add shader group node %s" % node_type)
+	ur.add_do_method(group, "add_node", node, position, node_id)
+	ur.add_undo_method(group, "remove_node", node_id)
+	ur.add_do_method(self, "_save_visual_shader", shader, path)
+	ur.add_undo_method(self, "_save_visual_shader", shader, path)
+	ur.add_do_reference(shader)
+	ur.add_undo_reference(node)
+	ur.commit_action()
+
+	return _router._ok({"group_node_id": group_node_id, "node_id": node_id, "node_type": node_type, "added": true})
+
+
+func _cmd_remove_shader_group_node(params: Dictionary) -> Dictionary:
+	if not _groups_supported():
+		return _groups_unsupported()
+	var path := str(params.get("shader_path", ""))
+	var group_node_id := int(params.get("group_node_id", -1))
+	var node_id := int(params.get("node_id", -1))
+
+	if not path.begins_with("res://"):
+		return _router._fail("VALIDATION_ERROR", "shader_path must start with res://.")
+	if not ResourceLoader.exists(path):
+		return _router._fail("RESOURCE_NOT_FOUND", "No shader at '%s'." % path)
+	var shader: VisualShader = ResourceLoader.load(path)
+	if shader == null:
+		return _router._fail("INTERNAL_ERROR", "Failed to load shader '%s'." % path)
+
+	var resolved := _resolve_group(shader, int(shader.get_mode()), group_node_id)
+	if not resolved["ok"]:
+		return _router._fail(str(resolved["error"]), str(resolved["hint"]))
+	var group: Resource = resolved["group"]
+	if not (node_id in group.call("get_node_list")):
+		return _router._fail("RESOURCE_NOT_FOUND", "No node with id %d in group." % node_id)
+	var node: VisualShaderNode = group.call("get_node", node_id)
+	if node == null:
+		return _router._fail("RESOURCE_NOT_FOUND", "No node with id %d in group." % node_id)
+	var position: Vector2 = group.call("get_node_position", node_id)
+	var connections: Array = _connections_touching(group.call("get_node_connections"), node_id)
+
+	var ur := EditorInterface.get_editor_undo_redo()
+	ur.create_action("Remove shader group node %s" % node.get_class())
+	ur.add_do_method(group, "remove_node", node_id)
+	ur.add_undo_method(self, "_restore_group_node", group, node, position, node_id, connections)
+	ur.add_do_method(self, "_save_visual_shader", shader, path)
+	ur.add_undo_method(self, "_save_visual_shader", shader, path)
+	ur.add_do_reference(shader)
+	ur.add_undo_reference(node)
+	ur.commit_action()
+
+	return _router._ok({"group_node_id": group_node_id, "node_id": node_id, "removed": true})

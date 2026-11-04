@@ -13,6 +13,20 @@ Godot Editor MCP is a **standalone MCP server** — generic Godot editor control
 
 It has **no dependency on any specific consumer.** Other projects depend on Godot Editor MCP, never the reverse — e.g. the `godot-agents` orchestrator is coded specifically against this server's tool surface, but Godot Editor MCP must **never** couple back to it (no agent-harness-specific tools, prompts, assumptions, or imports). Keep the surface generic; let consumers adapt to it.
 
+## Branches and release channels
+
+Two long-lived branches coexist:
+
+- **`main`** — beta/preview line (Godot 4.8-only surface; prerelease versions,
+  beta tags cut here).
+- **`stable`** — stable line (Godot 4.4–4.7, no 4.8-only tools; stable tags cut
+  here).
+
+Fixes land on `main` first, then cherry-pick to `stable` for a stable patch.
+Never merge `stable` into `main` (it would revert preview work); merge `main`
+into `stable` only to promote the preview. See `CONTRIBUTING.md` for the full
+policy.
+
 ## Scope and sources of truth
 
 The tool surface is an always-on `core` plus toggleable toolsets; only `inspection` is enabled by default and every new toolset registers gated off. New work starts from a GitHub issue; the issues remain the authoritative spec, so read the relevant one before implementing. `docs/tool-contracts.md` is the source of truth for the current tool surface.

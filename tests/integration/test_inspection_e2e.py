@@ -100,6 +100,16 @@ async def _run_checks() -> None:
             props = await bridge.send("cmd_get_node_properties", {"node_path": "root/Holder"})
             assert props.ok and props.result is not None, props
             assert props.result["node_path"] == "Holder", props
+            # #600: metadata is always a field in the detail view (empty here) and
+            # is kept out of `properties` (script vars only).
+            assert props.result.get("metadata") == {}, props.result
+            assert "metadata" not in props.result.get("properties", {}), props.result
+            active = await bridge.send("cmd_get_active_scene", {})
+            assert active.ok and active.result is not None, active
+            assert isinstance(active.result.get("metadata"), dict), active.result
+            tree = await bridge.send("cmd_get_scene_tree", {})
+            assert tree.ok and tree.result is not None, tree
+            assert isinstance(tree.result.get("metadata"), dict), tree.result
         finally:
             await bridge.send(
                 "cmd_delete_resource_file", {"path": scene_path, "confirm": True}

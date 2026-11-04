@@ -19,6 +19,17 @@ uv tool install godot-editor-mcp    # or: pip install godot-editor-mcp
 godot-editor-mcp                    # starts the MCP server over stdio
 ```
 
+That installs the **stable** channel (`2026.10.20.1`, Godot 4.7 validated).
+For the **beta** channel — `2026.11.04b2`, verified against **Godot 4.8-beta2**
+and adding the 4.8-only surface — opt in explicitly:
+
+```bash
+uv tool install --pre godot-editor-mcp   # or: pip install --pre godot-editor-mcp
+```
+
+Both channels keep the Godot 4.4 floor; the 4.8-only tools report
+`UNSUPPORTED` on 4.4–4.7.
+
 ## Option B: Docker
 
 ```bash

@@ -83,6 +83,8 @@ NODE_PATH_PARAMS: frozenset[tuple[str, str]] = frozenset(
         ("add_raycast", "parent_path"),
         ("monitor_property", "node_path"),
         ("read_property", "node_path"),
+        ("get_velocity_at_point", "node_path"),
+        ("physics_space_query", "node_path"),
         ("add_mesh_instance", "parent_path"),
         ("setup_camera", "parent_path"),
         ("setup_lighting", "parent_path"),

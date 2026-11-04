@@ -16,6 +16,7 @@ from mcp_server import CONTRACT_VERSION, MIN_COMPATIBLE_CONTRACT, __version__
 from mcp_server.bridge import Bridge
 from mcp_server.categories import CORE_TAG
 from mcp_server.config import ServerConfig
+from mcp_server.godot_support import GodotSupportInfo, classify_godot_version
 from mcp_server.safety import READ_ONLY
 from mcp_server.toolsets import ToolsetManager
 from mcp_server.updates import UpdateChecker, UpdateStatus
@@ -90,6 +91,10 @@ class ServerDiagnostics(BaseModel):
     prompts: list[str]
     resources: list[str]
     bridge: BridgeDiagnostics
+    # How the *connected* engine relates to the support surface (floor 4.4,
+    # validated 4.7, verified beta). "disconnected" when no editor is attached —
+    # the bridge fields carry that too, but this makes support explicit.
+    godot_support: GodotSupportInfo
     active_scene: str | None = None
     # Server↔addon drift (issue #530): a hint naming the bridge commands the
     # connected addon does not register (None when in sync or handshake absent).
@@ -376,6 +381,7 @@ def register_diagnostics(
             prompts=await _list_prompts(mcp),
             resources=await _list_resources(mcp),
             bridge=bridge_diag,
+            godot_support=classify_godot_version(bridge_diag.godot_version),
             active_scene=active_scene,
             addon_drift_warning=drift,
             version_notice=version_notice(__version__, bridge_diag.addon_version),
