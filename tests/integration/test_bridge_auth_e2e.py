@@ -26,7 +26,7 @@ from tests.integration._godot import (
 pytestmark = pytest.mark.skipif(GODOT_BIN is None, reason="Godot binary not installed")
 
 BRIDGE_URL = e2e_bridge_url()
-TOKEN = "e2e-bridge-token"
+TOKEN = "e2e-bridge-token"  # pragma: allowlist secret (test fixture)
 
 
 async def _wait_auth_outcome(bridge: Bridge, want_connected: bool) -> bool:

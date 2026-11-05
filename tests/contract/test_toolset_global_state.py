@@ -3,7 +3,7 @@
 godot-mcp is a single-user, locally-run MCP server — one client per Godot
 instance. Per-session isolation was dead code on the sessionless
 ``2026-07-28`` protocol real clients use (fresh ``session_id`` per call), and
-``Middleware.on_initialize`` violated ``.opencode/rules/async-patterns.md``.
+``Middleware.on_initialize`` violated ``.claude/rules/async-patterns.md``.
 
 The enabled set is now a single server-global set:
   - ``enable_toolset`` / ``disable_toolset`` mutate it directly.
@@ -38,7 +38,7 @@ def _build() -> tuple[FastMCP, FakeAddonConnection]:
 def test_toolset_middleware_does_not_override_on_initialize() -> None:
     """``ToolsetMiddleware`` must not override ``Middleware.on_initialize``.
 
-    ``.opencode/rules/async-patterns.md`` forbids ``Middleware.on_initialize``
+    ``.claude/rules/async-patterns.md`` forbids ``Middleware.on_initialize``
     on the sessionless protocol. The enabled set is server-global, so no
     per-session seeding hook is needed.
     """
@@ -48,7 +48,7 @@ def test_toolset_middleware_does_not_override_on_initialize() -> None:
     base = getattr(_Base, "on_initialize", None)
     assert own is None or own is base, (
         "ToolsetMiddleware overrides on_initialize, which violates the "
-        "sessionless-protocol rule (.opencode/rules/async-patterns.md)."
+        "sessionless-protocol rule (.claude/rules/async-patterns.md)."
     )
 
 

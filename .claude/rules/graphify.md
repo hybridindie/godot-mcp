@@ -1,4 +1,5 @@
 ---
+read_when: "Running graphify, changing .env/.graphifyignore, or refreshing the graph before a PR"
 paths:
   - ".env"
   - ".graphifyignore"

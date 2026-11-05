@@ -10,7 +10,7 @@ updated: 2026-09-23
 
 Every tool carries exactly one safety class in `meta.safety_class`, and the
 class determines the required parameters. The authoritative rule text lives in
-[`.opencode/rules/mcp-tools.md`](https://github.com/hybridindie/godot-mcp/blob/main/.opencode/rules/mcp-tools.md);
+[`.claude/rules/mcp-tools.md`](https://github.com/hybridindie/godot-mcp/blob/main/.claude/rules/mcp-tools.md);
 the machine-checked matrix is [`docs/tool-contracts.md`](https://github.com/hybridindie/godot-mcp/blob/main/docs/tool-contracts.md).
 
 ## The model

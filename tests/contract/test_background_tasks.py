@@ -51,7 +51,7 @@ from tests.fakes import FakeAddonConnection, connector_for
 
 pytestmark = pytest.mark.asyncio
 
-TASKS_EXT_KEY = "io.modelcontextprotocol/tasks"
+TASKS_EXT_KEY = "io.modelcontextprotocol/tasks"  # pragma: allowlist secret (extension key)
 
 
 class SlowRunner:
