@@ -25,6 +25,10 @@ features:
     details: Only a handful of tools are on by default; the agent pulls in more only when a task needs them. A focused surface means better choices and fewer wasted calls.
   - title: Safe by construction
     details: Destructive actions ask first, previews are free, and every safety and permission decision lives on the server — never in the editor.
+  - title: Built to build on
+    details: A versioned compatibility contract, a game-agnostic core, and an extension point — annotate a typed GDScript function with @mcp_tool and it becomes a first-class, safety-classed tool for your game's own vocabulary.
+  - title: Expertise included
+    details: Three installable skills ship with it, including godot-expert — the Godot 4.x rules most people learn by hitting the bug. Any MCP client that installs them inherits correct Godot instincts.
 ---
 
 ## See it catch a mistake
@@ -68,6 +72,7 @@ assistant does the installing. Prefer to do it yourself? **[Manual setup](./gett
 - **[Guides](./guides)** — build a scene, play-test & debug, verify your work, ship
 - **[Concepts](./concepts)** — how it works, and why it's built this way
 - **[Reference](./reference)** — every tool, safety class, error code, and setting
+- **[Comparison](./reference-compare)** — how this differs from the other Godot MCP servers, honestly
 - **[Under the hood](./architecture/)** — the bridge, the envelope, gating, and safety
 
 ---

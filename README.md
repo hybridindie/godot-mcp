@@ -54,6 +54,33 @@ It is **game-agnostic** — it knows Godot, not your game. A tower-defense rogue
 AI client ──stdio / HTTP──▶ FastMCP server ──WebSocket──▶ Godot addon ──▶ live editor
 ```
 
+<!-- TODO(demo): record the flagship demo and embed the 10–15s GIF here, above
+     the fold. Brief: 20+ nodes across 2–3 scenes, Ctrl+Z back to the exact
+     baseline, and the transcript showing `undoable: true` *before* the undo.
+     Do not add an <img> tag until the asset exists. -->
+
+## Why build on this
+
+Godot Editor MCP is meant to be the base you build a game's AI vocabulary on, not
+one more self-contained assistant. Five things follow from that:
+
+- **A versioned compatibility contract.** Tool names, params, result shapes, and a
+  `contract_version` that additive changes never bump — contract-tested, so an
+  integration does not break silently. See [the contract](https://hybridindie.github.io/godot-mcp/reference-contract.html).
+- **Ground truth on every mutation.** Results report `persisted`, `undoable`,
+  `aborted_at`, and `rescan_pending`, so a client can tell "looks done" from "is
+  done" without re-reading the scene. See [persistence truth](https://hybridindie.github.io/godot-mcp/architecture/persistence.html).
+- **A local extension point.** Annotate a typed GDScript function with `## @mcp_tool`
+  and it becomes a first-class, safety-classed `godot_project_*` tool that runs
+  entirely in your editor — no cloud, no fork. See [project-defined tools](docs/site/guides-project-tools.md).
+- **Skills ship with the server.** Three installable skills, including `godot-expert`
+  (the Godot 4.x rules most people learn by hitting the bug). See [skills](https://hybridindie.github.io/godot-mcp/reference-skills.html).
+- **No telemetry, no cloud, no client lock-in.** MIT, self-hostable, standard MCP —
+  any client, plain config.
+
+Honest comparison against the other live-editor Godot MCP servers (including where
+this one is *not* ahead): **[Comparison with other tools](https://hybridindie.github.io/godot-mcp/reference-compare.html)**.
+
 ## Prerequisites
 
 | Component | Minimum | Recommended |
@@ -133,6 +160,7 @@ The full manual lives on the docs site:
 - **[Concepts](https://hybridindie.github.io/godot-mcp/concepts.html)** — how it works and why it's built this way
 - **[Guides](https://hybridindie.github.io/godot-mcp/guides.html)** — build a scene, play-test & debug, verify, ship
 - **[Reference](https://hybridindie.github.io/godot-mcp/reference.html)** — toolsets, safety, errors, prompts, skills, env vars
+- **[Comparison](https://hybridindie.github.io/godot-mcp/reference-compare.html)** — the other live-editor Godot MCP servers, side by side — including where this one is not ahead
 - **[Under the hood](https://hybridindie.github.io/godot-mcp/architecture/)** — the bridge, gating, safety, persistence, readiness
 - **[Changelog](https://hybridindie.github.io/godot-mcp/changelog.html)** — what shipped in each release
 

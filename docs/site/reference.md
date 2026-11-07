@@ -24,6 +24,7 @@ in the repo — it is the source of truth; these pages are the readable map.
 - [Prompts & resources](reference-prompts.md) — the 9 workflow prompts + the `godot://` resources
 - [Skills](reference-skills.md) — the 3 installable AI skills + the expert reference guides
 - [Consumer integration](reference-consumers.md) — layering game-specific agents on top (skills, orchestrator pattern)
+- [Comparison with other tools](reference-compare.md) — the other live-editor MCP servers, side by side, including where this one is not ahead
 - [Env vars](reference-env-vars.md) — every configuration knob
 - [Changelog](changelog.md) — what shipped in each release
 
