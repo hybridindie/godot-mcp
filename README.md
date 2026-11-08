@@ -62,8 +62,12 @@ AI client ──stdio / HTTP──▶ FastMCP server ──WebSocket──▶ Go
 ## Why build on this
 
 Godot Editor MCP is meant to be the base you build a game's AI vocabulary on, not
-one more self-contained assistant. Five things follow from that:
+one more self-contained assistant. Six things follow from that:
 
+- **Editor-first, not file-first.** Scene and project mutations go through the
+  editor's own APIs, so agent edits join your undo stack (Ctrl+Z) and the editor's
+  save rules apply — not blind file rewrites behind its back. See
+  [why & how it works](https://hybridindie.github.io/godot-mcp/concepts.html).
 - **A versioned compatibility contract.** Tool names, params, result shapes, and a
   `contract_version` that additive changes never bump — contract-tested, so an
   integration does not break silently. See [the contract](https://hybridindie.github.io/godot-mcp/reference-contract.html).

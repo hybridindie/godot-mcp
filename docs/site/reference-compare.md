@@ -28,7 +28,9 @@ move — re-check them before quoting this page.
 | Drives the **live** editor | ✅ via addon | ✅ | ✅ | ✅ | ✅ |
 | **Undo** | ✅ native — Godot's undo stack, Ctrl+Z works | not documented | ⚠️ app-level `mcp_undo`; *Ctrl+Z does not reach AI changes* | ✅ native ("undoable, Ctrl+Z") | ✅ native |
 | **Pre-mutation preview** (`dry_run`) | ✅ (safety classes) | not documented | not documented | ✅ | not documented |
+| **Safety enforced server-side** (addon cannot bypass `dry_run`/`confirm`) | ✅ `mcp_server/safety.py` | not documented | not documented | not documented | not documented |
 | **Post-mutation ground truth** (`persisted`, `undoable`, `aborted_at`, `rescan_pending`) | ✅ incl. reason tokens (`node_not_owned`, `instanced_child_not_editable`) | not documented | not documented | partial — all-or-nothing batches | not documented |
+| **Change receipts** (`reversible_by`, before/after) | ✅ every mutation | not documented | not documented | not documented | not documented |
 | **Gated tool surface** (load only what a task needs) | ✅ core + 28 toggleable toolsets | ✅ tool domains | not documented | not documented | ❌ 300+ on by default (opt-out config) |
 | **Versioned compatibility contract** | ✅ `contract_version` + `min_compatible_contract`, contract-tested | not documented | not documented | not documented | not documented |
 | **Project-defined tools** (extension point) | ✅ `## @mcp_tool` → typed, safety-classed `godot_project_*` tools | not documented | not documented | ✅ extensions + RQL (cloud-tied) | not documented |
@@ -40,23 +42,44 @@ move — re-check them before quoting this page.
 | **License** | MIT | MIT | MIT | Apache-2.0 | MIT |
 | **Traction (Nov 2026)** | 54★ · ~2.4k PyPI dl/mo · 20 releases in 3 months (13 stable) | 3,448★ · 21k MAU installs · 30M tool calls/3mo | 452★ | 333★ | 31★ |
 
-## Where this project leads
+## How this project works differently
 
-- **Post-mutation ground truth.** No other project checked returns
-  machine-readable answers to *"did this actually land, will a save keep it,
-  and can Ctrl+Z actually reverse it?"* — including warning that a batch above
-  20 nodes is *not* undoable. For an unattended agent, "looks done" versus "is
-  done" is the difference between progress and a silently broken scene. See
+The table is a feature comparison; these are the design choices behind it.
+
+- **Editor-first, not file-first.** Scene and project mutations go through the
+  editor's own APIs (`EditorUndoRedoManager`, `EditorInterface`,
+  `ProjectSettings`), so the agent's edits join *your* undo stack (Ctrl+Z) and the
+  editor's save rules apply. That is why "undo" here means the real stack — with
+  the documented exception for batches above 20 nodes, which report
+  `undoable: false` rather than pretend. See [Why & how it works](concepts.md).
+- **Safety is enforced in the server, not the addon.** Safety classes, `dry_run`,
+  `confirm`, and preconditions live in `mcp_server/safety.py`; consent tokens in
+  the approval layer. The addon only executes, so a misbehaving addon cannot
+  bypass the gate. See [Safety classes](reference-safety-classes.md).
+- **Honesty is a result field, not a promise.** `persisted` + `reason`,
+  `undoable`, `aborted_at`/`skipped_count`, `may_have_applied`, and readiness
+  reasons are machine-readable, and a `dry_run` preview carries the same
+  persistence verdict the real run will. See
   [Persistence truth](architecture/persistence.md).
-- **A versioned, game-agnostic contract.** A stable surface you can build
-  *on*, where additive changes never bump the version and contract tests catch
-  drift. See [The compatibility contract](reference-contract.md).
-- **A local, typed extension point.** `## @mcp_tool` on a typed GDScript
-  function becomes a first-class, safety-classed project tool that runs entirely
-  in your editor — your game's vocabulary, without a cloud or a fork. See
+- **Verification is part of the surface.** Every mutating result carries a change
+  receipt (`reversible_by`, before/after where available); non-undoable changes
+  say how to reverse them (undo checkpoints, VCS backstop); project-owned
+  `validate_project` validators run headless; and a busy editor returns
+  `EDITOR_BUSY` instead of a request timeout. See
+  [Verify your work](guides-verify.md).
+- **The contract is versioned and tested.** Additive changes never bump
+  `contract_version`, and contract tests pin tool names, params, result fields,
+  errors, and safety semantics. See
+  [The compatibility contract](reference-contract.md).
+- **The core is game-agnostic; the vocabulary is yours.** `## @mcp_tool` on a
+  typed GDScript function becomes a first-class, safety-classed
+  `godot_project_*` tool, locally and without a fork. See
   [Project-defined tools](guides-project-tools.md).
-- **Skills ship with it.** The platform bundles Godot expertise, not just tools.
-  See [Skills](reference-skills.md).
+- **Agents are first-class users.** Three installable skills, `llms.txt` /
+  `llms-full.txt` for retrieval, and toolset gating that returns the enabled
+  tools' names and input schemas so a client that never refreshes its registry
+  can still call them. See [Skills](reference-skills.md) and
+  [Toolsets](reference-toolsets.md).
 - **No telemetry, no cloud, no lock-in.** Self-hostable, any MCP client, MIT.
 
 ## Where it does not lead
@@ -74,9 +97,9 @@ move — re-check them before quoting this page.
 
 ## The adjacent market
 
-Unity shipped an **official** MCP server in August 2026, Epic shipped one for
-Unreal, and `ahujasid/blender-mcp` sits around 34k stars. AI-driven editing is a
-maturing mainstream category; the Godot side of it is where this project lives.
+Unity shipped an **official** MCP server in August 2026, and Epic shipped one
+for Unreal. AI-driven editing is a maturing mainstream category; the Godot side
+of it is where this project lives.
 
 ---
 
