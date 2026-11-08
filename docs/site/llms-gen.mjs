@@ -89,6 +89,7 @@ const SECTIONS = [
       'reference-prompts.md',
       'reference-skills.md',
       'reference-consumers.md',
+      'reference-compare.md',
     ],
   },
   {

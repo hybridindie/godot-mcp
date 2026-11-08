@@ -3,7 +3,7 @@ type: index
 title: "Examples"
 description: "Two complete Godot games under examples/ — what they demonstrate, how to run them, and the MCP toolsets they exercise."
 created: 2026-09-30
-updated: 2026-10-18
+updated: 2026-11-08
 ---
 
 # Examples
@@ -61,10 +61,10 @@ health bars and wave scaling, an upgrade menu, particles (blood burst, pickup
 sparkle), and a `DebuggerDemo` node that trips a real `breakpoint` on input.
 
 **Debugger showcase:** press `Space` (or click in the game window) to hit the
-built-in breakpoint, then drive the `debugger` toolset while paused —
-`godot_debugger_evaluate_expression(expression=…)` (in the running game's global
-scope; the paused-frame stack/vars are not exposed on 4.7, #677),
-`godot_debugger_step_into()`, then `godot_debugger_continue_execution()`. See
+built-in breakpoint, then ask your assistant to step through it — evaluate an
+expression in the running game's global scope, step into the call, then continue.
+(Under the hood it drives the `debugger` toolset; the paused-frame stack and
+variables are not exposed on 4.7, #677.) See
 [Play-test & debug](guides-playtest-debug.md) for the full loop.
 
 **Toolset coverage** (from its README): `scene_edit`, `physics`, `scripts`,

@@ -1,0 +1,107 @@
+---
+type: index
+title: "Comparison with other Godot AI tools"
+description: "An honest side-by-side of Godot Editor MCP against four other MCP servers that drive a live Godot editor — including where it is not ahead."
+created: 2026-11-07
+updated: 2026-11-08
+---
+
+# Comparison with other Godot AI tools
+
+There are now several MCP servers that drive a live Godot editor. They are all
+worth trying, and they optimize for different things. This page is an honest
+side-by-side — including the places where this project is **not** ahead.
+
+The table covers the four live-editor servers with published setup docs and
+meaningful public adoption at the check date. It is not exhaustive: other
+projects also drive a live editor (for example `satelliteoflove/godot-mcp` and
+`NPGameDev/godot-mcp-toolkit`), and launch/debug-only servers such as
+`Coding-Solo/godot-mcp` are a different category.
+
+Capability facts were checked against each project's README/docs on
+**2026-11-08**. "Not documented" means it could not be confirmed from public
+docs; it does **not** mean the feature is absent. Star and download figures
+move — re-check them before quoting this page.
+
+| Capability | **Godot Editor MCP** | Godot AI (hi-godot) | tomyud1/godot-mcp | IvanMurzak/Godot-MCP | KeeVeeG/godot-mcp |
+|---|---|---|---|---|---|
+| Drives the **live** editor | ✅ via addon | ✅ | ✅ | ✅ | ✅ |
+| **Undo** | ✅ native — Godot's undo stack, Ctrl+Z works | not documented | ⚠️ app-level `mcp_undo`; *Ctrl+Z does not reach AI changes* | ✅ native ("undoable, Ctrl+Z") | ✅ native |
+| **Pre-mutation preview** (`dry_run`) | ✅ (safety classes) | not documented | not documented | ✅ | not documented |
+| **Safety enforced server-side** (addon cannot bypass `dry_run`/`confirm`) | ✅ `mcp_server/safety.py` | not documented | not documented | not documented | not documented |
+| **Post-mutation ground truth** (`persisted`, `undoable`, `aborted_at`, `rescan_pending`) | ✅ incl. reason tokens (`node_not_owned`, `instanced_child_not_editable`) | not documented | not documented | partial — all-or-nothing batches | not documented |
+| **Change receipts** (`reversible_by`, before/after) | ✅ every mutation | not documented | not documented | not documented | not documented |
+| **Gated tool surface** (load only what a task needs) | ✅ core + 28 toggleable toolsets | ✅ tool domains | not documented | not documented | ❌ 300+ on by default (opt-out config) |
+| **Versioned compatibility contract** | ✅ `contract_version` + `min_compatible_contract`, contract-tested | not documented | not documented | not documented | not documented |
+| **Project-defined tools** (extension point) | ✅ `## @mcp_tool` → typed, safety-classed `godot_project_*` tools | not documented | not documented | ✅ extensions + RQL (cloud-tied) | not documented |
+| **Ships Godot skills** | ✅ 3 — incl. `godot-expert` | not documented | not documented | ✅ `godot-rql` skill | not documented |
+| **Multiple clients over one editor** | ✅ long-lived HTTP service, Docker, self-host | ✅ (multi-*instance* — many editors) | ✅ | ✅ | ✅ |
+| **No telemetry** | ✅ | ⚠️ anonymous telemetry, opt-out | ✅ | ✅ (self-host) | ✅ |
+| **Client lock-in** | none — any MCP client, plain config | ⚠️ dock auto-configures 26 clients, rewrites/redirects your config | none | ⚠️ project-pinned cloud route by default | none |
+| **Language / distribution** | Python + GDScript; PyPI, Docker, Asset Store, `llms.txt` | Python + GDScript; Asset Store, Snap, releases, Discord | GDScript + TypeScript; Asset Store | C#; Asset Store + cloud + NuGet | GDScript + TypeScript; GitHub |
+| **License** | MIT | MIT | MIT | Apache-2.0 | MIT |
+| **Traction (Nov 2026)** | 54★ · ~2.4k PyPI dl/mo · 20 releases in 3 months (13 stable) | 3,448★ · 21k MAU installs · 30M tool calls/3mo | 452★ | 333★ | 31★ |
+
+## How this project works differently
+
+The table is a feature comparison; these are the design choices behind it.
+
+- **Editor-first, not file-first.** Scene and project mutations go through the
+  editor's own APIs (`EditorUndoRedoManager`, `EditorInterface`,
+  `ProjectSettings`), so the agent's edits join *your* undo stack (Ctrl+Z) and the
+  editor's save rules apply. That is why "undo" here means the real stack — with
+  the documented exception for batches above 20 nodes, which report
+  `undoable: false` rather than pretend. See [Why & how it works](concepts.md).
+- **Safety is enforced in the server, not the addon.** Safety classes, `dry_run`,
+  `confirm`, and preconditions live in `mcp_server/safety.py`; consent tokens in
+  the approval layer. The addon only executes, so a misbehaving addon cannot
+  bypass the gate. See [Safety classes](reference-safety-classes.md).
+- **Honesty is a result field, not a promise.** `persisted` + `reason`,
+  `undoable`, `aborted_at`/`skipped_count`, `may_have_applied`, and readiness
+  reasons are machine-readable, and a `dry_run` preview carries the same
+  persistence verdict the real run will. See
+  [Persistence truth](architecture/persistence.md).
+- **Verification is part of the surface.** Every mutating result carries a change
+  receipt (`reversible_by`, before/after where available); non-undoable changes
+  say how to reverse them (undo checkpoints, VCS backstop); project-owned
+  `validate_project` validators run headless; and a busy editor returns
+  `EDITOR_BUSY` instead of a request timeout. See
+  [Verify your work](guides-verify.md).
+- **The contract is versioned and tested.** Additive changes never bump
+  `contract_version`, and contract tests pin tool names, params, result fields,
+  errors, and safety semantics. See
+  [The compatibility contract](reference-contract.md).
+- **The core is game-agnostic; the vocabulary is yours.** `## @mcp_tool` on a
+  typed GDScript function becomes a first-class, safety-classed
+  `godot_project_*` tool, locally and without a fork. See
+  [Project-defined tools](guides-project-tools.md).
+- **Agents are first-class users.** Three installable skills, `llms.txt` /
+  `llms-full.txt` for retrieval, and toolset gating that returns the enabled
+  tools' names and input schemas so a client that never refreshes its registry
+  can still call them. See [Skills](reference-skills.md) and
+  [Toolsets](reference-toolsets.md).
+- **No telemetry, no cloud, no lock-in.** Self-hostable, any MCP client, MIT.
+
+## Where it does not lead
+
+- **Traction.** 54★ against 3,448, and ~2.4k PyPI downloads/month against 21k
+  monthly active installs. This project is not competing on visibility today.
+- **Tool count.** 208 against 300+ (KeeVee). The tool count is deliberately not
+  a race: a small gated surface selects better and burns less context than a
+  sprawl.
+- **Undo alone is not the claim.** Godot AI, IvanMurzak, and KeeVee all have
+  undo, and `dry_run` exists elsewhere too. The claim is *undo plus ground
+  truth together*.
+- **Client-config polish, C# coverage, multi-editor, signed releases, Discord.**
+  Godot AI is ahead on several of these. Better to say so than to pad the table.
+
+## The adjacent market
+
+Unity shipped an **official** MCP server in August 2026, and Epic shipped one
+for Unreal. AI-driven editing is a maturing mainstream category; the Godot side
+of it is where this project lives.
+
+---
+
+**Building on it?** Start with [Consumer integration](reference-consumers.md) and
+[For developers](for-developers.md).

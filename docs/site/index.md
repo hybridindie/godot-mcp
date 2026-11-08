@@ -4,7 +4,7 @@ layout: home
 hero:
   name: 'Godot Editor MCP'
   text: 'Build your Godot game by talking to your AI'
-  tagline: 'Your AI assistant drives a live Godot editor — inspecting, editing, running, and double-checking its own work, with every change undoable. No more editing files blind.'
+  tagline: 'Your AI assistant drives a live Godot editor — inspecting, editing, running, and double-checking its own work, with its changes on Godot''s undo stack. No more editing files blind.'
   actions:
     - theme: brand
       text: For creators
@@ -25,6 +25,10 @@ features:
     details: Only a handful of tools are on by default; the agent pulls in more only when a task needs them. A focused surface means better choices and fewer wasted calls.
   - title: Safe by construction
     details: Destructive actions ask first, previews are free, and every safety and permission decision lives on the server — never in the editor.
+  - title: Built to build on
+    details: A versioned compatibility contract, a game-agnostic core, and an extension point — annotate a typed GDScript function with @mcp_tool and it becomes a first-class, safety-classed tool for your game's own vocabulary.
+  - title: Expertise included
+    details: Three installable skills ship with it, including godot-expert — the Godot 4.x rules most people learn by hitting the bug. Any MCP client that installs them inherits correct Godot instincts.
 ---
 
 ## See it catch a mistake
@@ -48,7 +52,8 @@ A file-blind agent would just say *"done."* Godot Editor MCP tells you **what wi
 
 1. **Add the addon** — install [Godot Editor MCP - Addon](https://store.godotengine.org/asset/john-d-studios/godot-editor-mcp-addon/) from the Godot Asset Store, then switch it on in *Project → Project Settings → Plugins*.
 2. **Point your AI assistant at it** with one line in its MCP config (for Claude Code: `claude mcp add godot -- uvx godot-editor-mcp`).
-3. **Tell it what you want** — *"add a player that jumps"*, *"make the jump feel snappier"*, *"why does it crash on start?"*.
+3. **Install the [three skills](./reference-skills)** — they teach the assistant the gating workflow, the result verdicts, and the Godot 4.x pitfalls. That is the difference between a generic agent and one that knows this surface.
+4. **Tell it what you want** — *"add a player that jumps"*, *"make the jump feel snappier"*, *"why does it crash on start?"*.
 
 New to all this? **[For creators](./for-creators)** walks it through step by step — your
 assistant does the installing. Prefer to do it yourself? **[Manual setup](./getting-started-install)**.
@@ -68,6 +73,7 @@ assistant does the installing. Prefer to do it yourself? **[Manual setup](./gett
 - **[Guides](./guides)** — build a scene, play-test & debug, verify your work, ship
 - **[Concepts](./concepts)** — how it works, and why it's built this way
 - **[Reference](./reference)** — every tool, safety class, error code, and setting
+- **[Comparison](./reference-compare)** — how this differs from four other Godot MCP servers, honestly
 - **[Under the hood](./architecture/)** — the bridge, the envelope, gating, and safety
 
 ---

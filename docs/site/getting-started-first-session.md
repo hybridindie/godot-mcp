@@ -1,31 +1,31 @@
 ---
 type: index
 title: "Your first session"
-description: "Install the skill, then drive a real Godot project from your AI assistant — the orient → enable → preview → act → verify rhythm."
+description: "Install the skills, then drive a real Godot project from your AI assistant — the orient → enable → preview → act → verify rhythm."
 created: 2026-09-19
-updated: 2026-10-18
+updated: 2026-11-08
 ---
 
 # Your first session
 
 Godot Editor MCP is driven **through an AI assistant**, not by typing tool names. So the single
-most useful thing you can do first is **install the skill** — a small bundle of knowledge
-your assistant loads automatically. It teaches it to:
+most useful thing you can do first is **install the skills** — small bundles of knowledge
+your assistant loads automatically. They teach it to:
 
 - check the bridge and version before it starts,
 - **enable the toolset it needs, by itself** (you never manage gates), and
 - read the "what actually happened" fields and avoid the Godot pitfalls that trip agents up.
 
 → **[Install the skills](reference-skills.md)** (copy the `skills/` folders into your
-client), then restart your assistant. From then on it just knows how to work in Godot.
+client), then restart your assistant. From then on it knows how to work in Godot.
 
-With the skill in place you talk in plain language and supervise in Godot. The rhythm is
+With the skills in place you talk in plain language and supervise in Godot. The rhythm is
 always the same: **orient → enable → preview → act → verify.**
 
-::: warning No skill installed?
-The workflow degrades gracefully without it, but the assistant won't know to enable
+::: warning No skills installed?
+The workflow degrades gracefully without them, but the assistant won't know to enable
 toolsets on its own or to read the honesty fields — you'll be prompting it about
-"unknown tool" errors and stale-save verdicts yourself. Install the skill.
+"unknown tool" errors and stale-save verdicts yourself. Install the skills.
 :::
 
 ## 1. Orient — ask who's connected
@@ -43,9 +43,9 @@ the getting-started skill teaches, so you don't have to think about it.
 
 You: *"Add a Player node to the main scene."*
 
-If your assistant instead stalls on an "unknown tool" error, it's missing the skill (or
+If your assistant instead stalls on an "unknown tool" error, it's missing the skills (or
 hasn't enabled the toolset) — prompt it: *"enable the toolset you need first"*, or
-[install the skill](reference-skills.md).
+[install the skills](reference-skills.md).
 
 ## 3. Inspect before mutating — the assistant reads, then edits
 

@@ -103,6 +103,7 @@ export default withMermaid(defineConfig({
           { text: 'Prompts & resources', link: '/reference-prompts' },
           { text: 'Skills', link: '/reference-skills' },
           { text: 'Consumer integration', link: '/reference-consumers' },
+          { text: 'Comparison with other tools', link: '/reference-compare' },
           { text: 'Environment variables', link: '/reference-env-vars' },
           { text: 'Under the hood', link: '/architecture/' },
           { text: 'The Godot addon', link: '/architecture/addon' },

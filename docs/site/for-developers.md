@@ -68,7 +68,18 @@ AI client ──stdio / HTTP──▶ FastMCP server ──WebSocket──▶ Go
 
 - **[Consumer integration](reference-consumers.md)** — layering game-specific agents on
   top, pinning the tool names, params, envelope, and contract version.
-- **[Skills](reference-skills.md)** — the three installable AI skills.
+- **[Project-defined tools](guides-project-tools.md)** — the extension point: annotate a
+  typed GDScript function with `## @mcp_tool` and it becomes a first-class,
+  safety-classed `godot_project_*` tool that runs entirely in your editor. This is the
+  mechanism for adding a game's own vocabulary (spawn a wave, drop loot, register a
+  level) on top of the generic core instead of forking it, or reaching for a cloud.
+- **[Skills](reference-skills.md)** — the three installable AI skills
+  (`godot-getting-started`, `godot-playtest-and-debug`, `godot-expert`). They are
+  client-side knowledge, so any MCP client that installs them inherits correct Godot
+  instincts — including the `godot-expert` rules most people otherwise learn by hitting
+  the bug.
+- **[Comparison with other tools](reference-compare.md)** — how this server differs from
+  four other MCP servers that drive a live Godot editor, including where it is not ahead.
 - **[Contributing](https://github.com/hybridindie/godot-mcp/blob/main/CONTRIBUTING.md)** —
   setup, workflow, conventions, and the grounding rules.
 

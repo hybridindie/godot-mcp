@@ -3,7 +3,7 @@ type: index
 title: "Install the Godot addon"
 description: "Copy the addon into your project and enable it — the editor dials the server and reconnects on its own."
 created: 2026-09-19
-updated: 2026-10-19
+updated: 2026-11-08
 ---
 
 # Install the Godot addon
@@ -104,8 +104,8 @@ GODOT_MCP_BRIDGE_URL=ws://127.0.0.1:9080 godot --path /path/to/your/game
    green — its commands now go to the other editor. It keeps probing the bridge
 without displacing the other editor; once that editor disconnects, the replaced
 editor resumes automatically.
-3. `godot_health_check()` from your agent returns
-   `{"bridge_connected": true, "version": "…"}`.
+3. Ask your agent *"Is Godot connected?"* — it reports whether the editor is
+   connected and the version it sees.
 
 ## Auto-refresh for external edits (optional)
 
