@@ -72,7 +72,7 @@ assistant does the installing. Prefer to do it yourself? **[Manual setup](./gett
 - **[Guides](./guides)** — build a scene, play-test & debug, verify your work, ship
 - **[Concepts](./concepts)** — how it works, and why it's built this way
 - **[Reference](./reference)** — every tool, safety class, error code, and setting
-- **[Comparison](./reference-compare)** — how this differs from the other Godot MCP servers, honestly
+- **[Comparison](./reference-compare)** — how this differs from four other Godot MCP servers, honestly
 - **[Under the hood](./architecture/)** — the bridge, the envelope, gating, and safety
 
 ---

@@ -79,7 +79,7 @@ AI client ──stdio / HTTP──▶ FastMCP server ──WebSocket──▶ Go
   instincts — including the `godot-expert` rules most people otherwise learn by hitting
   the bug.
 - **[Comparison with other tools](reference-compare.md)** — how this server differs from
-  the other MCP servers that drive a live Godot editor, including where it is not ahead.
+  four other MCP servers that drive a live Godot editor, including where it is not ahead.
 - **[Contributing](https://github.com/hybridindie/godot-mcp/blob/main/CONTRIBUTING.md)** —
   setup, workflow, conventions, and the grounding rules.
 

@@ -1,9 +1,9 @@
 ---
 type: index
 title: "Comparison with other Godot AI tools"
-description: "An honest side-by-side of Godot Editor MCP against the other MCP servers that drive a live Godot editor — including where it is not ahead."
+description: "An honest side-by-side of Godot Editor MCP against four other MCP servers that drive a live Godot editor — including where it is not ahead."
 created: 2026-11-07
-updated: 2026-11-07
+updated: 2026-11-08
 ---
 
 # Comparison with other Godot AI tools
@@ -12,8 +12,14 @@ There are now several MCP servers that drive a live Godot editor. They are all
 worth trying, and they optimize for different things. This page is an honest
 side-by-side — including the places where this project is **not** ahead.
 
+The table covers the four live-editor servers with published setup docs and
+meaningful public adoption at the check date. It is not exhaustive: other
+projects also drive a live editor (for example `satelliteoflove/godot-mcp` and
+`NPGameDev/godot-mcp-toolkit`), and launch/debug-only servers such as
+`Coding-Solo/godot-mcp` are a different category.
+
 Capability facts were checked against each project's README/docs on
-**2026-11-06**. "Not documented" means it could not be confirmed from public
+**2026-11-08**. "Not documented" means it could not be confirmed from public
 docs; it does **not** mean the feature is absent. Star and download figures
 move — re-check them before quoting this page.
 
@@ -23,16 +29,16 @@ move — re-check them before quoting this page.
 | **Undo** | ✅ native — Godot's undo stack, Ctrl+Z works | not documented | ⚠️ app-level `mcp_undo`; *Ctrl+Z does not reach AI changes* | ✅ native ("undoable, Ctrl+Z") | ✅ native |
 | **Pre-mutation preview** (`dry_run`) | ✅ (safety classes) | not documented | not documented | ✅ | not documented |
 | **Post-mutation ground truth** (`persisted`, `undoable`, `aborted_at`, `rescan_pending`) | ✅ incl. reason tokens (`node_not_owned`, `instanced_child_not_editable`) | not documented | not documented | partial — all-or-nothing batches | not documented |
-| **Gated tool surface** (load only what a task needs) | ✅ core + 28 toggleable toolsets | ✅ tool domains | not documented | not documented | ❌ 300+ always available |
+| **Gated tool surface** (load only what a task needs) | ✅ core + 28 toggleable toolsets | ✅ tool domains | not documented | not documented | ❌ 300+ on by default (opt-out config) |
 | **Versioned compatibility contract** | ✅ `contract_version` + `min_compatible_contract`, contract-tested | not documented | not documented | not documented | not documented |
 | **Project-defined tools** (extension point) | ✅ `## @mcp_tool` → typed, safety-classed `godot_project_*` tools | not documented | not documented | ✅ extensions + RQL (cloud-tied) | not documented |
 | **Ships Godot skills** | ✅ 3 — incl. `godot-expert` | not documented | not documented | ✅ `godot-rql` skill | not documented |
 | **Multiple clients over one editor** | ✅ long-lived HTTP service, Docker, self-host | ✅ (multi-*instance* — many editors) | ✅ | ✅ | ✅ |
 | **No telemetry** | ✅ | ⚠️ anonymous telemetry, opt-out | ✅ | ✅ (self-host) | ✅ |
 | **Client lock-in** | none — any MCP client, plain config | ⚠️ dock auto-configures 26 clients, rewrites/redirects your config | none | ⚠️ project-pinned cloud route by default | none |
-| **Language / distribution** | Python + GDScript; PyPI, Docker, Asset Store, `llms.txt` | Python + GDScript; Asset Store, Snap, releases, Discord | GDScript; Asset Store | C#; Asset Store + cloud + NuGet | TypeScript; GitHub |
+| **Language / distribution** | Python + GDScript; PyPI, Docker, Asset Store, `llms.txt` | Python + GDScript; Asset Store, Snap, releases, Discord | GDScript + TypeScript; Asset Store | C#; Asset Store + cloud + NuGet | GDScript + TypeScript; GitHub |
 | **License** | MIT | MIT | MIT | Apache-2.0 | MIT |
-| **Traction (Nov 2026)** | 51★ · ~2.4k PyPI dl/mo · 10 releases/5mo | 3,412★ · 21k MAU installs · 30M tool calls/3mo | 451★ | 325★ | ~31★ |
+| **Traction (Nov 2026)** | 54★ · ~2.4k PyPI dl/mo · 20 releases in 3 months (13 stable) | 3,448★ · 21k MAU installs · 30M tool calls/3mo | 452★ | 333★ | 31★ |
 
 ## Where this project leads
 
@@ -55,7 +61,7 @@ move — re-check them before quoting this page.
 
 ## Where it does not lead
 
-- **Traction.** 51★ against 3,412, and ~2.4k PyPI downloads/month against 21k
+- **Traction.** 54★ against 3,448, and ~2.4k PyPI downloads/month against 21k
   monthly active installs. This project is not competing on visibility today.
 - **Tool count.** 208 against 300+ (KeeVee). The tool count is deliberately not
   a race: a small gated surface selects better and burns less context than a
@@ -69,7 +75,7 @@ move — re-check them before quoting this page.
 ## The adjacent market
 
 Unity shipped an **official** MCP server in August 2026, Epic shipped one for
-Unreal, and `ahujasid/blender-mcp` sits around 26k stars. AI-driven editing is a
+Unreal, and `ahujasid/blender-mcp` sits around 34k stars. AI-driven editing is a
 maturing mainstream category; the Godot side of it is where this project lives.
 
 ---

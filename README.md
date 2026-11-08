@@ -72,13 +72,13 @@ one more self-contained assistant. Five things follow from that:
   done" without re-reading the scene. See [persistence truth](https://hybridindie.github.io/godot-mcp/architecture/persistence.html).
 - **A local extension point.** Annotate a typed GDScript function with `## @mcp_tool`
   and it becomes a first-class, safety-classed `godot_project_*` tool that runs
-  entirely in your editor — no cloud, no fork. See [project-defined tools](docs/site/guides-project-tools.md).
+  entirely in your editor — no cloud, no fork. See [project-defined tools](https://hybridindie.github.io/godot-mcp/guides-project-tools.html).
 - **Skills ship with the server.** Three installable skills, including `godot-expert`
   (the Godot 4.x rules most people learn by hitting the bug). See [skills](https://hybridindie.github.io/godot-mcp/reference-skills.html).
 - **No telemetry, no cloud, no client lock-in.** MIT, self-hostable, standard MCP —
   any client, plain config.
 
-Honest comparison against the other live-editor Godot MCP servers (including where
+Honest comparison against four other live-editor Godot MCP servers (including where
 this one is *not* ahead): **[Comparison with other tools](https://hybridindie.github.io/godot-mcp/reference-compare.html)**.
 
 ## Prerequisites
@@ -160,7 +160,7 @@ The full manual lives on the docs site:
 - **[Concepts](https://hybridindie.github.io/godot-mcp/concepts.html)** — how it works and why it's built this way
 - **[Guides](https://hybridindie.github.io/godot-mcp/guides.html)** — build a scene, play-test & debug, verify, ship
 - **[Reference](https://hybridindie.github.io/godot-mcp/reference.html)** — toolsets, safety, errors, prompts, skills, env vars
-- **[Comparison](https://hybridindie.github.io/godot-mcp/reference-compare.html)** — the other live-editor Godot MCP servers, side by side — including where this one is not ahead
+- **[Comparison](https://hybridindie.github.io/godot-mcp/reference-compare.html)** — four other live-editor Godot MCP servers, side by side — including where this one is not ahead
 - **[Under the hood](https://hybridindie.github.io/godot-mcp/architecture/)** — the bridge, gating, safety, persistence, readiness
 - **[Changelog](https://hybridindie.github.io/godot-mcp/changelog.html)** — what shipped in each release
 
