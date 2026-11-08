@@ -144,16 +144,17 @@ skills directory — keep godot-expert/references/ — then reload your skills.
 
 More → **[Skills](https://hybridindie.github.io/godot-mcp/reference-skills.html)**.
 
-**5. Ask the agent to work**
+**5. Ask the agent to work** — describe the outcome; the assistant picks the toolset, previews, and acts:
 
-- *"Show me the scene tree"* → `godot_inspection_get_scene_tree()`
-- *"Enable scene editing, then add a Player node"* → `godot_enable_toolset("scene_edit")`
+- *"Show me the scene tree"* → it reads your open scene and tells you what is there.
+- *"Add a Player node to the main scene"* → it enables scene editing on its own, previews the change, then adds the node to the scene you have open.
+- *"Why does it crash on start?"* → it runs the scene headlessly and reads the errors back to you.
 
 Docker, HTTP service mode (several clients sharing one editor), and OpenWebUI → **[Configure your client](https://hybridindie.github.io/godot-mcp/getting-started-clients.html)**.
 
 ## The gated surface
 
-Only `core` + `inspection` are exposed by default, so the agent's tool list stays sharp. It turns a toolset on with `godot_enable_toolset("scene_edit")`; the server then announces the change (`tools/list_changed`, plus a `subscriptions/listen` stream on the `2026-07-28` protocol) **and** returns the enabled tools' schemas — so the new tools reach the model whether or not its client refreshes. `GODOT_MCP_DEFAULT_TOOLSETS` pre-seeds toolsets at startup. More → **[Toolset gating](https://hybridindie.github.io/godot-mcp/architecture/gating.html)**.
+Only `core` + `inspection` are exposed by default, so the agent's tool list stays sharp. When a task needs more, the assistant enables the toolset itself; the server then announces the change (`tools/list_changed`, plus a `subscriptions/listen` stream on the `2026-07-28` protocol) **and** returns the enabled tools' schemas — so the new tools reach the model whether or not its client refreshes its registry. `GODOT_MCP_DEFAULT_TOOLSETS` pre-seeds toolsets at startup. More → **[Toolset gating](https://hybridindie.github.io/godot-mcp/architecture/gating.html)**.
 
 ## Documentation
 

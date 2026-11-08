@@ -3,7 +3,7 @@ type: index
 title: "Remote & multi-client"
 description: "Drive Godot over HTTP from another machine — several clients on one editor, OpenWebUI, Docker, VPN-from-a-phone."
 created: 2026-09-19
-updated: 2026-10-18
+updated: 2026-11-08
 ---
 
 # Remote & multi-client
@@ -60,9 +60,8 @@ In a chat, enable the `godot` tool (wrench icon) and ask:
   Keep the ID short, or instruct the model to ignore the prefix — small local
   models otherwise try to call tools under their literal prefixed names.
 - **Toolset gating.** Only `core` + `inspection` are exposed by default; for
-  scene editing the agent must first call `godot_enable_toolset("scene_edit")`
-  — or prompt it: *"enable the scene_edit toolset, then add a button below the
-  Quit button"*.
+  scene editing, the agent must enable the `scene_edit` toolset first. Prompt it:
+  *"enable the scene_edit toolset, then add a button below the Quit button"*.
 
 ## Security
 
