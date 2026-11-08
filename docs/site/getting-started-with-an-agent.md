@@ -3,7 +3,7 @@ type: index
 title: "Set up with your AI agent"
 description: "For creators — have Claude, Codex, or any AI assistant install and connect Godot Editor MCP to your Godot project, then build by describing what you want."
 created: 2026-10-11
-updated: 2026-10-18
+updated: 2026-11-08
 ---
 
 # Set up with your AI agent
@@ -23,8 +23,8 @@ Once it's connected, your assistant works **directly inside your real Godot proj
 - create and arrange scenes and nodes,
 - write and fix GDScript,
 - run the game and read the errors,
-- and check its own work — with every change landing on Godot's own **undo** stack, so
-  you can Ctrl+Z anything it does.
+- and check its own work — with its changes on Godot's own **undo** stack, so you can
+  Ctrl+Z them.
 
 You stay in Godot; the assistant works through the editor you already have open.
 
@@ -116,7 +116,11 @@ anything you don't like.
 ### Things worth knowing
 
 - **It asks before destroying.** Deleting or overwriting needs your OK first; previews are free.
-- **Everything is undoable.** The assistant's changes sit on the same undo stack as yours — Ctrl+Z works.
+- **Undo works like yours.** The assistant's changes sit on the same undo stack as your
+  edits — Ctrl+Z works. Very large batches are the exception, and the assistant will say so.
+- **It arrives knowing the workflow.** The setup installs three skills: the gating
+  workflow, the play-test/debug loop, and the Godot 4.x expert rules. That is why it
+  enables toolsets on its own and reads the result verdicts.
 - **It can't see *your* screen** — but a vision-capable assistant can screenshot the editor or the running game to *look at* the scene. It still can't watch you, so answer its questions and keep an eye on the editor.
 - **Better assistants go further.** Claude Code and Codex can run the setup and chain many steps; a small local model may need more back-and-forth.
 

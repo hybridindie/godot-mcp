@@ -3,7 +3,7 @@ type: index
 title: "Skills"
 description: "The three installable AI skills — what each teaches, how they auto-trigger, and the godot-expert reference guides."
 created: 2026-09-30
-updated: 2026-10-18
+updated: 2026-11-08
 ---
 
 # Skills
@@ -12,6 +12,11 @@ Beyond tools, prompts, and resources, Godot Editor MCP ships **three installable
 skills** under [`skills/`](https://github.com/hybridindie/godot-mcp/tree/main/skills).
 A skill is client-side knowledge — not an action — that the agent **auto-triggers**
 when it recognises a matching task, then routes to the right prompts and tools.
+
+Shipping skills alongside tools is deliberate: tools tell the model what it *can* do;
+skills tell it how to do it *well*. A client that installs them inherits the gating
+rules, the honesty-field discipline, and the Godot 4.x pitfalls without the user
+writing a prompt for each.
 
 ## Skills vs prompts — different jobs
 

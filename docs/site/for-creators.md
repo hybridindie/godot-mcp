@@ -3,7 +3,7 @@ type: index
 title: "For creators"
 description: "Make a Godot game by talking to your AI assistant. Set up Godot Editor MCP once, then build, run, and verify inside your real editor."
 created: 2026-10-18
-updated: 2026-10-18
+updated: 2026-11-08
 ---
 
 # For creators
@@ -13,8 +13,8 @@ This track gets you there without learning MCP or typing tool names.
 
 Godot Editor MCP connects your AI assistant to the **live Godot editor** through a small
 addon. The assistant can inspect the scene you can see, create and edit nodes, write
-GDScript, run the game, and check its own work. Every change lands on Godot's own undo
-stack, so **Ctrl+Z works exactly as it does for you**.
+GDScript, run the game, and check its own work. Its changes land on Godot's own undo
+stack, so **Ctrl+Z works as it does for your edits**.
 
 ## What you need
 
@@ -55,8 +55,11 @@ stack, so **Ctrl+Z works exactly as it does for you**.
 
 - **It asks before destroying.** Deleting or overwriting needs your OK first; previews
   are free.
-- **Everything is undoable.** The assistant's changes sit on the same undo stack as
-  yours.
+- **Undo works like yours.** The assistant's changes sit on the same undo stack as your
+  edits; very large batches are the exception, and it will tell you.
+- **It brings Godot expertise with it.** The setup installs three skills that teach the
+  assistant the gating workflow, the result verdicts, and the Godot 4.x pitfalls — so you
+  are not re-explaining Godot every session.
 - **It reports what will really be saved.** An edit can show in the editor but not persist
   if it lands inside an instanced scene. The result says so, with a fix.
 - **It cannot see your screen by itself.** A vision-capable assistant can screenshot the
