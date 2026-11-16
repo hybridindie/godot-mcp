@@ -23,8 +23,10 @@ query($owner: String!, $repo: String!, $pr: Int!) {
 }
 """
 
+
 def gh(*args: str) -> str:
     return subprocess.check_output(["gh", *args], text=True, timeout=30)
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()
@@ -62,6 +64,7 @@ def main() -> int:
             print(f"{thread['id']}\t{thread['path']}:{thread['line']}\t{thread['author']}\t{thread['body'][:800]}")
         print(f"unresolved={len(threads)}", file=sys.stderr)
     return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

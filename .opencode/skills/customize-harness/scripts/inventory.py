@@ -55,25 +55,32 @@ AUTO_INSTALL = {"bash", "yaml-ls"}
 
 MAX_FILES = 20000
 
-def read_json(path: Path) -> dict:
+
+def read_json(path: Path):
+    """The parsed JSON object, or None when it is missing, unreadable or not an object."""
     try:
-        return json.loads(path.read_text())
+        value = json.loads(path.read_text())
     except (OSError, json.JSONDecodeError):
-        return {}
+        return None
+    return value if isinstance(value, dict) else None
+
+
+def opencode_configs(root: Path) -> list[Path]:
+    """OpenCode merges a root opencode.json with .opencode/opencode.json."""
+    return [p for p in (root / "opencode.json", root / ".opencode" / "opencode.json") if p.is_file()]
+
 
 def scan_languages(root: Path) -> tuple[dict[str, int], dict[str, int], int, bool]:
     """Count source files per LSP server and per server-less language."""
     servers: dict[str, int] = {}
     unsupported: dict[str, int] = {}
     scanned = 0
-    truncated = False
-    for dirpath, dirnames, filenames in os.walk(root):
+    for _dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS and not d.startswith(".")]
         for name in filenames:
+            if scanned >= MAX_FILES:
+                return servers, unsupported, scanned, True
             scanned += 1
-            if scanned > MAX_FILES:
-                truncated = True
-                return servers, unsupported, scanned, truncated
             ext = Path(name).suffix.lower()
             if ext in EXT_TO_SERVER:
                 server = EXT_TO_SERVER[ext]
@@ -81,17 +88,37 @@ def scan_languages(root: Path) -> tuple[dict[str, int], dict[str, int], int, boo
             elif ext in EXT_NO_SERVER:
                 language = EXT_NO_SERVER[ext]
                 unsupported[language] = unsupported.get(language, 0) + 1
-    return servers, unsupported, scanned, truncated
+    return servers, unsupported, scanned, False
+
 
 def lsp_report(root: Path) -> dict:
-    config = root / ".opencode" / "opencode.json"
-    data = read_json(config)
-    current = data.get("lsp", "<absent>") if config.is_file() else "<no-config>"
-    if isinstance(current, dict):
+    configs = opencode_configs(root)
+    parsed: dict[Path, dict] = {}
+    invalid = False
+    for config in configs:
+        data = read_json(config)
+        if data is None:
+            invalid = True
+        else:
+            parsed[config] = data
+
+    lsp_entries = [d["lsp"] for d in parsed.values() if "lsp" in d]
+    combined: dict = {}
+    for entry in lsp_entries:
+        if isinstance(entry, dict):
+            combined.update(entry)
+
+    if not configs:
+        current: object = "<no-config>"
+    elif not parsed:
+        current = "<invalid>"
+    elif not lsp_entries:
+        current = "<absent>"
+    else:
         current = {
-            "servers_set": sorted(k for k, v in current.items()
+            "servers_set": sorted(k for k, v in combined.items()
                                   if not (isinstance(v, dict) and v.get("disabled"))),
-            "disabled": sorted(k for k, v in current.items()
+            "disabled": sorted(k for k, v in combined.items()
                                if isinstance(v, dict) and v.get("disabled")),
         }
     servers, unsupported, scanned, truncated = scan_languages(root)
@@ -99,12 +126,11 @@ def lsp_report(root: Path) -> dict:
     # A custom server entry declaring one of the server-less extensions covers
     # that language, so it is not a gap after all (e.g. the godot bridge).
     custom_exts: dict[str, str] = {}
-    if isinstance(data.get("lsp"), dict):
-        for name, item in data["lsp"].items():
-            if not isinstance(item, dict) or item.get("disabled"):
-                continue
-            for ext in item.get("extensions") or []:
-                custom_exts[str(ext).lower()] = name
+    for name, item in combined.items():
+        if not isinstance(item, dict) or item.get("disabled"):
+            continue
+        for ext in item.get("extensions") or []:
+            custom_exts[str(ext).lower()] = name
     for language, count in list(unsupported.items()):
         server = custom_exts.get(LANG_EXT[language])
         if server:
@@ -120,8 +146,9 @@ def lsp_report(root: Path) -> dict:
     # A dead `lsp` key in Claude settings is silently ignored; flag it.
     claude = read_json(root / ".claude" / "settings.json")
     return {
-        "config_path": ".opencode/opencode.json",
-        "config_present": config.is_file(),
+        "config_path": str(configs[0].relative_to(root)) if configs else ".opencode/opencode.json",
+        "config_present": bool(configs),
+        "config_parse_error": invalid,
         "current": current,
         "detected_servers": dict(sorted(servers.items())),
         "no_builtin_server": dict(sorted(unsupported.items())),
@@ -129,8 +156,9 @@ def lsp_report(root: Path) -> dict:
         "auto_install_on_first_use": auto_installable,
         "files_scanned": scanned,
         "scan_truncated": truncated,
-        "claude_settings_has_lsp_key": "lsp" in claude,
+        "claude_settings_has_lsp_key": bool(claude and "lsp" in claude),
     }
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()
@@ -144,7 +172,7 @@ def main() -> int:
             if line.strip():
                 first_line = line.lstrip("# ").strip()
                 break
-    package = read_json(root / "package.json")
+    package = read_json(root / "package.json") or {}
     pyproject = root / "pyproject.toml"
     pyproject_text = pyproject.read_text(encoding="utf-8") if pyproject.is_file() else ""
     name_match = re.search(r'^name\s*=\s*"([^"]+)"', pyproject_text, re.MULTILINE)
@@ -188,6 +216,7 @@ def main() -> int:
         "lsp": lsp_report(root),
     }, indent=2))
     return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

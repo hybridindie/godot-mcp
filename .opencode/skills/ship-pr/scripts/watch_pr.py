@@ -36,13 +36,14 @@ from pathlib import Path
 REVIEW_MARKERS = (".opencodereview/rule.json", ".pr_agent.toml")
 KNOWN_REVIEWERS = (
     "open-code-review", "opencodereview", "ocr", "jds-code-reviewer",
-    "qodo", "pr-agent", "coderabbit", "sourcery", "greptile",
+    "qodo", "qodo-merge", "pr-agent", "coderabbitai", "sourcery-ai", "greptile-app",
 )
 CHECKS_GRACE_SECONDS = 180
 FIELDS = (
     "number,url,state,isDraft,mergeStateStatus,reviewDecision,"
     "statusCheckRollup,reviews,comments,commits,labels"
 )
+
 
 def gh(args, timeout=60):
     try:
@@ -51,6 +52,7 @@ def gh(args, timeout=60):
         )
     except (subprocess.TimeoutExpired, FileNotFoundError):
         return None
+
 
 def gh_json(args, timeout=60):
     p = gh(args, timeout)
@@ -61,6 +63,7 @@ def gh_json(args, timeout=60):
     except json.JSONDecodeError:
         return None
 
+
 def parse_time(value):
     if not value:
         return None
@@ -68,6 +71,7 @@ def parse_time(value):
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
+
 
 def bot_names(pr=None):
     override = os.environ.get("SHIP_PR_BOTS", "").strip()
@@ -87,15 +91,20 @@ def bot_names(pr=None):
             return KNOWN_REVIEWERS
     return ()
 
+
 def matches_bot(login, bots):
-    """Loose login match: `ocr` covers `ocr-reviewer[bot]` but not `mediocre-dev`."""
+    """Loose login match: `ocr` covers `ocr-reviewer[bot]` and `acme-ocr[bot]`,
+    but not `mediocre-dev`."""
     login = (login or "").lower()
+    if login.endswith("[bot]"):
+        login = login[: -len("[bot]")]
     return any(
         login == bot
-        or login.startswith((bot + "[", bot + "-", bot + "_"))
+        or login.startswith((bot + "-", bot + "_", bot + "."))
         or login.endswith(("-" + bot, "_" + bot))
         for bot in bots
     )
+
 
 def check_buckets(pr_number):
     data = gh_json(["pr", "checks", str(pr_number), "--json", "bucket,name,state,link"])
@@ -110,6 +119,7 @@ def check_buckets(pr_number):
             counts["pending"] += 1
     counts["total"] = len(data)
     return counts
+
 
 def latest_bot_activity(pr, bots):
     if not bots:
@@ -126,11 +136,13 @@ def latest_bot_activity(pr, bots):
     known = [t for t in times if t is not None]
     return max(known) if known else None
 
+
 def last_commit_time(pr):
     commits = pr.get("commits") or []
     if not commits:
         return None
     return parse_time(commits[-1].get("committedDate"))
+
 
 def evaluate(pr, checks, bots):
     state = pr.get("state")
@@ -150,7 +162,7 @@ def evaluate(pr, checks, bots):
         # `gh pr checks` reports nothing both when CI has not registered yet and
         # when no CI exists. The PR's own payload separates the first case; a
         # recent head commit covers the seconds before the rollup appears.
-        if pr.get("statusCheckRollup") or []:
+        if pr.get("statusCheckRollup"):
             return None, "waiting", "checks are registering"
         commit_time = last_commit_time(pr)
         if commit_time and (datetime.now(timezone.utc) - commit_time).total_seconds() < CHECKS_GRACE_SECONDS:
@@ -181,6 +193,7 @@ def evaluate(pr, checks, bots):
         return 0, "settled", "review approved and CI green"
     return 0, "settled", "checks finished; review status reported"
 
+
 def notify(status, message, pr_number):
     if os.environ.get("HERDR_ENV") != "1" or not shutil.which("herdr"):
         return
@@ -199,6 +212,7 @@ def notify(status, message, pr_number):
         capture_output=True,
         text=True,
     )
+
 
 def summary(pr, checks, status, message):
     decision = pr.get("reviewDecision") or "none"
@@ -223,6 +237,7 @@ def summary(pr, checks, status, message):
             indent=2,
         )
     )
+
 
 def main():
     parser = argparse.ArgumentParser(description="Watch a PR until CI and review settle")
@@ -256,8 +271,12 @@ def main():
         if not pr:
             print("ERROR: could not read the pull request (auth or network?)", file=sys.stderr)
             return 2
-        if bots is None:
-            bots = bot_names(pr)
+        detected = bot_names(pr)
+        if detected != bots:
+            # Re-detect until a reviewer shows up: a cluster-side reviewer that
+            # has not posted yet leaves the first poll empty, and caching that
+            # empty result would settle before the mandated review.
+            bots = detected
             print(
                 f"Watching PR #{pr_number} (reviewers: {', '.join(bots) or 'none detected'})",
                 flush=True,
@@ -279,6 +298,7 @@ def main():
         notify(status, message, pr_number)
         summary(pr, checks, status, message)
         return code
+
 
 if __name__ == "__main__":
     sys.exit(main())

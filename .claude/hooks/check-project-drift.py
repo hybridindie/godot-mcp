@@ -46,6 +46,7 @@ LEGACY_PROFILES = {"web": ["fastapi", "frontend"]}
 
 PLACEHOLDER = re.compile(r"\{\{[A-Z_][A-Z0-9_]*\}\}")
 
+
 class Drift:
     def __init__(self, root: Path, quiet: bool = False) -> None:
         self.root = root
@@ -372,6 +373,7 @@ class Drift:
             return 1
         return 0
 
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check the rendered harness for project drift")
     parser.add_argument("--root", default=".", help="project root (default: current directory)")
@@ -384,6 +386,7 @@ def main() -> int:
     if code == 0 and not args.quiet:
         print(f"PASS: project harness consistent ({checker.checks} checks)")
     return code
+
 
 if __name__ == "__main__":
     sys.exit(main())
