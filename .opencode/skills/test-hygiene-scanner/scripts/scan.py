@@ -17,12 +17,14 @@ CATEGORIES = {
     "singleton": re.compile(r"get_prompt_loader|get_async_supabase|mlflow"),
 }
 
+
 def is_test(path: Path) -> bool:
     name = path.name
     return (
         "/tests/" in path.as_posix()
         or name.endswith((".test.ts", ".test.tsx", ".test.py", ".spec.ts", ".spec.tsx"))
     )
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()
@@ -52,6 +54,7 @@ def main() -> int:
             print(f"{hit['category']}\t{hit['file']}:{hit['line']}\t{hit['text']}")
     print(f"scanned={sum(1 for _ in roots)} hits={len(hits)}", file=sys.stderr)
     return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

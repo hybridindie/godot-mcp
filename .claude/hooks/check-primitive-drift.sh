@@ -11,7 +11,8 @@ set -euo pipefail
 DRIFT=0
 
 extract_body() {
-  awk '/^---$/{if (++count == 2) nextfile} count >= 2' "$1"
+  # Everything after the closing frontmatter delimiter (the second ---).
+  awk 'count >= 2 {print} /^---$/ {count++}' "$1"
 }
 
 check_pairs() {

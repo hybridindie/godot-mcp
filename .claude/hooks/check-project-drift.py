@@ -46,6 +46,7 @@ LEGACY_PROFILES = {"web": ["fastapi", "frontend"]}
 
 PLACEHOLDER = re.compile(r"\{\{[A-Z_][A-Z0-9_]*\}\}")
 
+
 class Drift:
     def __init__(self, root: Path, quiet: bool = False) -> None:
         self.root = root
@@ -221,38 +222,50 @@ class Drift:
         workflows = self.root / "my-workflows.md"
         self.check(workflows.is_file(), "DRIFT: my-workflows.md is missing")
 
-        config_path = self.root / ".opencode" / "opencode.json"
-        if not config_path.is_file() and (self.root / "opencode.json").is_file():
-            config_path = self.root / "opencode.json"
-        if self.check(config_path.is_file(), "DRIFT: opencode.json is missing (.opencode/ or root)"):
+        # OpenCode merges a root opencode.json and .opencode/opencode.json; check both.
+        configs = []
+        for path in (self.root / "opencode.json", self.root / ".opencode" / "opencode.json"):
+            if not path.is_file():
+                continue
             try:
-                config = json.loads(config_path.read_text(encoding="utf-8"))
+                data = json.loads(path.read_text(encoding="utf-8"))
             except json.JSONDecodeError as exc:
-                self.fail(f"DRIFT: {config_path.relative_to(self.root)} is invalid JSON: {exc}")
-                return
-            if not isinstance(config, dict):
-                self.fail(f"DRIFT: {config_path.relative_to(self.root)} must contain an object")
-                return
-            instructions = config.get("instructions") or []
-            self.check(
-                "my-workflows.md" in instructions,
-                "DRIFT: opencode.json must load my-workflows.md",
-            )
+                self.fail(f"DRIFT: {path.relative_to(self.root)} is invalid JSON: {exc}")
+                continue
+            if isinstance(data, dict):
+                configs.append(data)
+            else:
+                self.fail(f"DRIFT: {path.relative_to(self.root)} must contain an object")
+        if not self.check(bool(configs), "DRIFT: no opencode.json (root or .opencode/)"):
+            return
+        instructions, skill_paths = [], []
+        for config in configs:
+            instructions += config.get("instructions") or []
             skills = config.get("skills") or []
-            skill_paths = skills if isinstance(skills, list) else skills.get("paths") or []
-            self.check(
-                ".opencode/skills" in skill_paths,
-                "DRIFT: opencode.json must expose .opencode/skills",
-            )
-            permissions = config.get("permissions") or []
-            denies_env = any(
-                p.get("action") == "read"
-                and "env" in str(p.get("resource", ""))
-                and p.get("effect") == "deny"
-                for p in permissions
-            )
-            if not denies_env:
-                self.warn("WARN: opencode.json does not deny reading .env files")
+            skill_paths += skills if isinstance(skills, list) else skills.get("paths") or []
+        self.check(
+            any(str(i).endswith("my-workflows.md") for i in instructions),
+            "DRIFT: opencode.json must load my-workflows.md",
+        )
+        self.check(
+            any(str(p).rstrip("/").endswith(".opencode/skills") for p in skill_paths),
+            "DRIFT: opencode.json must expose .opencode/skills",
+        )
+        if not any(self.denies_env(c) for c in configs):
+            self.warn("WARN: opencode.json does not deny reading .env files")
+
+    @staticmethod
+    def denies_env(node: object) -> bool:
+        """Accepts the v2 `permissions` list and the `permission` object form."""
+        if isinstance(node, dict):
+            if node.get("effect") == "deny" and ".env" in str(node.get("resource", "")):
+                return True
+            if any(".env" in str(k) and v == "deny" for k, v in node.items()):
+                return True
+            return any(Drift.denies_env(v) for v in node.values())
+        if isinstance(node, list):
+            return any(Drift.denies_env(v) for v in node)
+        return False
 
     # ── Versions and paths ─────────────────────────────────────────────
 
@@ -329,10 +342,11 @@ class Drift:
             ".claude/hooks/check-primitive-drift.sh",
             ".claude/hooks/guardrails.sh",
             ".claude/hooks/install-git-hooks.sh",
-            ".githooks/pre-commit",
-            ".githooks/pre-push",
         ):
             self.check((self.root / rel).is_file(), f"DRIFT: required hook is missing: {rel}")
+        for rel in (".githooks/pre-commit", ".githooks/pre-push"):
+            if not (self.root / rel).is_file():  # repos on pre-commit or another hooksPath
+                self.warn(f"WARN: {rel} is missing; make sure another hook runs guardrails.sh")
 
     # ── Runner ─────────────────────────────────────────────────────────
 
@@ -359,6 +373,7 @@ class Drift:
             return 1
         return 0
 
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check the rendered harness for project drift")
     parser.add_argument("--root", default=".", help="project root (default: current directory)")
@@ -371,6 +386,7 @@ def main() -> int:
     if code == 0 and not args.quiet:
         print(f"PASS: project harness consistent ({checker.checks} checks)")
     return code
+
 
 if __name__ == "__main__":
     sys.exit(main())

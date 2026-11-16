@@ -1,11 +1,8 @@
 ---
-description: Evaluate the installed harness against the project's actual stack — trim rules that don't fit, suggest rules that are missing
+description: Evaluate the installed harness against the project's actual stack — verify stacks, trim rules that don't fit, suggest missing ones
 ---
 
-Read and follow the complete evaluation prompt at `docs/harness-eval.md`.
-
-That file is the canonical evaluation workflow. Follow all five phases:
-stack discovery, stack-fit evaluation, trim, suggest missing rules, and
-report. Present the plan before executing any edits.
+Read and follow `docs/harness-eval.md`. Present the plan and get confirmation
+before editing any file.
 
 $ARGUMENTS

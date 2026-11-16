@@ -1,0 +1,6 @@
+# Lint settings for the harness scripts genesis ships here. ruff uses the
+# nearest config, so these files don't inherit (or trip) the project's own.
+line-length = 120
+
+[lint]
+select = ["E", "F", "I"]

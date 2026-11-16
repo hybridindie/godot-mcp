@@ -23,8 +23,10 @@ query($owner: String!, $repo: String!, $pr: Int!) {
 }
 """
 
+
 def gh(*args: str) -> str:
     return subprocess.check_output(["gh", *args], text=True, timeout=30)
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()
@@ -34,7 +36,10 @@ def main() -> int:
     try:
         repo = gh("repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner").strip()
         owner, name = repo.split("/", 1)
-        raw = gh("api", "graphql", "-f", f"query={QUERY}", "-F", f"owner={owner}", "-F", f"repo={name}", "-F", f"pr={args.pr}")
+        raw = gh(
+            "api", "graphql", "-f", f"query={QUERY}",
+            "-F", f"owner={owner}", "-F", f"repo={name}", "-F", f"pr={args.pr}",
+        )
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
         print(f"gh failed: {exc}", file=sys.stderr)
         return 1
@@ -59,6 +64,7 @@ def main() -> int:
             print(f"{thread['id']}\t{thread['path']}:{thread['line']}\t{thread['author']}\t{thread['body'][:800]}")
         print(f"unresolved={len(threads)}", file=sys.stderr)
     return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

@@ -76,6 +76,7 @@ PATTERNS = [
     )),
 ]
 
+
 def is_text(path: Path) -> bool:
     try:
         if path.stat().st_size > MAX_BYTES:
@@ -85,6 +86,7 @@ def is_text(path: Path) -> bool:
         return False
     return b"\x00" not in chunk
 
+
 def should_skip(path: Path) -> bool:
     if any(part in SKIP_DIRS for part in path.parts):
         return True
@@ -92,16 +94,27 @@ def should_skip(path: Path) -> bool:
         return True
     return False
 
+
 def redact(value: str) -> str:
     if len(value) <= 8:
         return "***"
     return f"{value[:4]}...{value[-4:]}"
 
+
+# Source files: assignments there are code (`TOKEN_RE = re.compile(...)`), not
+# dotenv lines, so only the quoted "generic secret" pattern applies to them.
+CODE_SUFFIXES = {".py", ".pyi", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".gd",
+                 ".rs", ".go", ".java", ".kt", ".rb", ".cs", ".swift"}
+
+
 def scan_text(text: str, label: str, findings: list[str]) -> None:
+    is_code = Path(label).suffix in CODE_SUFFIXES
     for lineno, line in enumerate(text.splitlines(), 1):
         if ALLOW.search(line):
             continue
         for name, pattern in PATTERNS:
+            if is_code and name == "dotenv secret":
+                continue
             match = pattern.search(line)
             if not match:
                 continue
@@ -110,6 +123,7 @@ def scan_text(text: str, label: str, findings: list[str]) -> None:
                 continue
             findings.append(f"SECRET: {label}:{lineno} ({name}) {redact(value)}")
             break
+
 
 def git_files(staged: bool) -> list[str]:
     args = ["git", "diff", "--cached", "--name-only", "--diff-filter=ACMR"]
@@ -120,6 +134,7 @@ def git_files(staged: bool) -> list[str]:
     except (OSError, subprocess.CalledProcessError):
         return []
     return [line for line in out.splitlines() if line.strip()]
+
 
 def read_staged(path: str) -> str | None:
     try:
@@ -134,6 +149,7 @@ def read_staged(path: str) -> str | None:
         return out.decode("utf-8")
     except UnicodeDecodeError:
         return None
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Scan for credentials")
@@ -178,6 +194,7 @@ def main() -> int:
     if not args.quiet:
         print(f"PASS: no secrets in {scanned} file(s)")
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

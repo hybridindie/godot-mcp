@@ -32,8 +32,7 @@ lacks.
 | `rust` | `Cargo.toml` |
 
 Packs: suggest `production` if the project deploys a long-running service
-(Docker/compose/k8s) and `acd` only if the user wants the stricter ACD session
-discipline.
+(Docker/compose/k8s).
 
 Stack and pack changes go through a re-render, because the drift gate checks
 that the rules on disk match `harness.json`:
