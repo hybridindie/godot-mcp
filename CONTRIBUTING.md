@@ -84,7 +84,7 @@ Follow the issue-driven pipeline (see `.claude/rules/workflow.md`):
 3. **Green code** — minimum change to pass
 4. **Preflight clean** — `pytest`, `mypy`, `ruff`, zero-skip scan all green
 5. **PR opened** — title `<type>(<scope>): <summary> (closes #N)`, body has acceptance criteria + test plan
-6. **Comments addressed** — the Qodo PR bot auto-runs `/describe` + `/review`; wait for it, then fix or reply to every finding
+6. **Comments addressed** — OpenCodeReview auto-reviews on open and re-runs on `/review`; wait for it, then fix or reply to every finding
 7. **Merge** — squash, delete branch
 
 ## Grounding rules

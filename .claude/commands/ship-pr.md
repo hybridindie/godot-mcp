@@ -1,5 +1,5 @@
 ---
-description: Open or update a PR, watch CI and the PR-agent review, address the review, and merge with --merge when green
+description: Open or update a PR, watch CI and the automated review, address the review, and merge with --merge when green
 ---
 
 Read and follow the ship-pr skill:

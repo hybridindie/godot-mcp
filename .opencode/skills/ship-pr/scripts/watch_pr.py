@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Watch a pull request until CI and the PR-agent review settle.
+Watch a pull request until CI and the automated review settle.
 
 Exits:
   0   settled — CI finished and the review state is known (see output)
@@ -23,10 +23,22 @@ import shutil
 import subprocess
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
-DEFAULT_BOTS = ("qodo", "pr-agent", "coderabbit", "sourcery", "greptile")
+# A repo-level marker says an automated reviewer is configured, but not which
+# one: brix's OpenCodeReview App has been swapped in for PR-Agent cluster-side
+# while `.pr_agent.toml` files stayed behind, so the marker only decides whether
+# to wait. The logins below are the union of reviewer names seen in practice —
+# a GitHub App posts as `<slug>[bot]`, and on Gitea the token's own user authors
+# the comments. Set SHIP_PR_BOTS to name a reviewer outright, or `none` to never
+# wait for one.
+REVIEW_MARKERS = (".opencodereview/rule.json", ".pr_agent.toml")
+KNOWN_REVIEWERS = (
+    "open-code-review", "opencodereview", "ocr", "jds-code-reviewer",
+    "qodo", "pr-agent", "coderabbit", "sourcery", "greptile",
+)
+CHECKS_GRACE_SECONDS = 180
 FIELDS = (
     "number,url,state,isDraft,mergeStateStatus,reviewDecision,"
     "statusCheckRollup,reviews,comments,commits,labels"
@@ -57,11 +69,33 @@ def parse_time(value):
     except ValueError:
         return None
 
-def bot_names():
+def bot_names(pr=None):
     override = os.environ.get("SHIP_PR_BOTS", "").strip()
     if override:
+        if override.lower() == "none":
+            return ()
         return tuple(x.strip().lower() for x in override.split(",") if x.strip())
-    return DEFAULT_BOTS if Path(".pr_agent.toml").is_file() else ()
+    if any(Path(marker).is_file() for marker in REVIEW_MARKERS):
+        return KNOWN_REVIEWERS
+    if pr is not None:
+        # No marker: a cluster-side reviewer still shows up in the PR history.
+        logins = [
+            ((item.get("author") or {}).get("login") or "")
+            for item in (pr.get("reviews") or []) + (pr.get("comments") or [])
+        ]
+        if any(matches_bot(x, KNOWN_REVIEWERS) for x in logins):
+            return KNOWN_REVIEWERS
+    return ()
+
+def matches_bot(login, bots):
+    """Loose login match: `ocr` covers `ocr-reviewer[bot]` but not `mediocre-dev`."""
+    login = (login or "").lower()
+    return any(
+        login == bot
+        or login.startswith((bot + "[", bot + "-", bot + "_"))
+        or login.endswith(("-" + bot, "_" + bot))
+        for bot in bots
+    )
 
 def check_buckets(pr_number):
     data = gh_json(["pr", "checks", str(pr_number), "--json", "bucket,name,state,link"])
@@ -82,12 +116,12 @@ def latest_bot_activity(pr, bots):
         return None
     times = []
     for review in pr.get("reviews") or []:
-        login = ((review.get("author") or {}).get("login") or "").lower()
-        if any(bot in login for bot in bots):
+        login = (review.get("author") or {}).get("login") or ""
+        if matches_bot(login, bots):
             times.append(parse_time(review.get("submittedAt")))
     for comment in pr.get("comments") or []:
-        login = ((comment.get("author") or {}).get("login") or "").lower()
-        if any(bot in login for bot in bots):
+        login = (comment.get("author") or {}).get("login") or ""
+        if matches_bot(login, bots):
             times.append(parse_time(comment.get("createdAt")))
     known = [t for t in times if t is not None]
     return max(known) if known else None
@@ -112,6 +146,16 @@ def evaluate(pr, checks, bots):
     if decision == "CHANGES_REQUESTED":
         return 20, "changes_requested", "review requested changes"
 
+    if checks is None:
+        # `gh pr checks` reports nothing both when CI has not registered yet and
+        # when no CI exists. The PR's own payload separates the first case; a
+        # recent head commit covers the seconds before the rollup appears.
+        if pr.get("statusCheckRollup") or []:
+            return None, "waiting", "checks are registering"
+        commit_time = last_commit_time(pr)
+        if commit_time and (datetime.now(timezone.utc) - commit_time).total_seconds() < CHECKS_GRACE_SECONDS:
+            return None, "waiting", "checks are registering"
+
     if checks is not None:
         if checks["fail"] or checks["cancel"]:
             return 10, "ci_failed", "one or more checks failed"
@@ -125,14 +169,14 @@ def evaluate(pr, checks, bots):
         bot_time = latest_bot_activity(pr, bots)
         commit_time = last_commit_time(pr)
         if bot_time is None or (commit_time and bot_time < commit_time):
-            return None, "waiting", "waiting for the PR-agent review"
+            return None, "waiting", "waiting for the automated review"
         if decision == "APPROVED":
             return 0, "settled", "review approved and CI green"
         if decision == "REVIEW_REQUIRED" and merge_state == "BLOCKED":
             return 0, "settled", "review landed; approval still required"
         return 0, "settled", "review landed and CI green"
 
-    # No PR-agent configured: stop when checks are done and report the state.
+    # No automated reviewer configured: stop when checks are done and report the state.
     if decision == "APPROVED":
         return 0, "settled", "review approved and CI green"
     return 0, "settled", "checks finished; review status reported"
@@ -203,16 +247,21 @@ def main():
             return 2
         pr_number = current["number"]
 
-    bots = bot_names()
+    bots = None
     deadline = time.monotonic() + max(args.timeout, 0)
     interval = max(args.interval, 5)
-    print(f"Watching PR #{pr_number} (bots: {', '.join(bots) or 'none detected'})", flush=True)
 
     while True:
         pr = gh_json(["pr", "view", str(pr_number), "--json", FIELDS])
         if not pr:
             print("ERROR: could not read the pull request (auth or network?)", file=sys.stderr)
             return 2
+        if bots is None:
+            bots = bot_names(pr)
+            print(
+                f"Watching PR #{pr_number} (reviewers: {', '.join(bots) or 'none detected'})",
+                flush=True,
+            )
         checks = check_buckets(pr_number)
         code, status, message = evaluate(pr, checks, bots)
 

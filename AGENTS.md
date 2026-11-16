@@ -150,7 +150,7 @@ The agent harness (rendered from genesis; `.claude/harness.json` records the sta
 
 - `/preflight` — the CI-equivalent gate before a PR
 - `/harness-eval` — check the rules still fit the code
-- `/ship-pr` — open or update a PR, watch CI and the PR-Agent review
+- `/ship-pr` — open or update a PR, watch CI and the automated review
 
 ### Skills
 

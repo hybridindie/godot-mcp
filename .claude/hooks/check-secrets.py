@@ -97,11 +97,19 @@ def redact(value: str) -> str:
         return "***"
     return f"{value[:4]}...{value[-4:]}"
 
+# Source files: assignments there are code (`TOKEN_RE = re.compile(...)`), not
+# dotenv lines, so only the quoted "generic secret" pattern applies to them.
+CODE_SUFFIXES = {".py", ".pyi", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".gd",
+                 ".rs", ".go", ".java", ".kt", ".rb", ".cs", ".swift"}
+
 def scan_text(text: str, label: str, findings: list[str]) -> None:
+    is_code = Path(label).suffix in CODE_SUFFIXES
     for lineno, line in enumerate(text.splitlines(), 1):
         if ALLOW.search(line):
             continue
         for name, pattern in PATTERNS:
+            if is_code and name == "dotenv secret":
+                continue
             match = pattern.search(line)
             if not match:
                 continue

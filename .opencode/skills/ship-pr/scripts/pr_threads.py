@@ -34,7 +34,10 @@ def main() -> int:
     try:
         repo = gh("repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner").strip()
         owner, name = repo.split("/", 1)
-        raw = gh("api", "graphql", "-f", f"query={QUERY}", "-F", f"owner={owner}", "-F", f"repo={name}", "-F", f"pr={args.pr}")
+        raw = gh(
+            "api", "graphql", "-f", f"query={QUERY}",
+            "-F", f"owner={owner}", "-F", f"repo={name}", "-F", f"pr={args.pr}",
+        )
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
         print(f"gh failed: {exc}", file=sys.stderr)
         return 1
