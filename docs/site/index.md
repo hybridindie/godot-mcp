@@ -31,6 +31,19 @@ features:
     details: Three installable skills ship with it, including godot-expert — the Godot 4.x rules most people learn by hitting the bug. Any MCP client that installs them inherits correct Godot instincts.
 ---
 
+## See it in use
+
+A real session — no mocked results, no hand-written captions. The agent asks for a spinning
+gem; the editor on the left grows the node, receives its script, and saves the scene, while the
+right pane shows the actual tool calls and what they returned.
+
+<video controls autoplay muted loop playsinline poster="/demo/godot-mcp-demo-poster.png" style="width:100%;border-radius:12px">
+  <source src="/demo/godot-mcp-demo.mp4" type="video/mp4" />
+  <img src="/demo/godot-mcp-demo.gif" alt="An AI agent adds a spinning gem to a live Godot scene through Godot Editor MCP" />
+</video>
+
+<sub>[How this was recorded](https://github.com/hybridindie/godot-mcp/blob/main/docs/site/public/demo/README.md) — the prompt, the rig, and what was sped up.</sub>
+
 ## See it catch a mistake
 
 Ask your assistant to add a node inside an instanced scene:
