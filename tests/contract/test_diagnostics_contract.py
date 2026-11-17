@@ -81,7 +81,7 @@ def test_diagnostics_reports_godot_support(server: FastMCP) -> None:
     result_text = asyncio.run(_call_tool(server, "godot_get_server_info"))
     assert "godot_support" in result_text
     assert "verified_against" in result_text
-    assert "4.8-beta2" in result_text
+    assert "4.8-beta3" in result_text
     assert "disconnected" in result_text
 
 

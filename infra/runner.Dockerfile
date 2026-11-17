@@ -87,13 +87,13 @@ RUN /opt/godot/4.4/godot --version | grep -q "^4.4" \
 # downloads.godotengine.org (no GitHub release / SHA512-SUMS file), so the zip's
 # SHA512 is pinned here (verified against the official download for the pinned
 # beta commit cafc17a1). Update the version, asset, URL and hash together.
-ARG GODOT48_VERSION=4.8-beta2
-ARG GODOT48_ASSET=Godot_v4.8-beta2_linux.x86_64.zip
-ARG GODOT48_SHA512=77470f53a9039cd22837935380230220167e098324e82ec448ee4b1f943f00afc424885f7d6631f385123d7a630a9399b3cc1b0e1dad1a4ac45c6356b3a0aa45
+ARG GODOT48_VERSION=4.8-beta3
+ARG GODOT48_ASSET=Godot_v4.8-beta3_linux.x86_64.zip
+ARG GODOT48_SHA512=c6dfb51e2d305934345042bedcf19ea8f421b774e601cd11b92cd39112d3f8855ab600a4602d458a5509076b647db1171d23440c365ee3d4fc78111958a77a28
 
 RUN mkdir -p /opt/godot48 \
     && curl -fsSL -o /tmp/${GODOT48_ASSET} \
-        "https://downloads.godotengine.org/?version=4.8&flavor=beta2&slug=linux.x86_64.zip" \
+        "https://downloads.godotengine.org/?version=4.8&flavor=beta3&slug=linux.x86_64.zip" \
     && echo "${GODOT48_SHA512}  /tmp/${GODOT48_ASSET}" | sha512sum -c - \
     && unzip -o /tmp/${GODOT48_ASSET} -d /opt/godot48 \
     && chmod +x /opt/godot48/Godot_v${GODOT48_VERSION}_linux.x86_64 \
@@ -101,8 +101,8 @@ RUN mkdir -p /opt/godot48 \
     && rm -f /tmp/${GODOT48_ASSET}
 
 # Sanity: the beta binary reports the pinned beta line.
-RUN /opt/godot48/godot --version | grep -Eq "^4[.-]8[.-]beta2([.-]|$)" \
-    || (echo "::error::Godot 4.8 beta binary did not report 4.8.beta2" && exit 1)
+RUN /opt/godot48/godot --version | grep -Eq "^4[.-]8[.-]beta3([.-]|$)" \
+    || (echo "::error::Godot 4.8 beta binary did not report 4.8.beta3" && exit 1)
 
 ENV GODOT_BIN=/opt/godot/godot
 

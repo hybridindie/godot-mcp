@@ -50,7 +50,7 @@ GODOT_BIN = find_godot()
 def engine_version() -> tuple[int, int, int] | None:
     """The resolved engine's ``(major, minor, patch)``, or None when unavailable.
 
-    Parses ``4.8.beta2.official.cafc17a19`` / ``4.7.2-stable (official)``. Used
+    Parses ``4.8.beta3.official.c51ff06e8`` / ``4.7.2-stable (official)``. Used
     only for genuine engine-precondition gates (e.g. scene metadata is 4.8+).
     """
     if GODOT_BIN is None:
