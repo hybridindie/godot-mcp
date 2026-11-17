@@ -15,7 +15,7 @@ from mcp_server.godot_support import (
 def test_constants_match_the_repo_claims() -> None:
     assert FLOOR == (4, 4)
     assert VALIDATED == (4, 7)
-    assert VERIFIED_AGAINST == "4.8-beta2"
+    assert VERIFIED_AGAINST == "4.8-beta3"
 
 
 def test_no_engine_is_disconnected_not_an_error() -> None:
@@ -32,8 +32,8 @@ def test_no_engine_is_disconnected_not_an_error() -> None:
         ("4.7.stable.official.5b4e0cb0f", "validated"),
         ("4.6.3-stable", "supported"),
         ("4.4.1-stable", "supported"),
-        ("4.8.beta2.official.cafc17a19", "prerelease"),
-        ("4.8-beta2", "prerelease"),
+        ("4.8.beta3.official.c51ff06e8", "prerelease"),
+        ("4.8-beta3", "prerelease"),
         ("4.8.rc1.official.abc", "prerelease"),
         ("4.8.stable.official.abc", "newer"),
         ("4.9.dev1", "prerelease"),
@@ -51,7 +51,7 @@ def test_validated_engine_has_no_notice() -> None:
 
 
 def test_beta_notice_names_the_verified_binary() -> None:
-    info = classify_godot_version("4.8.beta2.official.cafc17a19")
+    info = classify_godot_version("4.8.beta3.official.c51ff06e8")
     assert "prerelease" in (info.notice or "")
     assert VERIFIED_AGAINST in (info.notice or "")
     assert "4.7" in (info.notice or "")

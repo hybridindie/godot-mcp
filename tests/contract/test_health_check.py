@@ -58,16 +58,16 @@ async def test_health_check_reports_disconnected_when_editor_absent() -> None:
 
 async def test_health_reports_the_attached_engine_support() -> None:
     # #588: health classifies the engine from the peer hello against the support
-    # surface (floor 4.4, validated 4.7, verified 4.8-beta2). Pure build_health:
+    # surface (floor 4.4, validated 4.7, verified 4.8-beta3). Pure build_health:
     # the hello is populated by the bridge, not by a tool round-trip.
     bridge = Bridge(ServerConfig().bridge)
-    bridge._peer_identity = {"godot_version": "4.8.beta2.official.cafc17a1"}
+    bridge._peer_identity = {"godot_version": "4.8.beta3.official.c51ff06e8"}
     status = build_health(bridge, ServerConfig())
-    assert status.godot_version == "4.8.beta2.official.cafc17a1"
+    assert status.godot_version == "4.8.beta3.official.c51ff06e8"
     assert status.godot_support is not None
     assert status.godot_support.status == "prerelease"
     assert status.godot_support.validated == "4.7"
-    assert status.godot_support.verified_against == "4.8-beta2"
+    assert status.godot_support.verified_against == "4.8-beta3"
 
 
 async def test_health_check_without_editor_reports_disconnected_support() -> None:

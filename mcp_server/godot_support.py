@@ -25,8 +25,8 @@ from pydantic import BaseModel
 FLOOR = (4, 4)
 #: The stable engine the project is validated against (``config/features``).
 VALIDATED = (4, 7)
-#: Newest Godot prerelease verified on the advisory e2e lane (#842).
-VERIFIED_AGAINST = "4.8-beta2"
+#: Newest Godot prerelease verified on the advisory e2e lane (#855).
+VERIFIED_AGAINST = "4.8-beta3"
 
 Status = Literal[
     "disconnected",
