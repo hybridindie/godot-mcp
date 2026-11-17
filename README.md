@@ -33,6 +33,17 @@
 > `godot-mcp` for wire compatibility; the package/CLI is `godot-editor-mcp`; the in-editor
 > plugin is **Godot Editor MCP - Addon**; and every tool shares the `godot_` prefix.
 
+<p align="center">
+  <img src="docs/site/public/demo/godot-mcp-demo.gif" alt="An AI agent adds a spinning gem to a live Godot scene: the scene tree and 2D view update as each godot_scene_edit call lands" width="100%">
+</p>
+
+<p align="center"><sub>
+  A real session — an AI agent driving a live Godot editor through Godot Editor MCP.
+  The scene tree, the 2D view and the addon dock are the editor; the right pane is the session's
+  own tool calls. <a href="docs/site/public/demo/godot-mcp-demo.mp4">Watch the 16&nbsp;s MP4</a> ·
+  <a href="docs/site/public/demo/README.md">how it was recorded</a>
+</sub></p>
+
 ---
 
 ## What it is
