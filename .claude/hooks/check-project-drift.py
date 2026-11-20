@@ -40,9 +40,12 @@ STACK_MARKERS = {
 }
 PACK_MARKERS = {
     "production": "deploy-safety.md",
-    "acd": "agentic-workflow.md",
 }
-LEGACY_PROFILES = {"web": ["fastapi", "frontend"]}
+# Keep in sync with LEGACY_PROFILES in genesis templates/scripts/render.py.
+LEGACY_PROFILES = {
+    "web": ["fastapi", "frontend"], "fastapi+react": ["fastapi", "frontend"],
+    "generic-python": ["python"],
+}
 
 PLACEHOLDER = re.compile(r"\{\{[A-Z_][A-Z0-9_]*\}\}")
 
@@ -87,7 +90,7 @@ class Drift:
         if schema == 1:  # single-profile harness from an older bootstrap
             profile = data.get("profile") or "python"
             data["stacks"] = LEGACY_PROFILES.get(profile, [profile])
-            data.setdefault("packs", ["acd"] if profile == "agent" else [])
+            data.setdefault("packs", [])
         for stack in data.get("stacks") or []:
             self.check(stack in STACK_MARKERS, f"DRIFT: unknown stack in harness.json: {stack!r}")
         for pack in data.get("packs") or []:
