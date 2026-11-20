@@ -38,7 +38,7 @@ ff4b9a1a3f66dc409141246f98cb81ef7c4930d56fb936c42a30d54fa6f9cc55  .claude/rules/
 0ec0e3a8f958586ffb4e5cc68c0ca655fe5a3f741858f918c5bbd1d925162e7d  .claude/skills/customize-harness/scripts/inventory.py
 55f8721f085fdbaeaaa5a9aa3839675983c5ae001814c92a24ad065ce8891fbe  .claude/skills/ship-pr/SKILL.md
 739214f46eb2a77b7d155472f8e6ce9a4fda0ec2f0949821fccb5b62ce433df2  .claude/skills/ship-pr/scripts/pr_threads.py
-bcf1ca7205a4c7d0d9e408e1ec2e7d6aaf641f0762e5170fda1625b07061a9db  .claude/skills/ship-pr/scripts/watch_pr.py
+90d48a8c2cc95f89751a8a13be5bbefb47f71970b5f97ab7ace8c43253e8e584  .claude/skills/ship-pr/scripts/watch_pr.py
 fead9acab5ee3b14440c985af0795b877b183b1024e21f632ec7be3790be2f6f  .claude/skills/test-hygiene-scanner/SKILL.md
 79077450a3acb858eec0513e49760ae6c7d0decaed64f225dd4055f683ebcfe6  .claude/skills/test-hygiene-scanner/scripts/scan.py
 03e1b09b7870601b76eaa95426333d682a6d7243659573a77a569f379145469a  .opencode/agents/article-compliance-reviewer.md

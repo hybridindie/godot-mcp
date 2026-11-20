@@ -128,7 +128,11 @@ def is_reviewer(login, bots):
     if matches_bot(login, bots):
         return True
     low = (login or "").lower()
-    return low.endswith("[bot]") and not any(name in low for name in IGNORED_BOTS)
+    if any(name in low for name in IGNORED_BOTS):
+        return False
+    # `gh pr view` reports an App's author as the bare slug, without the `[bot]`
+    # suffix the REST API appends, so match the common bot/reviewer suffixes too.
+    return low.endswith(("[bot]", "-bot", "-reviewer", "-app", "-ai"))
 
 
 def latest_bot_activity(pr, bots):
