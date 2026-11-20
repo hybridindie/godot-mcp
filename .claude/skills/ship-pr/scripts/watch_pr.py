@@ -27,17 +27,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 # A repo-level marker says an automated reviewer is configured, but not which
-# one: brix's OpenCodeReview App has been swapped in for PR-Agent cluster-side
-# while `.pr_agent.toml` files stayed behind, so the marker only decides whether
-# to wait. The logins below are the union of reviewer names seen in practice —
-# a GitHub App posts as `<slug>[bot]`, and on Gitea the token's own user authors
-# the comments. Set SHIP_PR_BOTS to name a reviewer outright, or `none` to never
-# wait for one.
+# one: the reviewer can be swapped out cluster-side while `.pr_agent.toml`
+# files stay behind, so the marker only decides whether to wait. A GitHub App
+# posts as `<slug>[bot]` and the slug is deployment-specific, so any bot login
+# counts as a reviewer unless it is the kind that only reports dependencies or
+# build output. Set SHIP_PR_BOTS to name a reviewer outright, or `none` to
+# never wait for one.
 REVIEW_MARKERS = (".opencodereview/rule.json", ".pr_agent.toml")
 KNOWN_REVIEWERS = (
-    "open-code-review", "opencodereview", "ocr", "jds-code-reviewer",
+    "open-code-review", "opencodereview", "ocr",
     "qodo", "qodo-merge", "pr-agent", "coderabbitai", "sourcery-ai", "greptile-app",
 )
+# Bots that comment constantly but never review; waiting on them would stall.
+IGNORED_BOTS = ("dependabot", "renovate", "github-actions", "codecov", "snyk", "copilot")
 CHECKS_GRACE_SECONDS = 180
 FIELDS = (
     "number,url,state,isDraft,mergeStateStatus,reviewDecision,"
@@ -87,7 +89,7 @@ def bot_names(pr=None):
             ((item.get("author") or {}).get("login") or "")
             for item in (pr.get("reviews") or []) + (pr.get("comments") or [])
         ]
-        if any(matches_bot(x, KNOWN_REVIEWERS) for x in logins):
+        if any(is_reviewer(x, KNOWN_REVIEWERS) for x in logins):
             return KNOWN_REVIEWERS
     return ()
 
@@ -121,17 +123,25 @@ def check_buckets(pr_number):
     return counts
 
 
+def is_reviewer(login, bots):
+    """A configured reviewer, or any bot that is not a dependency/build reporter."""
+    if matches_bot(login, bots):
+        return True
+    low = (login or "").lower()
+    return low.endswith("[bot]") and not any(name in low for name in IGNORED_BOTS)
+
+
 def latest_bot_activity(pr, bots):
     if not bots:
         return None
     times = []
     for review in pr.get("reviews") or []:
         login = (review.get("author") or {}).get("login") or ""
-        if matches_bot(login, bots):
+        if is_reviewer(login, bots):
             times.append(parse_time(review.get("submittedAt")))
     for comment in pr.get("comments") or []:
         login = (comment.get("author") or {}).get("login") or ""
-        if matches_bot(login, bots):
+        if is_reviewer(login, bots):
             times.append(parse_time(comment.get("createdAt")))
     known = [t for t in times if t is not None]
     return max(known) if known else None

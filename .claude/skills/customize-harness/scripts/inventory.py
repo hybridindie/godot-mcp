@@ -177,10 +177,10 @@ def main() -> int:
     pyproject_text = pyproject.read_text(encoding="utf-8") if pyproject.is_file() else ""
     name_match = re.search(r'^name\s*=\s*"([^"]+)"', pyproject_text, re.MULTILINE)
     workflow_sections: dict[str, list[str]] = {}
-    wf = root / "my-workflows.md"
-    if wf.is_file():
+    workflows_file = root / "my-workflows.md"
+    if workflows_file.is_file():
         section = ""
-        for line in wf.read_text(encoding="utf-8").splitlines():
+        for line in workflows_file.read_text(encoding="utf-8").splitlines():
             if line.startswith("#"):
                 section = line.strip("# ").strip()
                 workflow_sections.setdefault(section, [])

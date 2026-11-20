@@ -12,7 +12,7 @@ user-invocable: true
 
 <!--
   contract: .claude/rules/doctrine/skill-execution.md
-  version: 2.0.0, owner: John D
+  version: 2.1.0, owner: John D
 -->
 
 Tailor the **installed** harness in place. Rendering owns placeholders; this
@@ -22,7 +22,6 @@ skill owns semantic fit and workflow weaving. It never needs the genesis repo.
 
 - Required: `AGENTS.md`, `CLAUDE.md`, `my-workflows.md` (if present).
 - Read: `README.md`, `pyproject.toml` / `package.json` description or name.
-- Read: `.opencode/opencode.json` — the OpenCode LSP surface.
 - Read only the rule/agent/command files whose names appear in `AGENTS.md` or the
   requested change; do not open every rule.
 - Do not read: `templates/`, generator source, or unrelated repositories.
@@ -36,29 +35,15 @@ skill owns semantic fit and workflow weaving. It never needs the genesis repo.
    is still unclear, ask one question.
 3. **Read workflows.** Open `my-workflows.md`; ignore every section that is still
    a `<placeholder>`.
-4. **Fit the LSP setup.** Trust the `lsp` block; do not probe for binaries or
-   grep extensions yourself.
-   - `detected_servers` are the language servers this project needs.
-   - `no_builtin_server` are languages with no OpenCode built-in. Report them as
-     a gap; never invent a custom server entry without the user asking.
-     A language leaves this list once the config declares a server for its
-     extension, so `.gd` is satisfied by the `godot` bridge rather than flagged.
-   - `current` is `<no-config>`, `<absent>`, `true`, or an object of enabled and
-     disabled servers.
-
-   Apply this decision order:
-
-   - `current` is `<no-config>` or `<absent>` → add `"lsp": true`. Create
-     `.opencode/opencode.json` only when the project has no OpenCode config.
-   - `current` is `true` → leave it; built-ins activate lazily.
-   - `current` is an object → ensure no `disabled` entry covers a server in
-     `detected_servers`.
-
-   Then report, without fixing: each `binaries_missing` entry (name the binary to
-   install — never install it) and each `auto_install_on_first_use` entry (the
-   server downloads itself on first use).
+4. **Report language-server fit.** OpenCode v2 keeps the `lsp` key but runs no
+   servers, so don't add or change `lsp` in `opencode.json` (root or
+   `.opencode/`). Trust the inventory's `lsp` block; do not probe yourself.
+   - `detected_servers` are the languages a Claude Code code-intelligence plugin
+     would help with; list them as a suggestion, never install one.
+   - `current` is `<no-config>`, `<absent>`, `<invalid>` (an OpenCode config
+     that doesn't parse — report it as a defect) or the configured entries.
 5. **Build the edit plan.** One row per file: current problem, exact change,
-   reason. Group as domain fit, coverage, LSP, workflow weaving, trim, or missing
+   reason. Group as domain fit, coverage, workflow weaving, trim, or missing
    rule.
 6. **Stop for approval.** Show the plan and ask “Apply this plan? Reply yes, or
    adjust.” Do not edit before approval.
@@ -67,7 +52,7 @@ skill owns semantic fit and workflow weaving. It never needs the genesis repo.
    confirmation.
 8. **Validate.** Run
    `python3 .claude/hooks/check-project-drift.py --quiet`; stop on failure.
-9. **Report.** List changed files, removed rules, added rules, the LSP outcome,
+9. **Report.** List changed files, removed rules, added rules, the LSP note,
    and any skipped workflow sections.
 
 ## LLM Judgment
@@ -77,9 +62,6 @@ Use judgment only for:
 - mapping generic examples to the project's actual domain terms;
 - deciding which rules genuinely do not fit;
 - weaving filled-in workflow conventions into `AGENTS.md` without copying;
-- tailoring LSP beyond the default: a non-standard virtualenv needs an explicit
-  `pyright` `pythonPath`, and a project that cannot fetch from npm wants the
-  `bash` and `yaml-ls` servers disabled instead of left to auto-install.
 
 Do not invent project facts or change the stack.
 
@@ -100,7 +82,7 @@ After approval, report:
 Changed: <file list>
 Rules removed: <list or none>
 Rules added: <list or none>
-LSP: <servers active | unchanged | degraded: missing <binary>>
+LSP: <suggested code-intelligence plugins | none>
 Workflow sections skipped: <list or none>
 Validation: PASS | FAIL
 ```
@@ -110,11 +92,9 @@ Validation: PASS | FAIL
 - Stop if `AGENTS.md` or `CLAUDE.md` is missing; run bootstrap first.
 - Stop if the plan is not approved.
 - Stop if drift validation fails.
-- Never add an `lsp` key to `.claude/settings.json`. Claude Code has no such
-  setting and ignores it; diagnostics there come from an attached IDE or an MCP
-  bridge, not from config. Say this rather than writing a dead key.
-- Never install a language-server binary to satisfy `binaries_missing`; report it
-  and let the user install it.
+- Never add an `lsp` key to `.claude/settings.json` or `opencode.json`; neither
+  harness runs servers from it. Claude Code gets them from plugins or `/ide`.
+- Never install a language server or plugin; suggest it and let the user act.
 - Do not touch `templates/` or any genesis file.
 
 ## Token Budget
