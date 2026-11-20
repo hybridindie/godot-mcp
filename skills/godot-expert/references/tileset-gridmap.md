@@ -19,7 +19,7 @@ create_tileset → add_tileset_atlas_source → create_tile → tilemap_set_cell
 | 1 | `godot_tilemap_create_tileset(node_path, tile_size=[w,h])` | the TileSet (grid cell size) |
 | 2 | `godot_tilemap_add_tileset_atlas_source(texture_path, region_size=[w,h])` | an atlas source; returns `source_id` |
 | 3 | `godot_tilemap_create_tile(source_id, atlas_coords=[x,y])` | makes that atlas cell placeable |
-| 4 | `godot_tilemap_set_cell(node_path, position=[x,y], source_id, atlas_coords)` | paints one cell |
+| 4 | `godot_tilemap_set_cell(node_path, coords=[x,y], source_id, atlas_coords)` | paints one cell |
 
 Target the TileSet by **`node_path` (an in-scene TileMap/TileMapLayer) or
 `tileset_path` (a saved `.tres`) — pass exactly one.** `create_tileset` accepts

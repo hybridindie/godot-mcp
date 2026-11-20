@@ -83,7 +83,7 @@ STATIC_CAPABILITY: dict[str, Any] = {
     "version": __version__,
     "min_godot": "4.4",
     "docs": {
-        "tutorial": "https://github.com/hybridindie/godot-mcp/blob/main/docs/tutorial.md",
+        "tutorial": "https://github.com/hybridindie/godot-mcp/blob/main/docs/site/guides-walkthrough.md",
         "tool_contracts": "https://github.com/hybridindie/godot-mcp/blob/main/docs/tool-contracts.md",
         "architecture": "https://github.com/hybridindie/godot-mcp/blob/main/docs/architecture.md",
     },

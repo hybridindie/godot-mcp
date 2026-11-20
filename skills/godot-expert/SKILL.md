@@ -75,8 +75,12 @@ path above.
 ## 3. Physics in one paragraph
 
 `collision_layer` is what a body **is**; `collision_mask` is what it **hits** (bitmasks
-1, 2, 4, 8, 16…). `CollisionShape2D.shape` is a **resource** property, not a child node:
-`godot_scene_edit_set_node_property(node_path='Player/Collision', property='shape', value={'type': 'RectangleShape2D', 'size': {'x': 32, 'y': 32}})`.
+1, 2, 4, 8, 16…). `CollisionShape2D.shape` is a **resource** property, not a child node.
+Create it (and the `CollisionShape2D`) in one undoable call with
+`godot_physics_setup_collision(node_path='Player', shape_type='RectangleShape2D',
+properties={'size': {'x': 32, 'y': 32}})` after enabling the `physics` toolset.
+`godot_scene_edit_set_node_property(property='shape', …)` only accepts a `res://`
+resource path or `null` — it cannot construct an inline shape.
 
 ## 4. GDScript gotchas
 

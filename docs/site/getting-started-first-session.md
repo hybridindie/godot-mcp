@@ -115,5 +115,6 @@ The assistant's own report (and the `troubleshoot` prompt) usually names the fix
 - **Start from an example.** The two games under [examples](guides-examples.md) give the
   assistant a real project to work against.
 
-Next: [Build a scene](guides-build-scene.md) walks the full loop, or
+Next: the [Cookbook](guides-cookbook.md) has copy-ready call/response recipes,
+[Build a scene](guides-build-scene.md) walks the full loop, and
 [Play-test & debug](guides-playtest-debug.md) starts from the runtime side.

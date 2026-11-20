@@ -26,7 +26,11 @@ Install them once and your agent has the right guidance at the right time.
 The companion **documentation site** is at https://hybridindie.github.io/godot-mcp/ — for
 LLM agents, [`llms.txt`](https://hybridindie.github.io/godot-mcp/llms.txt) and
 [`llms-full.txt`](https://hybridindie.github.io/godot-mcp/llms-full.txt) serve the same
-docs in agent-friendly markdown.
+docs in agent-friendly markdown. The
+[Cookbook](https://hybridindie.github.io/godot-mcp/guides-cookbook.html) has
+copy-ready call/response recipes for every toolset, and the
+[walkthrough](https://hybridindie.github.io/godot-mcp/guides-walkthrough.html)
+is one continuous build.
 
 ---
 

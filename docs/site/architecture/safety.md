@@ -70,9 +70,17 @@ never a Python exception:
 | `require_bridge_connected` | `bridge_connected` | open Godot + enable the addon |
 | `require_active_scene` | `active_scene` | `open_scene` / `create_scene` |
 | `require_node_exists(path)` | — (`RESOURCE_NOT_FOUND`) | `get_scene_tree` to find real paths |
-| `require_godot_binary` | `godot_binary` | install Godot / set `GODOT_BIN` |
+| `require_godot_binary` | `godot_bin` | install Godot / set `GODOT_MCP_GODOT_BIN` |
 | toolset version gate | `godot_version` | upgrade the editor |
+| toolset gate | `toolset` | `godot_enable_toolset(category=…)` |
+| project dir required | `project_dir` | set `GODOT_MCP_PROJECT_DIR` or open a project |
+| runtime play session | `play_session` | `godot_runtime_play_scene(scene_path=…)` |
+| runtime probe | `runtime_probe` | register `MCPRuntimeProbe` as an autoload |
 | game-not-break gate (input sim) | `game_not_breaked` | `godot_debugger_continue_execution` |
+| human approval gate | `human_approval` | configure `GODOT_MCP_APPROVAL_WEBHOOK` / approve |
+| consent token | `consent` | `godot_describe_tool(tool, args)` → pass `token` as `consent` |
+| editor readiness | `editor_ready` | wait for import/modal to finish; check `editor_status` |
+| destructive confirm | `confirm` | preview with `dry_run`, then retry with `confirm=True` |
 
 ## Where safety lives, and why
 

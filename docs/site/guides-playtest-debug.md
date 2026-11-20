@@ -35,6 +35,17 @@ You: *"Set up live runtime inspection — add the probe autoload if it's missing
 The assistant checks the project's autoloads and, if the probe isn't registered, adds it. The
 probe runs **in the game** (not the editor) and no-ops in exported builds.
 
+```jsonc
+godot_inspection_get_project_info()
+// { "autoloads": [...] } — look for MCPRuntimeProbe
+
+godot_enable_toolset(category="resources_edit")
+godot_resources_edit_register_autoload(
+  name="MCPRuntimeProbe",
+  path="res://addons/godot_mcp/mcp_runtime_probe.gd",
+  confirm=true)
+```
+
 ## 2. Play and inspect
 
 You: *"Play the main scene and show me the Player's position over time."*
@@ -43,6 +54,19 @@ The assistant starts a live play session, then can read the running game's real 
 the editor's copy), sample a property over frames, find UI by its text, and read performance
 monitors. Pending reads carry a `reason` token (e.g. `capture_pending`) — the assistant keeps
 polling rather than re-issuing.
+
+```jsonc
+godot_enable_toolset(category="runtime,input,testing,debugger")
+godot_runtime_play_scene(scene_path="res://scenes/main.tscn")
+// { "playing": true, ... }
+
+godot_runtime_get_game_scene_tree()
+// the live game tree — not the editor's copy
+
+godot_runtime_monitor_property(node_path="/root/Main/Player", property="position", samples=30)
+godot_runtime_get_property_samples()
+// { "ready": true, "samples": [{ "frame": 0, "value": { "x": 400, "y": 300 } }, ...] }
+```
 
 ## 3. Simulate input
 
@@ -53,6 +77,13 @@ recorded sequence or record a macro, and reports how many events the game acknow
 the game is **paused at a debugger break, input is refused** — the assistant continues
 execution first. A frozen injected count is the pause signal, not a bug.
 
+```jsonc
+godot_input_simulate_action(action="ui_right", pressed=true)
+godot_input_simulate_action(action="ui_right", pressed=false)
+godot_input_get_stats()
+// { "injected": 2, ... }
+```
+
 ## 4. Assert state
 
 You: *"Assert the Player is visible, then fuzz it with random input."*
@@ -60,6 +91,17 @@ You: *"Assert the Player is visible, then fuzz it with random input."*
 The assistant asserts live node state, runs a scripted scenario (a sequence of events plus
 assertions), fuzzes with random input, and compares screenshots — so behavior is checked, not
 just "it didn't crash".
+
+```jsonc
+godot_testing_assert_node_state(
+  node_path="/root/Main/Player", property="visible", expected=true, op="==")
+// { "passed": true, "actual": true, ... }
+
+godot_testing_run_test_scenario(
+  scene="res://scenes/main.tscn",
+  events=[{"type": "action", "action": "ui_right", "pressed": true}],
+  assertions=[{"node_path": "/root/Main/Player", "property": "position", "expected": {"x": 520, "y": 300}}])
+```
 
 ## 5. Break and step
 
@@ -70,6 +112,15 @@ on the probe's next frame (no game cooperation needed). Once stopped, it can ste
 over/into/out, evaluate an expression in the running game (`evaluate_expression` — global
 scope, not frame-scoped), and continue. The paused-frame stack / variable dump
 (`get_stack_frames`, `get_frame_variables`) is **not available on Godot 4.7** (#677).
+
+```jsonc
+godot_debugger_set_breakpoint(path="res://scripts/player.gd", line=42)
+godot_debugger_force_break()
+godot_debugger_step_over()
+godot_debugger_evaluate_expression(expression="player.health")
+// { "expression": "player.health", "value": 100, "evaluated": true }
+godot_debugger_continue_execution()
+```
 
 ## See the scene (screenshots)
 
@@ -104,3 +155,7 @@ regression.
 | Stuck | ask the assistant for the server info's `next_steps`, or use the `troubleshoot` prompt |
 
 Ask the assistant to stop the play session when you're done.
+
+```jsonc
+godot_runtime_stop_scene()
+```

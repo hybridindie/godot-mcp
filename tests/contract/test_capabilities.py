@@ -66,7 +66,7 @@ async def test_capability_docs_links_resolve() -> None:
     caps = _server().experimental_capabilities["godot_mcp"]
     repo_root = Path(__file__).resolve().parents[2]
     for name, path in {
-        "tutorial": "docs/tutorial.md",
+        "tutorial": "docs/site/guides-walkthrough.md",
         "tool_contracts": "docs/tool-contracts.md",
         "architecture": "docs/architecture.md",
     }.items():

@@ -19,7 +19,7 @@ godot_get_server_info()   # version, contract_version, toolsets, active scene, n
 - `godot_health_check()` returns `version` — if it isn't **2026.11.04b2**, this skill may be stale; rely on `godot_get_server_info()`'s live toolset/tool inventory over anything here.
 - `godot_get_server_info()` returns `contract_version` (tool-surface compatibility, currently 1) — a client is compatible when `min_compatible_contract <= yours <= contract_version`.
 - **Version drift & updates.** `godot_health_check()` / `godot_get_server_info()` report the connected addon's version and flag a server↔addon mismatch (`version_notice`) — if the two differ, both sides need the same release. If update checks are enabled (`GODOT_MCP_CHECK_UPDATES`), call `godot_check_for_updates()` to see whether a newer Godot Editor MCP release exists; a known update also shows up in `next_steps`.
-- If disconnected: open **your Godot project** with the addon enabled (addons are installed per-project; for a smoke test you can open the `godot/` folder of the Godot Editor MCP checkout). Requires Godot 4.4+ (validated on 4.7). Enable it in Project Settings → Plugins → godot_mcp, then check the status dock.
+- If disconnected: open **your Godot project** with the addon enabled (addons are installed per-project; for a smoke test you can open the `godot/` folder of the Godot Editor MCP checkout). Requires Godot 4.4+ (the beta line is validated on 4.8-beta2; the stable line validates 4.7). Enable it in Project Settings → Plugins → godot_mcp, then check the status dock.
 
 ## 2. Toolsets are gated — enable before you use
 
@@ -37,7 +37,9 @@ Quick map of the gated toolsets (`godot_list_toolsets()` is the authoritative li
 - **Run & verify** — headless run + output capture → `runtime` · live play-test + input sim → `input` · input actions in project settings → `input_map` · automated assertions/screenshots → `testing` · breakpoints/stepping → `debugger` · performance monitors → `profiling`
 - **Bulk & ship** — batch/cross-scene ops → `batch` · static analysis → `analysis` · export presets → `export` · import external assets → `asset_import` · editor screenshots (vision clients) → `editor`
 
-Always-on `core` extras: `godot_describe_class` (ClassDB metadata — check property/method names before setting), `godot_undo` (undo the last editor action), `godot_redo` (re-apply an undone action — `godot_list_history()` orients first), `godot_list_tools_by_safety_class()`, `godot_debug_workflow()` (diagnostics recipe), the toolset tools, and the two checks above.
+Always-on `core` extras: `godot_describe_class` (ClassDB metadata — check property/method names before setting), `godot_undo` (undo the last editor action), `godot_redo` (re-apply an undone action — `godot_list_history()` orients first), `godot_checkpoint_create()` / `godot_checkpoint_restore(checkpoint_id=…)` (mark and undo back to a point in editor history), `godot_vcs_snapshot()` / `godot_vcs_restore(snapshot_id=…)` (the backstop for edits the undo stack does not cover), `godot_describe_tool(tool, args)` (mint the `consent` token a destructive call requires when approval is configured), `godot_list_tools_by_safety_class()`, `godot_debug_workflow()` (diagnostics recipe), the toolset tools, and the two checks above.
+
+`godot_composite_compose_node(parent_path=…, node_type=…, node_name=…, properties=…, script_path=…, children=…)` is the create-with-config macro: one round-trip, one UndoRedo action. The primitive `godot_scene_edit_create_node` takes only parent, type, and name.
 
 ## 3. The safety convention
 
@@ -46,7 +48,7 @@ Always-on `core` extras: `godot_describe_class` (ClassDB metadata — check prop
 - **Destructive** tools (delete/overwrite, e.g. `godot_scene_edit_delete_node`) require `confirm=True` or they refuse; they also support `dry_run`.
 - **Runtime** tools control game execution (play/stop/breakpoints) — no `dry_run`.
 
-Read results as ground truth, not decoration: batch results carry honesty flags — `godot_batch_set_property` returns `undoable` (false above 20 nodes: undo will NOT revert it), `godot_composite_run_commands` reports `aborted_at`/`skipped_count` when it halted early, and a `TIMEOUT` on a mutating tool returns `may_have_applied: true` (the editor runs commands serially, so re-read state before retrying — never double-apply) — and `godot_scripts_get_parse_errors` returns `rescan_pending` (a fresh-class_name "Could not find type" may be stale cache; re-check before fixing). Read these fields; they prevent double-work.
+Read results as ground truth, not decoration: every mutation carries a `receipt` (what changed, before/after where available) and `reversible_by` (`undo` / `vcs` / `none`); batch results carry honesty flags — `godot_batch_set_property` returns `undoable` (false above 20 nodes: undo will NOT revert it), `godot_composite_run_commands` reports `aborted_at`/`skipped_count` when it halted early, and a `TIMEOUT` on a mutating tool returns `may_have_applied: true` (the editor runs commands serially, so re-read state before retrying — never double-apply) — and `godot_scripts_get_parse_errors` returns `rescan_pending` (a fresh-class_name "Could not find type" may be stale cache; re-check before fixing). Read these fields; they prevent double-work. When `reversible_by` is `vcs`, take a `godot_vcs_snapshot()` before the next large non-undoable edit.
 
 **Verify mutations with snapshot + diff** (read-only, always available): `godot_inspection_snapshot_subtree(node_path)` before a batch edit, `godot_inspection_diff_snapshots(before_id)` after (diffs vs. live state) — one call returns `{added, removed, changed: [{node, property, before, after}]}` instead of N re-reads. Snapshot ids are bounded (`s1`, `s2`, …); an evicted id says so — re-snapshot.
 
@@ -70,11 +72,48 @@ Besides tools, the server exposes read-only **`godot://` resources** — address
 
 Resources are read-only and never mutate; mutations always go through tools.
 
+## A complete small edit (copy this shape)
+
+```
+godot_enable_toolset(category="scene_edit")
+godot_composite_compose_node(
+    parent_path=".", node_type="CharacterBody2D", node_name="Player",
+    properties={"position": {"x": 400, "y": 300}},
+    children=[{"node_type": "CollisionShape2D", "node_name": "CollisionShape2D"}])
+# → {"node_path": "Player", "created": true, "children": ["CollisionShape2D"], ...}
+
+godot_scripts_write(script_path="res://scripts/player.gd", content="extends CharacterBody2D\n...")
+godot_scene_edit_attach_script(node_path="Player", script_path="res://scripts/player.gd")
+godot_scripts_get_parse_errors(script_path="res://scripts/player.gd")
+# → {"errors": [], "rescan_pending": false}
+
+godot_scene_edit_save_scene()
+# → {"saved": true, "path": "res://scenes/main.tscn", ...}
+```
+
+Read the persistence verdict on each mutation: `persisted: false` means the
+save will drop it, and `reason` + `hint` name the fix (usually
+`godot_scene_edit_set_editable_children` or retargeting to a node the scene owns).
+
 ## When something fails
 
 - `unknown tool` → the toolset isn't enabled (step 2), or you mixed up a server-side tool with an editor tool.
-- `PRECONDITION_FAILED` → read `required`: `active_scene` (open a scene), `confirm` (add `confirm=True`), `bridge_connected` (step 1), `game_not_breaked` (the game is frozen at a debugger break — `godot_debugger_continue_execution()` first), `godot_version` (the toolset needs a newer editor).
+- `PRECONDITION_FAILED` → read `required`:
+  - `active_scene` — open a scene (`godot_scene_edit_open_scene` / `create_scene`).
+  - `confirm` — add `confirm=True` (preview with `dry_run=True` first).
+  - `consent` — `godot_describe_tool(tool, args)`, then pass its `token` as `consent`.
+  - `bridge_connected` — step 1.
+  - `editor_ready` — the editor is importing/modal/busy; wait, then retry.
+  - `play_session` — call `godot_runtime_play_scene(scene_path=…)` first.
+  - `runtime_probe` — register `MCPRuntimeProbe` as an autoload.
+  - `game_not_breaked` — the game is frozen at a debugger break: `godot_debugger_continue_execution()`.
+  - `godot_version` — the toolset needs a newer editor.
+  - `godot_bin` — install Godot / set `GODOT_MCP_GODOT_BIN`.
+  - `project_dir` — set `GODOT_MCP_PROJECT_DIR` or open the project.
+  - `toolset` — enable the tool's toolset.
+  - `human_approval` — configure/approve the approval gate.
 - `VALIDATION_ERROR` on `godot_project_set_setting` → the hint names the likely intended key (e.g. typo'd `application/config/main_scene` → did-you-mean `application/run/main_scene`).
+- `TIMEOUT` on a mutating tool with `may_have_applied: true` → re-read state before retrying; do not double-apply.
 - Run `godot_get_server_info()` first — its `next_steps` field usually names the fix.
 
 ## Working efficiently

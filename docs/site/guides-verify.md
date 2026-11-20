@@ -33,6 +33,21 @@ what it **misses**, and what to compose for real confidence.
    crash (games that never self-quit).
 5. **Play** for interactive behavior — input simulation plus assertions.
 
+```jsonc
+godot_scripts_write(script_path="res://scripts/player.gd", content="extends CharacterBody2D\n...")
+godot_scripts_get_parse_errors(script_path="res://scripts/player.gd")
+// { "errors": [], "rescan_pending": false }
+
+godot_shader_validate(shader_path="res://shaders/flash.gdshader")
+// { "ok": true, "errors": [] }
+
+godot_runtime_run_and_capture(scene="res://scenes/main.tscn", timeout_seconds=5)
+// { "exit_code": 0, "timed_out": false, "errors": [], "warnings": [] }
+
+godot_runtime_play_scene(scene_path="res://scenes/main.tscn")
+godot_testing_assert_node_state(node_path="/root/Main/Player", property="visible", expected=true)
+```
+
 ## Why "verification" is stated this narrowly
 
 The advertised verification used to give false confidence (#423): a VFX subagent verified a

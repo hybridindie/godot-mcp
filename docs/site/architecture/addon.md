@@ -64,7 +64,7 @@ Every incoming envelope is one JSON object; a single **command router**
 (`command_router.gd`) dispatches it to a `cmd_<verb>_<noun>` handler that calls
 the Godot Editor API and returns a correlated `{id, ok, result, error}` response.
 
-- **Handlers are per-domain**, registered data-driven from a table (32 domain
+- **Handlers are per-domain**, registered data-driven from a table (33 domain
   handler scripts under `handlers/`), plus the router's own core commands
   (undo/redo/history, batch, handshake). One handler does one thing.
 - **A handler that dies on a GDScript error** answers `INTERNAL_ERROR` rather

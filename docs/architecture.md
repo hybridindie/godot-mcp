@@ -137,6 +137,13 @@ Precondition failure (richer form, so the agent knows what to satisfy):
 | `APPROVAL_DENIED` | The human declined a `confirm`-gated approval (issue #153). |
 | `UNSUPPORTED` | The capability exists but the connected engine/version can't provide it (e.g. the paused-frame stack/eval debugger protocol on Godot 4.7, #677). Honest, not a silent empty result. |
 | `PEER_REPLACED` | Server **notice** to an editor whose bridge was taken over by another editor (#593); not a tool failure. |
+| `RESPONSE_TOO_LARGE` | An addon reply exceeded the outbound buffer and was dropped (#647); narrow the request. |
+| `UNDECLARED_PARAMETER` | The call passed an argument the tool does not declare (#757); the hint lists the accepted names and returns a corrected `next_call`. |
+| `CONSENT_MISMATCH` | A destructive call's consent token is missing, expired, replayed, or bound to different args (#759); re-mint it with `godot_describe_tool`. |
+| `EDITOR_BUSY` | A mutating call was refused because the editor is importing, showing a modal, or busy (#762); wait, then retry. |
+| `PARAM_ERROR` | A path parameter failed server-side containment/shape validation before the bridge call (#791). |
+| `OUTPUT_LIMIT` | A result payload would exceed the server's 25k character cap (#791); narrow the request. |
+| `DOWNLOAD_FAILED` | Fetching a remote asset failed (HTTP status or transport error, #791). |
 
 This table is the source of truth for the error enum; extend it here (and in the
 contract tests) before adding a new code.
@@ -236,8 +243,8 @@ toolset gating protocol, common toolsets, docs URLs, and prompt names.
 - **`experimental_capabilities.godot_mcp`** — structured metadata in the server init handshake
 with version, min_godot, toolset_count, docs URIs, prompt names, and resource URIs.
 - **Prompts** — `@mcp.prompt()` workflow templates (toolset_discovery, build_scene,
-play_test, script_edit, debug_scene, troubleshoot). Discoverable via `list_prompts()`,
-renderable via `render_prompt()`.
+play_test, script_edit, debug_scene, troubleshoot, author_resource, export_build,
+batch_refactor). Discoverable via `list_prompts()`, renderable via `render_prompt()`.
 - **Resources** — `godot://project/info`, `godot://scene/current`, `godot://scene/tree`,
 `godot://node/selected`. Read-only snapshots refreshed on access.
 - **`godot_get_server_info`** — a single `core` tool that returns everything: toolset summaries
