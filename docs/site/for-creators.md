@@ -34,7 +34,7 @@ stack, so **Ctrl+Z works as it does for your edits**.
 
 ## Then build
 
-- **[Cookbook](guides-cookbook.md)** — short, copy-ready recipes for common tasks.
+- **[Cookbook](guides-cookbook.md)** — short, prompt-first recipes for common tasks.
 - **[Full walkthrough](guides-walkthrough.md)** — build a small game end to end.
 - **[Build a scene](guides-build-scene.md)** — scaffold, nodes, script, collision, save.
 - **[Play-test & debug](guides-playtest-debug.md)** — play the game, simulate input,

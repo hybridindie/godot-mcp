@@ -214,3 +214,16 @@ def test_walkthrough_and_cookbook_are_published() -> None:
     assert len(calls) >= 20, (
         f"cookbook has {len(calls)} distinct tool calls; add worked examples"
     )
+    # Agent-first shape: every numbered recipe leads with a prompt, then what
+    # happens, with the raw calls only under "Under the hood".
+    recipes = len(re.findall(r"^## \d+\. ", cookbook_text, re.M))
+    prompts = cookbook_text.count("**You say**")
+    under_the_hood = cookbook_text.count("**Under the hood**")
+    assert recipes >= 10, f"cookbook has only {recipes} numbered recipes"
+    assert prompts == recipes, (
+        f"cookbook has {recipes} recipes but {prompts} '**You say**' prompts"
+    )
+    assert under_the_hood >= recipes, (
+        f"cookbook has {recipes} recipes but only {under_the_hood} "
+        "'**Under the hood**' blocks"
+    )

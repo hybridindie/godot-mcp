@@ -12,7 +12,7 @@ Task-by-task recipes that show **what to ask** — and, **under the hood**, what
 assistant does at each step. You prompt in plain language and watch it happen in Godot;
 the `godot_*` calls are the assistant's, never yours.
 
-- **[Cookbook: agent → Godot examples](guides-cookbook.md)** — copy-ready call/response recipes for inspect, build, script, physics, save, preview, run, play-test, debug, batch, authoring, validation, and recovery.
+- **[Cookbook: what to ask](guides-cookbook.md)** — prompt-first recipes: what to say, what the assistant does, and the MCP calls under the hood, for inspect, build, script, physics, save, preview, run, play-test, debug, batch, authoring, validation, and recovery.
 - **[Full walkthrough](guides-walkthrough.md)** — one continuous prompt-by-prompt build of a small game, from an empty scene to a verified, play-tested build.
 - **[Build a scene](guides-build-scene.md)** — scaffold → nodes → script → collision → save, with previews and honest save verdicts along the way.
 - **[Play-test & debug](guides-playtest-debug.md)** — the live loop: play the game, inspect it, simulate input, assert state, then break and step through the debugger.
