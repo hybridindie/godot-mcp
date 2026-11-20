@@ -42,7 +42,7 @@ examples/survivors/
     ├── test_player.gd         # 10 tests: health, damage, XP, leveling, signals
     ├── test_enemy.gd          # 6 tests: group, health, damage, death signal
     ├── test_game_manager.gd   # 8 tests: state machine, resets, signal contracts
-    ├── test_projectile.gd     # 10 tests: launch, rotation, lifetime, hit logic
+    ├── test_projectile.gd     # 12 tests: launch, rotation, lifetime, hit logic
     ├── test_xp_gem.gd         # 6 tests: group, pickup, XP grant, double-pickup
     ├── test_world.gd          # 10 tests: tiles, obstacles, determinism, spawn clearance
     └── test_game_over.gd      # 8 tests: overlay visibility, button actions, state sync
@@ -54,12 +54,12 @@ examples/survivors/
 # Via the MCP tool (from an agent or the in-process client):
 godot_testing_run_tests(test_dir="res://tests/unit")
 
-# Directly with the Godot binary:
-/Applications/Godot.app/Contents/MacOS/Godot --headless --path examples/survivors \
+# Directly with the Godot binary (set GODOT_BIN if it is not on PATH):
+godot --headless --path examples/survivors \
   -s addons/gut/gut_cmdln.gd -gexit
 ```
 
-57 tests across 7 files. The MCP `run_tests` tool detects GUT automatically (`framework_absent=true` when not installed).
+60 tests across 7 files. The MCP `run_tests` tool detects GUT automatically (`framework_absent=true` when not installed).
 
 ## vampire/
 

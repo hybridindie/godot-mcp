@@ -9,8 +9,8 @@ rules are [`../.claude/rules/mcp-tools.md`](../.claude/rules/mcp-tools.md) and
 > **For user-facing setup instructions, see [`README.md`](../README.md).** This document is the
 > authoritative per-tool reference for implementers and agents.
 
-> Scope note: concrete tools land from issue #5 onward. This document fixes the *shape*
-> every tool/resource/prompt must take. Add each concrete contract here as it is built.
+> Scope note: this document is the current-state contract for every registered tool,
+> resource, and prompt. Add or change a row in the same PR as the surface change.
 
 ## Tools
 
@@ -621,7 +621,7 @@ Import external files (local paths or HTTP URLs) into a Godot project and assemb
 | Tool | Params | Returns | Class |
 |------|--------|---------|-------|
 | `godot_asset_import_asset` | `source: str`, `target_path: str`, `options?: dict`, `wait_for_scan: bool = false`, `timeout_ms: int = 5000` | `ImportAssetResult { imported, target_path, detected_type, scan_complete, loop_applied, scan_deferred }` | `mutating` |
-| `godot_asset_import_create_material_from_textures` | `albedo?, normal?, roughness?, metallic?, ao?, emission?, path?` | `CreateMaterialResult { material_path, created, channels_set }` | `mutating` |
+| `godot_asset_import_create_material_from_textures` | `albedo?, normal?, roughness?, metallic?, ao?, emission?, emission_enabled?, path?, dry_run=False` | `CreateMaterialResult { material_path, created, channels_set }` | `mutating` |
 | `godot_asset_import_get_status` | `target_path: str`, `wait_ms: int = 0` | `ImportStatusResult { imported, last_modified?, type? }` | `read_only` |
 
 `godot_asset_import_asset` auto-detects the Godot type from the file extension (`.png`→`Texture2D`, `.glb`→`PackedScene`, `.wav`→`AudioStreamWAV`, etc.). When `source` is an HTTP(S) URL it is downloaded via `httpx2` with a 60-second timeout, then copied to `target_path` (must start with `res://`). The response is streamed to disk in 64 KiB chunks to avoid buffering the entire payload in memory. The `options` dict may contain `overwrite` (bool, default `false`) and `import_settings` (dict, e.g. `{"type": "Texture2D", "compress": "lossy"}`). For a `.wav`, `import_settings` may carry the AudioStreamWAV loop config `{"loop_mode": 1, "loop_begin": 0, "loop_end": N}` (#418): the params land in the `.import` sidecar and the file is reimported — `loop_applied` in the result reports whether the loop config was applied (looping music/ambience is then expressible end-to-end through the MCP surface). The editor filesystem scan is triggered after copy so Godot imports the file — but the scan is **asynchronous**: `imported: true` means the copy landed, not that import artifacts exist yet. Godot coalesces `scan()` calls, so a scan issued while one is already in flight is dropped; the addon therefore defers and re-issues one when the in-flight scan finishes (#628), reporting `scan_deferred: true` for that call — the import still lands, just a scan cycle later (the plugin's status timer drains the deferred scan). With `wait_for_scan: true` the server polls `cmd_get_import_status` (250 ms steps, up to `timeout_ms`) and reports `scan_complete: true` only once the `.import` sidecar exists (default `false` keeps the old immediate behavior; `scan_complete` is then always `false`). Likewise `godot_asset_import_get_status` accepts `wait_ms` to poll before returning, so agents do not have to hand-roll retry loops after an import (issue #400).
@@ -1338,7 +1338,7 @@ Operate over many nodes/scenes. Finds/deps are `read_only`; writes are `mutating
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `godot_batch_find_nodes_by_type` | `node_type, parent_path=".", recursive=True` | `FindNodesResult { type, nodes[], count }` |
+| `godot_batch_find_nodes_by_type` | `node_type, parent_path=".", recursive=True, offset=0, limit=200` | `FindNodesResult { type, nodes[], count, total, returned, truncated, next_offset? }` |
 | `godot_batch_set_property` | `property, value, node_paths?, node_type?, dry_run=False` | `BatchSetResult { property, applied[], skipped[], count, dry_run, undoable, hint?, persistence[] }` |
 | `godot_batch_cross_scene_set_property` | `scenes[], node_type, property, value, confirm=False, dry_run=False` | `CrossSceneResult { results[], total_modified, scenes, dry_run }` |
 | `godot_batch_get_dependencies` | `path` | `DependenciesResult { path, dependencies[], count }` |

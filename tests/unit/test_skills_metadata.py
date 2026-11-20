@@ -264,10 +264,21 @@ def test_expert_skill_covers_4_8_gdscript_changes() -> None:
 
 def test_expert_skill_has_no_raw_bridge_workflow() -> None:
     """§8 predates the MCP server: the /tmp/bridge_cmd.py raw-bridge workflow is
-    obsolete — agents call godot_* tools, never the bridge files."""
+    obsolete — agents call godot_* tools, never the bridge files or raw
+    ``{"command": "cmd_…"}`` envelopes."""
     body = _body("godot-expert")
     assert "bridge_cmd.py" not in body, (
         "godot-expert still teaches the obsolete raw-bridge bridge_cmd.py workflow"
+    )
+    raw_envelopes = [
+        str(md.relative_to(SKILLS_DIR))
+        for skill in _skill_dirs()
+        for md in sorted(skill.rglob("*.md"))
+        if '"command": "cmd_' in md.read_text(encoding="utf-8")
+    ]
+    assert not raw_envelopes, (
+        "skills teach raw bridge envelopes instead of godot_* tools: "
+        + ", ".join(raw_envelopes)
     )
 
 

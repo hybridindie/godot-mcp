@@ -78,6 +78,8 @@ export default withMermaid(defineConfig({
           { text: 'Set up with your AI agent', link: '/getting-started-with-an-agent' },
           { text: 'Your first session', link: '/getting-started-first-session' },
           { text: 'Guides overview', link: '/guides' },
+          { text: 'Cookbook: agent → Godot', link: '/guides-cookbook' },
+          { text: 'Full walkthrough', link: '/guides-walkthrough' },
           { text: 'Build a scene', link: '/guides-build-scene' },
           { text: 'Play-test & debug', link: '/guides-playtest-debug' },
           { text: 'Verify your work', link: '/guides-verify' },

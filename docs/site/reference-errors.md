@@ -52,8 +52,13 @@ before dispatching, or bounds the payload locally):
 | `[required=editor_ready]` | the editor is importing/modal/busy — retry when `godot_health_check` reports `ready` |
 | `[required=bridge_connected]` | open Godot with the addon; check the status dock |
 | `[required=runtime_probe]` | register `MCPRuntimeProbe` as an autoload |
+| `[required=play_session]` | `godot_runtime_play_scene(scene_path=…)` before inspecting or injecting input |
 | `[required=game_not_breaked]` | the game is frozen at a debugger break → `godot_debugger_continue_execution` |
 | `[required=godot_version]` | the toolset needs Godot 4.4+ → upgrade the editor |
+| `[required=godot_bin]` | install Godot or set `GODOT_MCP_GODOT_BIN` (or `GODOT_BIN` on CI) |
+| `[required=project_dir]` | set `GODOT_MCP_PROJECT_DIR` or open the project in Godot |
+| `[required=toolset]` | `godot_enable_toolset(category=…)` for the tool you are calling |
+| `[required=human_approval]` | configure `GODOT_MCP_APPROVAL_WEBHOOK` or approve the call in the client |
 | `VALIDATION_ERROR: Unknown ProjectSettings key … did you mean …` | use the suggested key (e.g. `application/run/main_scene`, not `application/config/main_scene`) |
 | `persisted: false` + `hint` | act on the hint (e.g. `godot_scene_edit_set_editable_children`) or retarget |
 | `rescan_pending: true` | re-run the parse check once; the editor's scan hadn't flushed |

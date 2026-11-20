@@ -39,7 +39,7 @@ def _docs_sources() -> list[Path]:
 
 
 def test_docs_do_not_link_the_missing_top_level_tutorial() -> None:
-    """The tutorial lives at ``docs/tutorial.md``; ``TUTORIAL.md`` 404s."""
+    """The walkthrough lives under ``docs/site/``; ``TUTORIAL.md`` 404s."""
     stale = [
         str(path.relative_to(REPO_ROOT))
         for path in _docs_sources()

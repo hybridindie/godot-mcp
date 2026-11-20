@@ -46,7 +46,7 @@ godot_runtime_get_game_output()            # the game's print/error/warning stre
 godot_runtime_monitor_property(node_path='/root/Main/Player', property='position', samples=30)
 godot_runtime_get_property_samples()       # [{frame, value}] once the capture completes
 godot_runtime_read_property(node_path='/root/Main/Player', property='velocity')  # one-shot, current value
-godot_runtime_find_ui_elements(text='Start')  # locate a Control by its text
+godot_runtime_find_ui_elements(name_contains='Start')  # locate a Control by its name/text
 ```
 
 `monitor_property` dedupes by default (#536): a static property yields one sample (plus
@@ -78,11 +78,11 @@ godot_input_get_stats()                    # how many events the game acknowledg
 
 ```
 godot_testing_assert_node_state(node_path='/root/Main/Player', property='visible', expected=true)   # op='==' default; also '>=','<=' etc.
-godot_testing_run_test_scenario(scene_path='res://scenes/main.tscn', events=[...],
+godot_testing_run_test_scenario(scene='res://scenes/main.tscn', events=[...],
                                  assertions=[{'node_path': '...', 'property': '...', 'expected': ...}])
 godot_testing_run_stress_test()                        # fuzz with random input
 godot_testing_compare_screenshots(image_a='<base64>', image_b='<base64>', tolerance=0.0)
-godot_profiling_get_performance_monitors(scope='game')  # FPS, draw calls, memory
+godot_profiling_get_performance_monitors()             # editor + running-game FPS/draw calls/memory
 godot_runtime_stop_scene()
 ```
 

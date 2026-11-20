@@ -17,7 +17,7 @@ from mcp_server.categories import INSPECTION_TAG
 from mcp_server.toolsets import DEFAULT_ENABLED
 
 DOC_LINKS = (
-    "- Tutorial: https://github.com/hybridindie/godot-mcp/blob/main/docs/tutorial.md\n"
+    "- Tutorial: https://github.com/hybridindie/godot-mcp/blob/main/docs/site/guides-walkthrough.md\n"
     "- Tool contracts: https://github.com/hybridindie/godot-mcp/blob/main/docs/tool-contracts.md\n"
     "- Architecture: https://github.com/hybridindie/godot-mcp/blob/main/docs/architecture.md"
 )
@@ -159,7 +159,7 @@ SERVER_INSTRUCTIONS = (
     + "\n\nDOCUMENTATION:\n"
     + DOC_LINKS
     + "\n\nThis server also exposes workflow prompts (toolset_discovery, build_scene, "
-    "play_test, script_edit, debug_scene, troubleshoot) and a diagnostics tool "
-    "(godot_get_server_info) that returns tool counts, bridge state, active scene, and "
-    "common errors with fixes."
+    "play_test, script_edit, debug_scene, troubleshoot, author_resource, export_build, "
+    "batch_refactor) and a diagnostics tool (godot_get_server_info) that returns tool "
+    "counts, bridge state, active scene, and common errors with fixes."
 )

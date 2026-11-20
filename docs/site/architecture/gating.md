@@ -92,8 +92,10 @@ is [`docs/tool-contracts.md`](https://github.com/hybridindie/godot-mcp/blob/main
 - **New categories register gated off** — added to `TOOLSETS`, never to
   `DEFAULT_ENABLED`. Growth of the catalog does not grow the default surface.
 - **Fewer, richer tools over many micro-tools.** Create-with-config
-  (`create_node(…, properties?, script?)`) and batch setters replace
-  one-tool-per-field. One tool per noun with a few clear verbs.
+  (`godot_composite_compose_node(parent_path=…, node_type=…, node_name=…,
+  properties=…, script_path=…, children=…)`) and batch setters replace
+  one-tool-per-field. One tool per noun with a few clear verbs. The primitive
+  `godot_scene_edit_create_node` stays narrow: parent, type, name.
 - **Never merge across safety classes.** Folding `delete` into a fat `node`
   tool would bury the `confirm` gate; the class split is deliberate.
 - **Never a single `do(action, params)` dispatcher** — that discards the

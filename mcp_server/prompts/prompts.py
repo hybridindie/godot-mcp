@@ -342,7 +342,7 @@ def _register_debug_scene(mcp: FastMCP) -> str:
                     "- 'Division by zero' → check divisor values with "
                     "godot_runtime_monitor_property().\n\n"
                     "SAFETY: Every mutating tool accepts dry_run=True to preview fixes.\n"
-                    "DOCUMENTATION: https://github.com/hybridindie/godot-mcp/blob/main/docs/tutorial.md"
+                    "DOCUMENTATION: https://github.com/hybridindie/godot-mcp/blob/main/docs/site/guides-walkthrough.md"
                 ),
             ),
         ]
@@ -403,7 +403,7 @@ def _register_troubleshoot(mcp: FastMCP) -> str:
                     "  - Check the live scene tree includes the target "
                     "node (godot_runtime_get_game_scene_tree()).\n\n"
                     "DOCUMENTATION:\n"
-                    "- Tutorial: https://github.com/hybridindie/godot-mcp/blob/main/docs/tutorial.md\n"
+                    "- Tutorial: https://github.com/hybridindie/godot-mcp/blob/main/docs/site/guides-walkthrough.md\n"
                     "- Tool specs: "
                     "https://github.com/hybridindie/godot-mcp/blob/main/docs/tool-contracts.md\n"
                     "- Architecture: "

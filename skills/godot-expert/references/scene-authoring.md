@@ -90,15 +90,16 @@ node.position = Vector2(20, 50)    # GDScript
 
 ## Editing scenes: disk vs bridge
 
-### Via the bridge (live editor)
+### Via the MCP tools (live editor)
 
 Use when the editor is open and connected:
 
-```json
-{"command": "cmd_create_node", "params": {"parent_path": ".", "node_type": "CharacterBody2D", "name": "Player"}}
-{"command": "cmd_set_node_property", "params": {"node_path": "Player", "property": "collision_layer", "value": 1}}
-{"command": "cmd_attach_script", "params": {"node_path": "Player", "script_path": "res://scripts/player.gd"}}
-{"command": "cmd_save_scene"}
+```jsonc
+godot_enable_toolset(category="scene_edit")
+godot_scene_edit_create_node(parent_path=".", node_type="CharacterBody2D", node_name="Player")
+godot_scene_edit_set_node_property(node_path="Player", property="collision_layer", value=1)
+godot_scene_edit_attach_script(node_path="Player", script_path="res://scripts/player.gd")
+godot_scene_edit_save_scene()
 ```
 
 **Critical:** script writes **do** flush to disk immediately
@@ -150,9 +151,9 @@ As a child of the player, it automatically follows.
 [node name="Player" type="CharacterBody2D" parent="." groups=["player"]]
 ```
 
-Or via the bridge:
-```json
-{"command": "cmd_add_to_group", "params": {"node_path": "Player", "group": "player"}}
+Or via the MCP tools:
+```jsonc
+godot_scene_edit_add_to_group(node_path="Player", group="player")
 ```
 
 ### Node ordering for z-ordering

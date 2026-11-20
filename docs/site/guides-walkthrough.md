@@ -1,6 +1,14 @@
-# Tutorial: Building and Testing a Game with Godot Editor MCP (LLM-Prompt Edition)
+---
+type: index
+title: "Full walkthrough: build, test, and verify a game"
+description: "A prompt-by-prompt Coin Collector build with Godot Editor MCP — scene, script, physics, run, live play-test, debugger, and verification, with the calls the agent makes at each step."
+created: 2026-09-19
+updated: 2026-11-20
+---
 
-This tutorial demonstrates how to use **Godot Editor MCP** to build, edit, play-test, and verify a simple 2D game — all while Godot remains open. Unlike a reference manual, this document is written as **a series of natural-language prompts you can send to an LLM agent** (Claude Code, OpenCode, etc.). The agent will invoke MCP tools automatically to carry out each instruction.
+# Full walkthrough: build, test, and verify a game
+
+This is the long-form example for **Godot Editor MCP**: build, edit, play-test, and verify a small 2D game while Godot stays open. It is written as **a series of natural-language prompts you can send to an AI agent** (Claude Code, OpenCode, etc.); the agent invokes the MCP tools and reports the results. For short, focused recipes instead of one continuous build, use the [Cookbook](guides-cookbook.md).
 
 > **Prerequisites**: Godot 4.4+ installed, `uv` (Python package manager), and the Godot Editor MCP addon enabled in your project.
 
@@ -37,7 +45,7 @@ The server exposes **workflow prompts** that the LLM can discover and use:
 
 The LLM can discover these via `list_prompts()` and render them via `get_prompt(name)` or `render_prompt(name)`. Not all clients expose prompts to the user, but the ones that do (Claude Code, etc.) will surface them as templates.
 
-> **Claude skills:** if you use Claude, the [`skills/`](skills/README.md) directory ships skills that auto-trigger on a matching task (no slash command needed) and route to these prompts and tools — copy them into `~/.claude/skills/` or your project's `.claude/skills/`. See [`skills/README.md`](skills/README.md).
+> **AI skills:** the repo's [`skills/`](https://github.com/hybridindie/godot-mcp/tree/main/skills) directory ships skills that auto-trigger on a matching task (no slash command needed) and route to these prompts and tools — copy them into your client's skill directory. See [Skills](reference-skills.md).
 
 ### 3. Tool Docstrings
 
@@ -215,10 +223,10 @@ For each prompt below, paste it into your MCP client chat. The LLM will use the 
 > "Add a `CollisionShape2D` to the player with a `CircleShape2D` of radius 32."
 
 **What the agent will do:**
-- `godot_scene_edit_create_node(parent_path="./Player", node_type="CollisionShape2D", node_name="CollisionShape2D")`
-- `godot_scene_edit_set_node_property(node_path="./Player/CollisionShape2D", property="shape", value={"type": "CircleShape2D", "radius": 32})`
+- `godot_enable_toolset(category="physics")`
+- `godot_physics_setup_collision(node_path="./Player", shape_type="CircleShape2D", properties={"radius": 32})`
 
-> **Alternative**: The agent could also use `godot_physics_setup_collision` (physics toolset).
+> **Why not `set_node_property(property="shape", …)`?** A `shape` is a resource. The value shapes accepted by `set_node_property` cannot construct an inline `CircleShape2D`; `physics_setup_collision` creates the `CollisionShape2D` and its shape in one undoable call.
 
 ---
 
@@ -231,8 +239,7 @@ For each prompt below, paste it into your MCP client chat. The LLM will use the 
 - For each coin:
   - `godot_scene_edit_create_node(parent_path="./Coins", node_type="Area2D", node_name="Coin1")`
   - `godot_scene_edit_set_node_property(node_path="./Coins/Coin1", property="position", value={"x": 200, "y": 200})`
-  - `godot_scene_edit_create_node(parent_path="./Coins/Coin1", node_type="CollisionShape2D", node_name="CollisionShape2D")`
-  - `godot_scene_edit_set_node_property(node_path="./Coins/Coin1/CollisionShape2D", property="shape", value={"type": "CircleShape2D", "radius": 16})`
+  - `godot_physics_setup_collision(node_path="./Coins/Coin1", shape_type="CircleShape2D", properties={"radius": 16})`
 
 ---
 
@@ -291,8 +298,10 @@ For each prompt below, paste it into your MCP client chat. The LLM will use the 
 - `godot_scene_edit_create_node(parent_path="./UI", node_type="Label", node_name="WinLabel")`
 - `godot_scene_edit_set_node_property(node_path="./UI/WinLabel", property="text", value="You Win!")`
 - `godot_scene_edit_set_node_property(node_path="./UI/WinLabel", property="visible", value=false)`
+- `godot_enable_toolset(category="theme_ui")`
+- `godot_theme_ui_set_font_size(node_path="./UI/WinLabel", name="font_size", size=48)`
 
-> For the large font, the agent may create a `LabelSettings` resource via `godot_resources_edit_create_resource` and `godot_resources_edit_set_resource_property`, or set `label_settings` if supported.
+> For several labels, a shared `LabelSettings` resource is often cleaner: `godot_resources_edit_create_resource` then `godot_resources_edit_set_resource_property`, and assign it to `label_settings`.
 
 ---
 
@@ -338,7 +347,7 @@ For each prompt below, paste it into your MCP client chat. The LLM will use the 
 > "Set `res://scenes/main.tscn` as the project's main scene, and register the runtime probe as an autoload called `MCPRuntimeProbe`."
 
 **What the agent will do:**
-- `godot_project_set_setting(key="application/run/main_scene", value="res://scenes/main.tscn")`
+- `godot_project_set_setting(name="application/run/main_scene", value="res://scenes/main.tscn", confirm=true)`
 - `godot_resources_edit_register_autoload(name="MCPRuntimeProbe", path="res://addons/godot_mcp/mcp_runtime_probe.gd")`
 
 > The probe does nothing outside a debug session, so it's safe to leave enabled permanently.
@@ -449,8 +458,8 @@ For each prompt below, paste it into your MCP client chat. The LLM will use the 
 
 **What the agent will do:**
 - `godot_enable_toolset("batch")`
-- `godot_batch_find_nodes_by_type(node_type="Area2D", scene_path="res://scenes/main.tscn")` to identify coins
-- `godot_batch_set_property(scene_path="res://scenes/main.tscn", node_paths=["./Coins/Coin1", "./Coins/Coin2", "./Coins/Coin3"], property="modulate", value={"r": 1, "g": 0, "b": 0, "a": 1})`
+- `godot_batch_find_nodes_by_type(node_type="Area2D", parent_path="./Coins", recursive=True)` to identify coins
+- `godot_batch_set_property(node_paths=["./Coins/Coin1", "./Coins/Coin2", "./Coins/Coin3"], property="modulate", value={"r": 1, "g": 0, "b": 0, "a": 1})`
 
 The result reports `undoable` — batches above 20 nodes bypass the editor's undo stack for performance and say so (`undoable: false`); smaller ones are fully undoable via `godot_undo`.
 

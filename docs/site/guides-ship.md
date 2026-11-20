@@ -19,6 +19,15 @@ The assistant lists your project's export presets, checks the one you want, and 
 Export is headless (Godot binary + export templates installed) and reports the exit code — a
 non-zero exit is a finding, not a hang. Requires the `export` toolset.
 
+```jsonc
+godot_enable_toolset(category="export")
+godot_export_list_presets()
+// { "presets": [{ "name": "Web", "platform": "Web", ... }] }
+
+godot_export_project(preset="Web", output_path="builds/web/index.html", confirm=true)
+// { "preset": "Web", "output_path": "builds/web/index.html", "exported": true, "exit_code": 0, ... }
+```
+
 ## Run the project's tests
 
 You: *"Run the project's unit tests."*
@@ -26,6 +35,12 @@ You: *"Run the project's unit tests."*
 The assistant runs the suite and parses the output — it understands GUT, including GUT 9.7's
 quirk of omitting the "Failing Tests" line when everything passes — and reports the pass/fail
 counts (or `framework_absent: true` when no test framework is installed).
+
+```jsonc
+godot_enable_toolset(category="testing")
+godot_testing_run_tests(test_dir="res://tests/unit")
+// { "framework_absent": false, "passed": 60, "failed": 0, ... }
+```
 
 GUT-specific gotchas (from the expert skill): don't `await` `node.ready` on simple nodes,
 don't instantiate heavy scenes in `before_each`, reset autoload state between tests.
@@ -47,6 +62,15 @@ The full headless loop — no live editor, no probe:
 
 Each step returns structured results an agent (or a script) can gate on; ask the assistant to
 "run the debug workflow" to collapse the first three into one findings report.
+
+```jsonc
+godot_debug_workflow(scene="res://scenes/main.tscn", expected_timeout=true)
+// { "findings": ["PARSE ERRORS: 0", "RUNTIME ERRORS: 0", "RUN TIMED OUT"], ... }
+
+godot_enable_toolset(category="analysis")
+godot_analysis_validate_project(paths=["res://scripts", "res://scenes"], include_warnings=true)
+// { "valid": true, "findings": [] }
+```
 
 ## Transport notes for CI
 

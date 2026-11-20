@@ -83,7 +83,7 @@ assistant does the installing. Prefer to do it yourself? **[Manual setup](./gett
 ## Where to go next
 
 - **[Get started](./getting-started)** — install, connect, and drive your first session
-- **[Guides](./guides)** — build a scene, play-test & debug, verify your work, ship
+- **[Guides](./guides)** — cookbook recipes, a full walkthrough, build a scene, play-test & debug, verify your work, ship
 - **[Concepts](./concepts)** — how it works, and why it's built this way
 - **[Reference](./reference)** — every tool, safety class, error code, and setting
 - **[Comparison](./reference-compare)** — how this differs from four other Godot MCP servers, honestly

@@ -67,6 +67,8 @@ const SECTIONS = [
     name: 'Guides',
     sources: [
       'guides.md',
+      'guides-cookbook.md',
+      'guides-walkthrough.md',
       'guides-build-scene.md',
       'guides-playtest-debug.md',
       'guides-verify.md',

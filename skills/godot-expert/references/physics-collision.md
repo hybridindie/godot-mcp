@@ -49,12 +49,16 @@
 | XP Gem | 8 | 1 | Overlaps player only |
 | Obstacle | 16 | 0 | Static — doesn't scan, others scan it |
 
-**Setting via bridge:**
-```json
-{"command": "cmd_set_node_property",
- "params": {"node_path": "Player", "property": "collision_layer", "value": 1}}
-{"command": "cmd_set_node_property",
- "params": {"node_path": "Player", "property": "collision_mask", "value": 18}}
+**Setting via the MCP tools:**
+```jsonc
+godot_physics_set_layers(node_path="Player", layers=[1], mask=[2, 16])
+// { "node_path": "Player", "collision_layer": 1, "collision_mask": 18 }
+```
+
+Or set the two properties directly:
+```jsonc
+godot_scene_edit_set_node_property(node_path="Player", property="collision_layer", value=1)
+godot_scene_edit_set_node_property(node_path="Player", property="collision_mask", value=18)
 ```
 
 **Gotcha:** `collision_layer` and `collision_mask` are on the **physics
@@ -65,8 +69,11 @@ CollisionShape2D child.
 
 ## CollisionShape2D and shape resources
 
-**Rule:** The `shape` is a **resource**, not a child node. Set it via the
-`shape` property using a `SubResource` in `.tscn` or a dict via the bridge.
+**Rule:** The `shape` is a **resource**, not a child node. In a `.tscn` it is a
+`SubResource`; in the live editor use `godot_physics_setup_collision`, which
+creates the shape *and* its `CollisionShape2D` under the body in one undoable
+call. `godot_scene_edit_set_node_property(property="shape", …)` only accepts a
+`res://` resource path or `null`, not an inline shape dict.
 
 ### In .tscn
 ```
@@ -77,16 +84,18 @@ size = Vector2(32, 32)
 shape = SubResource("Rect_1")
 ```
 
-### Via the bridge
-```json
-{"command": "cmd_set_node_property",
- "params": {"node_path": "Player/Collision", "property": "shape",
-            "value": {"type": "RectangleShape2D", "size": {"x": 32, "y": 32}}}}
+### Via the MCP tools (live editor)
+```jsonc
+godot_enable_toolset(category="physics")
+godot_physics_setup_collision(
+  node_path="Player", shape_type="RectangleShape2D", properties={"size": {"x": 32, "y": 32}})
+// { "node_path": "Player/CollisionShape2D", "shape_type": "RectangleShape2D", "created": true, "persisted": true }
 ```
 
 ### Don't do this
 - ❌ Add a `RectangleShape2D` as a child node of `CollisionShape2D`
 - ❌ Set `collision_layer` on the `CollisionShape2D` (it's on the body)
+- ❌ Pass `{"type": "RectangleShape2D", …}` to `set_node_property(property="shape")`
 
 ---
 
