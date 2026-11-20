@@ -194,6 +194,21 @@ def test_walkthrough_and_cookbook_are_published() -> None:
         assert f"/{page}" in config, f"{page} is not in the sidebar"
         assert f"{page}.md" in guides, f"guides.md does not link {page}"
 
+    # ``llms-gen.mjs`` silently drops a source whose file is missing, so a
+    # rename or typo would quietly remove the page from llms.txt and
+    # llms-full.txt. Pin every listed source and the two new pages.
+    llms_gen = (SITE / "llms-gen.mjs").read_text(encoding="utf-8")
+    sections = llms_gen[
+        llms_gen.index("const SECTIONS") : llms_gen.index("// Source path")
+    ]
+    sources = re.findall(r"'([^']+\.md)'", sections)
+    missing_sources = [src for src in sources if not (SITE / src).is_file()]
+    assert not missing_sources, (
+        f"llms-gen.mjs lists missing pages: {missing_sources}"
+    )
+    for page in ("guides-walkthrough.md", "guides-cookbook.md"):
+        assert page in sources, f"llms-gen.mjs SECTIONS omits {page}"
+
     cookbook_text = cookbook.read_text(encoding="utf-8")
     calls = set(_CALL_RE.findall(cookbook_text))
     assert len(calls) >= 20, (
