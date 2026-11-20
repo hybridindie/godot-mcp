@@ -227,3 +227,29 @@ def test_walkthrough_and_cookbook_are_published() -> None:
         f"cookbook has {recipes} recipes but only {under_the_hood} "
         "'**Under the hood**' blocks"
     )
+
+
+def test_cookbook_everyday_prompts_are_natural_language() -> None:
+    """The primary prompt in every recipe must not leak tool/API syntax.
+
+    The "Or say it precisely" variants may name a Godot type or a call; the
+    everyday **You say** prompt is for people who don't know the API and must
+    stay in plain language.
+    """
+    text = (SITE / "guides-cookbook.md").read_text(encoding="utf-8")
+    parts = re.split(r"^## (\d+)\. (.+)$", text, flags=re.M)
+    offenders: list[str] = []
+    for i in range(1, len(parts), 3):
+        body = parts[i + 2]
+        match = re.search(r'\*\*You say\*\*\s*\n\s*\n>\s*"([^"]+)"', body)
+        if not match:
+            offenders.append(f"recipe {parts[i]} has no **You say** prompt")
+            continue
+        prompt = match.group(1)
+        for token in ("godot_", "res://", "(", "CharacterBody2D", "Area2D", "Node2D"):
+            if token in prompt:
+                offenders.append(f"recipe {parts[i]} leaks '{token}': {prompt}")
+                break
+    assert not offenders, "cookbook everyday prompts are not plain language:\n" + "\n".join(
+        offenders
+    )
