@@ -9,9 +9,19 @@ updated: 2026-11-20
 # Cookbook: what to ask, and what the agent does
 
 Every recipe starts with **what you say** and what the assistant does in the
-editor. The concrete MCP calls are under **Under the hood** — there for
-transparency and for agents that need the exact shape, not as the interface you
-use. You talk; the assistant calls the tools.
+editor. Say it the way you'd say it to a person — "add a player I can move" is
+enough. If you know the exact Godot type or property, say that too; the
+assistant uses the same tools either way. The concrete MCP calls are under
+**Under the hood**, there for transparency and for agents that need the exact
+shape.
+
+::: tip Two registers, one surface
+You don't have to learn Godot vocabulary to get useful work done. But if you do
+know it, you can be precise — the recipes below show both a plain-language
+prompt and, where it helps, an "or say it precisely" version. The deeper
+debugging, batch, authoring, and validation recipes are written for that second
+register.
+:::
 
 For one continuous build instead of short recipes, use the
 [Full walkthrough](guides-walkthrough.md).
@@ -27,7 +37,7 @@ input schemas.
 
 **You say**
 
-> "Is Godot connected? Show me what toolsets are available, and enable scene editing."
+> "Is my Godot editor hooked up? I want to start building."
 
 **What happens**
 
@@ -56,7 +66,7 @@ godot_enable_toolset(category="scene_edit")
 
 **You say**
 
-> "Read the scene first — what's open, what's in the tree, and what are the Player's properties?"
+> "What am I looking at? Give me the lay of the land before you change anything."
 
 **What happens**
 
@@ -84,11 +94,15 @@ godot_inspection_get_node_property(node_path="Player", property="position")
 // { "node_path": "Player", "property": "position", "value": { "x": 400, "y": 300 }, "exists": true }
 ```
 
-## 3. Create a configured node in one step
+## 3. Add a player character
 
 **You say**
 
-> "Add a Player (a CharacterBody2D) at (400, 300), with a collision shape and a camera as children."
+> "Add a player character I can move around."
+
+**Or say it precisely**
+
+> "Add a CharacterBody2D named Player at (400, 300), with a CollisionShape2D and a Camera2D as children."
 
 **What happens**
 
@@ -123,11 +137,15 @@ godot_scene_edit_set_node_property(node_path="Player", property="modulate", valu
 `compose_node` is the create-with-config macro. The primitive
 `create_node` only takes `parent_path`, `node_type`, and `node_name`.
 
-## 4. Write a script, attach it, and check it parses
+## 4. Give the character controls
 
 **You say**
 
-> "Give the Player a movement script using `Input.get_vector` at speed 300, attach it, and check it parses."
+> "Give the character controls so it moves with the arrow keys, and make sure the script is valid."
+
+**Or say it precisely**
+
+> "Write a CharacterBody2D script that uses `Input.get_vector` at speed 300, attach it to Player, and check it parses."
 
 **What happens**
 
@@ -154,11 +172,15 @@ godot_scripts_get_parse_errors(script_path="res://scripts/player.gd")
 // { "script_path": "...", "errors": [], "rescan_pending": false }
 ```
 
-## 5. Add collision and physics layers
+## 5. Make the player collide with the world
 
 **You say**
 
-> "Give the Player a circle collision shape and put it on layer 1, colliding with layers 2 and 3."
+> "Make the player bump into walls and the floor instead of walking through them."
+
+**Or say it precisely**
+
+> "Give Player a CircleShape2D with radius 24, collision layer 1, and a mask for layers 2 and 3."
 
 **What happens**
 
@@ -186,11 +208,11 @@ A shape is a **resource**. Don't try to build one with
 `godot_scene_edit_set_node_property(property="shape", value={"type": "CircleShape2D", ...})`;
 that setter only accepts a `res://` resource path or `null`.
 
-## 6. Save and ask what will actually keep
+## 6. Save and check it sticks
 
 **You say**
 
-> "Save the scene, and tell me whether the changes will really be there next time."
+> "Save my work so it's still here when I reopen the project — and tell me if anything won't stick."
 
 **What happens**
 
@@ -229,11 +251,11 @@ godot_scene_edit_set_node_property(node_path="Relic/Cold", property="position", 
 Other reason tokens: `node_not_owned`, `embedded_in_other_resource`,
 `group_from_base_scene`. See [Persistence truth](architecture/persistence.md).
 
-## 7. Preview a delete before it happens
+## 7. Preview a delete
 
 **You say**
 
-> "Show me what would happen if you deleted the OldSpawner, but don't do it."
+> "If I remove the old spawner, what breaks? Don't delete it yet."
 
 **What happens**
 
@@ -254,11 +276,11 @@ godot_scene_edit_delete_node(node_path="OldSpawner", confirm=true)
 Without `confirm=true`, a destructive call refuses with
 `PRECONDITION_FAILED` and `required: "confirm"`.
 
-## 8. Run the game headlessly and report errors
+## 8. Run the game and read the errors
 
 **You say**
 
-> "Run the main scene headless for five seconds and tell me if there are any errors or warnings."
+> "Run the game and tell me if anything's broken."
 
 **What happens**
 
@@ -280,11 +302,15 @@ godot_runtime_run_and_capture(scene="res://scenes/main.tscn", timeout_seconds=5)
 - For parse + tree + run + bridge in one call, ask for the "debug workflow"
   (`godot_debug_workflow()`, in `core`).
 
-## 9. Play it, drive it, and assert it worked
+## 9. Play it and check it works
 
 **You say**
 
-> "Play the main scene, hold right for a moment, and check the player actually moved."
+> "Play it and check that the player can actually move and pick up a coin."
+
+**Or say it precisely**
+
+> "Play main.tscn, hold ui_right for a moment, then assert that Player.position.x increased and GameManager.coin_count is at least 1."
 
 **What happens**
 
@@ -333,11 +359,15 @@ While the game is paused at a debugger break, input is refused
 (`required: "game_not_breaked"`) and `input_get_stats().injected` stops moving.
 That is the pause signal, not a bug.
 
-## 10. Break into the debugger and step through it
+## 10. Debug a broken player
 
 **You say**
 
-> "Set a breakpoint on player.gd line 42, run until it, and tell me the player's health there."
+> "The player keeps falling through the floor. Pause the game and tell me what's going on."
+
+**Or say it precisely**
+
+> "Set a breakpoint at player.gd:42, run until it, step over the next line, and evaluate `player.health`."
 
 **What happens**
 
@@ -367,11 +397,15 @@ godot_debugger_remove_breakpoint(path="res://scripts/player.gd", line=42)
 paused frame. `get_stack_frames` and `get_frame_variables` are `UNSUPPORTED` on
 Godot 4.7 (#677).
 
-## 11. Change one property across many nodes
+## 11. Change many things at once
 
 **You say**
 
-> "Turn every coin red, and tell me whether I can undo it."
+> "Make all the coins look different."
+
+**Or say it precisely**
+
+> "Set modulate to red on every Area2D under Coins, and tell me whether the batch is undoable."
 
 **What happens**
 
@@ -399,11 +433,15 @@ For a mix of different operations, `godot_composite_run_commands(commands=[...])
 runs them in one editor round-trip and reports `aborted_at`/`skipped_count` if it
 halts early.
 
-## 12. Author a tile, theme, shader, or animation
+## 12. Make it look better
 
 **You say**
 
-> "Make the ground a tilemap, style the score label gold, and give the player a flash shader."
+> "Make it look better — grass ground, nicer score text, and a hit flash on the player."
+
+**Or say it precisely**
+
+> "Create a TileSet for World/Ground, set the score label font color to gold, and assign a canvas_item flash shader to Player/Sprite2D."
 
 **What happens**
 
@@ -444,11 +482,15 @@ godot_animation_insert_keyframe(node_path="Player", animation="idle", track=0, t
 
 A clean shader compile is a compile verdict, not a visual check.
 
-## 13. Validate the project and export a build
+## 13. Check the game and build it
 
 **You say**
 
-> "Validate the project, then export a Web build."
+> "Check the game for problems, then build me a web version."
+
+**Or say it precisely**
+
+> "Run validate_project with warnings on scripts and scenes, then export the Web preset to builds/web/index.html."
 
 **What happens**
 
@@ -474,11 +516,11 @@ godot_export_project(preset="Web", output_path="builds/web/index.html", confirm=
 Project-owned validators live in `res://.mcp/validators/` — see
 [Project validators](https://github.com/hybridindie/godot-mcp/tree/main/examples/validators).
 
-## 14. When something goes wrong
+## 14. Fix a failure
 
 **You say**
 
-> "That failed — read the error and fix it."
+> "That didn't work — read the error and fix it."
 
 **What happens**
 
@@ -514,11 +556,11 @@ Project-owned validators live in `res://.mcp/validators/` — see
 For the full error-code enum and design rules, see
 [Errors & recovery](reference-errors.md).
 
-## 15. Undo, or fall back to a snapshot
+## 15. Undo or roll back
 
 **You say**
 
-> "Undo that, and if it isn't on the undo stack, tell me how to get back."
+> "Undo that. If you can't, get me back to how it was."
 
 **What happens**
 
@@ -545,3 +587,54 @@ godot_checkpoint_restore(checkpoint_id="c3", dry_run=true)
 A change the undo stack does not cover reports `reversible_by: "vcs"`; take a
 `godot_vcs_snapshot` before large non-undoable edits so `godot_vcs_restore` is
 available.
+
+## 16. Go deeper
+
+**You say**
+
+> "Run the full debug workflow on main.tscn, then show me the signal flow, any unused resources, and a before/after diff around the Player. Run the test suite and profile it too."
+
+**What happens**
+
+- The assistant runs parse + tree + headless run + bridge in one report.
+- It maps signal connections, finds orphaned resources, and snapshots the Player subtree so a later diff shows exactly what changed.
+- It runs the project's test suite and reads the editor/running-game performance monitors.
+- This is the same surface an engineer would drive directly — the prompts just compose it.
+
+**Under the hood**
+
+```jsonc
+godot_debug_workflow(scene="res://scenes/main.tscn", expected_timeout=true)
+// { "findings": [...], "suggestions": [...], ... }
+
+godot_enable_toolset(category="analysis")
+godot_analysis_analyze_signal_flow(scene="res://scenes/main.tscn")
+godot_analysis_find_unused_resources()
+
+godot_inspection_snapshot_subtree(node_path="Player")
+// { "snapshot_id": "s1", ... }
+// ... make the change ...
+godot_inspection_diff_snapshots(before_id="s1")
+// { "added": [...], "removed": [...], "changed": [{ "node": "...", "property": "...", "before": ..., "after": ... }] }
+
+godot_enable_toolset(category="testing")
+godot_testing_run_tests(test_dir="res://tests/unit")
+// { "passed": 60, "failed": 0, ... }
+
+godot_enable_toolset(category="profiling")
+godot_profiling_get_performance_monitors()
+// editor + running-game FPS, draw calls, memory
+```
+
+When you need to *look* rather than read, the assistant can take both screenshots
+and diff them:
+
+```jsonc
+godot_editor_capture_screenshot()                 // editor viewport (editor toolset)
+godot_runtime_capture_game_screenshot()           // running game (runtime + probe)
+godot_testing_compare_screenshots(image_a="<base64>", image_b="<base64>")
+```
+
+For a hard bug, combine this with [recipe 10](#10-debug-a-broken-player):
+break, step, evaluate in the running game, then resume. The calls are exact;
+the prompts can stay as vague as "why is this broken?"
