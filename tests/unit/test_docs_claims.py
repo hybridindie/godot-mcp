@@ -167,3 +167,19 @@ def test_agents_has_one_canonical_wiki_fabric_block() -> None:
     assert text.count("## wiki-fabric") == 1
     assert "## wiki-fabric (opencode)" not in text
     assert text.count("This project is connected to a knowledge fabric") == 1
+
+
+def test_agents_names_the_pinned_fastmcp_version() -> None:
+    """AGENTS.md states the FastMCP release; keep it locked to pyproject.toml."""
+    pyproject = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    pin = re.search(r'"fastmcp\[tasks\]==(\d+\.\d+\.\d+)"', pyproject)
+    assert pin, "fastmcp[tasks] pin not found in pyproject.toml"
+
+    agents = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    # Full three-part versions only: "FastMCP 4.0's ToolTransform" is a
+    # different, historical reference.
+    claims = set(re.findall(r"FastMCP (\d+\.\d+\.\d+)", agents))
+    assert claims == {pin.group(1)}, (
+        f"AGENTS.md names FastMCP {', '.join(sorted(claims)) or '(none)'} "
+        f"but pyproject.toml pins {pin.group(1)}"
+    )
