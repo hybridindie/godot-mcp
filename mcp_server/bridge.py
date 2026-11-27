@@ -88,6 +88,9 @@ class Bridge:
         self._last_heartbeat: float | None = None
         self._pending_commands: dict[str, str] = {}
         self._pending_started: dict[str, float] = {}
+        # #905: each pending request's own deadline (start + effective timeout),
+        # so silence during a synchronous command reads busy until it expires.
+        self._pending_deadline: dict[str, float] = {}
         self._counter = 0
         # Serialises peer adoption so two near-simultaneous editor connections can't
         # race to swap _conn/_reader and leave two readers resolving futures (#276 review).
@@ -165,7 +168,10 @@ class Bridge:
             # Heartbeats are the liveness signal: a slow in-flight command
             # (e.g. a 6s bake) is busy, not stale, while they keep arriving (#873).
             if now - self._last_heartbeat > _STALE_AFTER_SECONDS:
-                return "stale"
+                # The addon sends heartbeats from the same main-thread frame that
+                # runs commands, so silence while a command is in flight means the
+                # editor is executing it: busy until its own deadline passes (#905).
+                return "busy" if self._oldest_pending_within_deadline(now) else "stale"
             if self._mutation_pending():
                 return "busy"
             return self._editor_status or "unknown"
@@ -177,6 +183,14 @@ class Bridge:
                 return "stale"
             return "busy" if self._mutation_pending() else "unknown"
         return "unknown"
+
+    def _oldest_pending_within_deadline(self, now: float) -> bool:
+        """True when the oldest in-flight command has not outlived its own timeout (#905)."""
+        if not self._pending_started:
+            return False
+        oldest = min(self._pending_started, key=self._pending_started.__getitem__)
+        deadline = self._pending_deadline.get(oldest)
+        return deadline is not None and now <= deadline
 
     def _mutation_pending(self) -> bool:
         """True while any in-flight command is mutating/destructive (#874)."""
@@ -507,6 +521,8 @@ class Bridge:
         self._pending[msg_id] = future
         self._pending_commands[msg_id] = command
         self._pending_started[msg_id] = self._clock()
+        effective_timeout = timeout if timeout is not None else self._config.request_timeout
+        self._pending_deadline[msg_id] = self._pending_started[msg_id] + effective_timeout
 
         try:
             await conn.send(envelope.model_dump_json())
@@ -515,6 +531,7 @@ class Bridge:
             self._pending.pop(msg_id, None)
             self._pending_commands.pop(msg_id, None)
             self._pending_started.pop(msg_id, None)
+            self._pending_deadline.pop(msg_id, None)
             if not future.done():
                 future.cancel()
             # #635: fail the wider pending set only when THIS conn is still the
@@ -529,6 +546,7 @@ class Bridge:
         response = await self._await_response(msg_id, future, timeout)
         self._pending_commands.pop(msg_id, None)
         self._pending_started.pop(msg_id, None)
+        self._pending_deadline.pop(msg_id, None)
         return self._flag_may_have_applied(command, response)
 
     def _flag_may_have_applied(self, command: str, response: ResponseEnvelope) -> ResponseEnvelope:
@@ -669,6 +687,7 @@ class Bridge:
             return
         self._pending_commands.pop(response.id, None)
         self._pending_started.pop(response.id, None)
+        self._pending_deadline.pop(response.id, None)
         future = self._pending.pop(response.id, None)
         if future is not None and not future.done():
             future.set_result(response)
@@ -701,6 +720,7 @@ class Bridge:
         self._pending.clear()
         self._pending_commands.clear()
         self._pending_started.clear()
+        self._pending_deadline.clear()
 
     def _next_id(self) -> str:
         self._counter += 1
