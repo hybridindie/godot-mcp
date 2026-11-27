@@ -173,6 +173,7 @@ jobs:
             tests/contract/test_addon_guards.py \
             tests/contract/test_addon_handshake.py \
             tests/contract/test_deferred_response.py \
+            tests/contract/test_deferred_bake.py \
             tests/contract/test_router_refactor.py \
             tests/contract/test_undo_threshold.py
 
@@ -288,6 +289,7 @@ jobs:
             tests/contract/test_addon_guards.py \
             tests/contract/test_addon_handshake.py \
             tests/contract/test_deferred_response.py \
+            tests/contract/test_deferred_bake.py \
             tests/contract/test_router_refactor.py \
             tests/contract/test_undo_threshold.py
 
