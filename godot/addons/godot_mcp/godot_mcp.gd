@@ -4,7 +4,8 @@ extends EditorPlugin
 ##
 ## This is the ONLY layer that touches the Godot Editor API. It owns the
 ## read-only status dock (issue #2) and the WebSocket bridge (issue #3): a
-## localhost WebSocket server that routes command envelopes to cmd_* handlers and
+## WebSocket client that dials the MCP server's localhost bridge listener and
+## reconnects with backoff (#276), routes command envelopes to cmd_* handlers, and
 ## reflects connection state + recent commands in the dock. All safety/preconditions
 ## live in the MCP server, not here.
 ##

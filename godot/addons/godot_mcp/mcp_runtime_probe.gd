@@ -145,7 +145,6 @@ func _capture(message: String, data: Array) -> bool:
 			# because debug() blocks until the editor replies with continue/step.
 			force_break_pending = true
 			EngineDebugger.send_message("godot_mcp:force_break_ack", [])
-			print("[MCPRuntimeProbe] force_break_pending SET to true")
 			return true
 	return false
 
@@ -260,14 +259,16 @@ func _inject_key(d: Dictionary) -> void:
 
 
 func _inject_mouse(d: Dictionary) -> void:
-	var position := Vector2(float(d.get("x", 0.0)), float(d.get("y", 0.0)))
+	var position: Vector2 = Coerce.from_json(d, TYPE_VECTOR2)
 	var button_name := str(d.get("button", ""))
 	# device left at default 0 on the synthesized events below — injection verified
 	# on Godot 4.7 (GH-116274), see the _inject_key note and input_inject_smoke.gd.
 	if button_name.is_empty():
 		var motion := InputEventMouseMotion.new()
 		motion.position = position
-		motion.relative = Vector2(float(d.get("relative_x", 0.0)), float(d.get("relative_y", 0.0)))
+		motion.relative = Coerce.from_json(
+			{"x": d.get("relative_x", 0.0), "y": d.get("relative_y", 0.0)}, TYPE_VECTOR2
+		)
 		Input.parse_input_event(motion)
 	else:
 		if not _MOUSE_BUTTONS.has(button_name):
