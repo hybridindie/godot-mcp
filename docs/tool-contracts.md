@@ -863,7 +863,14 @@ bakes the region's navmesh/navpoly synchronously (undo restores the pre-bake res
 a region with no navmesh returns a structured precondition). A bake that yields zero
 polygons (no source geometry parsed) is refused with a VALIDATION_ERROR naming the fix —
 `baked:true` is never reported for an empty navmesh (#413); a successful bake echoes
-`polygon_count`/`vertex_count` for verification. `godot_navigation_set_layers`
+`polygon_count`/`vertex_count` for verification. The bake is task-enabled (`task=True`,
+#315) and its bridge command waits for the **long-operation timeout** instead of the 10 s
+default request timeout (#875): `120` seconds, overridable with
+`GODOT_MCP_LONG_REQUEST_TIMEOUT` (seconds; a missing, non-numeric or non-positive value
+falls back to `120`). The other task-enabled tools, `godot_runtime_run_and_capture` and
+`godot_export_project`, do not wait on the bridge for their long phase: they run a
+headless Godot subprocess through the runner, bounded by their own `timeout_seconds`, and
+use the bridge only for short default-timeout lookups. `godot_navigation_set_layers`
 turns `[1,3]` into the bitmask `5` on any node with a `navigation_layers` property.
 
 #### Audio (issue #44) — category: `audio` (gated off by default)
