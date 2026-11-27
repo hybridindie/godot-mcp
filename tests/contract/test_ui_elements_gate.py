@@ -38,9 +38,12 @@ def test_ui_elements_capture_gates_on_pending_request_id() -> None:
 
 def test_ui_elements_handler_reverifies_request_id() -> None:
     """The handler's fast-path id match stays (belt-and-braces, unchanged)."""
-    handler = (ADDON_DIR / "handlers" / "runtime_inspect.gd").read_text().split(
-        "func _cmd_find_ui_elements", 1
-    )[1].split("func ", 1)[0]
+    handler = (
+        (ADDON_DIR / "handlers" / "runtime_inspect.gd")
+        .read_text()
+        .split("func _cmd_find_ui_elements", 1)[1]
+        .split("func ", 1)[0]
+    )
     assert 'get("request_id") == request_id' in handler
 
 

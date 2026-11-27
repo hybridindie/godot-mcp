@@ -120,8 +120,7 @@ def test_examples_claim_matches_the_survivors_project() -> None:
 
     files = list((REPO_ROOT / "examples" / "survivors" / "tests").rglob("test_*.gd"))
     tests = sum(
-        len(re.findall(r"^func test_", path.read_text(encoding="utf-8"), re.M))
-        for path in files
+        len(re.findall(r"^func test_", path.read_text(encoding="utf-8"), re.M)) for path in files
     )
     assert int(claim.group(1)) == tests
     assert int(claim.group(2)) == len(files)

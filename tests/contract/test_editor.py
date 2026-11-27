@@ -115,6 +115,7 @@ async def test_addon_reason_surfaces_in_timeout_error() -> None:
     ({ready: false, pending: true, reason: "editor_not_drawing"}); the tool's
     expiry error must relay that reason instead of the bridge's generic
     "no response from Godot" — the agent needs the actual cause."""
+
     def responder(cmd: CommandEnvelope) -> ResponseEnvelope:
         return ResponseEnvelope.success(
             cmd.id, {"ready": False, "pending": True, "reason": "editor_not_drawing"}

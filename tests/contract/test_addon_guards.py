@@ -48,9 +48,7 @@ def test_guards_smoke_pins_the_envelope() -> None:
 
 def test_guards_live_in_one_module() -> None:
     """One guard module exists; the router's wrappers are pure delegation."""
-    assert GUARDS_GD.is_file(), (
-        f"missing consolidated guard module at {GUARDS_GD} (issue #527)"
-    )
+    assert GUARDS_GD.is_file(), f"missing consolidated guard module at {GUARDS_GD} (issue #527)"
     src = GUARDS_GD.read_text()
     for guard in (
         "require_play_session",

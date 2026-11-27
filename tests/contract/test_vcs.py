@@ -138,9 +138,7 @@ async def test_restore_resolves_a_ref_from_a_fresh_server(tmp_path: Path) -> Non
     (repo / "game.gd").write_text("v2\n", encoding="utf-8")
 
     async with Client(_server(repo)) as second:
-        restored = await _call(
-            second, "godot_vcs_restore", snapshot_id=snapshot_id, confirm=True
-        )
+        restored = await _call(second, "godot_vcs_restore", snapshot_id=snapshot_id, confirm=True)
 
     assert restored.is_error is False, restored
     assert (repo / "game.gd").read_text(encoding="utf-8") == "v1\n"

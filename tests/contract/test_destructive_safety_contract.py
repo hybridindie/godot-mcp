@@ -74,8 +74,7 @@ async def test_every_destructive_tool_calls_require_confirmation() -> None:
         if not called:
             missing.append(name)
     assert not missing, (
-        "destructive tools missing a require_confirmation CALL (issue #367): "
-        + ", ".join(missing)
+        "destructive tools missing a require_confirmation CALL (issue #367): " + ", ".join(missing)
     )
 
 
@@ -96,8 +95,7 @@ async def test_every_destructive_tool_accepts_dry_run() -> None:
         if "dry_run" not in props:
             missing.append(name)
     assert not missing, (
-        "destructive tools missing dry_run in their schema (issue #367): "
-        + ", ".join(missing)
+        "destructive tools missing dry_run in their schema (issue #367): " + ", ".join(missing)
     )
 
 
@@ -116,6 +114,5 @@ async def test_every_destructive_tool_accepts_confirm() -> None:
         if "confirm" not in props:
             missing.append(name)
     assert not missing, (
-        "destructive tools missing confirm in their schema (issue #367): "
-        + ", ".join(missing)
+        "destructive tools missing confirm in their schema (issue #367): " + ", ".join(missing)
     )

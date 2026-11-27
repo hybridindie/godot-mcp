@@ -31,9 +31,7 @@ CLOUD_KEYS = [
 def _run_in(
     repo: Path, args: list[str], env_extra: dict[str, str] | None = None
 ) -> subprocess.CompletedProcess[str]:
-    env = {
-        k: v for k, v in os.environ.items() if not k.endswith("_API_KEY")
-    }
+    env = {k: v for k, v in os.environ.items() if not k.endswith("_API_KEY")}
     env["PATH"] = "/usr/bin:/bin"
     if env_extra:
         env.update(env_extra)
@@ -57,9 +55,7 @@ def hermetic_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     stub = repo / "graphify.sh"
     stub.write_text(script_src)
     stub.chmod(0o755)
-    monkeypatch.setattr(
-        "tests.unit.test_graphify_guard.SCRIPT", repo / "graphify.sh"
-    )
+    monkeypatch.setattr("tests.unit.test_graphify_guard.SCRIPT", repo / "graphify.sh")
     return repo
 
 

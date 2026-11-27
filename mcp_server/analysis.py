@@ -267,7 +267,7 @@ def project_structure(index: ProjectIndex) -> dict[str, list[str]]:
 def _ext_resource_map(text: str) -> dict[str, str]:
     """Map ExtResource id -> path for a scene/resource file."""
     mapping: dict[str, str] = {}
-    for block in re.findall(r'\[ext_resource\s+[^\]]*\]', text):
+    for block in re.findall(r"\[ext_resource\s+[^\]]*\]", text):
         id_match = re.search(r'id="([^"]+)"', block)
         path_match = re.search(r'path="([^"]+)"', block)
         if id_match and path_match:
@@ -278,7 +278,7 @@ def _ext_resource_map(text: str) -> dict[str, str]:
 def _ext_resource_type_map(text: str) -> dict[str, tuple[str, str]]:
     """Map ExtResource id -> (type, path) for a scene/resource file."""
     mapping: dict[str, tuple[str, str]] = {}
-    for block in re.findall(r'\[ext_resource\s+[^\]]*\]', text):
+    for block in re.findall(r"\[ext_resource\s+[^\]]*\]", text):
         id_match = re.search(r'id="([^"]+)"', block)
         type_match = re.search(r'type="([^"]+)"', block)
         path_match = re.search(r'path="([^"]+)"', block)
@@ -294,7 +294,7 @@ def _collect_references(text: str, res: str) -> set[str]:
     refs.update(_UID_REF.findall(text))
     # For scenes/resources, also explicitly parse ext_resource paths
     if res.endswith((".tscn", ".tres", ".scn")):
-        for block in re.findall(r'\[ext_resource\s+[^\]]*\]', text):
+        for block in re.findall(r"\[ext_resource\s+[^\]]*\]", text):
             path_match = re.search(r'path="([^"]+)"', block)
             if path_match:
                 refs.add(path_match.group(1))

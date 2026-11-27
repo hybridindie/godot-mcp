@@ -101,14 +101,13 @@ async def _validate_material_params(bridge: Bridge, params: dict[str, Any]) -> N
         _require_res_path(value, field=channel)
         rel = value.removeprefix("res://")
         probe = await route(
-            bridge, "cmd_search_files",
+            bridge,
+            "cmd_search_files",
             {"directory": "res://", "name_glob": rel.rsplit("/", 1)[-1]},
         )
         matches = probe.get("matches") or []
         if not any(str(m).endswith(value) for m in matches):
-            raise ToolError(
-                f"RESOURCE_NOT_FOUND: Texture not found for '{channel}': '{value}'."
-            )
+            raise ToolError(f"RESOURCE_NOT_FOUND: Texture not found for '{channel}': '{value}'.")
 
 
 def _is_url(source: str) -> bool:
@@ -288,11 +287,17 @@ def register_import_asset(mcp: FastMCP, bridge: Bridge) -> None:
         await _validate_material_params(bridge, params)
         if dry_run:
             channels_preview = [
-                c for c, v in (
-                    ("albedo", albedo), ("normal", normal), ("roughness", roughness),
-                    ("metallic", metallic), ("ao", ao), ("emission", emission),
+                c
+                for c, v in (
+                    ("albedo", albedo),
+                    ("normal", normal),
+                    ("roughness", roughness),
+                    ("metallic", metallic),
+                    ("ao", ao),
+                    ("emission", emission),
                     ("emission_enabled", emission_enabled),
-                ) if v
+                )
+                if v
             ]
             return CreateMaterialResult(
                 material_path=path or "res://materials/generated_{rand}.tres",

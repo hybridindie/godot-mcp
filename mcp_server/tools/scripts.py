@@ -195,7 +195,9 @@ def register_scripts(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner:
         output = await runner.check_script(project_dir, script_path, timeout=30.0)
         errors = parse_check_errors(output.stdout + "\n" + output.stderr)
         return ParseCheckResult(
-            script_path=script_path, ok=not errors, errors=errors,
+            script_path=script_path,
+            ok=not errors,
+            errors=errors,
             rescan_pending=rescan_pending,
         )
 

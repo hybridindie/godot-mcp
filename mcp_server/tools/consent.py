@@ -19,15 +19,11 @@ from mcp_server.safety import READ_ONLY, ApprovalGate, PreconditionError
 DESCRIBE_TOOL = "godot_describe_tool"
 
 
-def register_consent_tool(
-    mcp: FastMCP, consent: ConsentManager, approval: ApprovalGate
-) -> None:
+def register_consent_tool(mcp: FastMCP, consent: ConsentManager, approval: ApprovalGate) -> None:
     """Register the read-only ``describe_tool`` consent minter."""
 
     @mcp.tool(meta=READ_ONLY, tags={CORE_TAG})
-    async def describe_tool(
-        tool: str, args: dict[str, Any] | None = None
-    ) -> ConsentToken:
+    async def describe_tool(tool: str, args: dict[str, Any] | None = None) -> ConsentToken:
         """Mint a short-lived consent token for a **destructive** tool, bound to
         the exact ``(tool, args)``. Send it as ``consent=<token>`` on the call;
         changed args, expiry, and replay are refused with ``CONSENT_MISMATCH``.

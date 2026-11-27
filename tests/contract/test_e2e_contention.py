@@ -41,9 +41,7 @@ def _e2e_files() -> list[Path]:
 
 def test_no_e2e_file_hardcodes_a_bridge_port() -> None:
     offenders = [
-        path.name
-        for path in _e2e_files()
-        if _LEGACY_PORT.search(path.read_text(encoding="utf-8"))
+        path.name for path in _e2e_files() if _LEGACY_PORT.search(path.read_text(encoding="utf-8"))
     ]
     assert offenders == [], (
         "e2e files must derive their bridge URL from tests.integration._godot."

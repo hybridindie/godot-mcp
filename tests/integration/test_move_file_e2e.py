@@ -78,9 +78,7 @@ async def _run() -> None:
         await _ok(
             bridge, "cmd_create_node", {"parent_path": ".", "node_type": "Node", "name": "User"}
         )
-        await _ok(
-            bridge, "cmd_attach_script", {"node_path": "User", "script_path": OLD_SCRIPT}
-        )
+        await _ok(bridge, "cmd_attach_script", {"node_path": "User", "script_path": OLD_SCRIPT})
         await _ok(bridge, "cmd_save_scene", {})
 
         # dry-run preview: lists the referencing files, moves nothing.
@@ -120,7 +118,8 @@ async def _run() -> None:
             bridge, "cmd_create_node", {"parent_path": ".", "node_type": "Node", "name": "Extra"}
         )
         dirty = await bridge.send(
-            "cmd_move_resource_file", {"path": REF_SCENE, "new_path": "res://tmp_e2e_moved_ref2.tscn"}
+            "cmd_move_resource_file",
+            {"path": REF_SCENE, "new_path": "res://tmp_e2e_moved_ref2.tscn"},
         )
         assert not dirty.ok and dirty.error == "PRECONDITION_FAILED"
         assert "unsaved" in str(dirty.hint)

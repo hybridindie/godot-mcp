@@ -152,9 +152,7 @@ def test_getting_started_map_covers_every_toolset() -> None:
     to hunt for tools that were renamed or added since the skill was written."""
     body = _body("godot-getting-started")
     for toolset in sorted(asyncio.run(_toolsets())):
-        assert toolset in body, (
-            f"getting-started quick-map is missing the '{toolset}' toolset"
-        )
+        assert toolset in body, f"getting-started quick-map is missing the '{toolset}' toolset"
 
 
 def test_skill_prompt_lists_cover_registered_prompts() -> None:
@@ -180,9 +178,7 @@ def test_getting_started_states_current_version_and_check() -> None:
         "getting-started must show the version check via godot_health_check()"
     )
     readme = (SKILLS_DIR / "README.md").read_text(encoding="utf-8")
-    assert __version__ in readme, (
-        f"skills/README.md must name the current version {__version__}"
-    )
+    assert __version__ in readme, f"skills/README.md must name the current version {__version__}"
 
 
 def test_skills_do_not_hardcode_stale_tool_counts() -> None:
@@ -277,8 +273,7 @@ def test_expert_skill_has_no_raw_bridge_workflow() -> None:
         if '"command": "cmd_' in md.read_text(encoding="utf-8")
     ]
     assert not raw_envelopes, (
-        "skills teach raw bridge envelopes instead of godot_* tools: "
-        + ", ".join(raw_envelopes)
+        "skills teach raw bridge envelopes instead of godot_* tools: " + ", ".join(raw_envelopes)
     )
 
 

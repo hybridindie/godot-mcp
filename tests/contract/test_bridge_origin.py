@@ -35,9 +35,7 @@ async def test_originless_handshake_succeeds_and_browser_origin_is_rejected() ->
             assert ws is not None
         # A browser page's Origin is rejected at the handshake (403).
         with pytest.raises(InvalidStatus) as exc:
-            async with connect(
-                f"ws://127.0.0.1:{port}", origin=Origin("https://example.com")
-            ):
+            async with connect(f"ws://127.0.0.1:{port}", origin=Origin("https://example.com")):
                 pass
         assert exc.value.response.status_code == 403
     finally:

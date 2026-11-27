@@ -41,9 +41,7 @@ from mcp_server.models.envelope import CommandEnvelope, ErrorCode, ResponseEnvel
 
 # Injectable transport seams (tests pass fakes; production uses the defaults).
 Connector = Callable[[str], Awaitable[Connection]]
-Serve = Callable[
-    [Callable[[Connection], Awaitable[None]], str, int, int], Awaitable[Server]
-]
+Serve = Callable[[Callable[[Connection], Awaitable[None]], str, int, int], Awaitable[Server]]
 Sleep = Callable[[float], Awaitable[None]]
 
 # Re-exported for existing importers (fakes, type aliases); the helpers module
@@ -242,9 +240,7 @@ class Bridge:
                         # Best-effort push (issue #521): an old addon that lacks
                         # cmd_server_hello answers "Unknown command" — ignored
                         # here, the dock just keeps showing the Godot version.
-                        await self.send(
-                            "cmd_server_hello", {"version": __version__}, timeout=5.0
-                        )
+                        await self.send("cmd_server_hello", {"version": __version__}, timeout=5.0)
         return self._addon_info
 
     async def serve(self) -> None:
@@ -422,9 +418,7 @@ class Bridge:
         # A short handshake budget: the addon sends auth right after the
         # websocket opens (or never — that's the refusal case). A full request
         # timeout here would stall the listener on a silent peer.
-        deadline = asyncio.get_running_loop().time() + min(
-            2.0, self._config.request_timeout
-        )
+        deadline = asyncio.get_running_loop().time() + min(2.0, self._config.request_timeout)
         skipped: list[str | bytes] = []
         while True:
             try:
@@ -537,9 +531,7 @@ class Bridge:
         self._pending_started.pop(msg_id, None)
         return self._flag_may_have_applied(command, response)
 
-    def _flag_may_have_applied(
-        self, command: str, response: ResponseEnvelope
-    ) -> ResponseEnvelope:
+    def _flag_may_have_applied(self, command: str, response: ResponseEnvelope) -> ResponseEnvelope:
         """#644: a TIMEOUT on a mutating command may still apply — say so.
 
         The addon drains commands serially on the editor main thread, so a command

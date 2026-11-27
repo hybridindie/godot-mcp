@@ -172,12 +172,17 @@ async def test_write_script_overwrite_reports_the_effect() -> None:
     """#424: a real overwrite must read as success — ``created:false, overwrote:true,
     previous_existed:true``. ``would_overwrite`` is dry-run-only phrasing; the real
     response must not read like a no-op while the bytes landed."""
+
     def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
         if cmd.command == "cmd_write_script":
             return ResponseEnvelope.success(
                 cmd.id,
-                {"script_path": cmd.params["script_path"], "created": False,
-                 "overwrote": True, "previous_existed": True},
+                {
+                    "script_path": cmd.params["script_path"],
+                    "created": False,
+                    "overwrote": True,
+                    "previous_existed": True,
+                },
             )
         return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
 
@@ -202,12 +207,16 @@ async def test_write_script_legacy_addon_payload_maps_to_effect_truth() -> None:
     ``{created:false, would_overwrite:true}`` must not serialize as
     ``overwrote:false`` while the bytes landed — the parsed probe key maps to
     the effect keys on a real run."""
+
     def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
         if cmd.command == "cmd_write_script":
             return ResponseEnvelope.success(
                 cmd.id,
-                {"script_path": cmd.params["script_path"], "created": False,
-                 "would_overwrite": True},
+                {
+                    "script_path": cmd.params["script_path"],
+                    "created": False,
+                    "would_overwrite": True,
+                },
             )
         return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")
 

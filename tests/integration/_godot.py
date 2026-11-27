@@ -76,6 +76,7 @@ def engine_at_least(major: int, minor: int) -> bool:
     version = engine_version()
     return version is not None and version[:2] >= (major, minor)
 
+
 def _has_display() -> bool:
     """Whether a display server is available for play sessions.
 

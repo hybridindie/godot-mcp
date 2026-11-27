@@ -122,9 +122,7 @@ class _ToolListChangedRecorder(MessageHandler):
         self.count = 0
         self.received = asyncio.Event()
 
-    async def on_tool_list_changed(
-        self, message: mcp_types.ToolListChangedNotification
-    ) -> None:
+    async def on_tool_list_changed(self, message: mcp_types.ToolListChangedNotification) -> None:
         self.count += 1
         self.received.set()
 
@@ -175,10 +173,8 @@ async def test_list_changed_delivered_on_the_sessionless_protocol() -> None:
     handler = _ToolListChangedRecorder()
     async with Client(server, mode="2026-07-28", message_handler=handler) as client:
         assert client.protocol_version == "2026-07-28", (
-            "this test must exercise the sessionless protocol; got "
-            f"{client.protocol_version!r}"
+            f"this test must exercise the sessionless protocol; got {client.protocol_version!r}"
         )
         await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
         await _wait_for(handler)
     assert handler.count >= 1
-

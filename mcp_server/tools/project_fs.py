@@ -136,9 +136,7 @@ def register_project_fs(mcp: FastMCP, bridge: Bridge) -> None:
             await validate_or_raise(bridge, "cmd_delete_resource_file", params)
             return DeleteResourceFileResult(path=path, deleted=False, dry_run=True)
         require_confirmation(confirm, "delete_resource_file")
-        return DeleteResourceFileResult(
-            **await route(bridge, "cmd_delete_resource_file", params)
-        )
+        return DeleteResourceFileResult(**await route(bridge, "cmd_delete_resource_file", params))
 
     @mcp.tool(meta=MUTATING, tags=PROJECT)
     async def move_resource_file(

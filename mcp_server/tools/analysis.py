@@ -137,4 +137,3 @@ def register_analysis(mcp: FastMCP, bridge: Bridge, config: ServerConfig) -> Non
         scenes, resources, and scripts mention it.
         """
         return CrossSceneRefsResult(**analysis.cross_scene_find_refs(await _index(), target_path))
-

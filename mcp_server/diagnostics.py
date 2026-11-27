@@ -210,9 +210,7 @@ async def _fetch_active_scene(bridge: Bridge) -> str | None:
     return None
 
 
-def _addon_drift_warning(
-    addon_commands: list[str] | None, bridge_commands: set[str]
-) -> str | None:
+def _addon_drift_warning(addon_commands: list[str] | None, bridge_commands: set[str]) -> str | None:
     """A hint when the connected addon lacks bridge commands the server routes to.
 
     Issue #530: without the handshake, a server↔addon version mismatch surfaced
@@ -240,7 +238,7 @@ COMMON_ERRORS: list[dict[str, str]] = [
     {
         "symptom": "Tool '<name>' is not enabled",
         "cause": "The toolset containing that tool is not enabled.",
-        "fix": "Call godot_list_toolsets, then godot_enable_toolset(\"scene_edit\") (or the "
+        "fix": 'Call godot_list_toolsets, then godot_enable_toolset("scene_edit") (or the '
         "relevant category) before using the tool.",
     },
     {
@@ -367,9 +365,7 @@ def register_diagnostics(
         """
         bridge_diag = await _fetch_bridge_diagnostics(bridge)
         active_scene = await _fetch_active_scene(bridge)
-        drift = _addon_drift_warning(
-            bridge_diag.addon_commands, _bridge_command_set()
-        )
+        drift = _addon_drift_warning(bridge_diag.addon_commands, _bridge_command_set())
         update = checker.cached() if checker is not None else None
         return ServerDiagnostics(
             server="godot-mcp",

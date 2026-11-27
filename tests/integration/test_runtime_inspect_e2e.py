@@ -163,8 +163,12 @@ async def _run() -> None:
         await _ok(
             bridge,
             "cmd_monitor_property",
-            {"node_path": button["path"], "property": "position", "samples": 10,
-             "on_change_only": False},
+            {
+                "node_path": button["path"],
+                "property": "position",
+                "samples": 10,
+                "on_change_only": False,
+            },
         )
         # …read a different property one-shot mid-capture…
         one_shot = await _poll(

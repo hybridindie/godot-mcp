@@ -50,9 +50,7 @@ async def _run() -> None:
             result = await client.call_tool("godot_analysis_validate_project", {})
         assert result.structured_content["valid"] is False
         findings = result.structured_content["findings"]
-        custom = [
-            f for f in findings if f.get("message") == "E2E validator finding"
-        ]
+        custom = [f for f in findings if f.get("message") == "E2E validator finding"]
         assert custom, f"custom validator finding missing: {findings}"
         assert custom[0]["validator"].endswith("e2e_validator.gd")
         assert custom[0]["severity"] == "error"

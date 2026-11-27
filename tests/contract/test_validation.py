@@ -68,9 +68,7 @@ async def _call(server: FastMCP, **arguments: Any) -> Any:
         )
 
 
-def _patch_process(
-    monkeypatch: pytest.MonkeyPatch, process: _FakeProcess
-) -> dict[str, Any]:
+def _patch_process(monkeypatch: pytest.MonkeyPatch, process: _FakeProcess) -> dict[str, Any]:
     captured: dict[str, Any] = {}
 
     async def fake_exec(*args: Any, **_kwargs: Any) -> _FakeProcess:

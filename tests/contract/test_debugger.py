@@ -32,9 +32,7 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
         case "cmd_clear_breakpoints":
             return ResponseEnvelope.success(cmd.id, {"breakpoints_cleared": True})
         case "cmd_force_break":
-            return ResponseEnvelope.success(
-                cmd.id, {"force_break_sent": True, "breaked": True}
-            )
+            return ResponseEnvelope.success(cmd.id, {"force_break_sent": True, "breaked": True})
         case "cmd_get_debug_break_state":  # #411: server polls for the break state
             return ResponseEnvelope.success(cmd.id, {"breaked": True})
     return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")

@@ -268,9 +268,7 @@ def register_vcs(mcp: FastMCP, bridge: Bridge, config: ServerConfig) -> None:
                 raise _GitError(f"git read-tree failed: {err.strip()}", required="git")
             rc, _, err = await _git(root, "checkout-index", "-a", "-f", env=env)
             if rc != 0:
-                raise _GitError(
-                    f"git checkout-index failed: {err.strip()}", required="git"
-                )
+                raise _GitError(f"git checkout-index failed: {err.strip()}", required="git")
         finally:
             try:
                 os.unlink(index_path)

@@ -21,9 +21,7 @@ import sys
 from typing import Any
 
 # Standard LogRecord attributes, so we can surface any extra structured fields.
-_RESERVED = set(
-    logging.makeLogRecord({}).__dict__
-) | {"message", "asctime", "taskName"}
+_RESERVED = set(logging.makeLogRecord({}).__dict__) | {"message", "asctime", "taskName"}
 
 
 class JsonFormatter(logging.Formatter):

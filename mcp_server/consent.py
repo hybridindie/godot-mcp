@@ -25,9 +25,7 @@ from typing import Any
 
 # Set by ConsentMiddleware after a webhook-minted token is verified, so the
 # inner ApprovalMiddleware does not ask the same human twice for one call.
-APPROVAL_PRECLEARED: ContextVar[bool] = ContextVar(
-    "godot_mcp_approval_precleared", default=False
-)
+APPROVAL_PRECLEARED: ContextVar[bool] = ContextVar("godot_mcp_approval_precleared", default=False)
 
 # Args that are not part of the *effect* being consented to: ``consent`` is the
 # token itself and ``confirm`` is the accident guard injected on success.
@@ -87,9 +85,7 @@ class ConsentManager:
             "exp": expires_at,
             "nonce": secrets.token_urlsafe(12),
         }
-        body = _b64(
-            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
-        )
+        body = _b64(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8"))
         signature = _b64(hmac.new(self._secret, body.encode("ascii"), hashlib.sha256).digest())
         return f"{body}.{signature}", expires_at
 
@@ -99,9 +95,7 @@ class ConsentManager:
             body, signature = token.rsplit(".", 1)
         except ValueError as exc:
             raise ConsentError("malformed", _MALFORMED) from exc
-        expected = _b64(
-            hmac.new(self._secret, body.encode("ascii"), hashlib.sha256).digest()
-        )
+        expected = _b64(hmac.new(self._secret, body.encode("ascii"), hashlib.sha256).digest())
         if not hmac.compare_digest(signature, expected):
             raise ConsentError(
                 "signature",

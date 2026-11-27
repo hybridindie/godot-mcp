@@ -137,16 +137,14 @@ async def _run() -> None:
         )
         assert created["created"] is True
         # The edited root is back to its original name (still renamable either way).
-        allowed = await _ok(
-            bridge, "cmd_rename_node", {"node_path": ".", "new_name": "Derived"}
-        )
+        allowed = await _ok(bridge, "cmd_rename_node", {"node_path": ".", "new_name": "Derived"})
         assert allowed["renamed"] is True and allowed["persisted"] is True, allowed
         allowed_owned = await _ok(
             bridge, "cmd_rename_node", {"node_path": "Owned", "new_name": "RenamedOwned"}
         )
-        assert (
-            allowed_owned["renamed"] is True and allowed_owned["persisted"] is True
-        ), allowed_owned
+        assert allowed_owned["renamed"] is True and allowed_owned["persisted"] is True, (
+            allowed_owned
+        )
         # Rename it back so the saved fixture matches the scene the reload asserts.
         await _ok(bridge, "cmd_rename_node", {"node_path": "RenamedOwned", "new_name": "Owned"})
         await _ok(bridge, "cmd_save_scene", {})

@@ -33,7 +33,9 @@ def _project(tmp_path: Path, *, with_addon: bool = True) -> Path:
             f'[plugin]\nname="godot_mcp"\nversion="{mcp_server.__version__}"\n',
             encoding="utf-8",
         )
-        plugins = '\n[editor_plugins]\nenabled=PackedStringArray("res://addons/godot_mcp/plugin.cfg")\n'
+        plugins = (
+            '\n[editor_plugins]\nenabled=PackedStringArray("res://addons/godot_mcp/plugin.cfg")\n'
+        )
     (project / "project.godot").write_text(
         'config_version=5\n\n[application]\nconfig/name="Game"\n' + plugins,
         encoding="utf-8",

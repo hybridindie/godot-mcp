@@ -20,20 +20,18 @@ def test_claude_code_print_and_write(tmp_path: Path, capsys: pytest.CaptureFixtu
     assert printed["mcpServers"]["godot-mcp"]["env"]["GODOT_MCP_PROJECT_DIR"] == str(project)
 
     assert (
+        cli.main(["config", "--client", "claude-code", "--project", str(project), "--write"]) == 0
+    )
+    target = project / ".mcp.json"
+    assert json.loads(target.read_text())["mcpServers"]["godot-mcp"]["args"] == ["godot-editor-mcp"]
+    with pytest.raises(SystemExit, match="already has"):
+        cli.main(["config", "--client", "claude-code", "--project", str(project), "--write"])
+    assert (
         cli.main(
-            ["config", "--client", "claude-code", "--project", str(project), "--write"]
+            ["config", "--client", "claude-code", "--project", str(project), "--write", "--force"]
         )
         == 0
     )
-    target = project / ".mcp.json"
-    assert json.loads(target.read_text())["mcpServers"]["godot-mcp"]["args"] == [
-        "godot-editor-mcp"
-    ]
-    with pytest.raises(SystemExit, match="already has"):
-        cli.main(["config", "--client", "claude-code", "--project", str(project), "--write"])
-    assert cli.main(
-        ["config", "--client", "claude-code", "--project", str(project), "--write", "--force"]
-    ) == 0
 
 
 def test_cursor_and_vscode_merge_other_servers(tmp_path: Path) -> None:
@@ -69,9 +67,10 @@ def test_codex_toml_append_force_and_preserve(
 
     with pytest.raises(SystemExit, match="already has"):
         cli.main(["config", "--client", "codex", "--project", str(project), "--write"])
-    assert cli.main(
-        ["config", "--client", "codex", "--project", str(project), "--write", "--force"]
-    ) == 0
+    assert (
+        cli.main(["config", "--client", "codex", "--project", str(project), "--write", "--force"])
+        == 0
+    )
     assert cfg.read_text().count("[mcp_servers.godot-mcp]") == 1
     capsys.readouterr()
 

@@ -128,9 +128,7 @@ def test_author_resource_prompt_parameterized(server: Any) -> None:
 
 def test_author_resource_unknown_kind_lists_supported(server: Any) -> None:
     """An unsupported resource_kind returns guidance naming the supported kinds."""
-    result = asyncio.run(
-        _render_prompt(server, "author_resource", {"resource_kind": "nonsense"})
-    )
+    result = asyncio.run(_render_prompt(server, "author_resource", {"resource_kind": "nonsense"}))
     content = " ".join(str(m.content) for m in result.messages)
     assert "nonsense" in content
     # It should steer the model to a valid kind, not a tool-call recipe.

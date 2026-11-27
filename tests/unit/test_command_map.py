@@ -137,20 +137,35 @@ def test_every_bridge_tool_bare_name_resolves_or_is_exempted() -> None:
     # multi-step orchestrators and no-bridge-command tools must NOT be in the table
     exempt_no_cmd = {
         # pure-python: analysis service, toolset mgmt, health, server info
-        "analyze_dependencies", "analyze_signal_flow", "cross_scene_find_refs",
-        "detect_circular_dependencies", "find_orphaned_resources",
-        "find_unused_resources", "project_stats", "project_structure",
-        "validate_scene_integrity", "enable_toolset", "disable_toolset",
-        "get_server_info", "health_check", "list_toolsets",
-        "list_tools_by_safety_class", "read_resource",
+        "analyze_dependencies",
+        "analyze_signal_flow",
+        "cross_scene_find_refs",
+        "detect_circular_dependencies",
+        "find_orphaned_resources",
+        "find_unused_resources",
+        "project_stats",
+        "project_structure",
+        "validate_scene_integrity",
+        "enable_toolset",
+        "disable_toolset",
+        "get_server_info",
+        "health_check",
+        "list_toolsets",
+        "list_tools_by_safety_class",
+        "read_resource",
         # version check: its only bridge traffic is a fire-and-forget dock push
         # (cmd_update_available via bridge.notify), not a correlated route (#629)
         "check_for_updates",
         # shells out to the Godot binary
         "get_parse_errors",
         # multi-step orchestrators (run several commands / binary runs)
-        "debug_workflow", "run_tests", "run_test_scenario", "run_stress_test",
-        "run_and_capture", "export_project", "assert_node_state",
+        "debug_workflow",
+        "run_tests",
+        "run_test_scenario",
+        "run_stress_test",
+        "run_and_capture",
+        "export_project",
+        "assert_node_state",
         "compare_screenshots",
         # server-side ops (only a conditional re-read touches the bridge)
         "diff_snapshots",

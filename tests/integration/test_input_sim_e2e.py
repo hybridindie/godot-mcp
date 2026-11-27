@@ -59,9 +59,7 @@ async def _wait_connected(bridge: Bridge) -> None:
         state = await _ok(bridge, "cmd_get_game_scene_tree", {})
         return bool(state.get("connected"))
 
-    assert await wait_until(_connected, timeout=25.0, interval=0.5), (
-        "runtime probe never connected"
-    )
+    assert await wait_until(_connected, timeout=25.0, interval=0.5), "runtime probe never connected"
 
 
 async def _wait_injected(bridge: Bridge, at_least: int) -> int:

@@ -23,9 +23,7 @@ def _server(state: dict[str, Any]) -> tuple[FastMCP, FakeAddonConnection]:
         if command.command == "cmd_undo":
             count = int(command.params.get("count", 1))
             state["current"] = max(0, state["current"] - count)
-            return ResponseEnvelope.success(
-                command.id, {"undone": count, "requested": count}
-            )
+            return ResponseEnvelope.success(command.id, {"undone": count, "requested": count})
         return make_addon_responder(godot_version="4.7.2-stable")(command)
 
     conn = FakeAddonConnection(responder)
@@ -43,9 +41,7 @@ async def test_create_and_restore_undoes_to_the_marker() -> None:
     }
     server, conn = _server(state)
     async with Client(server, mode="legacy") as client:
-        checkpoint = await client.call_tool(
-            "godot_checkpoint_create", {"label": "before edits"}
-        )
+        checkpoint = await client.call_tool("godot_checkpoint_create", {"label": "before edits"})
         state["current"] = 5  # three more actions after the checkpoint
         restored = await client.call_tool(
             "godot_checkpoint_restore",

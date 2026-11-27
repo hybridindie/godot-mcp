@@ -33,8 +33,10 @@ def _responder(command: Any) -> ResponseEnvelope | None:
     if command.command == "cmd_create_node":
         return ResponseEnvelope.success(
             command.id,
-            {"node_path": f"{command.params['parent_path']}/{command.params['name']}",
-             "created": True},
+            {
+                "node_path": f"{command.params['parent_path']}/{command.params['name']}",
+                "created": True,
+            },
         )
     return make_addon_responder(godot_version="4.7.2-stable")(command)
 

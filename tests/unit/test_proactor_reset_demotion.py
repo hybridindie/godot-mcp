@@ -64,9 +64,7 @@ def test_benign_signature_matches_proactor_connection_reset() -> None:
 def test_other_errors_are_not_benign() -> None:
     # Different exception type.
     assert (
-        is_benign_proactor_reset(
-            {"message": "Exception in callback", "exception": ValueError("x")}
-        )
+        is_benign_proactor_reset({"message": "Exception in callback", "exception": ValueError("x")})
         is False
     )
     # ConnectionResetError but NOT from the proactor pipe transport teardown.
@@ -159,8 +157,7 @@ def test_install_is_idempotent(_asyncio_debug_level: Any) -> None:
         install_proactor_reset_demotion(loop)
         install_proactor_reset_demotion(loop)
         benign = {
-            "message": "Exception in callback _ProactorBasePipeTransport"
-            "._call_connection_lost()",
+            "message": "Exception in callback _ProactorBasePipeTransport._call_connection_lost()",
             "exception": ConnectionResetError(10054, "forcibly closed"),
         }
         loop.call_exception_handler(benign)

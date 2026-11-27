@@ -56,9 +56,7 @@ def set_param_probe(node_path: str) -> dict[str, Any]:
     return {"node_path": node_path, "resource_properties": MATERIAL_PROPERTIES}
 
 
-def register_shader(
-    mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner: Runner
-) -> None:
+def register_shader(mcp: FastMCP, bridge: Bridge, config: ServerConfig, runner: Runner) -> None:
     """Register the shader tools."""
 
     @mcp.tool(meta=MUTATING, tags=SHADER)

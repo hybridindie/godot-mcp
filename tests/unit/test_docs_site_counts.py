@@ -55,9 +55,7 @@ def _live_counts() -> dict[str, int]:
     server = create_server()
     asyncio.run(register_tool_transform(server))
     tools = asyncio.run(list_all_tools(server))
-    default = sum(
-        1 for t in tools if {"core", "inspection"} & set(t.tags or [])
-    )
+    default = sum(1 for t in tools if {"core", "inspection"} & set(t.tags or []))
     return {
         "tools": len(tools),
         "toolsets": len(TOOLSETS) + 1,  # +1: always-on core

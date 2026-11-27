@@ -40,9 +40,7 @@ from mcp_server.tools._route import route, run_or_preview
 SCENE_EDIT = {SCENE_EDIT_TAG}
 
 
-def register_scene_session(
-    mcp: FastMCP, bridge: Bridge
-) -> None:
+def register_scene_session(mcp: FastMCP, bridge: Bridge) -> None:
     """Register scene session tools in the scene_edit toolset."""
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
@@ -129,16 +127,12 @@ def register_scene_session(
         require_bridge_connected(bridge)
         raw = await route(bridge, "cmd_list_open_scenes")
         # Ensure the list is typed — allow the addon to omit "scenes".
-        scenes = [
-            OpenSceneInfo.model_validate(item) for item in raw.get("scenes", [])
-        ]
+        scenes = [OpenSceneInfo.model_validate(item) for item in raw.get("scenes", [])]
         return ListOpenScenesResult(scenes=scenes)
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
     @enforce_preconditions
-    async def select_nodes(
-        node_paths: list[str], dry_run: bool = False
-    ) -> SelectNodesResult:
+    async def select_nodes(node_paths: list[str], dry_run: bool = False) -> SelectNodesResult:
         """Select the nodes at ``node_paths`` (scene-relative) in the editor.
 
         Replaces the current selection with the given nodes.

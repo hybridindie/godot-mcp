@@ -33,7 +33,7 @@ def test_guard_round_uses_errorcode_enum() -> None:
     # Match `error="APPROVAL_DENIED"` (with quotes) to catch the bug; the enum
     # form `ErrorCode.APPROVAL_DENIED` does not contain a quoted string.
     assert 'error="APPROVAL_DENIED"' not in src, (
-        "ApprovalMiddleware._guard_round passes error=\"APPROVAL_DENIED\" "
+        'ApprovalMiddleware._guard_round passes error="APPROVAL_DENIED" '
         "(string literal) instead of ErrorCode.APPROVAL_DENIED (issue #368)."
     )
 

@@ -120,11 +120,7 @@ A consumer that pins the contract should assert it once, before doing work:
 
 ```python
 info = await client.call_tool("godot_get_server_info", {})
-compatible = (
-    info["min_compatible_contract"]
-    <= CLIENT_CONTRACT
-    <= info["contract_version"]
-)
+compatible = info["min_compatible_contract"] <= CLIENT_CONTRACT <= info["contract_version"]
 if not compatible:
     raise RuntimeError(f"Godot Editor MCP contract mismatch: {info}")
 ```

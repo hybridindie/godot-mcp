@@ -129,8 +129,7 @@ def build_report(
     if not bridge_connected:
         findings.append("BRIDGE DISCONNECTED: Godot editor is not reachable.")
         suggestions.append(
-            "Open Godot with the addon enabled\n"
-            "(Project Settings → Plugins → godot_mcp → Enable)."
+            "Open Godot with the addon enabled\n(Project Settings → Plugins → godot_mcp → Enable)."
         )
     elif bridge_error:
         findings.append(f"BRIDGE INFO UNAVAILABLE: {bridge_error}")
@@ -156,8 +155,7 @@ def build_report(
     if run_result:
         if run_result.errors:
             findings.append(
-                f"RUNTIME ERRORS: {len(run_result.errors)} error(s) captured "
-                "during headless run."
+                f"RUNTIME ERRORS: {len(run_result.errors)} error(s) captured during headless run."
             )
             for err in run_result.errors[:3]:
                 suggestions.append(
@@ -165,9 +163,7 @@ def build_report(
                     + (f" at {err.source}:{err.line}" if err.source else "")
                 )
         if run_result.warnings:
-            findings.append(
-                f"RUNTIME WARNINGS: {len(run_result.warnings)} warning(s) captured."
-            )
+            findings.append(f"RUNTIME WARNINGS: {len(run_result.warnings)} warning(s) captured.")
         if run_result.timed_out and not expected_timeout:
             findings.append("RUN TIMED OUT: The game did not exit within the timeout.")
             suggestions.append(
@@ -179,16 +175,13 @@ def build_report(
         # exit_code is None when the run was killed by the timeout — that is not a
         # crash, so only a real non-zero exit is a finding (issue #490).
         if not run_result.timed_out and run_result.exit_code not in (None, 0):
-            findings.append(
-                f"NON-ZERO EXIT: headless run exited with code {run_result.exit_code}."
-            )
+            findings.append(f"NON-ZERO EXIT: headless run exited with code {run_result.exit_code}.")
 
     if parse_errors:
         findings.append(f"PARSE ERRORS: {len(parse_errors)} script(s) failed parse check.")
         for pe in parse_errors[:3]:
             suggestions.append(
-                f"  [PARSE] {pe.message}"
-                + (f" at {pe.source}:{pe.line}" if pe.source else "")
+                f"  [PARSE] {pe.message}" + (f" at {pe.source}:{pe.line}" if pe.source else "")
             )
     elif parse_skipped:
         findings.append(f"PARSE CHECK SKIPPED: {parse_skipped}")

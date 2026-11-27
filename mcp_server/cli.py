@@ -39,9 +39,7 @@ _CLIENTS: dict[str, tuple[str, str, str]] = {
 }
 
 
-def _entry(
-    project: Path | None, *, vscode: bool = False, opencode: bool = False
-) -> dict[str, Any]:
+def _entry(project: Path | None, *, vscode: bool = False, opencode: bool = False) -> dict[str, Any]:
     if opencode:
         entry: dict[str, Any] = {"type": "local", "command": [COMMAND, *ARGS]}
         if project is not None:
@@ -199,9 +197,11 @@ def _addon_enabled(project: Path, plugin: Path) -> bool:
 
 
 def _doctor(args: argparse.Namespace) -> int:
-    project = Path(
-        args.project or os.environ.get("GODOT_MCP_PROJECT_DIR") or Path.cwd()
-    ).expanduser().resolve()
+    project = (
+        Path(args.project or os.environ.get("GODOT_MCP_PROJECT_DIR") or Path.cwd())
+        .expanduser()
+        .resolve()
+    )
     checks: list[bool] = []
 
     checks.append(
@@ -305,12 +305,8 @@ def config_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--project", default=None, help="Godot project path (project-local clients)"
     )
-    parser.add_argument(
-        "--write", action="store_true", help="write the merged config"
-    )
-    parser.add_argument(
-        "--force", action="store_true", help="replace an existing godot-mcp entry"
-    )
+    parser.add_argument("--write", action="store_true", help="write the merged config")
+    parser.add_argument("--force", action="store_true", help="replace an existing godot-mcp entry")
     return parser
 
 

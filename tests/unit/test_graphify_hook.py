@@ -35,8 +35,7 @@ def _init_repo(tmp_path: Path) -> Path:
     (REFRESH).read_text()  # ensure the real script exists (red until created)
     stub = repo / "scripts" / "graphify.sh"
     stub.write_text(
-        '#!/usr/bin/env bash\n'
-        'echo "$@" >> "$(git rev-parse --show-toplevel)/ran.log"\n'
+        '#!/usr/bin/env bash\necho "$@" >> "$(git rev-parse --show-toplevel)/ran.log"\n'
     )
     stub.chmod(0o755)
     # Guard precondition: pretend graphify is set up in this checkout.
@@ -100,10 +99,10 @@ def test_post_merge_detects_relevant_change_in_non_tip_commit(tmp_path: Path) ->
     non-tip commit must still trigger a refresh in post-merge mode (the tip-only
     post-commit view would miss it)."""
     repo = _init_repo(tmp_path)
-    _commit(repo, "README.md")            # base, pre-merge HEAD
+    _commit(repo, "README.md")  # base, pre-merge HEAD
     base = _head(repo)
-    _commit(repo, "mcp_server/core.py")   # relevant change — NOT the tip
-    _commit(repo, "docs/guide.md")        # irrelevant tip commit
+    _commit(repo, "mcp_server/core.py")  # relevant change — NOT the tip
+    _commit(repo, "docs/guide.md")  # irrelevant tip commit
     _git(repo, "update-ref", "ORIG_HEAD", base)  # what a fast-forward merge sets
 
     # tip-only (post-commit) view sees only the irrelevant tip → no refresh

@@ -108,12 +108,10 @@ def test_prompt_lists_cover_the_registry() -> None:
     server = create_server()
     prompt_names = {p.name for p in asyncio.run(server.local_provider.list_prompts())}
     for label, text in {
-        "docs/architecture.md": (REPO_ROOT / "docs/architecture.md").read_text(
+        "docs/architecture.md": (REPO_ROOT / "docs/architecture.md").read_text(encoding="utf-8"),
+        "docs/site/reference-prompts.md": (SITE / "reference-prompts.md").read_text(
             encoding="utf-8"
         ),
-        "docs/site/reference-prompts.md": (
-            SITE / "reference-prompts.md"
-        ).read_text(encoding="utf-8"),
         "server instructions": SERVER_INSTRUCTIONS,
     }.items():
         missing = sorted(name for name in prompt_names if name not in text)
@@ -156,8 +154,7 @@ def test_examples_readme_counts_match_the_project() -> None:
 
     files = sorted((REPO_ROOT / "examples/survivors/tests/unit").glob("test_*.gd"))
     tests = sum(
-        len(re.findall(r"^func test_", path.read_text(encoding="utf-8"), re.M))
-        for path in files
+        len(re.findall(r"^func test_", path.read_text(encoding="utf-8"), re.M)) for path in files
     )
     assert int(claim.group(1)) == tests, (
         f"examples/README.md says {claim.group(1)} tests, actual is {tests}"
@@ -172,9 +169,7 @@ def test_addon_handler_count_matches_the_router() -> None:
     match = re.search(r"\((\d+) domain\s+handler scripts", text)
     assert match, "addon.md domain-handler count not found"
 
-    router = (REPO_ROOT / "godot/addons/godot_mcp/command_router.gd").read_text(
-        encoding="utf-8"
-    )
+    router = (REPO_ROOT / "godot/addons/godot_mcp/command_router.gd").read_text(encoding="utf-8")
     preloads = len(re.findall(r'preload\("\./handlers/[a-z0-9_]+\.gd"\)', router))
     assert int(match.group(1)) == preloads, (
         f"addon.md says {match.group(1)} handler scripts, router preloads {preloads}"
@@ -198,34 +193,25 @@ def test_walkthrough_and_cookbook_are_published() -> None:
     # rename or typo would quietly remove the page from llms.txt and
     # llms-full.txt. Pin every listed source and the two new pages.
     llms_gen = (SITE / "llms-gen.mjs").read_text(encoding="utf-8")
-    sections = llms_gen[
-        llms_gen.index("const SECTIONS") : llms_gen.index("// Source path")
-    ]
+    sections = llms_gen[llms_gen.index("const SECTIONS") : llms_gen.index("// Source path")]
     sources = re.findall(r"'([^']+\.md)'", sections)
     missing_sources = [src for src in sources if not (SITE / src).is_file()]
-    assert not missing_sources, (
-        f"llms-gen.mjs lists missing pages: {missing_sources}"
-    )
+    assert not missing_sources, f"llms-gen.mjs lists missing pages: {missing_sources}"
     for page in ("guides-walkthrough.md", "guides-cookbook.md"):
         assert page in sources, f"llms-gen.mjs SECTIONS omits {page}"
 
     cookbook_text = cookbook.read_text(encoding="utf-8")
     calls = set(_CALL_RE.findall(cookbook_text))
-    assert len(calls) >= 20, (
-        f"cookbook has {len(calls)} distinct tool calls; add worked examples"
-    )
+    assert len(calls) >= 20, f"cookbook has {len(calls)} distinct tool calls; add worked examples"
     # Agent-first shape: every numbered recipe leads with a prompt, then what
     # happens, with the raw calls only under "Under the hood".
     recipes = len(re.findall(r"^## \d+\. ", cookbook_text, re.M))
     prompts = cookbook_text.count("**You say**")
     under_the_hood = cookbook_text.count("**Under the hood**")
     assert recipes >= 10, f"cookbook has only {recipes} numbered recipes"
-    assert prompts == recipes, (
-        f"cookbook has {recipes} recipes but {prompts} '**You say**' prompts"
-    )
+    assert prompts == recipes, f"cookbook has {recipes} recipes but {prompts} '**You say**' prompts"
     assert under_the_hood >= recipes, (
-        f"cookbook has {recipes} recipes but only {under_the_hood} "
-        "'**Under the hood**' blocks"
+        f"cookbook has {recipes} recipes but only {under_the_hood} '**Under the hood**' blocks"
     )
 
 

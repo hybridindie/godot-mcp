@@ -138,9 +138,7 @@ async def test_read_script_accepts_cs() -> None:
     server, _ = _build()
     async with Client(server) as client:
         await client.call_tool("godot_enable_toolset", {"category": "scripts"})
-        result = await client.call_tool(
-            "godot_scripts_read", {"script_path": "res://a.cs"}
-        )
+        result = await client.call_tool("godot_scripts_read", {"script_path": "res://a.cs"})
     assert result.structured_content["content"] == "// C# script"
 
 
@@ -148,9 +146,7 @@ async def test_list_scripts_language_cs() -> None:
     server, conn = _build()
     async with Client(server) as client:
         await client.call_tool("godot_enable_toolset", {"category": "scripts"})
-        result = await client.call_tool(
-            "godot_scripts_list", {"language": "cs"}
-        )
+        result = await client.call_tool("godot_scripts_list", {"language": "cs"})
     assert result.structured_content["scripts"] == ["res://enemy.cs", "res://player.cs"]
     assert conn.last_command().params["language"] == "cs"
 

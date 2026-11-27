@@ -48,9 +48,7 @@ _TREE = {
 def _snapshot_responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
     if cmd.command == "cmd_snapshot_subtree":
         if cmd.params.get("node_path") == "Missing":
-            return ResponseEnvelope.failure(
-                cmd.id, "RESOURCE_NOT_FOUND", "No node at 'Missing'."
-            )
+            return ResponseEnvelope.failure(cmd.id, "RESOURCE_NOT_FOUND", "No node at 'Missing'.")
         return ResponseEnvelope.success(
             cmd.id, {"node_path": cmd.params.get("node_path", "."), "snapshot": _TREE}
         )
@@ -266,7 +264,8 @@ async def test_diff_unknown_snapshot_id_is_structured_error() -> None:
     async with Client(_build(conn)) as client:
         await client.call_tool("godot_inspection_snapshot_subtree", {})
         result = await client.call_tool(
-            "godot_inspection_diff_snapshots", {"before_id": "nope", "after_id": "s1"},
+            "godot_inspection_diff_snapshots",
+            {"before_id": "nope", "after_id": "s1"},
             raise_on_error=False,
         )
     assert result.is_error

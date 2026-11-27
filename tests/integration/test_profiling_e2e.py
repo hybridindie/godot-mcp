@@ -86,9 +86,7 @@ async def _run() -> None:
         # #670: a second request with a DISTINCT id returns its own ready snapshot.
         second: dict[str, Any] = {}
         for _ in range(30):
-            second = await _ok(
-                bridge, "cmd_get_performance_monitors", {"request_id": "e2e-perf-2"}
-            )
+            second = await _ok(bridge, "cmd_get_performance_monitors", {"request_id": "e2e-perf-2"})
             if second.get("ready") and second.get("monitors"):
                 break
             await asyncio.sleep(0.5)

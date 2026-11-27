@@ -159,7 +159,7 @@ def test_probe_echoes_request_id_for_probe_backed_reads() -> None:
 def test_addon_gates_caches_on_the_request_id() -> None:
     src = _addon_src("mcp_debugger.gd")
     assert "_scene_tree_request" in src and "_performance_request" in src
-    assert '_scene_tree_request' in src  # gate present
+    assert "_scene_tree_request" in src  # gate present
     assert "request_id" in src
 
 

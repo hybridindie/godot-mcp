@@ -100,9 +100,7 @@ class ConsentMiddleware(Middleware):
             )
         return await call_next(context)
 
-    def _consent_error(
-        self, name: str, args: dict[str, Any], hint: str
-    ) -> AgentToolError:
+    def _consent_error(self, name: str, args: dict[str, Any], hint: str) -> AgentToolError:
         clean = {k: v for k, v in args.items() if k not in ("consent", "confirm")}
         return AgentToolError(
             "CONSENT_MISMATCH",
@@ -124,5 +122,5 @@ class ConsentMiddleware(Middleware):
 
     @staticmethod
     def _has_confirm(tool: Any) -> bool:
-        props = ((getattr(tool, "parameters", None) or {}).get("properties") or {})
+        props = (getattr(tool, "parameters", None) or {}).get("properties") or {}
         return "confirm" in props

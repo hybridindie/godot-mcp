@@ -59,9 +59,9 @@ def test_addon_ships_a_copy_of_the_project_license() -> None:
     addon_license = ADDON_DIR / "LICENSE"
     root_license = REPO_ROOT / "LICENSE"
     assert addon_license.is_file(), "addon must ship LICENSE in its own folder"
-    assert addon_license.read_text(encoding="utf-8") == root_license.read_text(
-        encoding="utf-8"
-    ), "addon LICENSE drifted from the repository LICENSE"
+    assert addon_license.read_text(encoding="utf-8") == root_license.read_text(encoding="utf-8"), (
+        "addon LICENSE drifted from the repository LICENSE"
+    )
     text = addon_license.read_text(encoding="utf-8")
     assert "MIT License" in text
     assert "Copyright (c)" in text
