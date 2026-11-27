@@ -214,8 +214,10 @@ def coerce_arguments(schema: dict[str, Any] | None, arguments: dict[str, Any]) -
 class ArgumentCoercionMiddleware(Middleware):
     """Apply :func:`coerce_arguments` to every ``tools/call`` before validation.
 
-    Registered outermost so all inner middleware (approval, toolset gating) also
-    sees properly typed ``dry_run``/``confirm``/``category`` values.
+    Registered directly inside ``AgentErrorMiddleware`` (which stays outermost to
+    catch every error) so every argument-reading gate (readiness, consent,
+    approval, toolset gating) sees properly typed ``dry_run``/``confirm``/
+    ``category`` values (#872).
     """
 
     async def on_call_tool(self, context: Any, call_next: Any) -> Any:
