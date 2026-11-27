@@ -21,7 +21,10 @@ import fastmcp_tasks  # noqa: F401  — importing enables Client-side task suppo
 from fastmcp import FastMCP
 from fastmcp_tasks import TasksExtension
 
-from mcp_server.agent_error_middleware import AgentErrorMiddleware
+from mcp_server.agent_error_middleware import (
+    AgentErrorMiddleware,
+    UndeclaredArgumentMiddleware,
+)
 from mcp_server.approval_middleware import ApprovalMiddleware
 from mcp_server.bridge import Bridge
 from mcp_server.capabilities import STATIC_CAPABILITY, apply_capability
@@ -223,6 +226,17 @@ def create_server(
     # readiness, consent and approval gates read ``dry_run`` raw, so a string
     # "false" would otherwise be truthy there and skip the gate.
     mcp.add_middleware(ArgumentCoercionMiddleware())
+    # #877: refuse calls that can never run before any gate that may ask a
+    # human. Toolset gating is server-global (issues #227/#364): a single
+    # process-wide enabled set, not per-session, because Godot Editor MCP is a
+    # single-user local server and the sessionless 2026-07-28 protocol made
+    # per-session isolation dead code (see ToolsetMiddleware's docstring).
+    # Every client, and the addon dock's push (#592), reads the same set.
+    toolset_mw = ToolsetMiddleware()
+    mcp.add_middleware(toolset_mw)
+    # Unknown argument names get UNDECLARED_PARAMETER here rather than after
+    # approval, inside the tool's own validation.
+    mcp.add_middleware(UndeclaredArgumentMiddleware())
     # #759: verify consent tokens and strip the synthetic `consent` arg before
     # argument validation. Requires a token when approval is configured.
     mcp.add_middleware(ReadinessMiddleware(bridge))
@@ -278,12 +292,6 @@ def create_server(
     register_testing(mcp, bridge, config, runner)
     register_profiling(mcp, bridge)
     register_batch(mcp, bridge)
-    # Toolset gating (issues #227/#364): the enabled set is a *single server-global
-    # set*, not per-session — Godot Editor MCP is a single-user local server, and the
-    # sessionless 2026-07-28 protocol real clients use made per-session isolation
-    # dead code (see ToolsetMiddleware's docstring). Every client, and the addon
-    # dock's push (#592), reads the same set.
-    toolset_mw = ToolsetMiddleware()
     # run_commands resolves each sub-command to its toolset and refuses entries
     # whose toolset is disabled (#634), so it needs the same gating source.
     register_composite(mcp, bridge, toolset_mw)
@@ -296,8 +304,6 @@ def create_server(
     register_project_scaffold(mcp, bridge)
     register_safety_tools(mcp)
     register_consent_tool(mcp, consent, approval)
-
-    mcp.add_middleware(toolset_mw)
 
     # Gate the tool surface by category (server-global via the middleware above).
     manager = ToolsetManager(mcp, bridge=bridge, middleware=toolset_mw)
