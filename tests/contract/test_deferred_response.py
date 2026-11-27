@@ -7,7 +7,10 @@ when the router's completion signal fires — same ``id``, same envelope shape,
 one ``command_completed`` with the real exec_ms. Exactly one response per
 ``id``: a request that never completes is failed with ``TIMEOUT`` by an
 addon-side timer set a little under the server's long-request timeout (#875),
-and ``dispose()`` fails anything still pending.
+and ``dispose()``, ``stop()`` or a dropped connection fails anything still
+pending (server ids restart per instance, so a reply must not outlive its
+session). A re-dispatch of a still-pending id is refused with one
+``VALIDATION_ERROR``.
 
 The behaviour is pinned inside Godot by ``godot/tests/deferred_response_smoke.gd``;
 the source checks pin the timeout budget against the server's default.
@@ -70,3 +73,11 @@ def test_bridge_sends_on_completion() -> None:
     """The bridge listens for completions instead of only replying inline."""
     src = BRIDGE_GD.read_text()
     assert "deferred_completed.connect(" in src
+
+
+def test_bridge_fails_pending_when_its_session_ends() -> None:
+    """Every session-ending path fails pending deferred requests first."""
+    src = BRIDGE_GD.read_text()
+    assert "fail_pending_deferred(" in src
+    # stop(), the STATE_CLOSED drop, a fresh _open() and a probe promotion.
+    assert src.count("_end_session(") >= 5, "expected _end_session in 4 call sites + its definition"

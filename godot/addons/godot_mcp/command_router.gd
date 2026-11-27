@@ -101,7 +101,12 @@ var _guards: MCPGuards = null
 ## when its work finishes. The bridge sends the response on this signal, so the
 ## server still gets exactly one {id, ok, ...} envelope per request.
 signal deferred_completed(command: String, response: Dictionary, exec_ms: float)
-## The marker key. Owned by the router; no handler body carries it.
+## The marker key. Single-producer invariant: only defer() (and handle(), which
+## re-stamps an already-answered marker) mints a body carrying it. The bridge
+## swallows any top-level body with this key and sends nothing, so a handler
+## that echoed it (e.g. request params at the top level of its result) or
+## hand-built a marker without registering would hang its request until the
+## server's own timeout. Handlers return defer()'s marker verbatim, never build one.
 const DEFERRED_KEY := "__godot_mcp_deferred"
 ## A little under the server's long-request timeout (#875, 120s) so the addon's
 ## TIMEOUT reaches the server before the server gives up on the id.
@@ -227,7 +232,19 @@ func _init() -> void:
 ## A deferred handler's marker comes back as-is (with the id stamped): the caller
 ## sends nothing now and waits for deferred_completed.
 func handle(envelope: Dictionary) -> Dictionary:
-	_current_id = str(envelope.get("id", ""))
+	var request_id := str(envelope.get("id", ""))
+	if not request_id.is_empty() and _pending_deferred.has(request_id):
+		# The id still maps to a live deferred request: routing this one would put
+		# two responses on one id (the server correlates by id), so refuse it once
+		# without dispatching and leave the original as the id's only registration.
+		var refused := _fail("VALIDATION_ERROR", "Request id '%s' is still waiting for a deferred response; send this command with a fresh id." % request_id)
+		refused["id"] = request_id
+		return refused
+	# Dispatch state is reset here, not only where it is set: GDScript has no
+	# finally, so an aborted dispatch (or batch) must not wedge the next one.
+	_in_batch = false
+	_current_sub_command = ""
+	_current_id = request_id
 	_current_command = str(envelope.get("command", ""))
 	_current_start_usec = Time.get_ticks_usec()
 	_deferred_this_call = false
@@ -235,7 +252,10 @@ func handle(envelope: Dictionary) -> Dictionary:
 	var deferred_here := _deferred_this_call
 	_current_id = ""
 	_current_command = ""
+	_current_start_usec = 0
 	_deferred_this_call = false
+	_in_batch = false
+	_current_sub_command = ""
 	if is_deferred(body):
 		body["id"] = str(envelope.get("id", ""))
 		return body
@@ -261,7 +281,13 @@ func handle(envelope: Dictionary) -> Dictionary:
 ## the request is now pending, or a structured failure (no request id, the id
 ## already pending, no SceneTree for the timeout) that it returns as its body
 ## without starting anything. Check with is_deferred().
+##
+## The marker carries the request id (`marker["id"]`): keep it and pass it to
+## complete() — it is the public way to learn which id to answer. A second
+## defer() in the same dispatch is idempotent: it returns the live marker again.
 func defer() -> Dictionary:
+	if _deferred_this_call and _pending_deferred.has(_current_id):
+		return {DEFERRED_KEY: true, "id": _current_id}
 	if _in_batch:
 		return _fail("VALIDATION_ERROR", "'%s' answers asynchronously and cannot run inside run_commands; call it on its own." % _current_sub_command)
 	if _current_id.is_empty():
@@ -283,7 +309,7 @@ func defer() -> Dictionary:
 		"timer": timer,
 	}
 	_deferred_this_call = true
-	return {DEFERRED_KEY: true}
+	return {DEFERRED_KEY: true, "id": _current_id}
 
 
 func is_deferred(body: Dictionary) -> bool:
@@ -296,6 +322,14 @@ func has_pending(id: String) -> bool:
 
 ## Answer a deferred request (#906). Returns false when the id is not pending
 ## (already completed, timed out, cancelled or disposed): exactly one response.
+##
+## Main thread only: the completion is emitted and sent synchronously on the
+## caller's thread, and neither WebSocketPeer nor the pending registry is
+## thread-safe. Work that finished on a worker thread must hop back first, e.g.
+## `router.call_deferred("complete", id, body)`. NavigationRegion2D/3D's
+## `bake_finished` already satisfies this: the engine re-dispatches
+## `_bake_finished` with call_deferred when the bake thread finishes, so the
+## signal (and a handler completing from it) runs on the main thread.
 ##
 ## A false return after TIMEOUT or dispose() does not mean the work was undone:
 ## the server was told it failed, yet the effect may still have landed. A handler
@@ -327,7 +361,10 @@ func _release_pending(id: String) -> Dictionary:
 	return entry
 
 
-## Fail every pending deferred request with one structured error (dispose path).
+## Fail every pending deferred request with one structured error. Called on
+## dispose() and by the bridge when its session ends (stop, connection drop, peer
+## replacement): server ids restart per instance, so a reply that outlived its
+## session could pair with an unrelated request in the next one.
 func fail_pending_deferred(code: String, hint: String) -> void:
 	for id: String in _pending_deferred.keys():
 		complete(id, _fail(code, hint))

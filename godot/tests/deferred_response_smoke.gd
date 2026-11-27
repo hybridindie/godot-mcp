@@ -8,7 +8,10 @@ extends SceneTree
 ## same id, same {id, ok, result} / {id, ok:false, error, hint} envelope, one
 ## command_completed with the real exec_ms. Exactly one response per id: a
 ## second complete() is refused, a never-completed request is failed with
-## TIMEOUT by the addon-side timer, and dispose() fails whatever is pending.
+## TIMEOUT by the addon-side timer, and dispose(), stop() or a dropped
+## connection fail whatever is pending. A re-dispatch of a still-pending id is
+## refused, a second defer() in one dispatch is idempotent, and the marker
+## carries the request id so handlers complete through the public API.
 ## Drives `_handle_text()` with a send-recording peer (no networking).
 ## Prints DEFERRED_RESPONSE_TEST_OK, quits 0 on success.
 
@@ -20,6 +23,9 @@ const TEST_TIMEOUT_SEC := 0.1
 # Cases that complete use a long timeout: the first frames' startup delta can
 # exceed TEST_TIMEOUT_SEC and would time them out before they complete.
 const COMPLETING_TIMEOUT_SEC := 30.0
+# Id-reuse case: long enough that frame jitter cannot blur the gap between the
+# stale (1.0x) and live (1.6x) deadlines.
+const REUSE_TIMEOUT_SEC := 0.5
 
 
 func _initialize() -> void:
@@ -45,7 +51,7 @@ func _run() -> void:
 		var m: Dictionary = router.defer()
 		if not router.is_deferred(m):
 			return m
-		router.complete(router._current_id, router._ok({"via": "complete"}))
+		router.complete(str(m["id"]), router._ok({"via": "complete"}))
 		return router._ok({"via": "return"})
 	# Records whether its work started, and completes synchronously when it does:
 	# inside run_commands it must be refused before the work starts.
@@ -55,8 +61,15 @@ func _run() -> void:
 		if not router.is_deferred(m):
 			return m
 		work_started[0] = true
-		router.complete(router._current_id, router._ok({"done": true}))
+		router.complete(str(m["id"]), router._ok({"done": true}))
 		return m
+	# Defers twice in one dispatch, propagating the second result the documented
+	# way: the second defer() must hand back the live marker, not cancel it.
+	router._handlers["cmd_test_double_defer"] = func(_params: Dictionary) -> Dictionary:
+		var m: Dictionary = router.defer()
+		if not router.is_deferred(m):
+			return m
+		return router.defer()
 	var bridge: MCPBridge = Bridge.new(router)
 	var peer := Recorder.new()
 	bridge._peer = peer
@@ -73,6 +86,19 @@ func _run() -> void:
 	# Reference shape: an immediate reply.
 	bridge._handle_text(JSON.stringify({"id": "p1", "command": "cmd_ping", "params": {}}))
 	var immediate := _parse(peer.sent[0]) if peer.sent.size() == 1 else {}
+	peer.sent.clear()
+	completions.clear()
+
+	# 0. The marker carries the request id, so a handler completes through the
+	# public API instead of reading router internals.
+	var seen_marker: Array[Dictionary] = [{}]
+	router._handlers["cmd_test_marker_id"] = func(_params: Dictionary) -> Dictionary:
+		var m: Dictionary = router.defer()
+		seen_marker[0] = m.duplicate()
+		return m
+	bridge._handle_text(JSON.stringify({"id": "m1", "command": "cmd_test_marker_id", "params": {}}))
+	_eq(failures, "marker: carries the request id", str(seen_marker[0].get("id", "")), "m1")
+	router.complete("m1", router._ok({}))
 	peer.sent.clear()
 	completions.clear()
 
@@ -115,6 +141,46 @@ func _run() -> void:
 	peer.sent.clear()
 	completions.clear()
 
+	# 1c. A second defer() in the same dispatch is idempotent: the live
+	# registration survives and the later complete() is the one response.
+	bridge._handle_text(JSON.stringify({"id": "dd1", "command": "cmd_test_double_defer", "params": {}}))
+	_eq(failures, "double defer: nothing sent yet", peer.sent.size(), 0)
+	_eq(failures, "double defer: still pending", router.has_pending("dd1"), true)
+	_eq(failures, "double defer: complete() accepted", router.complete("dd1", router._ok({"late": true})), true)
+	_eq(failures, "double defer: exactly one response", peer.sent.size(), 1)
+	if peer.sent.size() == 1:
+		_eq(failures, "double defer: the deferred result arrives", _parse(peer.sent[0]).get("result", {}), {"late": true})
+	peer.sent.clear()
+	completions.clear()
+
+	# 1d. Re-dispatching an id that is still pending is refused with one
+	# VALIDATION_ERROR (never routed), and the original stays the id's only
+	# live registration.
+	bridge._handle_text(JSON.stringify({"id": "q1", "command": "cmd_test_deferred", "params": {}}))
+	bridge._handle_text(JSON.stringify({"id": "q1", "command": "cmd_ping", "params": {}}))
+	_eq(failures, "pending re-dispatch: one refusal sent", peer.sent.size(), 1)
+	if peer.sent.size() == 1:
+		var q := _parse(peer.sent[0])
+		_eq(failures, "pending re-dispatch: same id", str(q.get("id", "")), "q1")
+		_eq(failures, "pending re-dispatch: VALIDATION_ERROR", str(q.get("error", "")), "VALIDATION_ERROR")
+		_eq(failures, "pending re-dispatch: not routed (no pong)", q.has("result"), false)
+	_eq(failures, "pending re-dispatch: original still pending", router.has_pending("q1"), true)
+	router.complete("q1", router._ok({"original": true}))
+	_eq(failures, "pending re-dispatch: original answers once", peer.sent.size(), 2)
+	peer.sent.clear()
+	completions.clear()
+
+	# 1e. handle() resets batch state left behind by an aborted dispatch: a stale
+	# _in_batch must not wedge defer() into permanent refusal.
+	router._in_batch = true
+	router._current_sub_command = "cmd_stale"
+	bridge._handle_text(JSON.stringify({"id": "w1", "command": "cmd_test_deferred", "params": {}}))
+	_eq(failures, "stale batch flag: defer() still works", router.has_pending("w1"), true)
+	_eq(failures, "stale batch flag: nothing sent", peer.sent.size(), 0)
+	router.complete("w1", router._ok({}))
+	peer.sent.clear()
+	completions.clear()
+
 	# 2. Deferred then answered at once: one immediate reply, no later TIMEOUT.
 	bridge._handle_text(JSON.stringify({"id": "a1", "command": "cmd_test_defer_then_answer", "params": {}}))
 	_eq(failures, "defer-then-answer: one immediate reply", peer.sent.size(), 1)
@@ -146,20 +212,29 @@ func _run() -> void:
 	peer.sent.clear()
 	completions.clear()
 
-	router.deferred_timeout_sec = TEST_TIMEOUT_SEC
-	# 3b. Id reuse inside the stale timer's window: the first request's timer must
-	# not fail the second; exactly one TIMEOUT arrives, for the live request.
+	# 3b. Id reuse with distinct deadlines: request 1's (stale) timer is due at
+	# 1.0x, the reused request's (live) timer at 1.6x. A checkpoint between the
+	# two catches a stale timer that fails the live request early; only after
+	# 1.6x does exactly one TIMEOUT arrive, for the live request.
+	router.deferred_timeout_sec = REUSE_TIMEOUT_SEC
 	bridge._handle_text(JSON.stringify({"id": "r1", "command": "cmd_test_deferred", "params": {}}))
+	await _wait(REUSE_TIMEOUT_SEC * 0.6)
 	router.complete("r1", router._ok({"first": true}))
 	bridge._handle_text(JSON.stringify({"id": "r1", "command": "cmd_test_deferred", "params": {}}))
-	await _wait(TEST_TIMEOUT_SEC * 1.5)
+	await _wait(REUSE_TIMEOUT_SEC * 0.7)  # now ~1.3x: stale deadline passed, live not yet
+	var early := completions.filter(func(c: Dictionary) -> bool: return c["error"] == "TIMEOUT")
+	_eq(failures, "id reuse: no TIMEOUT between the stale and live deadlines", early.size(), 0)
+	_eq(failures, "id reuse: the live request is still pending at the checkpoint", router.has_pending("r1"), true)
+	_eq(failures, "id reuse: only the first completion sent by the checkpoint", peer.sent.size(), 1)
+	await _wait(REUSE_TIMEOUT_SEC * 0.8)  # now ~2.1x: past the live deadline
 	var r1_timeouts := completions.filter(func(c: Dictionary) -> bool: return c["error"] == "TIMEOUT")
 	_eq(failures, "id reuse: exactly one TIMEOUT", r1_timeouts.size(), 1)
 	_eq(failures, "id reuse: two responses in all (complete + TIMEOUT)", peer.sent.size(), 2)
-	await _wait(TEST_TIMEOUT_SEC * 2.0)
+	await _wait(REUSE_TIMEOUT_SEC * 0.5)
 	_eq(failures, "id reuse: still two responses later", peer.sent.size(), 2)
 	peer.sent.clear()
 	completions.clear()
+	router.deferred_timeout_sec = TEST_TIMEOUT_SEC
 
 	# 4. Never completed: the addon-side timer fails it with TIMEOUT, once.
 	bridge._handle_text(JSON.stringify({"id": "t1", "command": "cmd_test_deferred", "params": {}}))
@@ -179,6 +254,37 @@ func _run() -> void:
 	_eq(failures, "timeout: one TIMEOUT command_completed", timeouts.size(), 1)
 	peer.sent.clear()
 	completions.clear()
+
+	# 4b. The connection drops (STATE_CLOSED): pending requests are failed now,
+	# so a late complete() cannot send an old session's id into a new session.
+	router.deferred_timeout_sec = COMPLETING_TIMEOUT_SEC
+	bridge._handle_text(JSON.stringify({"id": "k1", "command": "cmd_test_deferred", "params": {}}))
+	peer.state = WebSocketPeer.STATE_CLOSED
+	bridge._active = true
+	bridge._process(0.0)
+	_eq(failures, "drop: nothing pending after STATE_CLOSED", router.has_pending("k1"), false)
+	var dropped := completions.filter(func(c: Dictionary) -> bool: return c["error"] == "BRIDGE_DISCONNECTED")
+	_eq(failures, "drop: one BRIDGE_DISCONNECTED completion", dropped.size(), 1)
+	var fresh := Recorder.new()
+	bridge._peer = fresh
+	_eq(failures, "drop: a late complete() is refused", router.complete("k1", router._ok({"stale": true})), false)
+	_eq(failures, "drop: the new session receives nothing for k1", fresh.sent.size(), 0)
+	peer = fresh
+	completions.clear()
+
+	# 4c. stop() fails pending requests too, while the old peer can still send.
+	bridge._handle_text(JSON.stringify({"id": "s1", "command": "cmd_test_deferred", "params": {}}))
+	bridge.stop()
+	_eq(failures, "stop: nothing pending", router.has_pending("s1"), false)
+	_eq(failures, "stop: one failure sent before close", peer.sent.size(), 1)
+	if peer.sent.size() == 1:
+		var s := _parse(peer.sent[0])
+		_eq(failures, "stop: same id", str(s.get("id", "")), "s1")
+		_eq(failures, "stop: BRIDGE_DISCONNECTED", str(s.get("error", "")), "BRIDGE_DISCONNECTED")
+	peer = Recorder.new()
+	bridge._peer = peer
+	completions.clear()
+	router.deferred_timeout_sec = TEST_TIMEOUT_SEC
 
 	# 5. dispose() fails what is still pending, once; the timer is then a no-op.
 	bridge._handle_text(JSON.stringify({"id": "x1", "command": "cmd_test_deferred", "params": {}}))
@@ -231,9 +337,16 @@ class Recorder:
 	extends RefCounted
 	## Minimal WebSocketPeer stand-in recording send_text payloads.
 	var sent: Array[String] = []
+	var state := WebSocketPeer.STATE_OPEN
 
 	func send_text(text: String) -> void:
 		sent.append(text)
+
+	func poll() -> void:
+		pass
+
+	func get_ready_state() -> int:
+		return state
 
 	func close() -> void:
 		pass
