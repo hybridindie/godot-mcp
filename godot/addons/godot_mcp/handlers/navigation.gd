@@ -7,6 +7,11 @@ extends RefCounted
 ## returns a response body (without id) via the router's _ok / _fail builders.
 
 var _router: MCPCommandRouter
+# Regions with a bake in flight (instance id -> true): one bake per region (#906).
+var _baking: Dictionary = {}
+## Test seam: the persistence verdict for a baked region (headless -s has no
+## edited scene to judge it against). Production leaves it unset.
+var persistence_probe: Callable = Callable()
 
 
 func _init(router: MCPCommandRouter) -> void:
@@ -82,63 +87,116 @@ func _cmd_bake_navigation_mesh(params: Dictionary) -> Dictionary:
 	var found := _router._resolve(params.get("node_path", ""))
 	if not found["ok"]:
 		return found
-	var region: Node = found["node"]
-	var ur := EditorInterface.get_editor_undo_redo()
-	# Baking mutates the assigned navmesh resource in place. To stay undoable we bake a
-	# fresh duplicate (the do/redo target) and keep the original pristine as the undo
-	# value, so the snapshot is never the bake target and repeated undo/redo is stable.
-	var polygon_count := -1
-	var vertex_count := -1
+	return start_bake(found["node"], str(params.get("node_path")))
+
+
+## Start a threaded bake of `region` and answer the current request when it
+## finishes (#906). Returns the router's deferred marker, or a structured failure
+## (bad region, a bake already running on it, or defer() refused — no request
+## id, inside run_commands) without starting anything.
+##
+## The bake runs on a fresh duplicate of the region's resource, so the original
+## stays pristine as the undo value: the UndoRedo action is registered when the
+## bake lands, and undo puts the previous resource back.
+func start_bake(region: Node, node_path: String) -> Dictionary:
+	var prop := ""
 	if region is NavigationRegion2D:
-		if region.navigation_polygon == null:
-			return _router._fail("VALIDATION_ERROR", "Region has no navigation_polygon; assign one first.", "navigation_polygon")
-		var original: NavigationPolygon = region.navigation_polygon
-		var working: NavigationPolygon = original.duplicate(true)
-		ur.create_action("Bake navigation polygon")
-		ur.add_do_property(region, "navigation_polygon", working)
-		ur.add_do_method(region, "bake_navigation_polygon", false)
-		ur.add_do_reference(working)
-		ur.add_undo_property(region, "navigation_polygon", original)
-		ur.add_undo_reference(original)
-		ur.commit_action()
-		polygon_count = working.get_polygon_count()
-		vertex_count = working.get_vertex_count()
+		prop = "navigation_polygon"
 	elif region is NavigationRegion3D:
-		if region.navigation_mesh == null:
-			return _router._fail("VALIDATION_ERROR", "Region has no navigation_mesh; assign one first.", "navigation_mesh")
-		var original: NavigationMesh = region.navigation_mesh
-		var working: NavigationMesh = original.duplicate(true)
-		ur.create_action("Bake navigation mesh")
-		ur.add_do_property(region, "navigation_mesh", working)
-		ur.add_do_method(region, "bake_navigation_mesh", false)
-		ur.add_do_reference(working)
-		ur.add_undo_property(region, "navigation_mesh", original)
-		ur.add_undo_reference(original)
-		ur.commit_action()
-		polygon_count = working.get_polygon_count()
-		if working.has_method("get_vertices"):
-			var verts: PackedVector3Array = working.get_vertices()
-			vertex_count = verts.size()
+		prop = "navigation_mesh"
 	else:
 		return _router._fail("VALIDATION_ERROR", "Node is not a NavigationRegion2D/NavigationRegion3D.")
+	var original: Resource = region.get(prop)
+	if original == null:
+		return _router._fail("VALIDATION_ERROR", "Region has no %s; assign one first." % prop, prop)
+	# godot-async rule: one in-flight operation per target. The engine refuses a
+	# second bake of the same resource too, but only with a push_error.
+	var key := region.get_instance_id()
+	if _baking.has(key) or bool(region.call("is_baking")):
+		return _router._fail(
+			"EDITOR_BUSY",
+			"A navigation bake is already running on '%s'; wait for its response, then retry." % node_path,
+			"node_path",
+		)
+	var marker := _router.defer()
+	if not _router.is_deferred(marker):
+		return marker
+	var id := _router._current_id
+	var working: Resource = original.duplicate(true)
+	region.set(prop, working)
+	_baking[key] = true
+	# bake_finished can fire synchronously (the bake fails before it reaches the
+	# thread); the router then answers inside this call and drops the marker.
+	var on_finished := _on_bake_finished.bind(region, id, node_path, prop, original, working)
+	if region is NavigationRegion2D:
+		var region_2d := region as NavigationRegion2D
+		region_2d.bake_finished.connect(on_finished, CONNECT_ONE_SHOT)
+		region_2d.bake_navigation_polygon(true)
+	else:
+		var region_3d := region as NavigationRegion3D
+		region_3d.bake_finished.connect(on_finished, CONNECT_ONE_SHOT)
+		region_3d.bake_navigation_mesh(true)
+	return marker
+
+
+func _on_bake_finished(region: Node, id: String, node_path: String, prop: String, original: Resource, working: Resource) -> void:
+	_baking.erase(region.get_instance_id())
+	var polygon_count := -1
+	var vertex_count := -1
+	if working is NavigationPolygon:
+		var poly := working as NavigationPolygon
+		polygon_count = poly.get_polygon_count()
+		vertex_count = poly.get_vertex_count()
+	elif working is NavigationMesh:
+		var mesh := working as NavigationMesh
+		polygon_count = mesh.get_polygon_count()
+		vertex_count = mesh.get_vertices().size()
 	# A bake that produced zero polygons is a failed bake (no source geometry was
 	# parsed, or every agent/geometry filter excluded it) — never report baked:true
 	# for an empty navmesh, an agent trusting that ships AI that can't pathfind (#413).
+	# Nothing useful landed, so put the previous resource back instead of an undo step.
 	if polygon_count <= 0:
-		return _router._fail(
+		region.set(prop, original)
+		_router.complete(id, _router._fail(
 			"VALIDATION_ERROR",
-			"Bake produced no polygons (%d vertices) — no source geometry was parsed. Add "
+			("Bake produced no polygons (%d vertices) — no source geometry was parsed. Add "
 				+ "MeshInstance3D/GridMap/StaticBody colliders under the region (or under "
-				+ "the root_node_type the mesh parses) and retry." % vertex_count,
+				+ "the root_node_type the mesh parses) and retry.") % vertex_count,
 			"polygon_count",
-		)
+		))
+		return
+	# Registered even when complete() is refused (the request timed out or the
+	# plugin shut down): the bake still landed, so it must stay undoable.
+	# The bake already applied the do value, so commit without executing.
+	var ur: Variant = _undo_redo()
+	ur.create_action("Bake navigation polygon" if prop == "navigation_polygon" else "Bake navigation mesh")
+	ur.add_do_property(region, prop, working)
+	ur.add_do_reference(working)
+	ur.add_undo_property(region, prop, original)
+	ur.add_undo_reference(original)
+	ur.commit_action(false)
 	# The bake assigns a fresh duplicate to the region, so it saves like any node property.
-	return _router._ok(_router._helpers.with_persistence({
-		"node_path": str(params.get("node_path")),
+	_router.complete(id, _router._ok(_router._helpers.with_persistence({
+		"node_path": node_path,
 		"baked": true,
 		"polygon_count": polygon_count,
 		"vertex_count": vertex_count,
-	}, _router._helpers.persistent_target(region)))
+	}, _persistence(region))))
+
+
+# The editor's undo manager, or the router's history seam in headless tests
+# (no EditorUndoRedoManager there). Variant because the two types share the
+# action API but not a base class.
+func _undo_redo() -> Variant:
+	if _router._history_override != null:
+		return _router._history_override
+	return EditorInterface.get_editor_undo_redo()
+
+
+func _persistence(region: Node) -> Dictionary:
+	if persistence_probe.is_valid():
+		return persistence_probe.call(region)
+	return _router._helpers.persistent_target(region)
 
 
 

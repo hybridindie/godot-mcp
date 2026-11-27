@@ -153,10 +153,37 @@ func _run() -> void:
 		else:
 			failures.append("batch: expected one sub-result, got %d" % results.size())
 
+	# 6. A region with no source geometry: one VALIDATION_ERROR (#413), the
+	# previous mesh is put back, and no undo step is left behind.
+	var empty := NavigationRegion3D.new()
+	empty.name = "Empty"
+	var empty_original := NavigationMesh.new()
+	empty.navigation_mesh = empty_original
+	root.add_child(empty)
+	router._handlers["cmd_test_bake_empty"] = func(_params: Dictionary) -> Dictionary:
+		return nav.start_bake(empty, "Empty")
+	var depth_before_empty := ur.get_history_count()
+	bridge._handle_text(JSON.stringify({"id": "e1", "command": "cmd_test_bake_empty", "params": {}}))
+	frames = 0
+	while _responses(peer, "e1").is_empty() and frames < MAX_BAKE_FRAMES:
+		await process_frame
+		frames += 1
+	var empty_answers := _responses(peer, "e1")
+	_eq(failures, "empty: exactly one response", empty_answers.size(), 1)
+	if empty_answers.size() == 1:
+		_eq(failures, "empty: refused", empty_answers[0].get("ok", true), false)
+		_eq(failures, "empty: VALIDATION_ERROR", str(empty_answers[0].get("error", "")), "VALIDATION_ERROR")
+		var hint := str(empty_answers[0].get("hint", ""))
+		if not hint.contains("0 vertices"):
+			failures.append("empty: hint should name the vertex count, got %s" % hint)
+	_eq(failures, "empty: previous mesh put back", empty.navigation_mesh == empty_original, true)
+	_eq(failures, "empty: no undo action", ur.get_history_count(), depth_before_empty)
+
 	bridge.dispose()
 	bridge.free()
 	ur.free()
 	region.queue_free()
+	empty.queue_free()
 	_finish(failures)
 
 
