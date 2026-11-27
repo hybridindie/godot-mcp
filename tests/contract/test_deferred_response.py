@@ -27,12 +27,13 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 ADDON_DIR = REPO_ROOT / "godot" / "addons" / "godot_mcp"
 ROUTER_GD = ADDON_DIR / "command_router.gd"
 BRIDGE_GD = ADDON_DIR / "mcp_bridge.gd"
+SMOKE = "deferred_response_smoke.gd"
 
 
 @pytest.mark.skipif(GODOT_BIN is None, reason="Godot binary not installed")
 def test_deferred_response_smoke() -> None:
     """The headless smoke drives defer → complete / timeout / dispose in Godot."""
-    result = run_godot(["--script", "res://tests/deferred_response_smoke.gd"])
+    result = run_godot(["--script", f"res://tests/{SMOKE}"])
     output = result.stdout + result.stderr
     assert "DEFERRED_RESPONSE_TEST_OK" in output, (
         f"deferred response smoke did not pass (exit {result.returncode}):\n{output}"
