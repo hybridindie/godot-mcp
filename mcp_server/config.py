@@ -14,6 +14,9 @@ from pydantic import BaseModel, Field
 
 DEFAULT_BRIDGE_URL = "ws://localhost:9080"
 DEFAULT_REQUEST_TIMEOUT = 10.0
+# #875: task-enabled tools (e.g. a navigation bake) can outlast the default
+# request timeout; their bridge command waits this long instead.
+DEFAULT_LONG_REQUEST_TIMEOUT = 120.0
 # #563: websockets' default inbound max_size is 1 MiB — a full 3D gameplay
 # screenshot (base64 PNG) exceeds it and the listener would drop the frame.
 # 32 MiB mirrors the addon's WebSocketPeer buffer raise in mcp_bridge.gd.
@@ -31,9 +34,27 @@ BRIDGE_TOKEN_ENV = "GODOT_MCP_BRIDGE_TOKEN"  # pragma: allowlist secret (env var
 # HTTP Host/Origin protection (issue #636). Unset = "auto" (protect loopback);
 # set "false" to opt out, or "true"/"strict" to validate every request.
 HOST_ORIGIN_PROTECTION_ENV = "GODOT_MCP_HTTP_HOST_ORIGIN_PROTECTION"
+LONG_REQUEST_TIMEOUT_ENV = "GODOT_MCP_LONG_REQUEST_TIMEOUT"
 
 Transport = Literal["stdio", "http"]
 HostOriginProtection = bool | Literal["auto"]
+
+
+def long_request_timeout() -> float:
+    """Bridge timeout (seconds) for long, task-enabled operations (#875).
+
+    Read at call time so an env override applies without threading it through
+    ``ServerConfig``. A missing, non-numeric or non-positive value falls back to
+    ``DEFAULT_LONG_REQUEST_TIMEOUT``.
+    """
+    raw = os.environ.get(LONG_REQUEST_TIMEOUT_ENV)
+    if not raw:
+        return DEFAULT_LONG_REQUEST_TIMEOUT
+    try:
+        value = float(raw)
+    except ValueError:
+        return DEFAULT_LONG_REQUEST_TIMEOUT
+    return value if value > 0 else DEFAULT_LONG_REQUEST_TIMEOUT
 
 
 def _parse_transport(value: str | None) -> Transport:
