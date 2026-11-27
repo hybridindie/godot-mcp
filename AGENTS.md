@@ -155,7 +155,7 @@ The agent harness (rendered from genesis; `.claude/harness.json` records the sta
 
 ### Skills
 
-- `ship-pr` — PR loop; the merge policy in .claude/harness.json is never + squash, so it stops at ready-to-merge unless asked
+- `ship-pr` — PR loop; the merge policy in .claude/harness.json is when-green + squash: it merges once every gate passes, and irreversible paths wait for a person
 - `customize-harness` — tailor the harness after a re-render
 - `test-hygiene-scanner` — triage flaky or misleading tests
 - `epic-composer`, `epic-interview`, `epic-acceptance-linter`, `story-decomposer`, `task-decomposer`, `plan-reviewer`, `wave-dispatcher`, `factory` — the plan-and-dispatch pipeline (scripts and doctrine under `.agents/`)
