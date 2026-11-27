@@ -15,14 +15,14 @@ class AddInputActionResult(BaseModel):
     added: bool
     deadzone: float = 0.5
     dry_run: bool = False
-    reversible_by: Literal["undo", "vcs", "none"] = "none"
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"
 
 
 class RemoveInputActionResult(BaseModel):
     name: str
     removed: bool
     dry_run: bool = False
-    reversible_by: Literal["undo", "vcs", "none"] = "none"
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"
 
 
 class AddInputEventResult(BaseModel):
@@ -30,14 +30,14 @@ class AddInputEventResult(BaseModel):
     event_index: int = 0
     added: bool
     dry_run: bool = False
-    reversible_by: Literal["undo", "vcs", "none"] = "none"
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"
 
 
 class ClearInputActionEventsResult(BaseModel):
     action: str
     cleared: bool
     dry_run: bool = False
-    reversible_by: Literal["undo", "vcs", "none"] = "none"
+    reversible_by: Literal["undo", "vcs", "none"] = "undo"
 
 
 class InputActionEvents(BaseModel):
