@@ -25,8 +25,8 @@ PLUGIN_GD = ADDON_DIR / "godot_mcp.gd"
 _BARE_PRINT = re.compile(r"(?<![\w.])print\(")
 
 
-# ``Vector2(float(`` even when a formatter wraps it across lines.
-_INLINE_VECTOR2 = re.compile(r"Vector2\(\s*float\(")
+# Inline JSON -> Vector2 (``Vector2(float(...`` or ``Vector2(d.get(...``), even wrapped.
+_INLINE_VECTOR2 = re.compile(r"Vector2\(\s*(?:float\(|d\.get\()")
 
 
 def _strip_code(line: str) -> str:
@@ -58,12 +58,31 @@ def _strip_code(line: str) -> str:
     return "".join(out)
 
 
+def _strip_lines(lines: list[str]) -> list[str]:
+    """Strip each line, blanking the bodies of triple-quoted blocks, which span
+    lines (``_strip_code`` alone would rescan them as code)."""
+    out: list[str] = []
+    in_block = False
+    for line in lines:
+        if in_block:
+            if '"""' in line:
+                in_block = False
+                out.append(_strip_code(line.split('"""', 1)[1]))
+            else:
+                out.append("")
+            continue
+        if line.count('"""') % 2 == 1:
+            in_block = True
+            out.append(_strip_code(line.split('"""', 1)[0]))
+            continue
+        out.append(_strip_code(line))
+    return out
+
+
 def _code_lines(path: Path) -> list[tuple[int, str]]:
     """Source lines with strings blanked and comments stripped, numbered from 1."""
-    return [
-        (n, _strip_code(line))
-        for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
-    ]
+    raw = path.read_text(encoding="utf-8").splitlines()
+    return list(enumerate(_strip_lines(raw), 1))
 
 
 @pytest.mark.parametrize("path", [PROBE_GD, DEBUGGER_GD], ids=lambda p: p.name)
@@ -79,7 +98,11 @@ def test_debugger_multi_session_warning_uses_push_warning() -> None:
 
 def test_input_injection_coerces_through_type_coerce() -> None:
     code = "\n".join(line for _, line in _code_lines(PROBE_GD))
-    assert not _INLINE_VECTOR2.search(code), "inline Vector2 coercion (use Coerce.from_json)"
+    hits = [
+        f"{PROBE_GD.name}:{code.count(chr(10), 0, m.start()) + 1}"
+        for m in _INLINE_VECTOR2.finditer(code)
+    ]
+    assert not hits, f"inline Vector2 coercion (use Coerce.from_json): {hits}"
 
 
 def test_plugin_header_describes_bridge_as_client() -> None:
@@ -110,3 +133,14 @@ def test_scanner_catches_a_wrapped_inline_vector2() -> None:
         ")"
     )
     assert _INLINE_VECTOR2.search("\n".join(_strip_code(line) for line in src.splitlines()))
+
+
+def test_scanner_blanks_triple_quoted_blocks() -> None:
+    lines = _strip_lines(['const SRC := """', "\tprint(message)", '"""', 'print("x")'])
+    assert not _BARE_PRINT.search(lines[1]), 'a print inside a """ block is string text'
+    assert _BARE_PRINT.search(lines[3]), "code after the block is scanned again"
+
+
+def test_scanner_catches_a_cast_free_inline_vector2() -> None:
+    code = 'motion.relative = Vector2(d.get("relative_x", 0.0), d.get("relative_y", 0.0))'
+    assert _INLINE_VECTOR2.search(_strip_code(code))
