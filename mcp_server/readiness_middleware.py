@@ -1,7 +1,7 @@
 """Fail fast when the editor is not ready (issue #762).
 
 The addon sends a 1s heartbeat (`cmd_editor_status`) reporting
-``ready | importing | modal``; the bridge adds ``busy`` (a command is in flight)
+``ready | importing | modal``; the bridge adds ``busy`` (a mutating command is in flight)
 and ``stale`` (no message within the deadline). A mutating/destructive tool is
 refused with ``EDITOR_BUSY`` instead of waiting out the request timeout. A stale
 editor is ``BRIDGE_DISCONNECTED`` — it is not going to answer.
