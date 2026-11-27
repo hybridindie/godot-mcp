@@ -109,7 +109,7 @@ const DEFAULT_DEFERRED_TIMEOUT_SEC := 115.0
 const _LONG_REQUEST_TIMEOUT_ENV := "GODOT_MCP_LONG_REQUEST_TIMEOUT"
 ## Seconds before a deferred request that never completes is failed with TIMEOUT.
 var deferred_timeout_sec: float = _resolve_deferred_timeout()
-# id -> {command, start_usec, token}. The token tells a stale timer (from an
+# id -> {command, start_usec, token, timer}. The token tells a stale timer (from an
 # earlier request that reused the id) apart from the live one.
 var _pending_deferred: Dictionary = {}
 var _deferred_token := 0
@@ -118,6 +118,10 @@ var _current_id := ""
 var _current_command := ""
 var _current_start_usec := 0
 var _deferred_this_call := false
+# True while cmd_run_commands dispatches a sub-command: the batch answers now,
+# so defer() refuses before the handler starts any work.
+var _in_batch := false
+var _current_sub_command := ""
 
 
 ## Inject the MCPDebugger so runtime-inspection handlers can read cached live state.
@@ -236,9 +240,14 @@ func handle(envelope: Dictionary) -> Dictionary:
 		body["id"] = str(envelope.get("id", ""))
 		return body
 	if deferred_here:
+		var id := str(envelope.get("id", ""))
+		if not _pending_deferred.has(id):
+			# complete() already answered this id: returning the body too would
+			# send a second response, so hand back the (already answered) marker.
+			return {DEFERRED_KEY: true, "id": id}
 		# The handler deferred, then answered now anyway: this reply is the one
 		# response, so drop the pending entry before its timer sends a second.
-		_pending_deferred.erase(str(envelope.get("id", "")))
+		_release_pending(id)
 	if not body.has("ok"):
 		# A handler that died on a GDScript error returns nothing. Answer now instead of
 		# sending an ok-less body the server can only drop and time out on (#466).
@@ -253,6 +262,8 @@ func handle(envelope: Dictionary) -> Dictionary:
 ## already pending, no SceneTree for the timeout) that it returns as its body
 ## without starting anything. Check with is_deferred().
 func defer() -> Dictionary:
+	if _in_batch:
+		return _fail("VALIDATION_ERROR", "'%s' answers asynchronously and cannot run inside run_commands; call it on its own." % _current_sub_command)
 	if _current_id.is_empty():
 		return _fail("VALIDATION_ERROR", "A deferred command needs a request 'id' to answer later; send the envelope with an id.")
 	if _pending_deferred.has(_current_id):
@@ -261,16 +272,17 @@ func defer() -> Dictionary:
 	if tree == null:
 		return _fail("INTERNAL_ERROR", "No SceneTree to time out a deferred response; this command cannot run here.")
 	_deferred_token += 1
-	_pending_deferred[_current_id] = {
-		"command": _current_command,
-		"start_usec": _current_start_usec,
-		"token": _deferred_token,
-	}
-	_deferred_this_call = true
 	# godot-async rule: a signal that may never fire gets a timeout. The timer
 	# keeps running while the editor is paused and ignores time scale.
 	var timer := tree.create_timer(deferred_timeout_sec, true, false, true)
 	timer.timeout.connect(_on_deferred_timeout.bind(_current_id, _deferred_token))
+	_pending_deferred[_current_id] = {
+		"command": _current_command,
+		"start_usec": _current_start_usec,
+		"token": _deferred_token,
+		"timer": timer,
+	}
+	_deferred_this_call = true
 	return {DEFERRED_KEY: true}
 
 
@@ -284,11 +296,15 @@ func has_pending(id: String) -> bool:
 
 ## Answer a deferred request (#906). Returns false when the id is not pending
 ## (already completed, timed out, cancelled or disposed): exactly one response.
+##
+## A false return after TIMEOUT or dispose() does not mean the work was undone:
+## the server was told it failed, yet the effect may still have landed. A handler
+## must therefore still register (and keep) its UndoRedo action for that work,
+## so the user can undo it.
 func complete(id: String, body: Dictionary) -> bool:
 	if not _pending_deferred.has(id):
 		return false
-	var entry: Dictionary = _pending_deferred[id]
-	_pending_deferred.erase(id)
+	var entry: Dictionary = _release_pending(id)
 	var response := body.duplicate()
 	if not response.has("ok") or is_deferred(response):
 		response = _fail("INTERNAL_ERROR", "'%s' finished inside the addon without producing a response (a GDScript error — see the editor Output panel)." % str(entry.get("command", "")))
@@ -296,6 +312,19 @@ func complete(id: String, body: Dictionary) -> bool:
 	var exec_ms := (Time.get_ticks_usec() - int(entry.get("start_usec", 0))) / 1000.0
 	deferred_completed.emit(str(entry.get("command", "")), response, exec_ms)
 	return true
+
+
+# Drop a pending entry and retire its timer: disconnect the timeout, then let it
+# expire on the next frame instead of lingering for the full budget.
+func _release_pending(id: String) -> Dictionary:
+	var entry: Dictionary = _pending_deferred.get(id, {})
+	_pending_deferred.erase(id)
+	var timer: SceneTreeTimer = entry.get("timer", null)
+	if timer != null:
+		for connection: Dictionary in timer.timeout.get_connections():
+			timer.timeout.disconnect(connection["callable"] as Callable)
+		timer.time_left = 0.0
+	return entry
 
 
 ## Fail every pending deferred request with one structured error (dispose path).
@@ -536,10 +565,15 @@ func _cmd_run_commands(params: Dictionary) -> Dictionary:
 		if sub_command == "cmd_run_commands" or sub_command == "run_commands":
 			sub = _fail("VALIDATION_ERROR", "run_commands cannot be nested inside run_commands.")
 		else:
+			# #906: the batch answers now, so a sub-command cannot answer later;
+			# defer() refuses under _in_batch before the handler starts its work.
+			_in_batch = true
+			_current_sub_command = sub_command
 			sub = _route(entry_dict)
+			_in_batch = false
+			_current_sub_command = ""
 			if is_deferred(sub):
-				# #906: the batch answers now, so a sub-command cannot answer later.
-				_pending_deferred.erase(_current_id)
+				# Backstop for a handler that ignored defer()'s refusal.
 				_deferred_this_call = false
 				sub = _fail("VALIDATION_ERROR", "'%s' answers asynchronously and cannot run inside run_commands; call it on its own." % sub_command)
 		sub["command"] = sub_command
