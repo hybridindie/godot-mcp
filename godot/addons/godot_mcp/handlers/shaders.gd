@@ -26,7 +26,10 @@ func register(handlers: Dictionary) -> void:
 
 func _cmd_create_shader(params: Dictionary) -> Dictionary:
 	var path := str(params.get("shader_path", ""))
-	if MCPHelpers.res_path_error(path) != "" or not path.ends_with(".gdshader"):
+	var path_error := MCPHelpers.res_path_error(path)
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
+	if not path.ends_with(".gdshader"):
 		return _router._fail("VALIDATION_ERROR", "shader_path must be a res:// .gdshader file.")
 	var code := str(params.get("code", ""))
 	if code.is_empty():
@@ -64,6 +67,9 @@ func _cmd_create_shader(params: Dictionary) -> Dictionary:
 
 func _cmd_read_shader(params: Dictionary) -> Dictionary:
 	var path := str(params.get("shader_path", ""))
+	var path_error := MCPHelpers.optional_res_path_error(path)
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	if not path.ends_with(".gdshader"):
 		return _router._fail("VALIDATION_ERROR", "shader_path must be a .gdshader file.")
 	if not FileAccess.file_exists(path):
@@ -73,6 +79,9 @@ func _cmd_read_shader(params: Dictionary) -> Dictionary:
 
 
 func _cmd_assign_shader_material(params: Dictionary) -> Dictionary:
+	var path_error := MCPHelpers.optional_res_path_error(str(params.get("shader_path", "")))
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	var found := _router._resolve(params.get("node_path", ""))
 	if not found["ok"]:
 		return found

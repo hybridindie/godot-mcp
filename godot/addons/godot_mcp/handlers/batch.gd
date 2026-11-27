@@ -33,7 +33,10 @@ func _parse_dependency(dep: String) -> Dictionary:
 func _cross_scene_one(
 	path: String, type_name: String, property: String, value: Variant, dry_run: bool
 ) -> Dictionary:
-	if MCPHelpers.res_path_error(path) != "" or not (path.ends_with(".tscn") or path.ends_with(".scn")):
+	var path_error := MCPHelpers.res_path_error(path)
+	if path_error != "":
+		return {"scene": path, "modified": 0, "error": "not a res:// scene file", "hint": path_error}
+	if not (path.ends_with(".tscn") or path.ends_with(".scn")):
 		return {"scene": path, "modified": 0, "error": "not a res:// scene file"}
 	# #645: refuse ANY scene open in a tab (not just the active one). The editor
 	# holds its own in-memory copy of an open scene; editing the file on disk would
@@ -265,6 +268,9 @@ func _cmd_cross_scene_set_property(params: Dictionary) -> Dictionary:
 
 
 func _cmd_get_dependencies(params: Dictionary) -> Dictionary:
+	var path_error := MCPHelpers.optional_res_path_error(str(params.get("path", "")))
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	var path := str(params.get("path", ""))
 	# ResourceLoader.exists handles uid:// and imported/remapped resources that
 	# FileAccess.file_exists would miss.

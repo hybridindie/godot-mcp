@@ -60,8 +60,9 @@ func _cmd_create_visual_shader(params: Dictionary) -> Dictionary:
 		return _router._fail("VALIDATION_ERROR", "'name' must be non-empty.")
 	if path.is_empty():
 		path = "res://shaders/%s.tres" % name
-	if MCPHelpers.res_path_error(path) != "":
-		return _router._fail("VALIDATION_ERROR", "path must start with res://.")
+	var path_error := MCPHelpers.res_path_error(path)
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 
 	var shader := VisualShader.new()
 	shader.set_mode(_mode_from_string(type_str))
@@ -92,8 +93,9 @@ func _cmd_add_shader_node(params: Dictionary) -> Dictionary:
 	var node_id := int(params.get("node_id", -1))
 	var position := Coerce.from_json(params.get("position", [0.0, 0.0]), TYPE_VECTOR2)
 
-	if MCPHelpers.res_path_error(path) != "":
-		return _router._fail("VALIDATION_ERROR", "shader_path must start with res://.")
+	var path_error := MCPHelpers.res_path_error(path)
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	# Godot reserves node ids 0 (output) and 1; add_node requires id >= 2.
 	if node_id < 2:
 		return _router._fail("VALIDATION_ERROR", "'node_id' must be >= 2 (0 and 1 are reserved).")
@@ -140,8 +142,9 @@ func _cmd_connect_shader_nodes(params: Dictionary) -> Dictionary:
 	var to_node := int(params.get("to_node", -1))
 	var to_port := int(params.get("to_port", -1))
 
-	if MCPHelpers.res_path_error(path) != "":
-		return _router._fail("VALIDATION_ERROR", "shader_path must start with res://.")
+	var path_error := MCPHelpers.res_path_error(path)
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	if not ResourceLoader.exists(path):
 		return _router._fail("RESOURCE_NOT_FOUND", "No shader at '%s'." % path)
 	var shader: VisualShader = ResourceLoader.load(path)
@@ -168,8 +171,9 @@ func _cmd_set_shader_node_param(params: Dictionary) -> Dictionary:
 	var property := str(params.get("property", ""))
 	var raw_value: Variant = params.get("value")
 
-	if MCPHelpers.res_path_error(path) != "":
-		return _router._fail("VALIDATION_ERROR", "shader_path must start with res://.")
+	var path_error := MCPHelpers.res_path_error(path)
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	if property.is_empty():
 		return _router._fail("VALIDATION_ERROR", "'property' must be non-empty.")
 	if not ResourceLoader.exists(path):
@@ -214,8 +218,9 @@ func _cmd_list_shader_node_types(_params: Dictionary) -> Dictionary:
 ## the visual-shader writers; delegates the pure serialization to MCPVisualShaderRead.
 func _cmd_read_visual_shader(params: Dictionary) -> Dictionary:
 	var path := str(params.get("shader_path", ""))
-	if MCPHelpers.res_path_error(path) != "":
-		return _router._fail("VALIDATION_ERROR", "shader_path must start with res://.")
+	var path_error := MCPHelpers.res_path_error(path)
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	if not ResourceLoader.exists(path):
 		return _router._fail("RESOURCE_NOT_FOUND", "No shader at '%s'." % path)
 	var resource: Resource = ResourceLoader.load(path)
@@ -295,15 +300,16 @@ func _restore_group_node(group: Resource, node: VisualShaderNode, position: Vect
 
 
 func _cmd_create_shader_group(params: Dictionary) -> Dictionary:
+	var path := str(params.get("shader_path", ""))
+	var path_error := MCPHelpers.res_path_error(path)
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	if not _groups_supported():
 		return _groups_unsupported()
-	var path := str(params.get("shader_path", ""))
 	var group_name := str(params.get("name", ""))
 	var node_id := int(params.get("node_id", -1))
 	var position := Coerce.from_json(params.get("position", [0.0, 0.0]), TYPE_VECTOR2)
 
-	if MCPHelpers.res_path_error(path) != "":
-		return _router._fail("VALIDATION_ERROR", "shader_path must start with res://.")
 	if group_name.is_empty():
 		return _router._fail("VALIDATION_ERROR", "'name' must be non-empty.")
 	if node_id < 2:
@@ -341,14 +347,15 @@ func _cmd_create_shader_group(params: Dictionary) -> Dictionary:
 
 
 func _cmd_rename_shader_group(params: Dictionary) -> Dictionary:
+	var path := str(params.get("shader_path", ""))
+	var path_error := MCPHelpers.res_path_error(path)
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	if not _groups_supported():
 		return _groups_unsupported()
-	var path := str(params.get("shader_path", ""))
 	var node_id := int(params.get("node_id", -1))
 	var new_name := str(params.get("name", ""))
 
-	if MCPHelpers.res_path_error(path) != "":
-		return _router._fail("VALIDATION_ERROR", "shader_path must start with res://.")
 	if new_name.is_empty():
 		return _router._fail("VALIDATION_ERROR", "'name' must be non-empty.")
 	if not ResourceLoader.exists(path):
@@ -377,13 +384,14 @@ func _cmd_rename_shader_group(params: Dictionary) -> Dictionary:
 
 
 func _cmd_remove_shader_group(params: Dictionary) -> Dictionary:
+	var path := str(params.get("shader_path", ""))
+	var path_error := MCPHelpers.res_path_error(path)
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	if not _groups_supported():
 		return _groups_unsupported()
-	var path := str(params.get("shader_path", ""))
 	var node_id := int(params.get("node_id", -1))
 
-	if MCPHelpers.res_path_error(path) != "":
-		return _router._fail("VALIDATION_ERROR", "shader_path must start with res://.")
 	if not ResourceLoader.exists(path):
 		return _router._fail("RESOURCE_NOT_FOUND", "No shader at '%s'." % path)
 	var shader: VisualShader = ResourceLoader.load(path)
@@ -414,16 +422,17 @@ func _cmd_remove_shader_group(params: Dictionary) -> Dictionary:
 
 
 func _cmd_add_shader_group_node(params: Dictionary) -> Dictionary:
+	var path := str(params.get("shader_path", ""))
+	var path_error := MCPHelpers.res_path_error(path)
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	if not _groups_supported():
 		return _groups_unsupported()
-	var path := str(params.get("shader_path", ""))
 	var group_node_id := int(params.get("group_node_id", -1))
 	var node_type := str(params.get("node_type", ""))
 	var node_id := int(params.get("node_id", -1))
 	var position := Coerce.from_json(params.get("position", [0.0, 0.0]), TYPE_VECTOR2)
 
-	if MCPHelpers.res_path_error(path) != "":
-		return _router._fail("VALIDATION_ERROR", "shader_path must start with res://.")
 	# Group graphs have no reserved output node, so id 0 is available here.
 	if node_id < 0:
 		return _router._fail("VALIDATION_ERROR", "'node_id' must be >= 0.")
@@ -465,14 +474,15 @@ func _cmd_add_shader_group_node(params: Dictionary) -> Dictionary:
 
 
 func _cmd_remove_shader_group_node(params: Dictionary) -> Dictionary:
+	var path := str(params.get("shader_path", ""))
+	var path_error := MCPHelpers.res_path_error(path)
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	if not _groups_supported():
 		return _groups_unsupported()
-	var path := str(params.get("shader_path", ""))
 	var group_node_id := int(params.get("group_node_id", -1))
 	var node_id := int(params.get("node_id", -1))
 
-	if MCPHelpers.res_path_error(path) != "":
-		return _router._fail("VALIDATION_ERROR", "shader_path must start with res://.")
 	if not ResourceLoader.exists(path):
 		return _router._fail("RESOURCE_NOT_FOUND", "No shader at '%s'." % path)
 	var shader: VisualShader = ResourceLoader.load(path)

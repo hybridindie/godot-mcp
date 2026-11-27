@@ -36,6 +36,9 @@ func register(handlers: Dictionary) -> void:
 # -- handlers ----------------------------------------------------------------
 
 func _cmd_set_breakpoint(params: Dictionary) -> Dictionary:
+	var path_error := MCPHelpers.optional_res_path_error(str(params.get("path", "")))
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	var guard := _router._require_debug_session()
 	if not guard["ok"]:
 		return guard
@@ -52,6 +55,9 @@ func _cmd_set_breakpoint(params: Dictionary) -> Dictionary:
 
 
 func _cmd_remove_breakpoint(params: Dictionary) -> Dictionary:
+	var path_error := MCPHelpers.optional_res_path_error(str(params.get("path", "")))
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	var guard := _router._require_debug_session()
 	if not guard["ok"]:
 		return guard

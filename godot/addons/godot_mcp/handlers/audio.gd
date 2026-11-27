@@ -29,6 +29,9 @@ func register(handlers: Dictionary) -> void:
 # -- handlers ----------------------------------------------------------------
 
 func _cmd_add_audio_player(params: Dictionary) -> Dictionary:
+	var path_error := MCPHelpers.optional_res_path_error(str(params.get("stream_path", "")))
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	var found := _router._resolve(params.get("parent_path", ""))
 	if not found["ok"]:
 		return found

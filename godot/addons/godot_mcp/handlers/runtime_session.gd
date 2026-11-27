@@ -40,7 +40,10 @@ func _cmd_play_scene(params: Dictionary) -> Dictionary:
 		EditorInterface.play_main_scene()
 	else:
 		var is_scene := scene_path.ends_with(".tscn") or scene_path.ends_with(".scn")
-		if MCPHelpers.res_path_error(scene_path) != "" or not is_scene:
+		var path_error := MCPHelpers.res_path_error(scene_path)
+		if path_error != "":
+			return _router._fail("VALIDATION_ERROR", path_error)
+		if not is_scene:
 			return _router._fail("VALIDATION_ERROR", "scene_path must be a res:// .tscn or .scn file.")
 		if not FileAccess.file_exists(scene_path):
 			return _router._fail("RESOURCE_NOT_FOUND", "No scene at '%s'." % scene_path)

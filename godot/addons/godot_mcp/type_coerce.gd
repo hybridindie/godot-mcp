@@ -310,7 +310,7 @@ static func object_from_json(value: Variant) -> Dictionary:
 		var path := str(value)
 		if path.begins_with("res://") or path.begins_with("uid://"):  # scheme test, not containment
 			# Defense in depth (#909): a res:// path must stay inside the project.
-			var escape := "" if path.begins_with("uid://") else MCPHelpers.res_path_error(path)
+			var escape := MCPPaths.optional_res_path_error(path)
 			if not escape.is_empty():
 				return {"ok": false, "error": "VALIDATION_ERROR", "hint": escape}
 			if not ResourceLoader.exists(path):

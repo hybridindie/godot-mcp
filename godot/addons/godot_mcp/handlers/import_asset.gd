@@ -98,8 +98,9 @@ func _cmd_import_asset(params: Dictionary) -> Dictionary:
 	var overwrite := bool(params.get("overwrite", false))
 	var import_settings: Dictionary = params.get("import_settings", {})
 
-	if MCPHelpers.res_path_error(target_path) != "":
-		return _router._fail("VALIDATION_ERROR", "target_path must start with res://.")
+	var path_error := MCPHelpers.res_path_error(target_path)
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 
 	var before_state := MCPReceipt.file_state(target_path)
 	var abs_target := ProjectSettings.globalize_path(target_path)
@@ -210,6 +211,13 @@ func _cmd_create_material_from_textures(params: Dictionary) -> Dictionary:
 	var emission_enabled := str(params.get("emission_enabled", ""))
 	var emission_requested: bool = not channels["emission"].is_empty()
 
+	for channel: String in channels:
+		var value: String = channels[channel]
+		if _is_number(value):
+			continue
+		var channel_error := MCPHelpers.optional_res_path_error(value)
+		if channel_error != "":
+			return _router._fail("VALIDATION_ERROR", channel_error)
 	var material: StandardMaterial3D = StandardMaterial3D.new()
 	var channels_set: Array = []
 
@@ -264,8 +272,9 @@ func _cmd_create_material_from_textures(params: Dictionary) -> Dictionary:
 
 	if path.is_empty():
 		path = "res://materials/generated_%s.tres" % str(randi()).sha256_text().substr(0, 8)
-	if MCPHelpers.res_path_error(path) != "":
-		return _router._fail("VALIDATION_ERROR", "path must start with res://.")
+	var path_error := MCPHelpers.res_path_error(path)
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 
 	var base_dir := path.get_base_dir()
 	if not DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(base_dir)):
@@ -285,8 +294,9 @@ func _cmd_create_material_from_textures(params: Dictionary) -> Dictionary:
 
 func _cmd_get_import_status(params: Dictionary) -> Dictionary:
 	var target_path := str(params.get("target_path", ""))
-	if MCPHelpers.res_path_error(target_path) != "":
-		return _router._fail("VALIDATION_ERROR", "target_path must start with res://.")
+	var path_error := MCPHelpers.res_path_error(target_path)
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 
 	var import_file := ProjectSettings.globalize_path(target_path + ".import")
 	var imported := FileAccess.file_exists(import_file)

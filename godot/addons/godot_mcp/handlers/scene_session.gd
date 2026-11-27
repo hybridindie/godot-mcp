@@ -30,6 +30,9 @@ func register(handlers: Dictionary) -> void:
 # -- handlers ----------------------------------------------------------------
 
 func _cmd_close_scene(params: Dictionary) -> Dictionary:
+	var path_error := MCPHelpers.optional_res_path_error(str(params.get("scene_path", "")))
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	# Closes a scene tab, discarding unsaved changes (confirm is enforced
 	# server-side; honored defensively here). EditorInterface.close_scene() (4.5+)
 	# closes the currently active scene; to close a specific open scene by path
@@ -77,6 +80,9 @@ func _cmd_close_scene(params: Dictionary) -> Dictionary:
 	return _router._ok({"scene_path": target_path, "closed": true})
 
 func _cmd_open_scene(params: Dictionary) -> Dictionary:
+	var path_error := MCPHelpers.optional_res_path_error(str(params.get("scene_path", "")))
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	var scene_path := str(params.get("scene_path", ""))
 	if scene_path.is_empty():
 		return _router._fail("VALIDATION_ERROR", "scene_path is required.")
@@ -94,6 +100,9 @@ func _cmd_open_scene(params: Dictionary) -> Dictionary:
 
 
 func _cmd_reload_scene(params: Dictionary) -> Dictionary:
+	var path_error := MCPHelpers.optional_res_path_error(str(params.get("scene_path", "")))
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	var scene_path := str(params.get("scene_path", ""))
 	if scene_path.is_empty():
 		return _router._fail("VALIDATION_ERROR", "scene_path is required.")
@@ -155,6 +164,9 @@ func _cmd_select_nodes(params: Dictionary) -> Dictionary:
 
 
 func _cmd_instance_scene(params: Dictionary) -> Dictionary:
+	var path_error := MCPHelpers.optional_res_path_error(str(params.get("scene_path", "")))
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	var root := EditorInterface.get_edited_scene_root()
 	if root == null:
 		return _router._fail("PRECONDITION_FAILED", "No scene is open.", "active_scene")
@@ -214,6 +226,9 @@ func _cmd_instance_scene(params: Dictionary) -> Dictionary:
 ## save_current saves the edited scene after the extract (prefab + tree on disk
 ## together). The persistence verdict keys on the subtree root (#477 family).
 func _cmd_extract_scene(params: Dictionary) -> Dictionary:
+	var path_error := MCPHelpers.optional_res_path_error(str(params.get("scene_path", "")))
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error, "scene_path")
 	var root := EditorInterface.get_edited_scene_root()
 	if root == null:
 		return _router._fail("PRECONDITION_FAILED", "No scene is open.", "active_scene")
@@ -224,7 +239,7 @@ func _cmd_extract_scene(params: Dictionary) -> Dictionary:
 	var preview := bool(params.get("preview", false))
 	if node_path.is_empty() or scene_path.is_empty():
 		return _router._fail("VALIDATION_ERROR", "'node_path' and 'scene_path' are required.")
-	if MCPHelpers.res_path_error(scene_path) != "" or not scene_path.ends_with(".tscn"):
+	if not scene_path.ends_with(".tscn"):
 		return _router._fail("VALIDATION_ERROR", "'scene_path' must be a res:// path ending in .tscn.", "scene_path")
 	var node: Node = root.get_node_or_null(NodePath(node_path))
 	if node == null:

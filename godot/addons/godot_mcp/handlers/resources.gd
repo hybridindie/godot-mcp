@@ -27,6 +27,9 @@ func register(handlers: Dictionary) -> void:
 # -- handlers ----------------------------------------------------------------
 
 func _cmd_read_resource(params: Dictionary) -> Dictionary:
+	var path_error := MCPHelpers.optional_res_path_error(str(params.get("resource_path", "")))
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	var path := str(params.get("resource_path", ""))
 	if not (path.ends_with(".tres") or path.ends_with(".res")):
 		return _router._fail("VALIDATION_ERROR", "resource_path must be a .tres/.res file.")
@@ -45,6 +48,9 @@ func _cmd_read_resource(params: Dictionary) -> Dictionary:
 
 
 func _cmd_create_resource(params: Dictionary) -> Dictionary:
+	var path_error := MCPHelpers.optional_res_path_error(str(params.get("resource_path", "")))
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	var res_type := str(params.get("type", ""))
 	var path := str(params.get("resource_path", ""))
 	if not ClassDB.class_exists(res_type) or not ClassDB.can_instantiate(res_type):
@@ -96,6 +102,9 @@ func _cmd_create_resource(params: Dictionary) -> Dictionary:
 
 
 func _cmd_set_resource_property(params: Dictionary) -> Dictionary:
+	var path_error := MCPHelpers.optional_res_path_error(str(params.get("resource_path", "")))
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	var path := str(params.get("resource_path", ""))
 	if not (path.ends_with(".tres") or path.ends_with(".res")):
 		return _router._fail("VALIDATION_ERROR", "resource_path must be a .tres/.res file.")
@@ -145,6 +154,9 @@ func _cmd_set_resource_property(params: Dictionary) -> Dictionary:
 
 
 func _cmd_register_autoload(params: Dictionary) -> Dictionary:
+	var path_error := MCPHelpers.optional_res_path_error(str(params.get("path", "")))
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	var autoload_name := str(params.get("name", ""))
 	var path := str(params.get("path", ""))
 	if autoload_name.is_empty():
