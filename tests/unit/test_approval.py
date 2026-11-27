@@ -155,6 +155,11 @@ async def test_malformed_response_denies_even_when_fail_open() -> None:
 
 # --- guard pattern (issue #346) -------------------------------------------
 
+# A fixed seal key and expiry: the builder no longer mints an unverifiable
+# state when the caller forgets the key.
+_KEY = b"k" * 32
+_EXPIRES_AT = 1_000.0
+
 
 async def test_build_input_required_request_state_carries_tool_and_params() -> None:
     # The durable round-trip depends on InputRequiredResult.request_state carrying
@@ -164,6 +169,8 @@ async def test_build_input_required_request_state_carries_tool_and_params() -> N
         "godot_scene_edit_create_node",
         "mutating",
         {"parent_path": ".", "node_type": "Node2D", "node_name": "Player"},
+        key=_KEY,
+        expires_at=_EXPIRES_AT,
     )
     state = result.input_required.request_state
     assert state is not None  # narrowed for mypy
@@ -181,7 +188,11 @@ async def test_build_input_required_elicitation_asks_approve() -> None:
     # The elicitation request under APPROVE_KEY carries a yes/no schema the
     # client renders; its answer arrives in ctx.input_responses[APPROVE_KEY].
     result = _build_input_required(
-        "godot_scene_edit_delete_node", "destructive", {"node_path": "Enemy"}
+        "godot_scene_edit_delete_node",
+        "destructive",
+        {"node_path": "Enemy"},
+        key=_KEY,
+        expires_at=_EXPIRES_AT,
     )
     requests = result.input_required.input_requests
     assert requests is not None  # narrowed for mypy

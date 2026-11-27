@@ -84,7 +84,7 @@ class Bridge:
         self._pending: dict[str, asyncio.Future[ResponseEnvelope]] = {}
         # #762 readiness: the addon's heartbeat last reported status, the last
         # heartbeat time, and the in-flight command names/start times (a pending
-        # command is "busy"; one older than the stale deadline is "stale").
+        # mutating command is "busy"; see editor_status for the stale rule).
         self._clock = clock
         self._editor_status = "unknown"
         self._last_heartbeat: float | None = None
@@ -153,20 +153,36 @@ class Bridge:
 
     @property
     def editor_status(self) -> str:
-        """Readiness snapshot: ready/importing/modal/busy/stale/disconnected/unknown (#762)."""
+        """Readiness snapshot: ready/importing/modal/busy/stale/disconnected/unknown (#762).
+
+        ``busy`` means a *mutating* command (one in ``_mutating_commands``) is in
+        flight: the editor runs commands serially, so a second mutation is refused
+        rather than queued behind it. A pending read never makes the editor busy,
+        so parallel read + mutate tool calls keep working (#874).
+        """
         if not self.connected:
             return "disconnected"
         now = self._clock()
+        if self._last_heartbeat is not None:
+            # Heartbeats are the liveness signal: a slow in-flight command
+            # (e.g. a 6s bake) is busy, not stale, while they keep arriving (#873).
+            if now - self._last_heartbeat > _STALE_AFTER_SECONDS:
+                return "stale"
+            if self._mutation_pending():
+                return "busy"
+            return self._editor_status or "unknown"
         if self._pending_started:
+            # No heartbeat ever seen (an older addon without them): the age of
+            # the oldest pending command is the only liveness signal left.
             oldest = min(self._pending_started.values())
             if now - oldest > _STALE_AFTER_SECONDS:
                 return "stale"
-            return "busy"
-        if self._last_heartbeat is None:
-            return "unknown"
-        if now - self._last_heartbeat > _STALE_AFTER_SECONDS:
-            return "stale"
-        return self._editor_status or "unknown"
+            return "busy" if self._mutation_pending() else "unknown"
+        return "unknown"
+
+    def _mutation_pending(self) -> bool:
+        """True while any in-flight command is mutating/destructive (#874)."""
+        return any(cmd in self._mutating_commands for cmd in self._pending_commands.values())
 
     @property
     def editor_heartbeat_age_ms(self) -> int | None:

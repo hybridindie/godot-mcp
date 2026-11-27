@@ -211,6 +211,8 @@ async def run_or_preview(
     command: str,
     params: dict[str, Any] | None = None,
     persistence_probe: dict[str, Any] | bool | None = None,
+    *,
+    timeout: float | None = None,
 ) -> T:
     """Return ``result_cls(**preview, dry_run=True)`` when ``dry_run`` is set,
     otherwise ``result_cls(**await route(...))``.
@@ -224,6 +226,9 @@ async def run_or_preview(
     edit is already on disk (a file-only resource author), so ``persisted=True``;
     a dict is sent as the ``cmd_node_persistence`` probe params and its verdict is
     stamped into the preview.
+
+    ``timeout`` overrides the bridge request timeout for the real run (#875);
+    ``None`` keeps the bridge default.
     """
     if dry_run:
         fields = dict(preview)
@@ -235,7 +240,7 @@ async def run_or_preview(
             fields["reason"] = truth.get("reason")
             fields["hint"] = truth.get("hint")
         return result_cls(**fields, dry_run=True)
-    return result_cls(**await route(bridge, command, params or {}))
+    return result_cls(**await route(bridge, command, params or {}, timeout=timeout))
 
 
 async def validate_or_raise(
@@ -258,7 +263,11 @@ async def validate_or_raise(
 
 
 async def route(
-    bridge: Bridge, command: str, params: dict[str, Any] | None = None
+    bridge: Bridge,
+    command: str,
+    params: dict[str, Any] | None = None,
+    *,
+    timeout: float | None = None,
 ) -> dict[str, Any]:
     """Send a command over the bridge; return its result or raise a structured error.
 
@@ -267,10 +276,13 @@ async def route(
     (the ``[required=...]`` suffix only when the envelope carries one), matching the
     shape ``PreconditionError.as_tool_error()`` produces — so a precondition surfaced
     by the addon is actionable even from an undecorated read-only tool.
+
+    ``timeout`` overrides the bridge request timeout (#875); ``None`` keeps the
+    bridge default.
     """
     await validate_or_raise(bridge, command, params)
 
-    response = await bridge.send(command, params or {})
+    response = await bridge.send(command, params or {}, timeout=timeout)
 
     if not response.ok:
         raise AgentToolError(
