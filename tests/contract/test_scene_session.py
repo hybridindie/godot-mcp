@@ -319,9 +319,7 @@ async def test_rescan_filesystem_reports_scanning_and_no_confirm() -> None:
 
     def rescan_responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
         if cmd.command == "cmd_rescan_filesystem":
-            return ResponseEnvelope.success(
-                cmd.id, {"scanned": True, "scanning": False}
-            )
+            return ResponseEnvelope.success(cmd.id, {"scanned": True, "scanning": False})
         return _responder(cmd)
 
     conn._responder = rescan_responder

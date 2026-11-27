@@ -68,8 +68,7 @@ async def test_approval_gate_allows_on_lookup_error(caplog: pytest.LogCaptureFix
         result = await mw.on_call_tool(ctx, _call_next)  # type: ignore[arg-type]
     assert result == "RAN"
     assert any(
-        "unexpected error looking up tool" in r.message and r.levelno == 40
-        for r in caplog.records
+        "unexpected error looking up tool" in r.message and r.levelno == 40 for r in caplog.records
     ), "approval gate must log lookup errors at ERROR even when failing open"
 
 
@@ -133,8 +132,7 @@ async def test_toolset_gate_allows_on_lookup_error(caplog: pytest.LogCaptureFixt
     assert result == "RAN"
     # But the failure is logged at ERROR (not silently swallowed).
     assert any(
-        "unexpected error looking up tool" in r.message and r.levelno == 40
-        for r in caplog.records
+        "unexpected error looking up tool" in r.message and r.levelno == 40 for r in caplog.records
     ), "toolset gate must log lookup errors at ERROR even when failing open"
 
 
@@ -193,6 +191,7 @@ async def test_toolset_gate_readonly_core_tool_passes_on_lookup_error() -> None:
     result = await mw.on_call_tool(_C(), _call_next)  # type: ignore[arg-type]
     assert result == "PASSED"
 
+
 # ---------------------------------------------------------------------------
 # Undeclared-argument middleware (#877): fail open, but never silently
 # ---------------------------------------------------------------------------
@@ -224,8 +223,7 @@ async def test_undeclared_argument_check_logs_lookup_error(
         result = await mw.on_call_tool(_ArgsContext(_FakeFastMCP()), _call_next)
     assert result == "RAN"
     assert any(
-        "unexpected error looking up tool" in r.message and r.levelno == 40
-        for r in caplog.records
+        "unexpected error looking up tool" in r.message and r.levelno == 40 for r in caplog.records
     ), "the undeclared-argument check must log lookup errors at ERROR when failing open"
 
 

@@ -1,6 +1,6 @@
 """Typed results for scene session tools (issue #79).
 
- scene management: open, reload, save-all, list-open, select-nodes.
+scene management: open, reload, save-all, list-open, select-nodes.
 """
 
 from __future__ import annotations

@@ -100,7 +100,11 @@ async def _run() -> None:
         # the OPEN scene — save it, since play_custom_scene loads the .tscn
         # from disk (without the save the game runs without the script).
         Path(SCRIPT_FILE).write_text(GAME_SCRIPT)
-        await _ok(bridge, "cmd_attach_script", {"node_path": ".", "script_path": "res://tmp_e2e_game_output.gd"})
+        await _ok(
+            bridge,
+            "cmd_attach_script",
+            {"node_path": ".", "script_path": "res://tmp_e2e_game_output.gd"},
+        )
         await _ok(bridge, "cmd_save_scene", {})
         await _ok(bridge, "cmd_register_autoload", {"name": "GodotMcpProbe", "path": PROBE})
         await _ok(bridge, "cmd_play_scene", {"scene_path": SCRATCH})
@@ -187,9 +191,7 @@ async def _run() -> None:
         assert any("GAME_OUTPUT_STDOUT_MARKER" in t for t in replay_texts), replay_texts
         # No duplication: the fresh session captures its own print exactly once
         # (a leaked logger would show it twice — once from each registration).
-        assert (
-            sum(1 for t in replay_texts if "GAME_OUTPUT_STDOUT_MARKER" in t) == 1
-        ), replay_texts
+        assert sum(1 for t in replay_texts if "GAME_OUTPUT_STDOUT_MARKER" in t) == 1, replay_texts
         await _ok(bridge, "cmd_stop_scene", {})
     finally:
         await bridge.close()

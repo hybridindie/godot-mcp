@@ -122,7 +122,7 @@ def register_particles(mcp: FastMCP, bridge: Bridge) -> None:
             bridge,
             "cmd_set_particle_color_gradient",
             params,
-        persistence_probe=node_probe(node_path, ["process_material"]),
+            persistence_probe=node_probe(node_path, ["process_material"]),
         )
 
     @mcp.tool(meta=MUTATING, tags=PARTICLES)

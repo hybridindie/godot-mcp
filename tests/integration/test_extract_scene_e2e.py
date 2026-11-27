@@ -151,6 +151,7 @@ async def _run() -> None:
                 if found is not None:
                     return found
             return None
+
         gun = _find(tree["tree"], "Gun")
         assert gun is not None
         # The instance root stays owned by the edited root (the packer stores the

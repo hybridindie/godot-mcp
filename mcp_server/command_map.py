@@ -223,16 +223,13 @@ ORCHESTRATORS: dict[str, str] = {
     "run_stress_test": "a play + repeated-input workflow; call it directly instead",
     "testing_run_stress_test": "a play + repeated-input workflow; call it directly instead",
     "run_tests": (
-        "a headless GUT run via the Godot binary, not a bridge command;"
-        " call it directly instead"
+        "a headless GUT run via the Godot binary, not a bridge command; call it directly instead"
     ),
     "testing_run_tests": (
-        "a headless GUT run via the Godot binary, not a bridge command;"
-        " call it directly instead"
+        "a headless GUT run via the Godot binary, not a bridge command; call it directly instead"
     ),
     "export_project": (
-        "a headless export via the Godot binary, not a bridge command;"
-        " call it directly instead"
+        "a headless export via the Godot binary, not a bridge command; call it directly instead"
     ),
     "debug_workflow": "an aggregator over several read-only checks; call it directly instead",
     "inspection_diff_snapshots": (
@@ -254,9 +251,7 @@ ORCHESTRATORS: dict[str, str] = {
     "checkpoint_create": (
         "a server-side marker over the scene undo history; call it directly instead"
     ),
-    "checkpoint_restore": (
-        "a server-side undo-to-checkpoint workflow; call it directly instead"
-    ),
+    "checkpoint_restore": ("a server-side undo-to-checkpoint workflow; call it directly instead"),
 }
 
 

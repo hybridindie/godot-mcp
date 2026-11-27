@@ -56,9 +56,7 @@ def _registry() -> dict[str, list[tuple[str, str]]]:
     return {category: sorted(rows) for category, rows in groups.items()}
 
 
-def _rewrite_body(
-    body: list[str], category: str, rows: list[tuple[str, str]]
-) -> list[str]:
+def _rewrite_body(body: list[str], category: str, rows: list[tuple[str, str]]) -> list[str]:
     """Replace the count line and table rows in one section, keeping the prose."""
     if not rows:
         raise SystemExit(f"error: section '{category}' has no tools in the registry")
@@ -112,9 +110,7 @@ def render(text: str, groups: dict[str, list[tuple[str, str]]]) -> str:
 
     missing = sorted(set(groups) - seen)
     if missing:
-        raise SystemExit(
-            "error: the registry has toolsets with no section: " + ", ".join(missing)
-        )
+        raise SystemExit("error: the registry has toolsets with no section: " + ", ".join(missing))
     return "\n".join(out) + ("\n" if text.endswith("\n") else "")
 
 

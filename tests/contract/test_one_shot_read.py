@@ -32,9 +32,8 @@ pytestmark = [pytest.mark.filterwarnings("ignore::pytest.PytestWarning"), pytest
 
 
 def _commands(conn: FakeAddonConnection) -> list[str]:
-    return [
-        CommandEnvelope.model_validate_json(m).command for m in conn.sent
-    ]
+    return [CommandEnvelope.model_validate_json(m).command for m in conn.sent]
+
 
 READ_REPLY = {
     "ready": True,
@@ -189,15 +188,21 @@ def test_debugger_gates_read_property_replies_on_request_id() -> None:
     from pathlib import Path
 
     addon = Path(__file__).resolve().parents[2] / "godot" / "addons" / "godot_mcp"
-    capture = (addon / "mcp_debugger.gd").read_text().split(
-        '"godot_mcp:read_property":', 1
-    )[1].split("return true", 1)[0]
+    capture = (
+        (addon / "mcp_debugger.gd")
+        .read_text()
+        .split('"godot_mcp:read_property":', 1)[1]
+        .split("return true", 1)[0]
+    )
     assert "request_id" in capture and "_read_property_pending" in capture, (
         "godot_mcp:read_property capture must gate the cache on the pending request_id"
     )
-    handler = (addon / "handlers" / "runtime_inspect.gd").read_text().split(
-        "func _cmd_read_property", 1
-    )[1].split("func ", 1)[0]
+    handler = (
+        (addon / "handlers" / "runtime_inspect.gd")
+        .read_text()
+        .split("func _cmd_read_property", 1)[1]
+        .split("func ", 1)[0]
+    )
     # The handler re-verifies the id (belt-and-braces) instead of returning the
     # cache unconditionally.
     assert 'get("request_id") == request_id' in handler

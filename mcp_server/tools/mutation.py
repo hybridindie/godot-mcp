@@ -62,9 +62,7 @@ async def _node_property_names(bridge: Bridge, node_path: str) -> list[str]:
     Returns ``[]`` on any non-cancellation failure (best-effort).
     """
     try:
-        resp = await bridge.send(
-            "cmd_get_node_property_list", {"node_path": node_path}
-        )
+        resp = await bridge.send("cmd_get_node_property_list", {"node_path": node_path})
         if resp.ok and resp.result:
             return [str(p) for p in resp.result.get("properties", [])]
     except asyncio.CancelledError:
@@ -121,9 +119,7 @@ async def _try_set_with_suggestions(
         raise
 
 
-def register_mutation(
-    mcp: FastMCP, bridge: Bridge
-) -> None:
+def register_mutation(mcp: FastMCP, bridge: Bridge) -> None:
     """Register all eight mutation tools on the server."""
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
@@ -282,9 +278,7 @@ def register_mutation(
         """Save the currently open scene to disk, reporting the file path."""
         await require_active_scene(bridge)
         preview = {"saved": False}
-        return await run_or_preview(
-            dry_run, SaveSceneResult, preview, bridge, "cmd_save_scene"
-        )
+        return await run_or_preview(dry_run, SaveSceneResult, preview, bridge, "cmd_save_scene")
 
     @mcp.tool(meta=MUTATING, tags=SCENE_EDIT)
     @enforce_preconditions

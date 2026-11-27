@@ -127,9 +127,7 @@ async def test_stack_frames_reports_unsupported() -> None:
     server = create_server(ServerConfig(), bridge=bridge)
     async with Client(server) as client:
         await client.call_tool("godot_enable_toolset", {"category": "debugger"})
-        result = await client.call_tool(
-            "godot_debugger_get_stack_frames", {}, raise_on_error=False
-        )
+        result = await client.call_tool("godot_debugger_get_stack_frames", {}, raise_on_error=False)
     assert result.is_error
     assert "UNSUPPORTED" in str(result.content)
 

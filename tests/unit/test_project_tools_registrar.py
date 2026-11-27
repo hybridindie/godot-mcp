@@ -26,9 +26,7 @@ class _FakeHub:
 
 def _registrar() -> ProjectToolRegistrar:
     # scan() is replaced per test; the bridge is never touched.
-    return ProjectToolRegistrar(
-        FastMCP("test"), cast(Bridge, None), _FakeHub(), debounce=0.01
-    )
+    return ProjectToolRegistrar(FastMCP("test"), cast(Bridge, None), _FakeHub(), debounce=0.01)
 
 
 @pytest.mark.asyncio
@@ -91,7 +89,5 @@ async def test_a_failed_rescan_keeps_the_previous_surface(
 def test_hub_is_unused_by_the_debounce() -> None:
     """Sanity: the debounce itself never publishes — scan() does."""
     hub = _FakeHub()
-    registrar = ProjectToolRegistrar(
-        FastMCP("test"), cast(Bridge, None), hub, debounce=0.01
-    )
+    registrar = ProjectToolRegistrar(FastMCP("test"), cast(Bridge, None), hub, debounce=0.01)
     assert registrar is not None and hub.published == 0

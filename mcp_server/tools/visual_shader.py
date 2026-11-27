@@ -315,9 +315,7 @@ def register_visual_shader(mcp: FastMCP, bridge: Bridge) -> None:
         """Return the built-in VisualShader node types available in the
         connected Godot editor (from a ClassDB scan).
         """
-        return ListShaderNodeTypesResult(
-            **await route(bridge, "cmd_list_shader_node_types")
-        )
+        return ListShaderNodeTypesResult(**await route(bridge, "cmd_list_shader_node_types"))
 
     @mcp.tool(meta=READ_ONLY, tags=VISUAL_SHADER)
     async def read_visual_shader(shader_path: ResPath) -> VisualShaderGraph:

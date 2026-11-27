@@ -133,6 +133,7 @@ def test_bridge_diagnostics_model_has_addon_fields() -> None:
     # godot_version already existed (fetched via cmd_get_project_info).
     assert "godot_version" in fields
 
+
 # -- server-side integration: handshake flows into the diagnostics snapshot ---
 
 
@@ -191,11 +192,15 @@ async def test_addon_info_cached_per_peer() -> None:
     await bridge.connect()
     one = await bridge.addon_info()
     two = await bridge.addon_info()
-    assert one == two == {
-        "addon_version": ADDON_VERSION,
-        "godot_version": "4.7.2-stable",
-        "commands": ["cmd_ping", "cmd_get_project_info", "cmd_get_addon_info"],
-    }
+    assert (
+        one
+        == two
+        == {
+            "addon_version": ADDON_VERSION,
+            "godot_version": "4.7.2-stable",
+            "commands": ["cmd_ping", "cmd_get_project_info", "cmd_get_addon_info"],
+        }
+    )
     assert len(calls) == 1  # cached
     await bridge.close()
     assert len(calls) == 1

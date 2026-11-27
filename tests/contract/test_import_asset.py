@@ -506,6 +506,7 @@ async def test_import_status_reports_rescan_in_flight() -> None:
 async def test_import_wav_loop_mode_applied() -> None:
     """#418: a .wav import with loop settings patches the .import sidecar and
     reimports — the result reports loop_applied."""
+
     def wav_responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
         if cmd.command == "cmd_import_asset":
             settings = cmd.params.get("import_settings", {})

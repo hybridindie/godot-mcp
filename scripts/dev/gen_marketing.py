@@ -9,6 +9,7 @@ Then rasterize each .svg to 1920x1080, e.g.:
     magick -background none -density 288 "$f" -resize 1920x1080 "${f%.svg}.png"
   done
 """
+
 import pathlib
 
 ASSETS = pathlib.Path("docs/assets")
@@ -36,7 +37,7 @@ MARK = (
 DEFS = (
     '<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">'
     '<stop offset="0" stop-color="#121925"/><stop offset="1" stop-color="#1d2a3d"/>'
-    '</linearGradient></defs>'
+    "</linearGradient></defs>"
 )
 
 
@@ -76,6 +77,7 @@ write(ASSETS / "cover-1920x1080.svg", dw, dh, "".join(b))
 # ---------- logo only (design 1280x720) ----------
 b = [f'<rect width="{dw}" height="{dh}" fill="url(#bg)"/>', mark(640, 360, 8)]
 write(ASSETS / "logo-1920x1080.svg", dw, dh, "".join(b))
+
 
 # ---------- feature tiles (design 800x450) ----------
 def tile(name, headline, detail):
@@ -143,13 +145,13 @@ p.append(
 )
 p.append(
     f'<text x="104" y="196" font-family="{MONO}" font-size="24" fill="#7f8aa0">'
-    f'&gt; add a marker node under  Relic/Cold</text>'
+    f"&gt; add a marker node under  Relic/Cold</text>"
 )
 json_lines = [
     ('{ "node_path": "Relic/Cold/Marker", "created": true,', WHITE),
     ('  "persisted": false,', "#e0b64a"),
     ('  "reason": "instanced_child_not_editable",', "#e0b64a"),
-    ("  \"hint\": \"'Relic/Cold' is inside the instanced", BLUE),
+    ('  "hint": "\'Relic/Cold\' is inside the instanced', BLUE),
     ("           scene 'Relic', which doesn't have", BLUE),
     ('           editable children." }', BLUE),
 ]
@@ -163,7 +165,7 @@ p.append('<rect x="60" y="535" width="1080" height="76" fill="#161c27"/>')
 p.append('<circle cx="104" cy="573" r="9" fill="#e0b64a"/>')
 p.append(
     f'<text x="128" y="582" font-family="{SANS}" font-size="27" fill="#e6eaf0">'
-    f'It reports the truth: the node was created, but it will not be saved.</text>'
+    f"It reports the truth: the node was created, but it will not be saved.</text>"
 )
 write(OUT / "caught-my-mistake.svg", dw, dh, "".join(p))
 

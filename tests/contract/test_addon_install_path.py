@@ -24,8 +24,7 @@ def test_no_addon_source_hardcodes_the_default_install_prefix() -> None:
         if "res://addons/godot_mcp" in path.read_text(encoding="utf-8")
     )
     assert not offenders, (
-        "hardcoded res://addons/godot_mcp path breaks non-default installs "
-        f"(#742): {offenders}"
+        f"hardcoded res://addons/godot_mcp path breaks non-default installs (#742): {offenders}"
     )
 
 

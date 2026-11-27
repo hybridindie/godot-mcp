@@ -83,13 +83,10 @@ TOOLSETS: dict[str, str] = {
     "WorldEnvironment, and GridMap cells.",
     PARTICLES_TAG: "Create/configure GPU particle systems: process material, "
     "color gradients, and VFX presets.",
-    NAVIGATION_TAG: "Author navigation: regions, agents, navmesh baking, and "
-    "navigation layers.",
+    NAVIGATION_TAG: "Author navigation: regions, agents, navmesh baking, and navigation layers.",
     AUDIO_TAG: "Set up audio: stream players, audio bus layout, and bus effects.",
-    TILEMAP_TAG: "Edit TileMap/TileMapLayer cells: set, fill rect, get, clear, "
-    "list layers.",
-    THEME_UI_TAG: "Create themes and override colors, font sizes, and styleboxes "
-    "on Control nodes.",
+    TILEMAP_TAG: "Edit TileMap/TileMapLayer cells: set, fill rect, get, clear, list layers.",
+    THEME_UI_TAG: "Create themes and override colors, font sizes, and styleboxes on Control nodes.",
     SHADER_TAG: "Author shaders: create/read shader files, assign ShaderMaterial, "
     "set shader parameters.",
     INPUT_MAP_TAG: "Edit the project's Input Map actions and events (add/remove/clear).",
@@ -145,6 +142,7 @@ TOOLSET_MIN_GODOT: dict[str, tuple[int, int]] = {
     # the addon will produce a structured error if an API is missing.
 }
 
+
 # Enabled at startup (plus `core`, which is always on). Everything else is gated
 # off until the agent enables it — keeping the default surface small and read-only.
 # Override with GODOT_MCP_DEFAULT_TOOLSETS: comma-separated categories, or "all"
@@ -160,8 +158,7 @@ def _default_enabled_from_env() -> frozenset[str]:
     ignored = wanted - valid
     if ignored:
         logger.warning(
-            "GODOT_MCP_DEFAULT_TOOLSETS: ignoring unknown toolset names: %s "
-            "(valid: %s)",
+            "GODOT_MCP_DEFAULT_TOOLSETS: ignoring unknown toolset names: %s (valid: %s)",
             ", ".join(sorted(ignored)),
             ", ".join(sorted(TOOLSETS)),
         )

@@ -11,12 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 
 _SRC = (
-    Path(__file__).resolve().parents[2]
-    / "godot"
-    / "addons"
-    / "godot_mcp"
-    / "handlers"
-    / "batch.gd"
+    Path(__file__).resolve().parents[2] / "godot" / "addons" / "godot_mcp" / "handlers" / "batch.gd"
 ).read_text(encoding="utf-8")
 
 

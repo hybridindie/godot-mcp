@@ -117,9 +117,7 @@ async def godot_tool_transform(mcp: Any) -> ToolTransform:
     tools = await mcp.local_provider.list_tools()
     transforms: dict[str, ToolTransformConfig] = {}
     for tool in tools:
-        public = godot_tool_name(
-            _original_handler_name(tool), tool.tags
-        )
+        public = godot_tool_name(_original_handler_name(tool), tool.tags)
         if public != tool.name:
             transforms[tool.name] = ToolTransformConfig(name=public)
     return ToolTransform(transforms)

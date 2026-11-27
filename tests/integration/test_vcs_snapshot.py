@@ -88,9 +88,7 @@ async def test_dry_run_and_refusals(tmp_path: Path) -> None:
 
         snap = await client.call_tool("godot_vcs_snapshot", {})
         sid = snap.structured_content["snapshot_id"]
-        preview = await client.call_tool(
-            "godot_vcs_restore", {"snapshot_id": sid, "dry_run": True}
-        )
+        preview = await client.call_tool("godot_vcs_restore", {"snapshot_id": sid, "dry_run": True})
         assert preview.structured_content["restored"] is False
         refused = await client.call_tool(
             "godot_vcs_restore", {"snapshot_id": sid}, raise_on_error=False

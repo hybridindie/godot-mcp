@@ -43,8 +43,9 @@ async def _bake_timeout(config: ServerConfig) -> float | None:
     seen: dict[str, float | None] = {}
     real_send = bridge.send
 
-    async def spy(command: str, params: dict[str, Any] | None = None,
-                  timeout: float | None = None) -> ResponseEnvelope:
+    async def spy(
+        command: str, params: dict[str, Any] | None = None, timeout: float | None = None
+    ) -> ResponseEnvelope:
         seen[command] = timeout
         return await real_send(command, params, timeout=timeout)
 
@@ -67,8 +68,9 @@ async def test_bake_navigation_mesh_uses_a_longer_bridge_timeout(
     seen: dict[str, float | None] = {}
     real_send = bridge.send
 
-    async def spy(command: str, params: dict[str, Any] | None = None,
-                  timeout: float | None = None) -> ResponseEnvelope:
+    async def spy(
+        command: str, params: dict[str, Any] | None = None, timeout: float | None = None
+    ) -> ResponseEnvelope:
         seen[command] = timeout
         return await real_send(command, params, timeout=timeout)
 

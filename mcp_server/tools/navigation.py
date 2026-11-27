@@ -162,6 +162,4 @@ def register_navigation(mcp: FastMCP, bridge: Bridge) -> None:
         """
         await require_node_exists(bridge, node_path)
         params = {"node_path": node_path}
-        return NavigationRegionInfo(
-            **await route(bridge, "cmd_get_navigation_region", params)
-        )
+        return NavigationRegionInfo(**await route(bridge, "cmd_get_navigation_region", params))

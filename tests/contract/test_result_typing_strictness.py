@@ -62,9 +62,7 @@ def _build_with_read(
     return create_server(ServerConfig(), bridge=bridge), conn
 
 
-async def _read_property(
-    server: FastMCP, expect_error: bool = True
-) -> CallToolResult:
+async def _read_property(server: FastMCP, expect_error: bool = True) -> CallToolResult:
     """Call godot_runtime_read_property with the runtime toolset enabled."""
     async with Client(server) as client:
         await client.call_tool("godot_enable_toolset", {"category": "runtime"})

@@ -27,7 +27,8 @@ def validate(godot_bin: Path) -> int:
         [
             str(godot_bin),
             "--headless",
-            "--path", str(DEMO_DIR),
+            "--path",
+            str(DEMO_DIR),
             "--check-only",
         ],
         capture_output=True,

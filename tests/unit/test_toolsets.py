@@ -55,9 +55,7 @@ def test_toolset_min_godot_floors_are_valid_and_comparable() -> None:
         assert isinstance(major, int) and isinstance(minor, int), (
             f"Toolset '{category}' floor {floor!r} is not a two-int tuple"
         )
-        assert major >= 4, (
-            f"Toolset '{category}' floor {floor!r} is below the supported major"
-        )
+        assert major >= 4, f"Toolset '{category}' floor {floor!r} is below the supported major"
         # Sanity: a valid tuple must always order against itself consistently.
         assert not (floor < floor)
         assert floor == tuple(floor)

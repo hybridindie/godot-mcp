@@ -70,9 +70,7 @@ def test_threshold_is_a_single_shared_const() -> None:
         ("batch.gd", batch_src),
         ("composite.gd", composite_src),
     ):
-        assert "_helpers.undoable_for_count" in src, (
-            f"{name}: must use _helpers.undoable_for_count"
-        )
+        assert "_helpers.undoable_for_count" in src, f"{name}: must use _helpers.undoable_for_count"
         assert "_helpers.undo_threshold_hint" in src, (
             f"{name}: must use _helpers.undo_threshold_hint"
         )
@@ -85,9 +83,7 @@ def test_composite_batch_creates_return_undoable_fields() -> None:
     composite_src = COMPOSITE_GD.read_text()
     for fn in ("_cmd_batch_create_nodes", "_cmd_apply_node_edits"):
         body = _fn(composite_src, fn)
-        assert '"undoable"' in body, (
-            f"{fn} must report the undoable honesty field (issue #523)"
-        )
+        assert '"undoable"' in body, f"{fn} must report the undoable honesty field (issue #523)"
         assert "_helpers.undoable_for_count" in body, f"{fn} must be threshold-aware"
         assert "_helpers.undo_threshold_hint" in body, (
             f"{fn}: the non-undoable case must carry the recovery hint"
@@ -104,9 +100,7 @@ def test_threshold_hint_interpolates_the_const() -> None:
     assert "exceeds" in hint_fn, "the #461 hint wording must be single-sourced"
     assert "%d-node UndoRedo threshold" in hint_fn
     assert "Undo will not revert" in hint_fn
-    assert "UNDO_THRESHOLD" in hint_fn, (
-        "the hint must interpolate the const, not a literal"
-    )
+    assert "UNDO_THRESHOLD" in hint_fn, "the hint must interpolate the const, not a literal"
     # No hardcoded "20-node" phrasing survives in any handler.
     for name, src in (
         ("batch.gd", BATCH_GD.read_text()),
@@ -138,6 +132,7 @@ def test_docs_name_the_shared_threshold() -> None:
         "ApplyNodeEditsResult { edited[], skipped[], count, saved, undoable, "
         "hint?, persistence[] }" in src
     )
+
 
 def test_composite_dry_run_defense_in_addon() -> None:
     """The addon's composite handlers refuse to mutate when a raw envelope

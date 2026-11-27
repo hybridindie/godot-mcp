@@ -39,9 +39,7 @@ def _state(result: dict[str, Any]) -> dict[str, Any]:
 
 
 def _checkpoint_error(hint: str, required: str) -> PreconditionError:
-    return PreconditionError(
-        hint, required=required, error=ErrorCode.RESOURCE_NOT_FOUND
-    )
+    return PreconditionError(hint, required=required, error=ErrorCode.RESOURCE_NOT_FOUND)
 
 
 def register_checkpoints(mcp: FastMCP, bridge: Bridge) -> None:

@@ -54,9 +54,7 @@ async def test_loopback_host_accepted_by_default() -> None:
 
 
 async def test_foreign_origin_rejected_by_default() -> None:
-    status = await _get(
-        _http_app(), {"Host": "127.0.0.1", "Origin": "https://evil.example"}
-    )
+    status = await _get(_http_app(), {"Host": "127.0.0.1", "Origin": "https://evil.example"})
     assert status == 403, "a foreign browser Origin must be refused"
 
 

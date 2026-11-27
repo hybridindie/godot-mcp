@@ -152,9 +152,7 @@ def _tool_path_params() -> list[tuple[str, str, str]]:
 def test_every_file_path_param_uses_a_containment_type() -> None:
     def _contained(annotation: str) -> bool:
         base = annotation.split("|")[0].strip()
-        return base in _CONTAINMENT_TYPES or base in {
-            f"list[{t}]" for t in _CONTAINMENT_TYPES
-        }
+        return base in _CONTAINMENT_TYPES or base in {f"list[{t}]" for t in _CONTAINMENT_TYPES}
 
     offenders = [
         f"{func}.{param} ({annotation})"

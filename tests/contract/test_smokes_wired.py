@@ -46,9 +46,7 @@ def test_every_smoke_script_is_wired_into_pytest() -> None:
     for path in sorted(GODOT_TESTS.glob("*_smoke.gd")):
         name = path.name
         in_smokes = f'"{name}"' in sources or f"'{name}'" in sources
-        has_dedicated = (
-            name in _DEDICATED_WIRING and (TESTS_DIR / _DEDICATED_WIRING[name]).exists()
-        )
+        has_dedicated = name in _DEDICATED_WIRING and (TESTS_DIR / _DEDICATED_WIRING[name]).exists()
         wired = in_smokes or has_dedicated
         if not wired:
             unwired.append(name)
@@ -63,9 +61,7 @@ def test_every_smoke_script_is_wired_into_pytest() -> None:
 def test_dedicated_wiring_files_exist() -> None:
     """The dedicated-wiring map must not rot (renamed/deleted test files)."""
     for name, test_file in _DEDICATED_WIRING.items():
-        assert (TESTS_DIR / test_file).exists(), (
-            f"{name} maps to missing test file {test_file}"
-        )
+        assert (TESTS_DIR / test_file).exists(), f"{name} maps to missing test file {test_file}"
 
 
 # --- #651: every Godot-backed test must be selected by the e2e workflow -----
@@ -111,8 +107,7 @@ def test_e2e_runs_every_godot_backed_test() -> None:
         )
     ]
     assert not uncovered, (
-        "Godot-backed tests not selected by e2e.yml (they skip silently in ci, "
-        f"#651): {uncovered}"
+        f"Godot-backed tests not selected by e2e.yml (they skip silently in ci, #651): {uncovered}"
     )
 
 

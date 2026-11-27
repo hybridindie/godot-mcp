@@ -119,9 +119,7 @@ async def test_describe_class_include_inherited_and_private_forwarded() -> None:
 
 
 async def test_describe_class_unknown_class_raises_structured_error() -> None:
-    conn = FakeAddonConnection(
-        responder=_class_responder(NODE2D, ["Node2D", "Node3D", "Node"])
-    )
+    conn = FakeAddonConnection(responder=_class_responder(NODE2D, ["Node2D", "Node3D", "Node"]))
     async with Client(_build(conn)) as client:
         with pytest.raises(ToolError, match="VALIDATION_ERROR"):
             await client.call_tool("godot_describe_class", {"class_name": "Node9D"})
@@ -136,6 +134,5 @@ async def test_describe_class_rejects_empty_class_name() -> None:
             await client.call_tool("godot_describe_class", {"class_name": ""})
     # Never sent: structured, pre-bridge.
     assert all(
-        CommandEnvelope.model_validate_json(m).command != "cmd_describe_class"
-        for m in conn.sent
+        CommandEnvelope.model_validate_json(m).command != "cmd_describe_class" for m in conn.sent
     )

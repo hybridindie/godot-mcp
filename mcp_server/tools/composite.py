@@ -83,9 +83,7 @@ def _child_to_addon(child: ChildSpec) -> dict[str, Any]:
     }
 
 
-def register_composite(
-    mcp: FastMCP, bridge: Bridge, toolset_mw: ToolsetMiddleware
-) -> None:
+def register_composite(mcp: FastMCP, bridge: Bridge, toolset_mw: ToolsetMiddleware) -> None:
     """Register the composite/macro tools (gated under the ``composite`` toolset).
 
     ``toolset_mw`` is the server-global gating middleware: ``run_commands``

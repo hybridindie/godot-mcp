@@ -39,9 +39,7 @@ _SCAFFOLD_TYPES: set[str] = {
 # ---------------------------------------------------------------------------
 
 
-def register_project_scaffold(
-    mcp: FastMCP, bridge: Bridge
-) -> None:
+def register_project_scaffold(mcp: FastMCP, bridge: Bridge) -> None:
     """Register the project scaffold tool."""
 
     @mcp.tool(meta=DESTRUCTIVE, tags=PROJECT_SCAFFOLD)
@@ -64,9 +62,7 @@ def register_project_scaffold(
         rolled back before the structured error is returned.
         """
         if type not in _SCAFFOLD_TYPES:
-            raise ValueError(
-                f"Unknown scaffold type '{type}'. Supported: {_SCAFFOLD_TYPES}."
-            )
+            raise ValueError(f"Unknown scaffold type '{type}'. Supported: {_SCAFFOLD_TYPES}.")
         if not dry_run:
             require_confirmation(confirm, "scaffold_project")
         project_name = project_name or type

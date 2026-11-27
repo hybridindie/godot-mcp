@@ -31,4 +31,3 @@ def suggest(
     if not given or not candidates:
         return []
     return difflib.get_close_matches(given, candidates, n=n, cutoff=cutoff)
-

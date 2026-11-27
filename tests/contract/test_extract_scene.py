@@ -81,7 +81,9 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
                 )
             if p.get("scene_path") == "res://exists.tscn":
                 return ResponseEnvelope.failure(
-                    cmd.id, "VALIDATION_ERROR", "A scene already exists at 'res://exists.tscn'.",
+                    cmd.id,
+                    "VALIDATION_ERROR",
+                    "A scene already exists at 'res://exists.tscn'.",
                     "scene_path",
                 )
             return ResponseEnvelope.success(

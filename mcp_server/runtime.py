@@ -146,7 +146,7 @@ class GodotRunner:
             "extends SceneTree\n"
             "func _init() -> void:\n"
             f"\tvar shader := Shader.new()\n"
-            f"\tshader.code = FileAccess.get_file_as_string(\"{shader_path}\")\n"
+            f'\tshader.code = FileAccess.get_file_as_string("{shader_path}")\n'
             "\tvar material := ShaderMaterial.new()\n"
             "\tmaterial.shader = shader\n"
             "\tquit()\n",

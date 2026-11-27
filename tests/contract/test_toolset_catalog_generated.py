@@ -47,9 +47,7 @@ def test_check_detects_a_stale_count(tmp_path: Path) -> None:
 def test_check_detects_a_missing_row(tmp_path: Path) -> None:
     copy = tmp_path / "catalog.md"
     text = DOC.read_text(encoding="utf-8")
-    row = next(
-        line for line in text.splitlines() if line.startswith("| `godot_analysis_")
-    )
+    row = next(line for line in text.splitlines() if line.startswith("| `godot_analysis_"))
     copy.write_text(text.replace(row + "\n", "", 1), encoding="utf-8")
     result = _run("--check", "--file", str(copy))
     assert result.returncode == 1, "a removed tool row must be caught"

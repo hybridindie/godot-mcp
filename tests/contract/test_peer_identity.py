@@ -81,7 +81,8 @@ async def test_peer_replacement_logs_both_paths(caplog: pytest.LogCaptureFixture
         # Structured log: the paths ride as record attributes (extra=), not in
         # the message text — assert the machine-readable contract.
         replaced = [
-            r for r in caplog.records
+            r
+            for r in caplog.records
             if r.getMessage() == "bridge peer replaced" and r.levelno >= logging.INFO
         ]
     assert replaced, "peer replacement must be logged, not silent (#537)"

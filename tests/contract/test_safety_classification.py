@@ -80,9 +80,7 @@ async def test_runtime_write_execute_tools_are_flagged_for_approval() -> None:
     export = registry["export_project"]
     evaluate = registry["evaluate_expression"]
     assert (export.meta or {}).get("writes_disk"), "export_project must be approval-gated"
-    assert (evaluate.meta or {}).get("executes_code"), (
-        "evaluate_expression must be approval-gated"
-    )
+    assert (evaluate.meta or {}).get("executes_code"), "evaluate_expression must be approval-gated"
 
 
 async def test_destructive_tools_expose_confirm() -> None:
@@ -143,8 +141,13 @@ def _responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
             {
                 "has_config": True,
                 "presets": [
-                    {"index": 0, "name": "Linux", "platform": "Linux", "runnable": True,
-                     "export_path": ""}
+                    {
+                        "index": 0,
+                        "name": "Linux",
+                        "platform": "Linux",
+                        "runnable": True,
+                        "export_path": "",
+                    }
                 ],
             },
         )

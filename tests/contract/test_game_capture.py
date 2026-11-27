@@ -142,6 +142,7 @@ async def test_capture_never_ready_times_out_with_actionable_error() -> None:
 async def test_addon_reason_surfaces_in_timeout_error() -> None:
     """#416/#456: the game-side probe self-reports why the frame never arrived
     (e.g. game not rendering); the tool's expiry error must relay that reason."""
+
     def responder(cmd: CommandEnvelope) -> ResponseEnvelope:
         return ResponseEnvelope.success(
             cmd.id, {"ready": False, "pending": True, "reason": "editor_not_drawing"}
@@ -163,7 +164,9 @@ async def test_no_play_session_is_structured_precondition_error() -> None:
     def responder(cmd: CommandEnvelope) -> ResponseEnvelope:
         if cmd.command == "cmd_capture_game_screenshot":
             return ResponseEnvelope.failure(
-                cmd.id, "PRECONDITION_FAILED", "No play session. Run play_scene first.",
+                cmd.id,
+                "PRECONDITION_FAILED",
+                "No play session. Run play_scene first.",
                 required="play_session",
             )
         return ResponseEnvelope.failure(cmd.id, "VALIDATION_ERROR", "unexpected")

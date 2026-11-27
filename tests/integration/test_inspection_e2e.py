@@ -111,9 +111,7 @@ async def _run_checks() -> None:
             assert tree.ok and tree.result is not None, tree
             assert isinstance(tree.result.get("metadata"), dict), tree.result
         finally:
-            await bridge.send(
-                "cmd_delete_resource_file", {"path": scene_path, "confirm": True}
-            )
+            await bridge.send("cmd_delete_resource_file", {"path": scene_path, "confirm": True})
     finally:
         await bridge.close()
 

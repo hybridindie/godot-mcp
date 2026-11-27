@@ -408,9 +408,7 @@ async def test_every_mutating_tool_is_receipt_covered() -> None:
     server = _server(_responder)
     tools = await server.local_provider.list_tools()
     mutating = [
-        t
-        for t in tools
-        if (t.meta or {}).get("safety_class") in ("mutating", "destructive")
+        t for t in tools if (t.meta or {}).get("safety_class") in ("mutating", "destructive")
     ]
     assert len(mutating) >= 90, f"expected the full mutating surface, got {len(mutating)}"
     assert any(isinstance(m, ReceiptMiddleware) for m in server.middleware), (

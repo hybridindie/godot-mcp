@@ -35,9 +35,7 @@ from mcp_server.tools._route import route, run_or_preview
 INPUT_MAP = {INPUT_MAP_TAG}
 
 
-def register_input_map(
-    mcp: FastMCP, bridge: Bridge
-) -> None:
+def register_input_map(mcp: FastMCP, bridge: Bridge) -> None:
     """Register the input map editing tools."""
 
     @mcp.tool(meta=MUTATING, tags=INPUT_MAP)

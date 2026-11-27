@@ -81,10 +81,8 @@ class StaticAnalyzer:
             cmd = match.group(1)
             if cmd not in found:
                 found.add(cmd)
-                line_num = source[:match.start()].count("\n") + 1
-                self.python_tools.append(
-                    ToolInfo(name=cmd, file=path, line=line_num)
-                )
+                line_num = source[: match.start()].count("\n") + 1
+                self.python_tools.append(ToolInfo(name=cmd, file=path, line=line_num))
 
     # -- GDScript scanner -----------------------------------------------------
 
@@ -102,7 +100,7 @@ class StaticAnalyzer:
         for match in pattern.finditer(source):
             cmd_name = match.group(1)
             handler_name = match.group(2)
-            line_num = source[:match.start()].count("\n") + 1
+            line_num = source[: match.start()].count("\n") + 1
             # Extract docstring from the handler function
             desc = self._extract_gdscript_docstring(source, handler_name)
             self.gdscript_tools.append(
@@ -118,14 +116,14 @@ class StaticAnalyzer:
         """Find the function definition and return its docstring comment."""
         # GDScript uses `##` for docstrings (similar to Python)
         func_pattern = re.compile(
-            rf'func\s+{re.escape(handler_name)}\s*\([^)]*\)\s*->\s*Dictionary\s*:',
+            rf"func\s+{re.escape(handler_name)}\s*\([^)]*\)\s*->\s*Dictionary\s*:",
             re.MULTILINE,
         )
         match = func_pattern.search(source)
         if not match:
             return ""
         # Look backward for ## comments
-        lines_before = source[:match.start()].split("\n")
+        lines_before = source[: match.start()].split("\n")
         doc_lines: list[str] = []
         for line in reversed(lines_before):
             stripped = line.strip()
@@ -193,8 +191,7 @@ async def runtime_verify(
         if ping.error == "VALIDATION_ERROR" and "Unknown command" in (ping.hint or ""):
             return {
                 "error": (
-                    "Godot addon bridge not responding correctly "
-                    "(ping returned unknown command)"
+                    "Godot addon bridge not responding correctly (ping returned unknown command)"
                 )
             }
     except Exception as exc:
@@ -212,9 +209,7 @@ async def runtime_verify(
         try:
             resp = await bridge.send(cmd, {})
             if resp.error == "VALIDATION_ERROR" and "Unknown command" in (resp.hint or ""):
-                results.append(
-                    {"command": cmd, "status": "MISSING_HANDLER", "hint": resp.hint}
-                )
+                results.append({"command": cmd, "status": "MISSING_HANDLER", "hint": resp.hint})
             else:
                 # Validation or precondition errors are expected for empty params
                 results.append(

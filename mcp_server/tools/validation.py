@@ -39,9 +39,7 @@ def _find_runner(project_dir: Path) -> str | None:
     return "res://" + chosen.relative_to(project_dir).as_posix()
 
 
-def register_validation(
-    mcp: FastMCP, bridge: Bridge, config: ServerConfig
-) -> None:
+def register_validation(mcp: FastMCP, bridge: Bridge, config: ServerConfig) -> None:
     """Register ``validate_project`` in the analysis toolset."""
 
     @mcp.tool(meta=READ_ONLY, tags=ANALYSIS)
@@ -79,9 +77,7 @@ def register_validation(
             runner,
         ]
         scopes = list(
-            dict.fromkeys(
-                p if p == "res://" else p.rstrip("/") for p in (paths or []) if p
-            )
+            dict.fromkeys(p if p == "res://" else p.rstrip("/") for p in (paths or []) if p)
         )
         extra: list[str] = []
         if include_warnings:
@@ -95,9 +91,7 @@ def register_validation(
             stderr=asyncio.subprocess.PIPE,
         )
         try:
-            stdout, stderr = await asyncio.wait_for(
-                process.communicate(), timeout=_TIMEOUT
-            )
+            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=_TIMEOUT)
         except TimeoutError:
             process.kill()
             await process.wait()

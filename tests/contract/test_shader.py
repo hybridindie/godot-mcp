@@ -272,9 +272,7 @@ async def test_get_shader_param_is_read_only() -> None:
     server, _ = _build()
     async with Client(server) as client:
         await client.call_tool("godot_enable_toolset", {"category": "shader"})
-        grouped = await client.call_tool(
-            "godot_list_tools_by_safety_class", {}
-        )
+        grouped = await client.call_tool("godot_list_tools_by_safety_class", {})
     grouped_result = grouped.structured_content["tools_by_safety_class"]["read_only"]
     assert "godot_shader_get_param" in grouped_result
 
@@ -283,6 +281,7 @@ async def test_assign_material_on_instanced_child_reports_persistence_truth() ->
     """#458/#415: a target inside a non-editable instance renders live but never
     saves — the response must say so (persisted:false + reason) instead of a
     success tone that reads as persisted."""
+
     def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
         if cmd.command == "cmd_node_exists":  # require_node_exists precondition
             return ResponseEnvelope.success(cmd.id, {"exists": True})
@@ -352,6 +351,7 @@ async def test_assign_material_persists_for_scene_owned_node() -> None:
 async def test_set_param_reports_landed_value_read_back() -> None:
     """#460: set:true must reflect the landed value (read-back after commit),
     not echo the requested value."""
+
     def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
         if cmd.command == "cmd_node_exists":  # require_node_exists precondition
             return ResponseEnvelope.success(cmd.id, {"exists": True})
@@ -385,6 +385,7 @@ async def test_dry_run_preview_carries_persistence_truth() -> None:
     """#458 round-2: the dry-run preview must be honest about persistence — it
     probes `cmd_node_persistence` read-only and reports the instanced-child
     reason instead of hardcoding persisted:true."""
+
     def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
         if cmd.command == "cmd_node_exists":
             return ResponseEnvelope.success(cmd.id, {"exists": True})
@@ -423,6 +424,7 @@ async def test_set_param_not_declared_is_a_structured_error() -> None:
     """#474: a param the shader does not declare is refused before any undo
     action — the fake addon answers like the real handler's uniform-list check
     (VALIDATION_ERROR, no set, [required=param])."""
+
     def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
         if cmd.command == "cmd_node_exists":
             return ResponseEnvelope.success(cmd.id, {"exists": True})
@@ -456,6 +458,7 @@ async def test_set_param_not_declared_is_a_structured_error() -> None:
 async def test_set_param_persistence_truth_still_carries_on_success() -> None:
     """#458: a *landing* set on an instanced child still carries
     persisted:false + reason — both truths coexist (Qodo #463 round-2)."""
+
     def responder(cmd: CommandEnvelope) -> ResponseEnvelope | None:
         if cmd.command == "cmd_node_exists":
             return ResponseEnvelope.success(cmd.id, {"exists": True})
@@ -536,8 +539,7 @@ async def test_shader_validate_reports_compile_errors() -> None:
     bad = RunOutput(
         command=["fake"],
         stderr=(
-            "SHADER ERROR: Expected valid type hint after ':'.\n"
-            "ERROR: Shader compilation failed."
+            "SHADER ERROR: Expected valid type hint after ':'.\nERROR: Shader compilation failed."
         ),
     )
     server, _ = _build_shader(bad)

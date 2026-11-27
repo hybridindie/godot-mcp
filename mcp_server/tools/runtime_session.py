@@ -146,9 +146,7 @@ def register_runtime_session(mcp: FastMCP, bridge: Bridge) -> None:
                     if reason
                     else " — is the game window rendering (not fully hidden/minimized)?"
                 )
-                raise ToolError(
-                    f"Game frame capture did not complete within {timeout_ms}ms{hint}"
-                )
+                raise ToolError(f"Game frame capture did not complete within {timeout_ms}ms{hint}")
             await asyncio.sleep(DEFAULT_POLL_INTERVAL_SECONDS)
         if not result.get("base64"):
             reason = str(result.get("error", "")).strip()

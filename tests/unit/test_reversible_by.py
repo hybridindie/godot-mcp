@@ -58,9 +58,7 @@ def test_remaining_families_report_their_strategy() -> None:
     assert ComposeNodeResult(node_path="A", created=True).reversible_by == "undo"
     assert AddInputActionResult(name="jump", added=True).reversible_by == "none"
     assert SaveSceneResult(saved=True).reversible_by == "none"
-    create_scene = CreateSceneResult(
-        scene_path="res://a.tscn", root_type="Node2D", created=True
-    )
+    create_scene = CreateSceneResult(scene_path="res://a.tscn", root_type="Node2D", created=True)
     assert create_scene.reversible_by == "none"
     assert RunCommandsResult(ok_all=True, count=1).reversible_by == "none"
     write = WriteScriptResult(script_path="res://a.gd", created=True)

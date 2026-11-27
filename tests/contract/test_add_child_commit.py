@@ -66,7 +66,7 @@ def test_create_node_uses_the_shared_commit() -> None:
     )
     assert "create_action" not in fn, "the inline undo block must be gone"
     assert 'add_do_method(parent, "add_child"' not in fn
-    assert "add_undo_method(parent, \"remove_child\"" not in fn
+    assert 'add_undo_method(parent, "remove_child"' not in fn
 
 
 def test_compose_node_uses_the_shared_commit() -> None:

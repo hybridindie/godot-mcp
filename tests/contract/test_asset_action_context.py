@@ -41,8 +41,8 @@ def test_asset_edits_pass_the_scene_context() -> None:
             problems.append(f"{rel}: create_action line not found for {snippet}")
         elif "asset_action_context()" not in line:
             problems.append(f"{rel}: missing asset_action_context() on {line.strip()}")
-    assert not problems, (
-        "asset edits must route to the scene history (#640):\n" + "\n".join(problems)
+    assert not problems, "asset edits must route to the scene history (#640):\n" + "\n".join(
+        problems
     )
 
 

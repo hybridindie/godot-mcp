@@ -433,6 +433,4 @@ def register_safety_tools(mcp: FastMCP) -> None:
         (read_only / mutating / destructive / runtime). Call this to learn which
         tools are safe to call freely and which need ``dry_run``/``confirm``.
         """
-        return SafetyClassListing(
-            tools_by_safety_class=await grouped_by_safety_class(mcp)
-        )
+        return SafetyClassListing(tools_by_safety_class=await grouped_by_safety_class(mcp))

@@ -124,9 +124,9 @@ async def _run_object_property_coercion() -> None:
     scratch_file = GODOT_PROJECT / "e2e_obj_prop.tscn"
     mat_path = GODOT_PROJECT / "e2e_obj_prop_mat.tres"
     mat_code = (
-        "[gd_resource type=\"StandardMaterial3D\" format=3]\n"
+        '[gd_resource type="StandardMaterial3D" format=3]\n'
         "[resource]\n"
-        "resource_name = \"e2e_mat\"\n"
+        'resource_name = "e2e_mat"\n'
         "albedo_color = Color(1, 0, 0, 1)\n"
     )
     try:
