@@ -88,7 +88,7 @@ async def test_long_request_timeout_default(monkeypatch: pytest.MonkeyPatch) -> 
     assert long_request_timeout() == DEFAULT_LONG_REQUEST_TIMEOUT == 120.0
 
 
-@pytest.mark.parametrize("raw", ["", "abc", "0", "-5"])
+@pytest.mark.parametrize("raw", ["", "abc", "0", "-5", "inf", "infinity", "1e999", "nan"])
 async def test_long_request_timeout_invalid_falls_back(
     monkeypatch: pytest.MonkeyPatch, raw: str
 ) -> None:

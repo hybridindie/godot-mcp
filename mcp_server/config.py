@@ -7,6 +7,7 @@ with no auth, per the v1 design.
 
 from __future__ import annotations
 
+import math
 import os
 from typing import Literal
 
@@ -44,7 +45,7 @@ def long_request_timeout() -> float:
     """Bridge timeout (seconds) for long, task-enabled operations (#875).
 
     Read at call time so an env override applies without threading it through
-    ``ServerConfig``. A missing, non-numeric or non-positive value falls back to
+    ``ServerConfig``. A missing, non-numeric, non-finite or non-positive value falls back to
     ``DEFAULT_LONG_REQUEST_TIMEOUT``.
     """
     raw = os.environ.get(LONG_REQUEST_TIMEOUT_ENV)
@@ -54,7 +55,8 @@ def long_request_timeout() -> float:
         value = float(raw)
     except ValueError:
         return DEFAULT_LONG_REQUEST_TIMEOUT
-    return value if value > 0 else DEFAULT_LONG_REQUEST_TIMEOUT
+    # A non-finite value (inf, 1e999) would make the bridge wait forever.
+    return value if math.isfinite(value) and value > 0 else DEFAULT_LONG_REQUEST_TIMEOUT
 
 
 def _parse_transport(value: str | None) -> Transport:
