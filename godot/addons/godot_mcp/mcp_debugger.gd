@@ -175,7 +175,7 @@ func _setup_session(session_id: int) -> void:
 		if s.is_active():
 			live.append(s.id)
 	if live.size() > 1:
-		print(("[MCPDebugger] multiple live debugger sessions: %s — "
+		push_warning(("[MCPDebugger] multiple live debugger sessions: %s — "
 			+ "engine caps concurrent sessions; if the new game connects but the probe never "
 			+ "announces, check the editor log for \"max client limits reached\" "
 			+ "(DAP/LSP client caps) and restart the editor if sessions are exhausted.")
