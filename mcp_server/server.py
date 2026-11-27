@@ -218,18 +218,19 @@ def create_server(
     # ``structuredContent`` (error/hint/required/next_call). Outermost so it
     # sees errors raised by every inner middleware and the tool body.
     mcp.add_middleware(AgentErrorMiddleware())
+    # Repair stringified JSON arguments (object/array/scalar params sent as JSON
+    # strings by some client harnesses) before any gate reads them (#872): the
+    # readiness, consent and approval gates read ``dry_run`` raw, so a string
+    # "false" would otherwise be truthy there and skip the gate.
+    mcp.add_middleware(ArgumentCoercionMiddleware())
     # #759: verify consent tokens and strip the synthetic `consent` arg before
-    # argument coercion/validation. Requires a token when approval is configured.
+    # argument validation. Requires a token when approval is configured.
     mcp.add_middleware(ReadinessMiddleware(bridge))
     mcp.add_middleware(ConsentMiddleware(consent, approval))
     # #756: every successful mutating/destructive result carries a receipt. Precise
     # handler receipts win; this fills a coarse fallback for the domains still
     # rolling out.
     mcp.add_middleware(ReceiptMiddleware())
-    # Repair stringified JSON arguments (object/array/scalar params sent as JSON
-    # strings by some client harnesses) before any other middleware or argument
-    # validation sees them.
-    mcp.add_middleware(ArgumentCoercionMiddleware())
     # Centralize the webhook ApprovalGate at the tools/call boundary (issue #330).
     # No-op unless a webhook is configured; dry_run short-circuits in the middleware.
     mcp.add_middleware(ApprovalMiddleware(approval))
