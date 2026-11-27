@@ -192,3 +192,59 @@ async def test_toolset_gate_readonly_core_tool_passes_on_lookup_error() -> None:
 
     result = await mw.on_call_tool(_C(), _call_next)  # type: ignore[arg-type]
     assert result == "PASSED"
+
+# ---------------------------------------------------------------------------
+# Undeclared-argument middleware (#877): fail open, but never silently
+# ---------------------------------------------------------------------------
+
+
+class _ArgsMessage:
+    name = "godot_scene_edit_delete_node"
+    arguments: dict[str, Any] = {"node_path": "Root/X"}
+
+
+class _ArgsContext:
+    def __init__(self, fastmcp: Any) -> None:
+        self.fastmcp_context = type("_Ctx", (), {"fastmcp": fastmcp})()
+        self.message = _ArgsMessage()
+
+
+async def test_undeclared_argument_check_logs_lookup_error(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """An unexpected lookup failure lets the call through (the tool's own
+    validation still runs) but is logged at ERROR, like the sibling gates."""
+    from mcp_server.agent_error_middleware import UndeclaredArgumentMiddleware
+
+    async def _call_next(_ctx: Any) -> Any:
+        return "RAN"
+
+    mw = UndeclaredArgumentMiddleware()
+    with caplog.at_level("ERROR", logger="mcp_server.agent_error_middleware"):
+        result = await mw.on_call_tool(_ArgsContext(_FakeFastMCP()), _call_next)
+    assert result == "RAN"
+    assert any(
+        "unexpected error looking up tool" in r.message and r.levelno == 40
+        for r in caplog.records
+    ), "the undeclared-argument check must log lookup errors at ERROR when failing open"
+
+
+async def test_undeclared_argument_check_toolerror_passes_quietly(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A ToolError (FastMCP's own no-such-tool signal) passes through without an
+    ERROR log; the server's normal not-found handling reports it."""
+    from mcp_server.agent_error_middleware import UndeclaredArgumentMiddleware
+
+    class _NoSuchTool:
+        async def get_tool(self, _name: str, _version: str | None = None) -> Any:
+            raise ToolError("no such tool")
+
+    async def _call_next(_ctx: Any) -> Any:
+        return "RAN"
+
+    mw = UndeclaredArgumentMiddleware()
+    with caplog.at_level("ERROR", logger="mcp_server.agent_error_middleware"):
+        result = await mw.on_call_tool(_ArgsContext(_NoSuchTool()), _call_next)
+    assert result == "RAN"
+    assert not [r for r in caplog.records if r.levelno >= 40]

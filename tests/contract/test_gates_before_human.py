@@ -31,6 +31,14 @@ def _responder(command: Any) -> ResponseEnvelope | None:
     return make_addon_responder(godot_version="4.7.2-stable")(command)
 
 
+@pytest.fixture(autouse=True)
+def _default_toolsets(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pin the default surface: GODOT_MCP_DEFAULT_TOOLSETS from the developer's
+    shell (e.g. ``all``) would pre-enable scene_edit and make the disabled-toolset
+    case pass the gate for a reason unrelated to the middleware order."""
+    monkeypatch.setattr("mcp_server.toolsets.DEFAULT_ENABLED", frozenset({"inspection"}))
+
+
 def _server() -> Any:
     config = ServerConfig()
     bridge = Bridge(config.bridge, connector=connector_for(FakeAddonConnection(_responder)))

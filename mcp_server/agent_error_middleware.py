@@ -18,6 +18,7 @@ is refused without an approval prompt for a call that could never run (#877).
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import Any
 
@@ -31,6 +32,8 @@ from pydantic import ValidationError as PydanticValidationError
 from mcp_server.agent_errors import AgentToolError
 from mcp_server.models.envelope import ErrorCode, NextCall
 from mcp_server.suggestions import suggest
+
+logger = logging.getLogger(__name__)
 
 
 class AgentErrorMiddleware(Middleware):
@@ -79,7 +82,18 @@ async def _schema_undeclared(context: Any) -> list[str]:
         return []
     try:
         tool = await context.fastmcp_context.fastmcp.get_tool(message.name)
+    except ToolError:
+        # FastMCP's own no-such-tool signal; its normal not-found path reports it.
+        return []
     except Exception:
+        # Fail open like the sibling gates (#369): the tool's own validation still
+        # runs. Logged at ERROR so a persistent lookup failure is visible.
+        logger.error(
+            "unexpected error looking up tool %r; skipping the undeclared-argument "
+            "check (the tool's own validation still runs)",
+            getattr(message, "name", "?"),
+            exc_info=True,
+        )
         return []
     schema = getattr(tool, "parameters", None)
     if not isinstance(schema, dict) or schema.get("additionalProperties") not in (None, False):
