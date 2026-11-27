@@ -15,6 +15,7 @@ from fastmcp import Context, FastMCP
 
 from mcp_server.bridge import Bridge
 from mcp_server.categories import NAVIGATION_TAG
+from mcp_server.config import long_request_timeout
 from mcp_server.defaults import (
     DEFAULT_NAV_AGENT_TYPE,
     DEFAULT_NAV_REGION_TYPE,
@@ -122,6 +123,7 @@ def register_navigation(mcp: FastMCP, bridge: Bridge) -> None:
             "cmd_bake_navigation_mesh",
             params,
             persistence_probe=node_probe(node_path),
+            timeout=long_request_timeout(),
         )
         if not dry_run:
             await safe_progress(ctx, 1, 1)
