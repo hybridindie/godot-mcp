@@ -106,6 +106,8 @@ func stop() -> void:
 	_active = false
 	_probe_active = false
 	_clear_probe_peer()
+	# Before close: the peer can still carry the failures to this session.
+	_end_session("The bridge was stopped before this command finished; it may still apply in the editor — re-read state before retrying.")
 	if _peer != null:
 		_peer.close()
 		_peer = null
@@ -135,6 +137,7 @@ func get_status() -> Status:
 
 ## Open a fresh peer and start the non-blocking connect. _process drives the rest.
 func _open() -> int:
+	_end_session("The bridge reconnected before this command finished; it may still apply in the editor — re-read state before retrying.")
 	_peer = WebSocketPeer.new()
 	# #563: both buffers must be raised BEFORE connect_to_url — the peer applies
 	# them at connect time and the 64 KB defaults drop large screenshot frames.
@@ -202,6 +205,9 @@ func _process(delta: float) -> void:
 		WebSocketPeer.STATE_CLOSED:
 			# Server gone / connect failed: drop and schedule a backed-off reconnect.
 			_peer = null
+			# #906: nothing can reach this session now; fail its pending deferred
+			# requests so a late complete() never sends an old id to the next one.
+			_end_session("The editor lost the bridge connection before this command finished; it may still apply — re-read state before retrying.")
 			_set_status(Status.DISCONNECTED)
 			_schedule_retry()
 
@@ -281,6 +287,7 @@ func _process_probe(delta: float) -> void:
 ## announce ourselves, and return to the normal connected loop without a replay
 ## window that another editor could slip into.
 func _promote_probe(peer) -> void:
+	_end_session("The bridge was replaced before this command finished; it may still apply in the editor — re-read state before retrying.")
 	_peer = peer
 	_probe_peer = null
 	_probe_active = false
@@ -439,6 +446,14 @@ func _handle_text(text: String) -> void:
 	# exec_ms is the one honest number this side can measure. #589: the
 	# response verdict rides the same signal so the dock logs outcomes.
 	_emit_completed(cmd_name, (Time.get_ticks_usec() - send_time) / 1000.0, response)
+
+
+## A bridge session ended (#906): pending deferred requests belong to it, and the
+## next session's server restarts its id counter, so fail them now — over the old
+## peer when it is still set, otherwise just recorded via command_completed.
+func _end_session(hint: String) -> void:
+	if _router != null:
+		_router.fail_pending_deferred("BRIDGE_DISCONNECTED", hint)
 
 
 ## A deferred request finished (#906): send it exactly like an immediate reply,
