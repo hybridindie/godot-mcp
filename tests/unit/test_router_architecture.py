@@ -59,7 +59,7 @@ def test_handlers_use_the_helpers_module_not_router_privates() -> None:
     # ...and every router wrapper for the moved families delegates (the call
     # sites read unchanged; the logic does not live on the router).
     for wrapper in (
-        "func _resolve",
+        "func _resolve(",
         "func _property_type",
         "func _persistent_target",
         "func _commit_add_child(",

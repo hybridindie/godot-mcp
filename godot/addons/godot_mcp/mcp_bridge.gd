@@ -81,6 +81,8 @@ var _probe_remaining := 0.0
 
 func _init(router: MCPCommandRouter = null) -> void:
 	_router = router if router != null else MCPCommandRouter.new()
+	# #906: a deferred handler answers later; send its response when it does.
+	_router.deferred_completed.connect(_on_deferred_completed)
 
 
 ## Begin connecting (and reconnecting) to the server. Returns the first attempt's Error.
@@ -104,6 +106,8 @@ func stop() -> void:
 	_active = false
 	_probe_active = false
 	_clear_probe_peer()
+	# Before close: the peer can still carry the failures to this session.
+	_end_session("The bridge was stopped before this command finished; it may still apply in the editor — re-read state before retrying.")
 	if _peer != null:
 		_peer.close()
 		_peer = null
@@ -115,10 +119,12 @@ func stop() -> void:
 ## plugin exit. RefCounted cycles never reach a zero reference count on their own
 ## (see the RefCounted class reference), so the plugin calls this from _exit_tree().
 func dispose() -> void:
-	stop()
+	# Router first: its dispose fails pending deferred requests (#906), and the
+	# peer must still be open for those failures to reach the server.
 	if _router != null:
 		_router.dispose()
 		_router = null
+	stop()
 
 
 func is_connected_to_server() -> bool:
@@ -131,6 +137,7 @@ func get_status() -> Status:
 
 ## Open a fresh peer and start the non-blocking connect. _process drives the rest.
 func _open() -> int:
+	_end_session("The bridge reconnected before this command finished; it may still apply in the editor — re-read state before retrying.")
 	_peer = WebSocketPeer.new()
 	# #563: both buffers must be raised BEFORE connect_to_url — the peer applies
 	# them at connect time and the 64 KB defaults drop large screenshot frames.
@@ -198,6 +205,9 @@ func _process(delta: float) -> void:
 		WebSocketPeer.STATE_CLOSED:
 			# Server gone / connect failed: drop and schedule a backed-off reconnect.
 			_peer = null
+			# #906: nothing can reach this session now; fail its pending deferred
+			# requests so a late complete() never sends an old id to the next one.
+			_end_session("The editor lost the bridge connection before this command finished; it may still apply — re-read state before retrying.")
 			_set_status(Status.DISCONNECTED)
 			_schedule_retry()
 
@@ -277,6 +287,7 @@ func _process_probe(delta: float) -> void:
 ## announce ourselves, and return to the normal connected loop without a replay
 ## window that another editor could slip into.
 func _promote_probe(peer) -> void:
+	_end_session("The bridge was replaced before this command finished; it may still apply in the editor — re-read state before retrying.")
 	_peer = peer
 	_probe_peer = null
 	_probe_active = false
@@ -425,28 +436,55 @@ func _handle_text(text: String) -> void:
 		cmd_name = str(d2.get("command", "?"))
 		response = _router.handle(d2)
 		command_received.emit(cmd_name)
-	if _peer != null:
-		# Variant, not Error: a test fake's send_text returns null (no real socket).
-		var err: Variant = _peer.send_text(JSON.stringify(response))
-		if err != null and err != OK:
-			# #647: the reply was too large for the outbound buffer and dropped —
-			# the server would otherwise just time out with no cause. Best-effort
-			# send a small structured error so the agent can narrow the request.
-			_peer.send_text(JSON.stringify({
-				"id": str(response.get("id", "")),
-				"ok": false,
-				"error": "RESPONSE_TOO_LARGE",
-				"hint": "The response was too large to send over the bridge and was "
-					+ "dropped. Narrow the request (e.g. max_depth or pagination) and retry.",
-			}))
+		if _router.is_deferred(response):
+			# #906: the handler answers later via deferred_completed — sending
+			# now would be a second response for this id.
+			return
+	_send_response(response)
 	# Handler execution time only (#520): the addon responds to commands, it
 	# never originates them, so there is no send-side timestamp to diff —
 	# exec_ms is the one honest number this side can measure. #589: the
 	# response verdict rides the same signal so the dock logs outcomes.
-	var exec_ms := (Time.get_ticks_usec() - send_time) / 1000.0
+	_emit_completed(cmd_name, (Time.get_ticks_usec() - send_time) / 1000.0, response)
+
+
+## A bridge session ended (#906): pending deferred requests belong to it, and the
+## next session's server restarts its id counter, so fail them now — over the old
+## peer when it is still set, otherwise just recorded via command_completed.
+func _end_session(hint: String) -> void:
+	if _router != null:
+		_router.fail_pending_deferred("BRIDGE_DISCONNECTED", hint)
+
+
+## A deferred request finished (#906): send it exactly like an immediate reply,
+## with exec_ms spanning dispatch to completion.
+func _on_deferred_completed(command: String, response: Dictionary, exec_ms: float) -> void:
+	_send_response(response)
+	_emit_completed(command, exec_ms, response)
+
+
+func _send_response(response: Dictionary) -> void:
+	if _peer == null:
+		return
+	# Variant, not Error: a test fake's send_text returns null (no real socket).
+	var err: Variant = _peer.send_text(JSON.stringify(response))
+	if err != null and err != OK:
+		# #647: the reply was too large for the outbound buffer and dropped —
+		# the server would otherwise just time out with no cause. Best-effort
+		# send a small structured error so the agent can narrow the request.
+		_peer.send_text(JSON.stringify({
+			"id": str(response.get("id", "")),
+			"ok": false,
+			"error": "RESPONSE_TOO_LARGE",
+			"hint": "The response was too large to send over the bridge and was "
+				+ "dropped. Narrow the request (e.g. max_depth or pagination) and retry.",
+		}))
+
+
+func _emit_completed(command: String, exec_ms: float, response: Dictionary) -> void:
 	var ok := bool(response.get("ok", false))
 	var error_code := str(response.get("error", "")) if not ok else ""
-	command_completed.emit(cmd_name, exec_ms, ok, error_code)
+	command_completed.emit(command, exec_ms, ok, error_code)
 
 
 func _set_status(status: Status) -> void:
