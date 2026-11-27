@@ -1,5 +1,12 @@
 ---
 read_when: "Changing CI workflows, build steps, caching, or release automation"
+paths:
+  - ".github/**"
+  - ".gitea/**"
+  - ".githooks/**"
+  - "**/Makefile"
+  - "**/justfile"
+  - "**/Dockerfile"
 ---
 
 # CI/CD: One Command, Same Result Everywhere
@@ -13,7 +20,8 @@ If a gate can't be reproduced locally, it isn't a gate.
 - The blocking job fails on lint, type errors, failing tests, unconditional
   skips, secret leaks, and invalid config.
 - Pin tool and action versions; update them deliberately.
-- Install from the lockfile; no network-dependent tests in the blocking job.
+- No network-dependent tests in the blocking job. Installs follow
+  `dependency-security.md` (from the lockfile).
 - Gates run on every PR, not only on `main`.
 - Secrets are never echoed to logs or exposed to fork PRs.
 

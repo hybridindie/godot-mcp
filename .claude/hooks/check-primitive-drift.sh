@@ -12,6 +12,12 @@ DRIFT=0
 
 extract_body() {
   # Everything after the closing frontmatter delimiter (the second ---).
+  # A file without frontmatter is compared whole: otherwise two files that both
+  # lack it would compare as empty and pass vacuously.
+  if [[ "$(head -n 1 "$1")" != "---" ]]; then
+    cat "$1"
+    return
+  fi
   awk 'count >= 2 {print} /^---$/ {count++}' "$1"
 }
 

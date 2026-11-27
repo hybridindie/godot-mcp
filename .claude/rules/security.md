@@ -12,6 +12,7 @@ Dependency hygiene lives in `dependency-security.md`; tool safety classes
 - Secrets come from the environment or a secret store; never in code, tests,
   fixtures, logs, or git history. `.env` is gitignored; commit an example file
   with names only.
+- Development uses sandbox or paper credentials, never production keys.
 - Validate input at the boundary (schema, length, range, encoding) and check
   that the caller may perform the operation, before any side effect.
 - Parameterise SQL and subprocess calls. No string-built SQL; no

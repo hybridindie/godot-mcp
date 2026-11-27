@@ -32,6 +32,15 @@ Each step gates the next.
 6. **Comments addressed.** The automated reviewer is **OpenCodeReview** (a GitHub App that runs `ocr review` on each PR; a repo that needs its own policy keeps it in `.opencodereview/rule.json`). It reviews `opened` / `synchronize` and re-runs on `/review`. **Wait for its review to land before addressing anything** — don't pre-emptively self-review. Treat findings as **advisory**: fix real issues, reply to misreads. Every comment gets a code change or a written reply; a separate concern → a follow-up issue, linked.
 7. **Merge.** CI green, preflight green, review addressed. Squash; delete branch.
 
+## Commits and branches
+
+- Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`,
+  `test:`); imperative subject ≤ 72 chars; the body says why.
+- Short-lived branches off `main`, named `<type>/<issue>-<slug>`.
+- Read the full diff before committing. Never commit generated output,
+  `.env`, credentials, or machine-specific paths.
+- Force-push only with `--force-with-lease`.
+
 ## Anti-patterns
 
 - Tests written after implementation; bug fixes with no regression test.

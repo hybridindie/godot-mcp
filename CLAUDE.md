@@ -1,7 +1,6 @@
 # Claude Code
 
 @AGENTS.md
-@my-workflows.md
 
 ## Claude Code specifics
 

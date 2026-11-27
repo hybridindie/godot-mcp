@@ -11,8 +11,8 @@ files.
 ## Process
 
 1. Read `AGENTS.md` and use its rule index to pick the rules whose
-   `read_when` matches each changed file. Always include `workflow.md` and
-   `testing.md`.
+   `read_when` matches each changed file. Always include `working-style.md`,
+   `workflow.md` and `testing.md`.
 2. Check each changed file against the MUST and ANTI-PATTERNS sections of
    those rules. Skip SHOULD items unless the deviation causes a real problem.
 3. Read surrounding code before flagging; a pattern used consistently in the

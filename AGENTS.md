@@ -60,6 +60,7 @@ The rules in `.claude/rules/` are the source of truth for *how* to build here. C
 | `.claude/rules/security.md` | Secrets, input validation at the boundary, subprocess calls, untrusted (model) input |
 | `.claude/rules/documentation-standards.md` | Writing the README, docs site, tool reference, or agent-facing docs (AGENTS.md included) |
 | `.claude/rules/graphify.md` | Running graphify (always via `scripts/graphify.sh`, local ollama only) or refreshing the graph before a PR |
+| `.claude/rules/working-style.md` | Before any change: how to scope, size, and check the work |
 
 ## Architecture
 
@@ -144,7 +145,7 @@ Rules:
 
 ## Harness map
 
-The agent harness (rendered from genesis; `.claude/harness.json` records the stacks `python`, `mcp`, `godot`, `godot-addon`). Commands, skills and agents are mirrored in `.claude/` and `.opencode/` with the same body.
+The agent harness (rendered from genesis; `.claude/harness.json` records the stacks `python`, `mcp`, `godot`, `godot-addon`). Commands and agents are mirrored in `.claude/` and `.opencode/` with the same body; skills live once in `.agents/skills/` (OpenCode reads it) with a generated pointer per skill in `.claude/skills/`.
 
 ### Commands
 
@@ -154,9 +155,10 @@ The agent harness (rendered from genesis; `.claude/harness.json` records the sta
 
 ### Skills
 
-- `ship-pr` — PR loop; merges (squash) only when asked
+- `ship-pr` — PR loop; the merge policy in .claude/harness.json is never + squash, so it stops at ready-to-merge unless asked
 - `customize-harness` — tailor the harness after a re-render
 - `test-hygiene-scanner` — triage flaky or misleading tests
+- `epic-composer`, `epic-interview`, `epic-acceptance-linter`, `story-decomposer`, `task-decomposer`, `plan-reviewer`, `wave-dispatcher`, `factory` — the plan-and-dispatch pipeline (scripts and doctrine under `.agents/`)
 
 ### Agents
 
@@ -164,7 +166,7 @@ The agent harness (rendered from genesis; `.claude/harness.json` records the sta
 
 ## OpenCode tooling (opt-in)
 
-Project config (`.opencode/opencode.json`) loads this file and `my-workflows.md`, exposes `.opencode/skills`, wires the repo's own `godot` MCP server (dogfooding), and sets a `watcher.ignore` that keeps the regenerable `graphify-out/`, `.venv`, `godot/.godot/`, and `uv.lock` off the file watcher. `context7` and the `graphify` MCP are wired **globally** (`~/.config/opencode/opencode.jsonc`), as is the graphify reminder plugin (`~/.config/opencode/plugins/graphify.js`) — the graphify MCP resolves `graphify-out/graph.json` relative to the cwd via `~/.config/opencode/bin/graphify-mcp-launcher.sh`.
+Project config (`.opencode/opencode.json`) loads this file, picks up skills from `.agents/skills/`, wires the repo's own `godot` MCP server (dogfooding), and sets a `watcher.ignore` that keeps the regenerable `graphify-out/`, `.venv`, `godot/.godot/`, and `uv.lock` off the file watcher. `context7` and the `graphify` MCP are wired **globally** (`~/.config/opencode/opencode.jsonc`), as is the graphify reminder plugin (`~/.config/opencode/plugins/graphify.js`) — the graphify MCP resolves `graphify-out/graph.json` relative to the cwd via `~/.config/opencode/bin/graphify-mcp-launcher.sh`.
 
 > **MLflow is intentionally absent here.** The `mlflow` Python package is not installable alongside the FastMCP 4.x pin, and eval-observability is a consumer concern: all eval→MLflow logging (tracker, GenAI dataset sync, the `mlflow` MCP server) lives in **godot-agents**, which also owns the eval agents. Godot Editor MCP evals stop at console output.
 

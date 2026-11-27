@@ -1,5 +1,7 @@
 ---
 read_when: "Writing a README, ADR, API reference, or agent-facing docs (AGENTS.md included)"
+paths:
+  - "**/*.md"
 ---
 
 # Documentation: Run It, Then Explain It

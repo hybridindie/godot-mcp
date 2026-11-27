@@ -1,5 +1,7 @@
 # Lint settings for the harness scripts genesis ships here. ruff uses the
 # nearest config, so these files don't inherit (or trip) the project's own.
+# Keep .claude/ruff.toml and .opencode/ruff.toml identical: each directory
+# resolves its own nearest config, so changing one scopes only half the mirrors.
 line-length = 120
 
 [lint]
