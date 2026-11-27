@@ -10,10 +10,15 @@ It also maps FastMCP's request-side "unexpected keyword argument" validation
 failure to ``UNDECLARED_PARAMETER``: the accepted parameter names are listed and,
 when the unknown name is a near-miss, ``next_call`` is the same tool with the
 argument renamed. Unknown arguments are never silently dropped.
+
+``UndeclaredArgumentMiddleware`` makes the same refusal *before* the gates
+that can ask a human (readiness, consent, approval), so a misspelled argument
+is refused without an approval prompt for a call that could never run (#877).
 """
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import Any
 
@@ -27,6 +32,8 @@ from pydantic import ValidationError as PydanticValidationError
 from mcp_server.agent_errors import AgentToolError
 from mcp_server.models.envelope import ErrorCode, NextCall
 from mcp_server.suggestions import suggest
+
+logger = logging.getLogger(__name__)
 
 
 class AgentErrorMiddleware(Middleware):
@@ -49,6 +56,55 @@ class AgentErrorMiddleware(Middleware):
             if not undeclared:
                 raise
             return await _undeclared_result(context, undeclared)
+
+
+class UndeclaredArgumentMiddleware(Middleware):
+    """Refuse argument names absent from the tool's input schema, up front.
+
+    Runs ahead of the approval gates so a call that FastMCP would reject during
+    validation never reaches a human approver (#877). ``consent`` is always
+    allowed: ConsentMiddleware strips it, and dynamic project tools may not
+    advertise it. A schema that explicitly admits extra properties is left to
+    the tool. Lookup failures fail open; the tool's own validation still runs.
+    """
+
+    async def on_call_tool(self, context: Any, call_next: Any) -> Any:
+        undeclared = await _schema_undeclared(context)
+        if undeclared:
+            return await _undeclared_result(context, undeclared)
+        return await call_next(context)
+
+
+async def _schema_undeclared(context: Any) -> list[str]:
+    message: Any = getattr(context, "message", None)
+    arguments = getattr(message, "arguments", None)
+    if not isinstance(arguments, dict) or not arguments:
+        return []
+    fastmcp = getattr(getattr(context, "fastmcp_context", None), "fastmcp", None)
+    if fastmcp is None:
+        # No bound server (a direct/programmatic call): pass through quietly,
+        # as the sibling gates do; the tool's own validation still runs.
+        return []
+    try:
+        tool = await fastmcp.get_tool(message.name)
+    except ToolError:
+        # FastMCP's own no-such-tool signal; its normal not-found path reports it.
+        return []
+    except Exception:
+        # Fail open like the sibling gates (#369): the tool's own validation still
+        # runs. Logged at ERROR so a persistent lookup failure is visible.
+        logger.error(
+            "unexpected error looking up tool %r; skipping the undeclared-argument "
+            "check (the tool's own validation still runs)",
+            getattr(message, "name", "?"),
+            exc_info=True,
+        )
+        return []
+    schema = getattr(tool, "parameters", None)
+    if not isinstance(schema, dict) or schema.get("additionalProperties") not in (None, False):
+        return []
+    declared = schema.get("properties") or {}
+    return [name for name in arguments if name != "consent" and name not in declared]
 
 
 def _error_result(text: str, payload: dict[str, Any]) -> ToolResult:
