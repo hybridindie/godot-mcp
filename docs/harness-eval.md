@@ -9,7 +9,7 @@ suggests what's missing. Propose first; edit only after the user confirms.
 
 - `.claude/harness.json` — the rendered `stacks`, `packs`, and `paths`.
 - `AGENTS.md` (canonical context and rule index), `.claude/rules/**`,
-  `.claude/agents/`, `.claude/commands/`, `my-workflows.md`.
+  `.claude/agents/`, `.claude/commands/`.
 - The project itself: manifests (`pyproject.toml`, `package.json`,
   `project.godot`, `Cargo.toml`), lockfiles, CI config, entry points, a few
   representative source and test files.

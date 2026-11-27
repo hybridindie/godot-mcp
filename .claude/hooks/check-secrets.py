@@ -107,16 +107,25 @@ CODE_SUFFIXES = {".py", ".pyi", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".
                  ".rs", ".go", ".java", ".kt", ".rb", ".cs", ".swift"}
 
 
+def looks_like_code(value: str) -> bool:
+    """True when the right-hand side is an expression, not a bare literal.
+
+    A code file can hold a dotenv-style line inside a string or docstring; that
+    one is real. `TOKEN = os.environ[...]` or `re.compile(...)` is not.
+    """
+    return bool(re.search(r"[(){}[\];,<>]|[\"']|\b(?:os|getenv|environ)\b", value))
+
+
 def scan_text(text: str, label: str, findings: list[str]) -> None:
     is_code = Path(label).suffix in CODE_SUFFIXES
     for lineno, line in enumerate(text.splitlines(), 1):
         if ALLOW.search(line):
             continue
         for name, pattern in PATTERNS:
-            if is_code and name == "dotenv secret":
-                continue
             match = pattern.search(line)
             if not match:
+                continue
+            if is_code and name == "dotenv secret" and looks_like_code(match.group(0)):
                 continue
             value = match.group(0)
             if name in {"generic secret", "dotenv secret"} and ALLOW_VALUES.search(value):

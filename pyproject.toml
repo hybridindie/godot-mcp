@@ -98,7 +98,7 @@ filterwarnings = ["error::pytest.PytestUnraisableExceptionWarning"]
 target-version = "py311"
 line-length = 100
 # The agent harness scripts are rendered from genesis and linted there.
-extend-exclude = [".claude", ".opencode"]
+extend-exclude = [".agents", ".claude", ".opencode"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

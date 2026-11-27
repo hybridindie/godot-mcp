@@ -1,5 +1,47 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "commands": {
+    "customize-harness": {
+      "description": "Semantically tailor the installed AI harness to the project domain.",
+      "template": "Load the customize-harness skill and follow it.\n\n$ARGUMENTS"
+    },
+    "epic-acceptance-linter": {
+      "description": "Review acceptance criteria for testability and coverage.",
+      "template": "Load the epic-acceptance-linter skill and follow it.\n\n$ARGUMENTS"
+    },
+    "epic-composer": {
+      "description": "Draft an Epic issue from source material.",
+      "template": "Load the epic-composer skill and follow it.\n\n$ARGUMENTS"
+    },
+    "epic-interview": {
+      "description": "Ask the smallest set of questions that unblocks an Epic.",
+      "template": "Load the epic-interview skill and follow it.\n\n$ARGUMENTS"
+    },
+    "factory": {
+      "description": "Run the factory: pick up approved Epics and carry them to shipped PRs.",
+      "template": "Load the factory skill and follow it.\n\n$ARGUMENTS"
+    },
+    "plan-reviewer": {
+      "description": "Get a second model's verdict on a drafted Epic or story plan before dispatch.",
+      "template": "Load the plan-reviewer skill and follow it.\n\n$ARGUMENTS"
+    },
+    "story-decomposer": {
+      "description": "Decompose a ready Epic into parallel story issues.",
+      "template": "Load the story-decomposer skill and follow it.\n\n$ARGUMENTS"
+    },
+    "task-decomposer": {
+      "description": "Break a story into PR-sized parallel tasks.",
+      "template": "Load the task-decomposer skill and follow it.\n\n$ARGUMENTS"
+    },
+    "test-hygiene-scanner": {
+      "description": "Scan tests for weak patterns and report hits.",
+      "template": "Load the test-hygiene-scanner skill and follow it.\n\n$ARGUMENTS"
+    },
+    "wave-dispatcher": {
+      "description": "Run the next wave of a planned Epic or story with parallel subagents in worktrees.",
+      "template": "Load the wave-dispatcher skill and follow it.\n\n$ARGUMENTS"
+    }
+  },
   "permissions": [
     { "action": "shell", "resource": "*", "effect": "allow" },
     { "action": "shell", "resource": "git commit *", "effect": "ask" },
@@ -9,8 +51,7 @@
     { "action": "webfetch", "resource": "*", "effect": "allow" },
     { "action": "read", "resource": "**/.env", "effect": "deny" }
   ],
-  "instructions": ["AGENTS.md", "my-workflows.md"],
-  "skills": [".opencode/skills"],
+  "instructions": ["AGENTS.md"],
   "mcp": {
     "servers": {
       "godot": {

@@ -1,5 +1,7 @@
 ---
 read_when: "Writing deferred, threaded, or long-running work in Godot"
+paths:
+  - "godot/**/*.gd"
 ---
 
 # Godot Async: Never Block the Main Thread

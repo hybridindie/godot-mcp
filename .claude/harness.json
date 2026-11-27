@@ -38,5 +38,11 @@
     "test_cmd": "godot --headless --script res://tests/run_tests.gd"
   },
   "ci_platform": "github",
-  "ci_runs_on": "ubuntu-latest"
+  "ci_runs_on": "ubuntu-latest",
+  "merge_policy": {
+    "merge": "never",
+    "method": "squash",
+    "irreversible": "person",
+    "irreversible_paths": []
+  }
 }
