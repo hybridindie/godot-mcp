@@ -82,6 +82,10 @@ async def test_string_dry_run_false_is_still_gated_on_readiness() -> None:
             if bridge.editor_status == "importing":
                 break
             await asyncio.sleep(0.01)
+        else:
+            raise AssertionError(
+                f"status 'importing' never reached the bridge ({bridge.editor_status!r})"
+            )
         result = await client.call_tool(
             "godot_scene_edit_create_node",
             {"parent_path": ".", "node_type": "Node2D", "node_name": "X", "dry_run": "false"},
