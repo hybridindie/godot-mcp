@@ -40,7 +40,7 @@
   "ci_platform": "github",
   "ci_runs_on": "ubuntu-latest",
   "merge_policy": {
-    "merge": "never",
+    "merge": "when-green",
     "method": "squash",
     "irreversible": "person",
     "irreversible_paths": []
