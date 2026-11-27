@@ -75,3 +75,28 @@ async def test_no_heartbeat_with_nothing_pending_is_stale() -> None:
         assert bridge.editor_status == "stale"
     finally:
         await bridge.close()
+
+
+async def test_cancelled_send_leaves_nothing_pending() -> None:
+    """A caller cancelled mid-request (MCP clients cancel in-flight calls) must
+    not leave its entry behind: under the #905 rule a leaked entry would decide
+    editor_status (busy, then stale) long after the call is gone."""
+    clock = [1_000.0]
+    bridge, _ = await _bridge(clock)
+    slow = asyncio.create_task(
+        bridge.send("cmd_bake_navigation_mesh", {"node_path": "Nav"}, timeout=_TIMEOUT)
+    )
+    await asyncio.sleep(0.01)
+    try:
+        assert bridge._pending_started  # noqa: SLF001 — the request is in flight
+        slow.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await slow
+        assert not bridge._pending  # noqa: SLF001
+        assert not bridge._pending_commands  # noqa: SLF001
+        assert not bridge._pending_started  # noqa: SLF001
+        assert not bridge._pending_deadline  # noqa: SLF001
+        clock[0] += 6.0
+        assert bridge.editor_status == "stale"  # nothing pending, no heartbeat
+    finally:
+        await bridge.close()

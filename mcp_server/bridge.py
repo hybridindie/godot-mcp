@@ -156,10 +156,14 @@ class Bridge:
     def editor_status(self) -> str:
         """Readiness snapshot: ready/importing/modal/busy/stale/disconnected/unknown (#762).
 
-        ``busy`` means a *mutating* command (one in ``_mutating_commands``) is in
-        flight: the editor runs commands serially, so a second mutation is refused
-        rather than queued behind it. A pending read never makes the editor busy,
-        so parallel read + mutate tool calls keep working (#874).
+        While heartbeats arrive, ``busy`` means a *mutating* command (one in
+        ``_mutating_commands``) is in flight: the editor runs commands serially, so a
+        second mutation is refused rather than queued behind it, and a pending read
+        never makes the editor busy, so parallel read + mutate calls keep working
+        (#874). When heartbeats stop, the editor is executing a command
+        synchronously, so ``busy`` means *any* pending command (read or mutation)
+        that is still within its own timeout; past that, or with nothing pending,
+        it is ``stale`` (#905).
         """
         if not self.connected:
             return "disconnected"
@@ -543,10 +547,15 @@ class Bridge:
             return ResponseEnvelope.failure(
                 msg_id, ErrorCode.BRIDGE_DISCONNECTED, "Lost connection to Godot while sending."
             )
-        response = await self._await_response(msg_id, future, timeout)
-        self._pending_commands.pop(msg_id, None)
-        self._pending_started.pop(msg_id, None)
-        self._pending_deadline.pop(msg_id, None)
+        try:
+            response = await self._await_response(msg_id, future, timeout)
+        finally:
+            # Also on cancellation (a client cancelling an in-flight call): a
+            # leaked entry would otherwise decide editor_status (#905).
+            self._pending.pop(msg_id, None)
+            self._pending_commands.pop(msg_id, None)
+            self._pending_started.pop(msg_id, None)
+            self._pending_deadline.pop(msg_id, None)
         return self._flag_may_have_applied(command, response)
 
     def _flag_may_have_applied(self, command: str, response: ResponseEnvelope) -> ResponseEnvelope:
