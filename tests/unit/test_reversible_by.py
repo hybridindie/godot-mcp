@@ -56,7 +56,7 @@ def test_remaining_families_report_their_strategy() -> None:
 
     assert AudioBusResult(index=0, name="Master").reversible_by == "undo"
     assert ComposeNodeResult(node_path="A", created=True).reversible_by == "undo"
-    assert AddInputActionResult(name="jump", added=True).reversible_by == "none"
+    assert AddInputActionResult(name="jump", added=True).reversible_by == "undo"
     assert SaveSceneResult(saved=True).reversible_by == "none"
     create_scene = CreateSceneResult(scene_path="res://a.tscn", root_type="Node2D", created=True)
     assert create_scene.reversible_by == "none"
