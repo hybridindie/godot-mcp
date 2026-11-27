@@ -18,12 +18,21 @@ its first round, and the second round inspects the answer in
 server-side state — the tool name + params + safety_class round-trip through
 ``request_state``) and works on the sessionless protocol Godot Editor MCP uses by
 design (see ``.claude/rules/async-patterns.md``).
+
+Issue #876 binds the approval to the call it approved: ``request_state`` is
+sealed with an HMAC-SHA256 under a per-process key, and the continuation round
+is denied unless the state is present, verifies, and names the same tool and
+canonical params as the call being continued. Without that, one "approve"
+answer authorized any arguments the client chose to send with it.
 """
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import logging
+import secrets
 from typing import Any
 
 from fastmcp.exceptions import ToolError
@@ -31,7 +40,7 @@ from fastmcp.server.middleware import Middleware, MiddlewareContext
 from fastmcp.tools.base import InputRequiredToolResult
 from mcp.types import ElicitRequest, ElicitRequestFormParams, InputRequiredResult
 
-from mcp_server.consent import APPROVAL_PRECLEARED
+from mcp_server.consent import APPROVAL_PRECLEARED, canonical_args
 from mcp_server.models.envelope import ErrorCode
 from mcp_server.safety import ApprovalGate, PreconditionError, approval_gated
 from mcp_server.subcommand_policy import effective_safety_class
@@ -52,18 +61,64 @@ _APPROVE_SCHEMA: dict[str, Any] = {
 }
 
 
+# The field in ``request_state`` holding the HMAC over the other fields.
+_SIG_KEY = "sig"
+
+
+def _canonical(payload: dict[str, Any]) -> bytes:
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+
+
+def _sign(key: bytes, payload: dict[str, Any]) -> str:
+    return hmac.new(key, _canonical(payload), hashlib.sha256).hexdigest()
+
+
+def seal_request_state(key: bytes, payload: dict[str, Any]) -> str:
+    """Seal ``payload`` as JSON plus an HMAC-SHA256 ``sig`` over its canonical form.
+
+    The state stays readable JSON (clients may show it), but any edit to the
+    tool, class or params breaks the signature.
+    """
+    normalized: dict[str, Any] = json.loads(_canonical(payload))
+    return json.dumps({**normalized, _SIG_KEY: _sign(key, normalized)}, sort_keys=True)
+
+
+def unseal_request_state(key: bytes, state: str | None) -> dict[str, Any] | None:
+    """Return the sealed payload, or ``None`` when absent, malformed or tampered."""
+    if not state or not isinstance(state, str):
+        return None
+    try:
+        payload = json.loads(state)
+    except ValueError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    signature = payload.pop(_SIG_KEY, None)
+    if not isinstance(signature, str):
+        return None
+    if not hmac.compare_digest(_sign(key, payload), signature):
+        return None
+    return payload
+
+
 def _build_input_required(
-    tool_name: str, safety_class: str, params: dict[str, Any]
+    tool_name: str,
+    safety_class: str,
+    params: dict[str, Any],
+    *,
+    key: bytes | None = None,
 ) -> InputRequiredToolResult:
     """Build the guard's first-round result: an elicitation asking the client
     to approve or deny the call. The tool name + params + safety_class are
-    sealed into ``request_state`` so the second round can re-evaluate without
-    server-side state.
+    sealed into ``request_state`` so the second round can check the
+    continuation is the call that was approved, without server-side state.
+    Without ``key`` the state is signed with a throwaway key, so it can never
+    verify (fails closed).
     """
     message = f"Approve {tool_name} ({safety_class})? params={json.dumps(params, default=str)}"
-    request_state = json.dumps(
+    request_state = seal_request_state(
+        key if key is not None else secrets.token_bytes(32),
         {"tool": tool_name, "safety_class": safety_class, "params": params},
-        default=str,
     )
     elicitation = ElicitRequest(
         method="elicitation/create",
@@ -98,6 +153,9 @@ class ApprovalMiddleware(Middleware):
 
     def __init__(self, approval: ApprovalGate) -> None:
         self._approval = approval
+        # Per-process key: a restart invalidates in-flight approvals, which
+        # fails closed (the client is asked again).
+        self._state_key = secrets.token_bytes(32)
 
     async def on_call_tool(self, context: MiddlewareContext, call_next: Any) -> Any:
         if APPROVAL_PRECLEARED.get():
@@ -178,7 +236,10 @@ class ApprovalMiddleware(Middleware):
         # First round: no answers yet → ask the client to approve.
         if responses is None:
             return _build_input_required(
-                context.message.name, safety_class, context.message.arguments or {}
+                context.message.name,
+                safety_class,
+                context.message.arguments or {},
+                key=self._state_key,
             )
 
         # Continuation round: the client has answered. Read the approve field.
@@ -187,6 +248,16 @@ class ApprovalMiddleware(Middleware):
         if answer is not None and getattr(answer, "action", None) == "accept":
             content = getattr(answer, "content", None) or {}
             approved = bool(content.get("approve", False))
+
+        # #876: the answer only counts for the exact call it was asked about.
+        if approved and not self._state_matches(context, fctx):
+            raise PreconditionError(
+                f"'{context.message.name}' continuation does not match the approved "
+                "call (missing, tampered, or different tool/params). Call the tool "
+                "again without input responses to request a fresh approval.",
+                required="human_approval",
+                error=ErrorCode.APPROVAL_DENIED,
+            ).as_tool_error()
 
         if not approved:
             # Decline, cancel, or an explicit "approve: false" all deny. The
@@ -201,3 +272,15 @@ class ApprovalMiddleware(Middleware):
         # Approved — run the tool. The tool's own ``confirm``/precondition
         # gates still run in its body (the guard does not duplicate them).
         return await call_next(context)
+
+    def _state_matches(self, context: MiddlewareContext, fctx: Any) -> bool:
+        """True when the sealed ``request_state`` names this tool and params."""
+        payload = unseal_request_state(self._state_key, getattr(fctx, "request_state", None))
+        if payload is None:
+            return False
+        params = payload.get("params")
+        if payload.get("tool") != context.message.name or not isinstance(params, dict):
+            return False
+        return hmac.compare_digest(
+            canonical_args(params), canonical_args(context.message.arguments or {})
+        )
