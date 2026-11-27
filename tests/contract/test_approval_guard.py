@@ -21,7 +21,9 @@ from typing import Any
 import pytest
 from fastmcp import Client
 from fastmcp.client.elicitation import ElicitResult
+from fastmcp.exceptions import ToolError
 
+from mcp_server import approval_middleware
 from mcp_server.bridge import Bridge
 from mcp_server.config import ServerConfig
 from mcp_server.models.envelope import CommandEnvelope, ResponseEnvelope
@@ -191,13 +193,27 @@ async def test_destructive_tool_uses_guard_when_opted_in_and_no_webhook() -> Non
     assert "cmd_delete_node" in _commands(conn)
 
 
-async def test_guard_request_state_carries_tool_and_params() -> None:
+async def test_guard_request_state_carries_tool_and_params(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """The InputRequiredResult.request_state carries enough context (tool name,
     safety_class, params) for a durable client to re-call the tool with the
-    decision on the next round (the issue's 'durable' requirement)."""
+    decision on the next round (the issue's 'durable' requirement). It is sealed
+    (#876), so the test unseals it with the middleware's key."""
     gate = ApprovalGate(require_approval=True)
     server, _ = _build(approval=gate)
     captured: dict[str, Any] = {}
+    states: list[tuple[bytes, str]] = []
+    real_build = approval_middleware._build_input_required
+
+    def spy(*args: Any, key: bytes) -> Any:
+        result = real_build(*args, key=key)
+        state = result.input_required.request_state
+        assert state is not None  # narrowed for mypy
+        states.append((key, state))
+        return result
+
+    monkeypatch.setattr(approval_middleware, "_build_input_required", spy)
 
     async def handler(message: str, response_type: Any, params: Any, ctx: Any) -> ElicitResult:
         # The elicitation message should name the tool and surface the params.
@@ -214,6 +230,43 @@ async def test_guard_request_state_carries_tool_and_params() -> None:
     # The params being approved are visible in the message (the human knows what
     # they are approving — the issue's "params being approved" requirement).
     assert "Player" in captured["message"]
+    key, state = states[-1]
+    payload = approval_middleware.unseal_request_state(key, state)
+    assert payload == {
+        "tool": "godot_scene_edit_create_node",
+        "safety_class": "mutating",
+        "params": {"parent_path": ".", "node_type": "Node2D", "node_name": "Player"},
+    }
+
+
+async def test_guard_denies_tampered_request_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An approved continuation whose sealed state was edited is denied and the
+    tool never reaches the addon (#876)."""
+    gate = ApprovalGate(require_approval=True)
+    server, conn = _build(approval=gate)
+    real_build = approval_middleware._build_input_required
+
+    def tamper(*args: Any, key: bytes) -> Any:
+        result = real_build(*args, key=key)
+        state = result.input_required.request_state
+        assert state is not None  # narrowed for mypy
+        # Keep the signature, swap the approved node name: the HMAC must catch it.
+        result.input_required.request_state = state.replace('"Player"', '"Other"')
+        return result
+
+    monkeypatch.setattr(approval_middleware, "_build_input_required", tamper)
+
+    async def handler(message: str, response_type: Any, params: Any, ctx: Any) -> ElicitResult:
+        return ElicitResult(action="accept", content=response_type(approve=True))
+
+    async with Client(server, mode="auto", elicitation_handler=handler) as client:
+        await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
+        with pytest.raises(ToolError, match="APPROVAL_DENIED|does not match"):
+            await client.call_tool(
+                "godot_scene_edit_create_node",
+                {"parent_path": ".", "node_type": "Node2D", "node_name": "Player"},
+            )
+    assert "cmd_create_node" not in _commands(conn)
 
 
 async def test_batch_with_destructive_entry_is_classified_destructive() -> None:
