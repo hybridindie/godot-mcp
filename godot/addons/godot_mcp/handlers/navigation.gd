@@ -7,7 +7,9 @@ extends RefCounted
 ## returns a response body (without id) via the router's _ok / _fail builders.
 
 var _router: MCPCommandRouter
-# Regions with a bake in flight (instance id -> true): one bake per region (#906).
+# Bakes in flight, keyed by region instance id (#906): one bake per region and
+# per source resource. Entry: {id, region: WeakRef, resources: [instance ids of
+# the original and its working copy], callable: the bake_finished connection}.
 var _baking: Dictionary = {}
 ## Test seam: the persistence verdict for a baked region (headless -s has no
 ## edited scene to judge it against). Production leaves it unset.
@@ -16,6 +18,10 @@ var persistence_probe: Callable = Callable()
 
 func _init(router: MCPCommandRouter) -> void:
 	_router = router
+	# A bake's request can be answered without bake_finished (TIMEOUT, a dropped
+	# session, dispose) — e.g. the region was freed mid-bake, so the signal never
+	# fires. Drop the lock then, or the region would refuse every later bake.
+	_router.deferred_completed.connect(_on_request_answered)
 
 
 func register(handlers: Dictionary) -> void:
@@ -111,23 +117,46 @@ func start_bake(region: Node, node_path: String) -> Dictionary:
 		return _router._fail("VALIDATION_ERROR", "Region has no %s; assign one first." % prop, prop)
 	# godot-async rule: one in-flight operation per target. The engine refuses a
 	# second bake of the same resource too, but only with a push_error.
+	_prune_stale()
 	var key := region.get_instance_id()
+	# is_baking goes through call(): it is bound on both region classes from the
+	# 4.4 floor up (verified in 4.4-stable), but on an engine without it call()
+	# errors and returns null, and this guard degrades to MCP-started bakes only —
+	# a bake the user started from the viewport would not be refused here.
 	if _baking.has(key) or bool(region.call("is_baking")):
 		return _router._fail(
 			"EDITOR_BUSY",
 			"A navigation bake is already running on '%s'; wait for its response, then retry." % node_path,
 			"node_path",
 		)
+	# Regions can share one resource: a second bake of a mesh already in flight
+	# would bake the first bake's undo value in place.
+	var source_id := original.get_instance_id()
+	for entry: Dictionary in _baking.values():
+		if (entry.get("resources", []) as Array).has(source_id):
+			return _router._fail(
+				"EDITOR_BUSY",
+				"The %s on '%s' is shared with a region whose bake is still running; wait for that response, then retry." % [prop, node_path],
+				"node_path",
+			)
 	var marker := _router.defer()
 	if not _router.is_deferred(marker):
 		return marker
-	var id := _router._current_id
+	var id := str(marker.get("id", ""))
 	var working: Resource = original.duplicate(true)
 	region.set(prop, working)
-	_baking[key] = true
-	# bake_finished can fire synchronously (the bake fails before it reaches the
-	# thread); the router then answers inside this call and drops the marker.
 	var on_finished := _on_bake_finished.bind(region, id, node_path, prop, original, working)
+	_baking[key] = {
+		"id": id,
+		"region": weakref(region),
+		"resources": [source_id, working.get_instance_id()],
+		"callable": on_finished,
+	}
+	# bake_finished can fire synchronously (the bake fails before it reaches the
+	# thread, e.g. an empty 2D region); the router then answers inside this call
+	# and drops the marker. bake_finished is emitted on the main thread (the
+	# engine call_deferreds its _bake_finished off the bake thread), which is
+	# what complete() requires.
 	if region is NavigationRegion2D:
 		var region_2d := region as NavigationRegion2D
 		region_2d.bake_finished.connect(on_finished, CONNECT_ONE_SHOT)
@@ -140,17 +169,32 @@ func start_bake(region: Node, node_path: String) -> Dictionary:
 
 
 func _on_bake_finished(region: Node, id: String, node_path: String, prop: String, original: Resource, working: Resource) -> void:
-	_baking.erase(region.get_instance_id())
+	var key := region.get_instance_id()
+	if str((_baking.get(key, {}) as Dictionary).get("id", "")) == id:
+		_baking.erase(key)
+	if region.get(prop) != working:
+		# The editor stays responsive during a threaded bake, so the property can
+		# be replaced mid-bake (its own undo step). The baked copy is orphaned:
+		# keep the user's resource and history, and say nothing was baked.
+		_router.complete(id, _router._ok({
+			"node_path": node_path,
+			"baked": false,
+			"hint": "The region's %s changed while the bake ran; the baked result was discarded and the new %s kept. Re-run the bake." % [prop, prop],
+		}))
+		return
 	var polygon_count := -1
 	var vertex_count := -1
 	if working is NavigationPolygon:
 		var poly := working as NavigationPolygon
 		polygon_count = poly.get_polygon_count()
-		vertex_count = poly.get_vertex_count()
+		# NavigationPolygon has no get_vertex_count(); count the vertex array.
+		vertex_count = poly.get_vertices().size()
 	elif working is NavigationMesh:
 		var mesh := working as NavigationMesh
 		polygon_count = mesh.get_polygon_count()
-		vertex_count = mesh.get_vertices().size()
+		# Guarded like _cmd_get_navigation_region: an error here would skip the
+		# undo registration and leave the request to the TIMEOUT.
+		vertex_count = mesh.get_vertices().size() if mesh.has_method("get_vertices") else 0
 	# A bake that produced zero polygons is a failed bake (no source geometry was
 	# parsed, or every agent/geometry filter excluded it) — never report baked:true
 	# for an empty navmesh, an agent trusting that ships AI that can't pathfind (#413).
@@ -182,6 +226,42 @@ func _on_bake_finished(region: Node, id: String, node_path: String, prop: String
 		"polygon_count": polygon_count,
 		"vertex_count": vertex_count,
 	}, _persistence(region))))
+
+
+# A request was answered (#906). If it was a bake that bake_finished did not
+# answer (TIMEOUT, dropped session, dispose), drop its lock unless the region is
+# still genuinely baking — then bake_finished will drop it.
+func _on_request_answered(_command: String, response: Dictionary, _exec_ms: float) -> void:
+	var id := str(response.get("id", ""))
+	for key: int in _baking.keys():
+		var entry: Dictionary = _baking[key]
+		if str(entry.get("id", "")) == id and _is_stale(entry):
+			_release_lock(key)
+
+
+# Drop locks whose request is gone and whose region is freed or idle (belt and
+# braces for a lock _on_request_answered could not clear).
+func _prune_stale() -> void:
+	for key: int in _baking.keys():
+		var entry: Dictionary = _baking[key]
+		if not _router.has_pending(str(entry.get("id", ""))) and _is_stale(entry):
+			_release_lock(key)
+
+
+func _is_stale(entry: Dictionary) -> bool:
+	var region: Node = (entry.get("region") as WeakRef).get_ref() if entry.get("region") is WeakRef else null
+	return region == null or not bool(region.call("is_baking"))
+
+
+# Release a lock and its bake_finished connection: a connection left behind
+# would also fire on the region's next bake and answer for the wrong request.
+func _release_lock(key: int) -> void:
+	var entry: Dictionary = _baking[key]
+	_baking.erase(key)
+	var region: Node = (entry.get("region") as WeakRef).get_ref() if entry.get("region") is WeakRef else null
+	var on_finished: Callable = entry.get("callable", Callable())
+	if region != null and on_finished.is_valid() and region.is_connected("bake_finished", on_finished):
+		region.disconnect("bake_finished", on_finished)
 
 
 # The editor's undo manager, or the router's history seam in headless tests

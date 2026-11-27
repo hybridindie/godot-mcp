@@ -9,7 +9,11 @@ extends SceneTree
 ## flowing while frames are pumped, exactly one response arrives with the baked
 ## counts, a second bake of the same region is refused while one runs, a bake
 ## inside run_commands is refused before it starts, and undo restores the
-## region's previous navigation mesh.
+## region's previous navigation mesh. Also: an empty 2D region answers
+## synchronously with one response; a mid-bake property edit is not clobbered
+## (baked:false, no undo step); a region sharing an in-flight mesh is refused;
+## a region freed mid-bake is answered by TIMEOUT and its lock cleared; a stale
+## lock does not refuse a later bake.
 ##
 ## Headless -s has no edited scene and no EditorUndoRedoManager, so the smoke
 ## drives the handler's bake entry on a region it built (a test command in the
@@ -24,6 +28,10 @@ const Router := preload("res://addons/godot_mcp/command_router.gd")
 const MAX_BAKE_FRAMES := 600
 # The original mesh's hand-made polygon count, so undo is told apart from a bake.
 const ORIGINAL_POLYGONS := 1
+# Addon-side deferred timeout for cases that must complete (far above bake time).
+const HEALTHY_TIMEOUT_SEC := 300.0
+# The freed-region case relies on the TIMEOUT to answer, so it runs short.
+const FREED_TIMEOUT_SEC := 0.3
 
 
 func _initialize() -> void:
@@ -36,6 +44,9 @@ func _run() -> void:
 	await process_frame
 	var failures: Array[String] = []
 	var router: MCPCommandRouter = Router.new()
+	# Pin the addon-side timeout far above any bake here, so a loaded runner (or a
+	# GODOT_MCP_LONG_REQUEST_TIMEOUT in the environment) cannot TIMEOUT a healthy bake.
+	router.deferred_timeout_sec = HEALTHY_TIMEOUT_SEC
 	var ur := UndoRedo.new()
 	router.set_history_seam(ur)
 	var nav: MCPNavigationHandlers = null
@@ -73,7 +84,7 @@ func _run() -> void:
 	bridge._handle_text(JSON.stringify({"id": "b1", "command": "cmd_test_bake", "params": {}}))
 	_eq(failures, "bake: nothing sent at once (deferred)", _responses(peer, "b1").size(), 0)
 	_eq(failures, "bake: request is pending", router.has_pending("b1"), true)
-	_eq(failures, "bake: runs on a thread (region is baking)", region.is_baking(), true)
+	_eq(failures, "bake: runs on a thread (region is baking)", bool(region.call("is_baking")), true)
 	var working: NavigationMesh = region.navigation_mesh
 	_eq(failures, "bake: the original mesh is not the bake target", working != original, true)
 
@@ -116,7 +127,8 @@ func _run() -> void:
 			failures.append("bake: polygon_count should be > 0, got %s" % str(result.get("polygon_count")))
 		if int(result.get("vertex_count", 0)) <= 0:
 			failures.append("bake: vertex_count should be > 0, got %s" % str(result.get("vertex_count")))
-		_eq(failures, "bake: result carries persistence", result.has("persisted"), true)
+		# The always-ok persistence seam above makes the correct verdict true.
+		_eq(failures, "bake: result carries persistence", result.get("persisted", false), true)
 	var bake_done := completions.filter(func(c: Dictionary) -> bool: return c["command"] == "cmd_test_bake" and c["ok"])
 	_eq(failures, "bake: one successful command_completed", bake_done.size(), 1)
 	_eq(failures, "bake: nothing pending after completion", router.has_pending("b1"), false)
@@ -140,7 +152,7 @@ func _run() -> void:
 	bridge._handle_text(JSON.stringify({"id": "c1", "command": "cmd_run_commands", "params": {
 		"commands": [{"command": "cmd_test_bake", "params": {}}],
 	}}))
-	_eq(failures, "batch: bake never started", region.is_baking(), false)
+	_eq(failures, "batch: bake never started", bool(region.call("is_baking")), false)
 	_eq(failures, "batch: region mesh untouched", region.navigation_mesh == before_batch, true)
 	_eq(failures, "batch: no undo action", ur.get_history_count(), undo_depth)
 	_eq(failures, "batch: nothing pending", router.has_pending("c1"), false)
@@ -179,11 +191,124 @@ func _run() -> void:
 	_eq(failures, "empty: previous mesh put back", empty.navigation_mesh == empty_original, true)
 	_eq(failures, "empty: no undo action", ur.get_history_count(), depth_before_empty)
 
+	# 6b. 2D, empty region: the engine finishes an empty NavigationPolygon bake
+	# synchronously inside bake_navigation_polygon(true), so complete() answers
+	# inside the dispatch — still exactly one response, nothing left pending.
+	var empty_2d := NavigationRegion2D.new()
+	empty_2d.name = "Empty2D"
+	var empty_2d_original := NavigationPolygon.new()
+	empty_2d.navigation_polygon = empty_2d_original
+	root.add_child(empty_2d)
+	router._handlers["cmd_test_bake_empty_2d"] = func(_params: Dictionary) -> Dictionary:
+		return nav.start_bake(empty_2d, "Empty2D")
+	var depth_before_2d := ur.get_history_count()
+	bridge._handle_text(JSON.stringify({"id": "e2", "command": "cmd_test_bake_empty_2d", "params": {}}))
+	var sync_answers := _responses(peer, "e2")
+	_eq(failures, "empty 2D: answered within the dispatch", sync_answers.size(), 1)
+	_eq(failures, "empty 2D: nothing pending", router.has_pending("e2"), false)
+	for i in 10:
+		await process_frame
+	sync_answers = _responses(peer, "e2")
+	_eq(failures, "empty 2D: still exactly one response later", sync_answers.size(), 1)
+	if sync_answers.size() == 1:
+		_eq(failures, "empty 2D: VALIDATION_ERROR", str(sync_answers[0].get("error", "")), "VALIDATION_ERROR")
+	_eq(failures, "empty 2D: previous polygon put back", empty_2d.navigation_polygon == empty_2d_original, true)
+	_eq(failures, "empty 2D: no undo action", ur.get_history_count(), depth_before_2d)
+	_eq(failures, "empty 2D: no bake lock left", nav._baking.has(empty_2d.get_instance_id()), false)
+
+	# 7. The property changed mid-bake (the editor stays responsive): the bake
+	# does not clobber the user's resource, registers no undo step, and says so.
+	var drift := _build_region()
+	drift.name = "Drift"
+	router._handlers["cmd_test_bake_drift"] = func(_params: Dictionary) -> Dictionary:
+		return nav.start_bake(drift, "Drift")
+	var depth_before_drift := ur.get_history_count()
+	bridge._handle_text(JSON.stringify({"id": "d1", "command": "cmd_test_bake_drift", "params": {}}))
+	var users_mesh := NavigationMesh.new()
+	drift.navigation_mesh = users_mesh
+	frames = 0
+	while _responses(peer, "d1").is_empty() and frames < MAX_BAKE_FRAMES:
+		await process_frame
+		frames += 1
+	var drift_answers := _responses(peer, "d1")
+	_eq(failures, "drift: exactly one response", drift_answers.size(), 1)
+	if drift_answers.size() == 1:
+		var dr: Dictionary = drift_answers[0].get("result", {})
+		_eq(failures, "drift: reported, not an error", drift_answers[0].get("ok", false), true)
+		_eq(failures, "drift: baked false", dr.get("baked", true), false)
+		if not str(dr.get("hint", "")).contains("changed while the bake ran"):
+			failures.append("drift: hint should say the property changed, got %s" % str(dr.get("hint", "")))
+	_eq(failures, "drift: the user's mesh is kept", drift.navigation_mesh == users_mesh, true)
+	_eq(failures, "drift: no undo action", ur.get_history_count(), depth_before_drift)
+
+	# 8. A second region sharing the mesh that is being baked is refused: the
+	# shared original is the first bake's undo value and must stay pristine.
+	var shared_a := _build_region()
+	shared_a.name = "SharedA"
+	var shared_b := NavigationRegion3D.new()
+	shared_b.name = "SharedB"
+	shared_b.navigation_mesh = shared_a.navigation_mesh
+	root.add_child(shared_b)
+	router._handlers["cmd_test_bake_shared_a"] = func(_params: Dictionary) -> Dictionary:
+		return nav.start_bake(shared_a, "SharedA")
+	router._handlers["cmd_test_bake_shared_b"] = func(_params: Dictionary) -> Dictionary:
+		return nav.start_bake(shared_b, "SharedB")
+	bridge._handle_text(JSON.stringify({"id": "sa", "command": "cmd_test_bake_shared_a", "params": {}}))
+	bridge._handle_text(JSON.stringify({"id": "sb", "command": "cmd_test_bake_shared_b", "params": {}}))
+	var shared_refusal := _responses(peer, "sb")
+	_eq(failures, "shared: second region refused at once", shared_refusal.size(), 1)
+	if shared_refusal.size() == 1:
+		_eq(failures, "shared: EDITOR_BUSY", str(shared_refusal[0].get("error", "")), "EDITOR_BUSY")
+	_eq(failures, "shared: nothing pending for the refused bake", router.has_pending("sb"), false)
+	frames = 0
+	while _responses(peer, "sa").is_empty() and frames < MAX_BAKE_FRAMES:
+		await process_frame
+		frames += 1
+	_eq(failures, "shared: the first bake answers", _responses(peer, "sa").size(), 1)
+
+	# 9. The region is freed mid-bake, so bake_finished never fires: the TIMEOUT
+	# answers the request once, and the bake lock is cleared with it (no
+	# permanent EDITOR_BUSY, and a reused instance id is not blocked).
+	router.deferred_timeout_sec = FREED_TIMEOUT_SEC
+	var doomed := _build_region()
+	doomed.name = "Doomed"
+	var doomed_key := doomed.get_instance_id()
+	router._handlers["cmd_test_bake_doomed"] = func(_params: Dictionary) -> Dictionary:
+		return nav.start_bake(doomed, "Doomed")
+	bridge._handle_text(JSON.stringify({"id": "f1", "command": "cmd_test_bake_doomed", "params": {}}))
+	_eq(failures, "freed: request pending", router.has_pending("f1"), true)
+	doomed.free()
+	var deadline := Time.get_ticks_msec() + int(FREED_TIMEOUT_SEC * 4000.0)
+	while _responses(peer, "f1").is_empty() and Time.get_ticks_msec() < deadline:
+		await process_frame
+	var freed_answers := _responses(peer, "f1")
+	_eq(failures, "freed: exactly one response", freed_answers.size(), 1)
+	if freed_answers.size() == 1:
+		_eq(failures, "freed: TIMEOUT", str(freed_answers[0].get("error", "")), "TIMEOUT")
+	_eq(failures, "freed: bake lock cleared", nav._baking.has(doomed_key), false)
+	router.deferred_timeout_sec = HEALTHY_TIMEOUT_SEC
+
+	# 10. A lock whose request is gone and whose region is idle is stale: a new
+	# bake proceeds instead of answering EDITOR_BUSY forever.
+	nav._baking[region.get_instance_id()] = {"id": "gone", "region": weakref(region), "resources": [], "callable": Callable()}
+	bridge._handle_text(JSON.stringify({"id": "g1", "command": "cmd_test_bake", "params": {}}))
+	_eq(failures, "stale lock: the bake starts (no EDITOR_BUSY)", _responses(peer, "g1").size(), 0)
+	_eq(failures, "stale lock: request pending", router.has_pending("g1"), true)
+	frames = 0
+	while _responses(peer, "g1").is_empty() and frames < MAX_BAKE_FRAMES:
+		await process_frame
+		frames += 1
+	_eq(failures, "stale lock: the bake answers", _responses(peer, "g1").size(), 1)
+
 	bridge.dispose()
 	bridge.free()
 	ur.free()
 	region.queue_free()
 	empty.queue_free()
+	empty_2d.queue_free()
+	drift.queue_free()
+	shared_a.queue_free()
+	shared_b.queue_free()
 	_finish(failures)
 
 

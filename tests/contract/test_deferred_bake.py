@@ -55,3 +55,14 @@ def test_bake_answers_through_the_deferred_response() -> None:
     for needle in ("_router.defer()", "_router.is_deferred(", "_router.complete(", "bake_finished"):
         assert needle in src, f"navigation.gd missing {needle!r}"
     assert '"EDITOR_BUSY"' in src, "a second bake on a busy region must be refused"
+
+
+def test_bake_completion_respects_concurrent_edits() -> None:
+    """Round-1 review: a mid-bake edit is not clobbered, shared meshes are locked."""
+    src = NAVIGATION_GD.read_text()
+    # Completion checks the property still holds the working copy.
+    assert "region.get(prop) != working" in src
+    # The lock covers the source resource, not only the region.
+    assert '"resources": [source_id, working.get_instance_id()]' in src
+    # A request answered without bake_finished releases its lock.
+    assert "deferred_completed.connect(_on_request_answered)" in src
