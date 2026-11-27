@@ -96,7 +96,9 @@ def unseal_request_state(key: bytes, state: str | None) -> dict[str, Any] | None
     signature = payload.pop(_SIG_KEY, None)
     if not isinstance(signature, str):
         return None
-    if not hmac.compare_digest(_sign(key, payload), signature):
+    # Compare bytes: ``signature`` is client-controlled, and compare_digest
+    # raises TypeError on a non-ASCII str instead of returning False.
+    if not hmac.compare_digest(_sign(key, payload).encode("ascii"), signature.encode("utf-8")):
         return None
     return payload
 

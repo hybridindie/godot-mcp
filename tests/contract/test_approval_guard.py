@@ -250,8 +250,11 @@ async def test_guard_denies_tampered_request_state(monkeypatch: pytest.MonkeyPat
         result = real_build(*args, key=key)
         state = result.input_required.request_state
         assert state is not None  # narrowed for mypy
-        # Keep the signature, swap the approved node name: the HMAC must catch it.
-        result.input_required.request_state = state.replace('"Player"', '"Other"')
+        # Keep the signature and the tool/params, edit only a sealed field the
+        # binding check does not compare: the HMAC is the only thing that can catch it.
+        tampered = state.replace('"safety_class": "mutating"', '"safety_class": "read_only"')
+        assert tampered != state
+        result.input_required.request_state = tampered
         return result
 
     monkeypatch.setattr(approval_middleware, "_build_input_required", tamper)
@@ -261,7 +264,7 @@ async def test_guard_denies_tampered_request_state(monkeypatch: pytest.MonkeyPat
 
     async with Client(server, mode="auto", elicitation_handler=handler) as client:
         await client.call_tool("godot_enable_toolset", {"category": "scene_edit"})
-        with pytest.raises(ToolError, match="APPROVAL_DENIED|does not match"):
+        with pytest.raises(ToolError, match="does not match the approved call"):
             await client.call_tool(
                 "godot_scene_edit_create_node",
                 {"parent_path": ".", "node_type": "Node2D", "node_name": "Player"},
