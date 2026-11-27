@@ -248,3 +248,24 @@ async def test_undeclared_argument_check_toolerror_passes_quietly(
         result = await mw.on_call_tool(_ArgsContext(_NoSuchTool()), _call_next)
     assert result == "RAN"
     assert not [r for r in caplog.records if r.levelno >= 40]
+
+
+async def test_undeclared_argument_check_without_context_passes_quietly(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """No bound FastMCP context (a direct/programmatic call) is a normal
+    pass-through, as in the sibling gates, not an ERROR."""
+    from mcp_server.agent_error_middleware import UndeclaredArgumentMiddleware
+
+    class _NoContext:
+        fastmcp_context = None
+        message = _ArgsMessage()
+
+    async def _call_next(_ctx: Any) -> Any:
+        return "RAN"
+
+    mw = UndeclaredArgumentMiddleware()
+    with caplog.at_level("ERROR", logger="mcp_server.agent_error_middleware"):
+        result = await mw.on_call_tool(_NoContext(), _call_next)
+    assert result == "RAN"
+    assert not [r for r in caplog.records if r.levelno >= 40]

@@ -80,8 +80,13 @@ async def _schema_undeclared(context: Any) -> list[str]:
     arguments = getattr(message, "arguments", None)
     if not isinstance(arguments, dict) or not arguments:
         return []
+    fastmcp = getattr(getattr(context, "fastmcp_context", None), "fastmcp", None)
+    if fastmcp is None:
+        # No bound server (a direct/programmatic call): pass through quietly,
+        # as the sibling gates do; the tool's own validation still runs.
+        return []
     try:
-        tool = await context.fastmcp_context.fastmcp.get_tool(message.name)
+        tool = await fastmcp.get_tool(message.name)
     except ToolError:
         # FastMCP's own no-such-tool signal; its normal not-found path reports it.
         return []
