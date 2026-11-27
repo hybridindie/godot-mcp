@@ -26,7 +26,7 @@ func register(handlers: Dictionary) -> void:
 
 func _cmd_create_shader(params: Dictionary) -> Dictionary:
 	var path := str(params.get("shader_path", ""))
-	if not path.begins_with("res://") or not path.ends_with(".gdshader"):
+	if MCPHelpers.res_path_error(path) != "" or not path.ends_with(".gdshader"):
 		return _router._fail("VALIDATION_ERROR", "shader_path must be a res:// .gdshader file.")
 	var code := str(params.get("code", ""))
 	if code.is_empty():

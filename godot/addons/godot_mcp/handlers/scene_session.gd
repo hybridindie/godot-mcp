@@ -224,7 +224,7 @@ func _cmd_extract_scene(params: Dictionary) -> Dictionary:
 	var preview := bool(params.get("preview", false))
 	if node_path.is_empty() or scene_path.is_empty():
 		return _router._fail("VALIDATION_ERROR", "'node_path' and 'scene_path' are required.")
-	if not scene_path.begins_with("res://") or not scene_path.ends_with(".tscn"):
+	if MCPHelpers.res_path_error(scene_path) != "" or not scene_path.ends_with(".tscn"):
 		return _router._fail("VALIDATION_ERROR", "'scene_path' must be a res:// path ending in .tscn.", "scene_path")
 	var node: Node = root.get_node_or_null(NodePath(node_path))
 	if node == null:

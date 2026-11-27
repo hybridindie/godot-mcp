@@ -34,7 +34,7 @@ func _cmd_run_project_tool(params: Dictionary) -> Dictionary:
 			"Both 'script' and 'function' are required.",
 			"script"
 		)
-	if not script_path.begins_with("res://"):
+	if MCPHelpers.res_path_error(script_path) != "":
 		return _router._fail(
 			"VALIDATION_ERROR",
 			"script must be a res:// path. Got: '%s'" % script_path,

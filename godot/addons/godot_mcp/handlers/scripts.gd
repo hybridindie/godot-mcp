@@ -99,7 +99,7 @@ func _cmd_write_script(params: Dictionary) -> Dictionary:
 	var path := str(params.get("script_path", ""))
 	# Require a res:// script path (.gd or .cs, #207 Phase 1). Containment against
 	# res:// escape is enforced server-side; this is defense-in-depth.
-	if not path.begins_with("res://") \
+	if MCPHelpers.res_path_error(path) != "" \
 			or (not path.ends_with(".gd") and not path.ends_with(".cs")):
 		return _router._fail("VALIDATION_ERROR", "script_path must be a res:// .gd or .cs file.")
 	var content := str(params.get("content", ""))

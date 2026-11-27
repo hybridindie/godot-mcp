@@ -23,13 +23,10 @@ static func is_text_resource(path: String) -> bool:
 	return false
 
 
-## True when `path` escapes the res:// project root (path traversal) — the
-## GDScript mirror of the server-side posixpath containment check (#205/#217).
+## True when `path` escapes the res:// project root (path traversal) or lacks
+## the scheme; delegates to the one containment helper (#205/#217/#909).
 static func escapes_res_root(path: String) -> bool:
-	if not path.begins_with("res://"):
-		return true
-	var norm := path.substr(6).replace("\\", "/")
-	return norm == ".." or norm.begins_with("../") or norm.begins_with("/")
+	return MCPHelpers.res_path_error(path) != ""
 
 
 ## Project-wide walk collecting text files that reference `path` (path-form)

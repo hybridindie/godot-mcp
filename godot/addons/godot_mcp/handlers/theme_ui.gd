@@ -35,7 +35,7 @@ func _cmd_create_theme(params: Dictionary) -> Dictionary:
 	var theme := Theme.new()
 	var save_path := str(params.get("save_path", ""))
 	if not save_path.is_empty():
-		if not save_path.begins_with("res://"):
+		if MCPHelpers.res_path_error(save_path) != "":
 			return _router._fail("VALIDATION_ERROR", "save_path must be a res:// path.")
 		var err := ResourceSaver.save(theme, save_path)
 		if err != OK:

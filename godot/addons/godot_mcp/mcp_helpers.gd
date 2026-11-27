@@ -29,6 +29,24 @@ const UNDO_THRESHOLD := 20
 
 # -- file system helpers (shared by scripts, shaders, resources) --------------
 
+## "" when `path` is a res:// path contained in the project root, else a hint
+## for a VALIDATION_ERROR (issue #909). The GDScript mirror of the server's
+## mcp_server/paths.py::escapes_res_root: a bare begins_with("res://") accepts
+## res://../x and res:///abs, so the scheme is stripped and the rest simplified;
+## a result that climbs above root (".." / "../"), is absolute (incl. a Windows
+## drive) or holds a backslash escapes. res://a/../b.gd stays inside. Defense in
+## depth: the server rejects these first.
+static func res_path_error(path: String) -> String:
+	if not path.begins_with("res://"):
+		return "'%s' must be a res:// path inside the project." % path
+	if path.contains("\\"):
+		return "'%s' must use '/' separators; backslashes can escape the project root." % path
+	var norm := path.substr(6).simplify_path()
+	if norm == ".." or norm.begins_with("../") or norm.is_absolute_path():
+		return "'%s' escapes the project root (res://)." % path
+	return ""
+
+
 ## Write text to a file (creating parent dirs) and tell the editor to re-import it.
 ## Used as the UndoRedo do/undo callback for script writes.
 func write_file_text(path: String, text: String) -> void:

@@ -98,7 +98,7 @@ func register(handlers: Dictionary) -> void:
 
 func _cmd_get_filesystem_tree(params: Dictionary) -> Dictionary:
 	var directory := str(params.get("directory", "res://"))
-	if not directory.begins_with("res://"):
+	if MCPHelpers.res_path_error(directory) != "":
 		return _router._fail("VALIDATION_ERROR", "directory must be inside the project (res://…).")
 	if not DirAccess.dir_exists_absolute(directory):
 		return _router._fail("RESOURCE_NOT_FOUND", "No directory '%s'." % directory)
@@ -109,7 +109,7 @@ func _cmd_get_filesystem_tree(params: Dictionary) -> Dictionary:
 
 func _cmd_search_files(params: Dictionary) -> Dictionary:
 	var directory := str(params.get("directory", "res://"))
-	if not directory.begins_with("res://"):
+	if MCPHelpers.res_path_error(directory) != "":
 		return _router._fail("VALIDATION_ERROR", "directory must be inside the project (res://…).")
 	if not DirAccess.dir_exists_absolute(directory):
 		return _router._fail("RESOURCE_NOT_FOUND", "No directory '%s'." % directory)
@@ -266,7 +266,7 @@ func _cmd_uid_to_path(params: Dictionary) -> Dictionary:
 ## create_scene at the same path resurrects mangled duplicate nodes.
 func _cmd_delete_resource_file(params: Dictionary) -> Dictionary:
 	var path := str(params.get("path", ""))
-	if not path.begins_with("res://"):
+	if MCPHelpers.res_path_error(path) != "":
 		return _router._fail("VALIDATION_ERROR", "path must be a res:// file.")
 	if not FileAccess.file_exists(path):
 		return _router._fail("RESOURCE_NOT_FOUND", "No file at '%s'." % path)
@@ -343,7 +343,7 @@ func _cmd_move_resource_file(params: Dictionary) -> Dictionary:
 		return _router._fail("VALIDATION_ERROR", "'path' and 'new_path' are required.")
 	# Defense-in-depth containment (server validates first, #205/#217).
 	for candidate: String in [path, new_path]:
-		if Remap.escapes_res_root(candidate) and not candidate.begins_with("res://"):
+		if not candidate.begins_with("res://"):  # scheme test, not containment (next check)
 			return _router._fail("VALIDATION_ERROR", "%s must be a res:// path." % candidate, "path")
 		if Remap.escapes_res_root(candidate):
 			return _router._fail(

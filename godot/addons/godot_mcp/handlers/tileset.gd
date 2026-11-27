@@ -36,7 +36,7 @@ func _cmd_create_tileset(params: Dictionary) -> Dictionary:
 	tileset.tile_size = tile_size
 	var persistence := {"ok": true}  # a file-only TileSet is already on disk
 	if not save_path.is_empty():
-		if not save_path.begins_with("res://"):
+		if MCPHelpers.res_path_error(save_path) != "":
 			return _router._fail("VALIDATION_ERROR", "save_path must be a res:// path.")
 		var saved := _save_tileset_file(tileset, save_path)
 		if not saved["ok"]:

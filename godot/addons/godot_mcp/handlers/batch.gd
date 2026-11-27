@@ -20,12 +20,12 @@ func _parse_dependency(dep: String) -> Dictionary:
 	var parts := dep.split("::", false)
 	var dpath := ""
 	for part in parts:
-		if part.begins_with("res://") or part.begins_with("uid://"):
+		if part.begins_with("res://") or part.begins_with("uid://"):  # scheme test, not containment
 			dpath = part
 	var dtype := ""
 	if parts.size() > 1:
 		var last: String = parts[parts.size() - 1]
-		if not (last.begins_with("res://") or last.begins_with("uid://")):
+		if not (last.begins_with("res://") or last.begins_with("uid://")):  # scheme test, not containment
 			dtype = last
 	return {"raw": dep, "path": dpath, "type": dtype}
 
@@ -33,7 +33,7 @@ func _parse_dependency(dep: String) -> Dictionary:
 func _cross_scene_one(
 	path: String, type_name: String, property: String, value: Variant, dry_run: bool
 ) -> Dictionary:
-	if not path.begins_with("res://") or not (path.ends_with(".tscn") or path.ends_with(".scn")):
+	if MCPHelpers.res_path_error(path) != "" or not (path.ends_with(".tscn") or path.ends_with(".scn")):
 		return {"scene": path, "modified": 0, "error": "not a res:// scene file"}
 	# #645: refuse ANY scene open in a tab (not just the active one). The editor
 	# holds its own in-memory copy of an open scene; editing the file on disk would
