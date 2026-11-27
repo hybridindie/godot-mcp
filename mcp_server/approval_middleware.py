@@ -23,7 +23,9 @@ Issue #876 binds the approval to the call it approved: ``request_state`` is
 sealed with an HMAC-SHA256 under a per-process key, and the continuation round
 is denied unless the state is present, verifies, and names the same tool and
 canonical params as the call being continued. Without that, one "approve"
-answer authorized any arguments the client chose to send with it.
+answer authorized any arguments the client chose to send with it. The state
+also seals an ``exp`` and a ``nonce`` (mirroring ``consent.ConsentManager``),
+so an approval expires and can be spent only once.
 """
 
 from __future__ import annotations
@@ -32,7 +34,10 @@ import hashlib
 import hmac
 import json
 import logging
+import re
 import secrets
+import time
+from collections.abc import Callable
 from typing import Any
 
 from fastmcp.exceptions import ToolError
@@ -64,6 +69,14 @@ _APPROVE_SCHEMA: dict[str, Any] = {
 # The field in ``request_state`` holding the HMAC over the other fields.
 _SIG_KEY = "sig"
 
+# A well-formed ``sig``: SHA-256 hexdigest. Checked before any comparison so a
+# client-controlled value (non-ASCII, lone surrogate) can only fail closed.
+_SIG_RE = re.compile(r"[0-9a-f]{64}")
+
+# How long an approval may sit before its continuation is refused (matches the
+# consent token TTL in ``consent.py``).
+_DEFAULT_TTL_SECONDS = 120.0
+
 
 def _canonical(payload: dict[str, Any]) -> bytes:
     return json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
@@ -89,16 +102,15 @@ def unseal_request_state(key: bytes, state: str | None) -> dict[str, Any] | None
         return None
     try:
         payload = json.loads(state)
-    except ValueError:
+    except (ValueError, RecursionError):
+        # RecursionError: a deeply nested client-supplied state.
         return None
     if not isinstance(payload, dict):
         return None
     signature = payload.pop(_SIG_KEY, None)
-    if not isinstance(signature, str):
+    if not isinstance(signature, str) or not _SIG_RE.fullmatch(signature):
         return None
-    # Compare bytes: ``signature`` is client-controlled, and compare_digest
-    # raises TypeError on a non-ASCII str instead of returning False.
-    if not hmac.compare_digest(_sign(key, payload).encode("ascii"), signature.encode("utf-8")):
+    if not hmac.compare_digest(_sign(key, payload), signature):
         return None
     return payload
 
@@ -108,19 +120,25 @@ def _build_input_required(
     safety_class: str,
     params: dict[str, Any],
     *,
-    key: bytes | None = None,
+    key: bytes,
+    expires_at: float,
 ) -> InputRequiredToolResult:
     """Build the guard's first-round result: an elicitation asking the client
-    to approve or deny the call. The tool name + params + safety_class are
-    sealed into ``request_state`` so the second round can check the
-    continuation is the call that was approved, without server-side state.
-    Without ``key`` the state is signed with a throwaway key, so it can never
-    verify (fails closed).
+    to approve or deny the call. The tool name + params + safety_class, an
+    expiry and a fresh nonce are sealed into ``request_state`` under ``key`` so
+    the second round can check the continuation is the call that was approved,
+    still fresh and not yet spent, without server-side state beyond used nonces.
     """
     message = f"Approve {tool_name} ({safety_class})? params={json.dumps(params, default=str)}"
     request_state = seal_request_state(
-        key if key is not None else secrets.token_bytes(32),
-        {"tool": tool_name, "safety_class": safety_class, "params": params},
+        key,
+        {
+            "tool": tool_name,
+            "safety_class": safety_class,
+            "params": params,
+            "exp": expires_at,
+            "nonce": secrets.token_urlsafe(12),
+        },
     )
     elicitation = ElicitRequest(
         method="elicitation/create",
@@ -153,11 +171,25 @@ class ApprovalMiddleware(Middleware):
     No-op when none of the above apply (the gate auto-approves).
     """
 
-    def __init__(self, approval: ApprovalGate) -> None:
+    # Cap the spent-nonce set so a flood of approvals cannot grow it without
+    # bound; expired entries are pruned on every accepted continuation.
+    _MAX_USED = 10_000
+
+    def __init__(
+        self,
+        approval: ApprovalGate,
+        *,
+        ttl_seconds: float = _DEFAULT_TTL_SECONDS,
+        clock: Callable[[], float] = time.time,
+    ) -> None:
         self._approval = approval
         # Per-process key: a restart invalidates in-flight approvals, which
         # fails closed (the client is asked again).
         self._state_key = secrets.token_bytes(32)
+        self._ttl = ttl_seconds
+        self._clock = clock
+        # nonce -> exp of each approval already spent (replay prevention).
+        self._used: dict[str, float] = {}
 
     async def on_call_tool(self, context: MiddlewareContext, call_next: Any) -> Any:
         if APPROVAL_PRECLEARED.get():
@@ -242,6 +274,7 @@ class ApprovalMiddleware(Middleware):
                 safety_class,
                 context.message.arguments or {},
                 key=self._state_key,
+                expires_at=self._clock() + self._ttl,
             )
 
         # Continuation round: the client has answered. Read the approve field.
@@ -252,10 +285,11 @@ class ApprovalMiddleware(Middleware):
             approved = bool(content.get("approve", False))
 
         # #876: the answer only counts for the exact call it was asked about.
-        if approved and not self._state_matches(context, fctx):
+        if approved and not self._state_matches(context, fctx, safety_class):
             raise PreconditionError(
                 f"'{context.message.name}' continuation does not match the approved "
-                "call (missing, tampered, or different tool/params). Call the tool "
+                "call (missing, tampered, expired, already used, or different "
+                "tool/params/safety class). Call the tool "
                 "again without input responses to request a fresh approval.",
                 required="human_approval",
                 error=ErrorCode.APPROVAL_DENIED,
@@ -275,14 +309,41 @@ class ApprovalMiddleware(Middleware):
         # gates still run in its body (the guard does not duplicate them).
         return await call_next(context)
 
-    def _state_matches(self, context: MiddlewareContext, fctx: Any) -> bool:
-        """True when the sealed ``request_state`` names this tool and params."""
+    def _state_matches(self, context: MiddlewareContext, fctx: Any, safety_class: str) -> bool:
+        """True when the sealed ``request_state`` names this tool, params and
+        safety class, has not expired, and its nonce is unspent. Spends the
+        nonce on success, so the same approval cannot run the tool twice.
+        """
         payload = unseal_request_state(self._state_key, getattr(fctx, "request_state", None))
         if payload is None:
             return False
         params = payload.get("params")
         if payload.get("tool") != context.message.name or not isinstance(params, dict):
             return False
-        return hmac.compare_digest(
+        if payload.get("safety_class") != safety_class:
+            return False
+        if not hmac.compare_digest(
             canonical_args(params), canonical_args(context.message.arguments or {})
-        )
+        ):
+            return False
+        exp = payload.get("exp")
+        nonce = payload.get("nonce")
+        # bool is an int subclass; a sealed True is not an expiry.
+        if isinstance(exp, bool) or not isinstance(exp, (int, float)):
+            return False
+        if not isinstance(nonce, str) or not nonce:
+            return False
+        now = self._clock()
+        if exp < now or nonce in self._used:
+            return False
+        self._used[nonce] = float(exp)
+        self._prune(now)
+        while len(self._used) > self._MAX_USED:
+            # Drop the oldest-inserted entry; it expires soonest.
+            self._used.pop(next(iter(self._used)))
+        return True
+
+    def _prune(self, now: float) -> None:
+        """Drop spent nonces whose approval has expired (it can't verify anyway)."""
+        for nonce in [n for n, exp in self._used.items() if exp < now]:
+            self._used.pop(nonce, None)

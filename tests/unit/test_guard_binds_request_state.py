@@ -7,6 +7,9 @@ approval for one set of arguments therefore authorizes any other set.
 
 from __future__ import annotations
 
+import json
+import secrets
+import time
 from types import SimpleNamespace
 from typing import Any
 
@@ -42,10 +45,36 @@ _ARGS = {"parent_path": ".", "node_type": "Node2D", "node_name": "X"}
 
 
 def _sealed(
-    middleware: ApprovalMiddleware, params: dict[str, Any], *, key: bytes | None = None
+    middleware: ApprovalMiddleware,
+    params: dict[str, Any],
+    *,
+    key: bytes | None = None,
+    tool: str = _TOOL,
+    safety_class: str = "mutating",
 ) -> str:
-    payload = {"tool": _TOOL, "safety_class": "mutating", "params": params}
+    """A correctly signed, unexpired, unused state, so each test varies one field."""
+    payload = {
+        "tool": tool,
+        "safety_class": safety_class,
+        "params": params,
+        "exp": time.time() + 120.0,
+        "nonce": secrets.token_urlsafe(12),
+    }
     return seal_request_state(key or middleware._state_key, payload)  # noqa: SLF001
+
+
+async def _first_round_state(middleware: ApprovalMiddleware, arguments: dict[str, Any]) -> str:
+    """Seal state through the real first round (no input responses yet)."""
+    context = _context(arguments=arguments, request_state=None)
+    context.fastmcp_context.input_responses = None
+
+    async def call_next(_ctx: Any) -> str:
+        raise AssertionError("the first round must ask, not run")
+
+    result = await middleware.on_call_tool(context, call_next)
+    state = result.input_required.request_state
+    assert isinstance(state, str)
+    return state
 
 
 async def _run(middleware: ApprovalMiddleware, context: Any) -> list[bool]:
@@ -120,5 +149,71 @@ async def test_non_ascii_signature_is_a_structured_denial() -> None:
     middleware = ApprovalMiddleware(ApprovalGate(require_approval=True))
     state = _sealed(middleware, dict(_ARGS)).replace('"sig": "', '"sig": "caf\u00e9')
     context = _context(arguments=dict(_ARGS), request_state=state)
+    with pytest.raises(ToolError, match=_MISMATCH):
+        await _run(middleware, context)
+
+
+async def test_approval_for_other_tool_does_not_run_the_tool() -> None:
+    """Identical args, different tool: only the tool half of the binding refuses it."""
+    middleware = ApprovalMiddleware(ApprovalGate(require_approval=True))
+    state = _sealed(middleware, dict(_ARGS), tool="godot_scene_edit_rename_node")
+    context = _context(arguments=dict(_ARGS), request_state=state)
+    with pytest.raises(ToolError, match=_MISMATCH):
+        await _run(middleware, context)
+
+
+async def test_state_sealed_for_another_safety_class_does_not_run_the_tool() -> None:
+    """The sealed class must equal the class recomputed for the continuation."""
+    middleware = ApprovalMiddleware(ApprovalGate(require_approval=True))
+    state = _sealed(middleware, dict(_ARGS), safety_class="read_only")
+    context = _context(arguments=dict(_ARGS), request_state=state)
+    with pytest.raises(ToolError, match=_MISMATCH):
+        await _run(middleware, context)
+
+
+async def test_first_use_of_a_sealed_state_runs_the_tool() -> None:
+    middleware = ApprovalMiddleware(ApprovalGate(require_approval=True))
+    state = await _first_round_state(middleware, dict(_ARGS))
+    context = _context(arguments=dict(_ARGS), request_state=state)
+    assert await _run(middleware, context) == [True]
+
+
+async def test_replayed_state_does_not_run_the_tool_twice() -> None:
+    middleware = ApprovalMiddleware(ApprovalGate(require_approval=True))
+    state = await _first_round_state(middleware, dict(_ARGS))
+    assert await _run(middleware, _context(arguments=dict(_ARGS), request_state=state)) == [True]
+    with pytest.raises(ToolError, match=_MISMATCH):
+        await _run(middleware, _context(arguments=dict(_ARGS), request_state=state))
+
+
+async def test_expired_state_does_not_run_the_tool() -> None:
+    now = [1_000.0]
+    middleware = ApprovalMiddleware(ApprovalGate(require_approval=True), clock=lambda: now[0])
+    state = await _first_round_state(middleware, dict(_ARGS))
+    now[0] += 121.0
+    context = _context(arguments=dict(_ARGS), request_state=state)
+    with pytest.raises(ToolError, match=_MISMATCH):
+        await _run(middleware, context)
+
+
+async def test_lone_surrogate_signature_is_a_structured_denial() -> None:
+    """json.loads accepts "\\ud800"; it must deny, not raise UnicodeEncodeError."""
+    middleware = ApprovalMiddleware(ApprovalGate(require_approval=True))
+    payload = json.loads(_sealed(middleware, dict(_ARGS)))
+    payload["sig"] = "\ud800"
+    context = _context(arguments=dict(_ARGS), request_state=json.dumps(payload))
+    with pytest.raises(ToolError, match=_MISMATCH):
+        await _run(middleware, context)
+
+
+async def test_deeply_nested_state_is_a_structured_denial() -> None:
+    """json.loads raises RecursionError on deep nesting; it must deny instead.
+
+    The depth must exceed the C decoder's own limit (5000 levels still parses on
+    CPython 3.13), or the test never reaches the RecursionError path.
+    """
+    middleware = ApprovalMiddleware(ApprovalGate(require_approval=True))
+    depth = 100_000
+    context = _context(arguments=dict(_ARGS), request_state="[" * depth + "]" * depth)
     with pytest.raises(ToolError, match=_MISMATCH):
         await _run(middleware, context)

@@ -16,6 +16,7 @@ the issue specifies); a client-side elicitation handler supplies the verdict.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import pytest
@@ -206,11 +207,11 @@ async def test_guard_request_state_carries_tool_and_params(
     states: list[tuple[bytes, str]] = []
     real_build = approval_middleware._build_input_required
 
-    def spy(*args: Any, key: bytes) -> Any:
-        result = real_build(*args, key=key)
+    def spy(*args: Any, **kwargs: Any) -> Any:
+        result = real_build(*args, **kwargs)
         state = result.input_required.request_state
         assert state is not None  # narrowed for mypy
-        states.append((key, state))
+        states.append((kwargs["key"], state))
         return result
 
     monkeypatch.setattr(approval_middleware, "_build_input_required", spy)
@@ -232,6 +233,10 @@ async def test_guard_request_state_carries_tool_and_params(
     assert "Player" in captured["message"]
     key, state = states[-1]
     payload = approval_middleware.unseal_request_state(key, state)
+    assert payload is not None
+    # exp/nonce make each approval expiring and single-use (#894 review).
+    assert isinstance(payload.pop("exp"), float)
+    assert isinstance(payload.pop("nonce"), str)
     assert payload == {
         "tool": "godot_scene_edit_create_node",
         "safety_class": "mutating",
@@ -246,15 +251,16 @@ async def test_guard_denies_tampered_request_state(monkeypatch: pytest.MonkeyPat
     server, conn = _build(approval=gate)
     real_build = approval_middleware._build_input_required
 
-    def tamper(*args: Any, key: bytes) -> Any:
-        result = real_build(*args, key=key)
+    def tamper(*args: Any, **kwargs: Any) -> Any:
+        result = real_build(*args, **kwargs)
         state = result.input_required.request_state
         assert state is not None  # narrowed for mypy
-        # Keep the signature and the tool/params, edit only a sealed field the
-        # binding check does not compare: the HMAC is the only thing that can catch it.
-        tampered = state.replace('"safety_class": "mutating"', '"safety_class": "read_only"')
-        assert tampered != state
-        result.input_required.request_state = tampered
+        # Rewrite a sealed field and keep the stale sig. Parsing (not string
+        # replacement) keeps the tamper independent of the serialization format.
+        sealed = json.loads(state)
+        assert sealed["safety_class"] == "mutating"
+        sealed["safety_class"] = "read_only"
+        result.input_required.request_state = json.dumps(sealed)
         return result
 
     monkeypatch.setattr(approval_middleware, "_build_input_required", tamper)
