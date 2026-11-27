@@ -17,6 +17,9 @@ const Router := preload("res://addons/godot_mcp/command_router.gd")
 
 # Short addon-side timeout so the TIMEOUT path runs in a smoke, not in 115s.
 const TEST_TIMEOUT_SEC := 0.1
+# Cases that complete use a long timeout: the first frames' startup delta can
+# exceed TEST_TIMEOUT_SEC and would time them out before they complete.
+const COMPLETING_TIMEOUT_SEC := 30.0
 
 
 func _initialize() -> void:
@@ -29,7 +32,7 @@ func _initialize() -> void:
 func _run() -> void:
 	var failures: Array[String] = []
 	var router: MCPCommandRouter = Router.new()
-	router.deferred_timeout_sec = TEST_TIMEOUT_SEC
+	router.deferred_timeout_sec = COMPLETING_TIMEOUT_SEC
 	# Test handlers: one defers and is completed later by the test; one defers
 	# and then answers immediately anyway (must not leak a later TIMEOUT).
 	router._handlers["cmd_test_deferred"] = func(_params: Dictionary) -> Dictionary:
@@ -37,6 +40,23 @@ func _run() -> void:
 	router._handlers["cmd_test_defer_then_answer"] = func(_params: Dictionary) -> Dictionary:
 		router.defer()
 		return router._ok({"answered": "now"})
+	# Defers, completes synchronously, then returns a body too: one response only.
+	router._handlers["cmd_test_complete_then_return"] = func(_params: Dictionary) -> Dictionary:
+		var m: Dictionary = router.defer()
+		if not router.is_deferred(m):
+			return m
+		router.complete(router._current_id, router._ok({"via": "complete"}))
+		return router._ok({"via": "return"})
+	# Records whether its work started, and completes synchronously when it does:
+	# inside run_commands it must be refused before the work starts.
+	var work_started: Array[bool] = [false]
+	router._handlers["cmd_test_deferred_sync"] = func(_params: Dictionary) -> Dictionary:
+		var m: Dictionary = router.defer()
+		if not router.is_deferred(m):
+			return m
+		work_started[0] = true
+		router.complete(router._current_id, router._ok({"done": true}))
+		return m
 	var bridge: MCPBridge = Bridge.new(router)
 	var peer := Recorder.new()
 	bridge._peer = peer
@@ -61,7 +81,9 @@ func _run() -> void:
 	_eq(failures, "deferred: nothing sent before completion", peer.sent.size(), 0)
 	_eq(failures, "deferred: no command_completed before completion", completions.size(), 0)
 	_eq(failures, "deferred: request is pending", router.has_pending("d1"), true)
-	OS.delay_msec(5)
+	var d1_timer: SceneTreeTimer = (router._pending_deferred.get("d1", {}) as Dictionary).get("timer", null)
+	_eq(failures, "deferred: the pending entry holds its timeout timer", d1_timer != null, true)
+	await _wait(0.01)
 	var first: bool = router.complete("d1", router._ok({"baked": true}))
 	_eq(failures, "complete() accepts the pending id", first, true)
 	_eq(failures, "deferred: one response after completion", peer.sent.size(), 1)
@@ -80,6 +102,16 @@ func _run() -> void:
 	var second: bool = router.complete("d1", router._ok({"baked": "again"}))
 	_eq(failures, "a second complete() for the same id is refused", second, false)
 	_eq(failures, "still exactly one response for d1", peer.sent.size(), 1)
+	if d1_timer != null:
+		_eq(failures, "complete() disconnects the timeout timer", d1_timer.timeout.get_connections().size(), 0)
+	peer.sent.clear()
+	completions.clear()
+
+	# 1b. Defer, complete() synchronously, then return a body: exactly one response.
+	bridge._handle_text(JSON.stringify({"id": "c1", "command": "cmd_test_complete_then_return", "params": {}}))
+	_eq(failures, "complete-then-return: exactly one response", peer.sent.size(), 1)
+	if peer.sent.size() == 1:
+		_eq(failures, "complete-then-return: the complete() body wins", _parse(peer.sent[0]).get("result", {}), {"via": "complete"})
 	peer.sent.clear()
 	completions.clear()
 
@@ -88,27 +120,61 @@ func _run() -> void:
 	_eq(failures, "defer-then-answer: one immediate reply", peer.sent.size(), 1)
 	_eq(failures, "defer-then-answer: nothing pending", router.has_pending("a1"), false)
 
+	peer.sent.clear()
+	completions.clear()
+
 	# 3. A deferred sub-command inside run_commands cannot answer later (the batch
-	# answers now): it is refused in place and leaves nothing pending.
+	# answers now): defer() refuses it before the work starts, nothing is left
+	# pending, and the batch sends its one reply with the refusal in the sub-result.
 	bridge._handle_text(JSON.stringify({"id": "b1", "command": "cmd_run_commands", "params": {
-		"commands": [{"command": "cmd_test_deferred", "params": {}}],
+		"commands": [{"command": "cmd_test_deferred_sync", "params": {}}],
 	}}))
+	_eq(failures, "batch: the deferred sub-command's work never started", work_started[0], false)
 	_eq(failures, "batch: nothing pending", router.has_pending("b1"), false)
+	_eq(failures, "batch: exactly one response for b1", peer.sent.size(), 1)
+	if peer.sent.size() == 1:
+		var b := _parse(peer.sent[0])
+		_eq(failures, "batch: reply id", str(b.get("id", "")), "b1")
+		var results: Array = (b.get("result", {}) as Dictionary).get("results", [])
+		_eq(failures, "batch: one sub-result", results.size(), 1)
+		if results.size() == 1:
+			var r: Dictionary = results[0]
+			_eq(failures, "batch: sub-result refused", r.get("ok", true), false)
+			_eq(failures, "batch: sub-result VALIDATION_ERROR", str(r.get("error", "")), "VALIDATION_ERROR")
+			if not str(r.get("hint", "")).contains("call it on its own"):
+				failures.append("batch: sub-result hint should say to call it on its own, got %s" % str(r.get("hint", "")))
+	peer.sent.clear()
+	completions.clear()
+
+	router.deferred_timeout_sec = TEST_TIMEOUT_SEC
+	# 3b. Id reuse inside the stale timer's window: the first request's timer must
+	# not fail the second; exactly one TIMEOUT arrives, for the live request.
+	bridge._handle_text(JSON.stringify({"id": "r1", "command": "cmd_test_deferred", "params": {}}))
+	router.complete("r1", router._ok({"first": true}))
+	bridge._handle_text(JSON.stringify({"id": "r1", "command": "cmd_test_deferred", "params": {}}))
+	await _wait(TEST_TIMEOUT_SEC * 1.5)
+	var r1_timeouts := completions.filter(func(c: Dictionary) -> bool: return c["error"] == "TIMEOUT")
+	_eq(failures, "id reuse: exactly one TIMEOUT", r1_timeouts.size(), 1)
+	_eq(failures, "id reuse: two responses in all (complete + TIMEOUT)", peer.sent.size(), 2)
+	await _wait(TEST_TIMEOUT_SEC * 2.0)
+	_eq(failures, "id reuse: still two responses later", peer.sent.size(), 2)
+	peer.sent.clear()
+	completions.clear()
 
 	# 4. Never completed: the addon-side timer fails it with TIMEOUT, once.
 	bridge._handle_text(JSON.stringify({"id": "t1", "command": "cmd_test_deferred", "params": {}}))
-	_eq(failures, "timeout: nothing sent yet", peer.sent.size(), 2)
+	_eq(failures, "timeout: nothing sent yet", peer.sent.size(), 0)
 	await _wait(TEST_TIMEOUT_SEC * 4.0)
-	_eq(failures, "timeout: exactly one more response", peer.sent.size(), 3)
-	if peer.sent.size() == 3:
-		var t := _parse(peer.sent[2])
+	_eq(failures, "timeout: exactly one response", peer.sent.size(), 1)
+	if peer.sent.size() == 1:
+		var t := _parse(peer.sent[0])
 		_eq(failures, "timeout: same id", str(t.get("id", "")), "t1")
 		_eq(failures, "timeout: ok false", t.get("ok", true), false)
 		_eq(failures, "timeout: TIMEOUT code", str(t.get("error", "")), "TIMEOUT")
 		if str(t.get("hint", "")).is_empty():
 			failures.append("timeout: response carries no hint")
 	_eq(failures, "timeout: complete() after the timeout is refused", router.complete("t1", router._ok({})), false)
-	_eq(failures, "timeout: still one response for t1", peer.sent.size(), 3)
+	_eq(failures, "timeout: still one response for t1", peer.sent.size(), 1)
 	var timeouts := completions.filter(func(c: Dictionary) -> bool: return c["error"] == "TIMEOUT")
 	_eq(failures, "timeout: one TIMEOUT command_completed", timeouts.size(), 1)
 	peer.sent.clear()
