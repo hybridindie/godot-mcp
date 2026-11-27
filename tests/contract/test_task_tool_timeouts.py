@@ -56,7 +56,12 @@ async def _bake_timeout(config: ServerConfig) -> float | None:
     return seen["cmd_bake_navigation_mesh"]
 
 
-async def test_bake_navigation_mesh_uses_a_longer_bridge_timeout() -> None:
+async def test_bake_navigation_mesh_uses_a_longer_bridge_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The real environment must not decide this test (an exported override at or
+    # below the default request timeout would fail it spuriously).
+    monkeypatch.delenv(LONG_REQUEST_TIMEOUT_ENV, raising=False)
     config = ServerConfig()
     bridge = Bridge(config.bridge, connector=connector_for(FakeAddonConnection(_responder)))
     seen: dict[str, float | None] = {}
