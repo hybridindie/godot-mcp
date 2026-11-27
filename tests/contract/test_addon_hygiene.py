@@ -25,10 +25,43 @@ PLUGIN_GD = ADDON_DIR / "godot_mcp.gd"
 _BARE_PRINT = re.compile(r"(?<![\w.])print\(")
 
 
+# ``Vector2(float(`` even when a formatter wraps it across lines.
+_INLINE_VECTOR2 = re.compile(r"Vector2\(\s*float\(")
+
+
+def _strip_code(line: str) -> str:
+    """One GDScript line with string-literal contents blanked and any ``#`` comment
+    removed, so a ``#`` or ``print(`` inside a string can't fool the scans."""
+    out: list[str] = []
+    quote = ""
+    i = 0
+    while i < len(line):
+        ch = line[i]
+        if quote:
+            if ch == "\\":
+                out.append("  ")
+                i += 2
+                continue
+            if ch == quote:
+                quote = ""
+                out.append(ch)
+            else:
+                out.append(" ")
+        elif ch in "\"'":
+            quote = ch
+            out.append(ch)
+        elif ch == "#":
+            break
+        else:
+            out.append(ch)
+        i += 1
+    return "".join(out)
+
+
 def _code_lines(path: Path) -> list[tuple[int, str]]:
-    """Source lines with ``#`` comments stripped, numbered from 1."""
+    """Source lines with strings blanked and comments stripped, numbered from 1."""
     return [
-        (n, line.split("#", 1)[0])
+        (n, _strip_code(line))
         for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
     ]
 
@@ -45,8 +78,8 @@ def test_debugger_multi_session_warning_uses_push_warning() -> None:
 
 
 def test_input_injection_coerces_through_type_coerce() -> None:
-    hits = [f"{PROBE_GD.name}:{n}" for n, code in _code_lines(PROBE_GD) if "Vector2(float(" in code]
-    assert not hits, f"inline Vector2 coercion (use Coerce.from_json): {hits}"
+    code = "\n".join(line for _, line in _code_lines(PROBE_GD))
+    assert not _INLINE_VECTOR2.search(code), "inline Vector2 coercion (use Coerce.from_json)"
 
 
 def test_plugin_header_describes_bridge_as_client() -> None:
@@ -54,3 +87,26 @@ def test_plugin_header_describes_bridge_as_client() -> None:
     header = " ".join(line.lstrip("#").strip() for line in lines if line.startswith("##"))
     assert "localhost WebSocket server" not in header
     assert "WebSocket client" in header
+
+
+# -- scanner self-tests (review of #924): the scans must not be fooled by strings --
+
+
+def test_scanner_keeps_code_after_a_hash_inside_a_string() -> None:
+    code = _strip_code('var s := "#abc"; print("dbg")')
+    assert _BARE_PRINT.search(code), "a '#' inside a string must not hide the print after it"
+
+
+def test_scanner_ignores_print_inside_a_string() -> None:
+    code = _strip_code('push_warning("use push_error, not print(\\"dbg\\")")')
+    assert not _BARE_PRINT.search(code), "print( inside a message string is not a bare print"
+
+
+def test_scanner_catches_a_wrapped_inline_vector2() -> None:
+    src = (
+        "motion.relative = Vector2(\n"
+        '\tfloat(d.get("relative_x", 0.0)),\n'
+        '\tfloat(d.get("relative_y", 0.0))\n'
+        ")"
+    )
+    assert _INLINE_VECTOR2.search("\n".join(_strip_code(line) for line in src.splitlines()))
