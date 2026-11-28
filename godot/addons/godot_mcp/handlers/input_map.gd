@@ -50,8 +50,7 @@ func _cmd_add_input_action(params: Dictionary) -> Dictionary:
 	if ProjectSettings.has_setting(setting_key):
 		return _router._fail("VALIDATION_ERROR", "Action '%s' already exists." % action_name)
 	var action_data: Dictionary = {"deadzone": deadzone, "events": []}
-	ProjectSettings.set_setting(setting_key, action_data)
-	ProjectSettings.save()
+	_commit_action_change("Add input action %s" % action_name, action_name, null, action_data)
 	return _router._ok({"name": action_name, "added": true, "deadzone": deadzone})
 
 
@@ -65,13 +64,8 @@ func _cmd_remove_input_action(params: Dictionary) -> Dictionary:
 	var setting_key := "input/" + action_name
 	if not ProjectSettings.has_setting(setting_key):
 		return _router._fail("RESOURCE_NOT_FOUND", "No input action '%s'." % action_name)
-	ProjectSettings.set_setting(setting_key, null)
-	ProjectSettings.save()
-	# Clear runtime InputMap state so the editor session stays consistent.
-	if InputMap.has_action(action_name):
-		for ev in InputMap.action_get_events(action_name):
-			InputMap.action_erase_event(action_name, ev)
-		InputMap.erase_action(action_name)
+	var old_data: Dictionary = _read_action(setting_key)
+	_commit_action_change("Remove input action %s" % action_name, action_name, old_data, null)
 	return _router._ok({"name": action_name, "removed": true})
 
 
@@ -83,7 +77,8 @@ func _cmd_add_input_event(params: Dictionary) -> Dictionary:
 	var setting_key := "input/" + action_name
 	if not ProjectSettings.has_setting(setting_key):
 		return _router._fail("RESOURCE_NOT_FOUND", "No input action '%s'." % action_name)
-	var action_data: Dictionary = ProjectSettings.get_setting(setting_key)
+	var old_data: Dictionary = _read_action(setting_key)
+	var action_data: Dictionary = old_data.duplicate(true)
 	var events: Array = action_data.get("events", [])
 	var event_type := str(params.get("event_type", ""))
 	var ev: InputEvent = null
@@ -137,12 +132,7 @@ func _cmd_add_input_event(params: Dictionary) -> Dictionary:
 		return _router._fail("INTERNAL_ERROR", "Failed to build input event.")
 	events.append(ev)
 	action_data["events"] = events
-	ProjectSettings.set_setting(setting_key, action_data)
-	ProjectSettings.save()
-	# InputMap reflects runtime state; update the runtime action too.
-	if not InputMap.has_action(action_name):
-		InputMap.add_action(action_name, action_data["deadzone"] if "deadzone" in action_data else 0.5)
-	InputMap.action_add_event(action_name, ev)
+	_commit_action_change("Add input event to %s" % action_name, action_name, old_data, action_data)
 	return _router._ok({"action": action_name, "event_index": events.size() - 1, "added": true})
 
 
@@ -156,14 +146,70 @@ func _cmd_clear_input_action_events(params: Dictionary) -> Dictionary:
 	var setting_key := "input/" + action_name
 	if not ProjectSettings.has_setting(setting_key):
 		return _router._fail("RESOURCE_NOT_FOUND", "No input action '%s'." % action_name)
-	var action_data: Dictionary = ProjectSettings.get_setting(setting_key)
+	var old_data: Dictionary = _read_action(setting_key)
+	var action_data: Dictionary = old_data.duplicate(true)
 	action_data["events"] = []
-	ProjectSettings.set_setting(setting_key, action_data)
-	ProjectSettings.save()
-	# Clear runtime InputMap events too.
-	if InputMap.has_action(action_name):
-		for ev in InputMap.action_get_events(action_name):
-			InputMap.action_erase_event(action_name, ev)
+	_commit_action_change("Clear input events of %s" % action_name, action_name, old_data, action_data)
 	return _router._ok({"action": action_name, "cleared": true})
 
 
+# -- undo plumbing (issue #907) ------------------------------------------------
+
+## A private copy of the stored action: ProjectSettings hands back the Dictionary
+## it holds, so editing it in place would also rewrite the undo snapshot. The
+## InputEvent objects are shared, which is fine — no writer mutates an event.
+func _read_action(setting_key: String) -> Dictionary:
+	var data: Dictionary = ProjectSettings.get_setting(setting_key)
+	return data.duplicate(true)
+
+
+## Register one undoable action that swaps the `input/<action>` setting between
+## `old_value` and `new_value` (null erases the setting). Godot's own Input Map
+## editor makes these edits undoable the same way. The scene-root context puts the
+## action on the history godot_undo reads (#640); with no scene it stays global.
+func _commit_action_change(label: String, action_name: String, old_value: Variant, new_value: Variant) -> void:
+	var ur := EditorInterface.get_editor_undo_redo()
+	ur.create_action(label, UndoRedo.MERGE_DISABLE, _router.asset_action_context())
+	ur.add_do_method(self, "_apply_action", action_name, new_value)
+	ur.add_undo_method(self, "_apply_action", action_name, old_value)
+	ur.commit_action()
+
+
+## Both sides of every input-map action: write + persist the setting, then mirror
+## it into the editor's runtime InputMap so the session stays consistent.
+func _apply_action(action_name: String, value: Variant) -> void:
+	if value == null:
+		ProjectSettings.set_setting("input/" + action_name, null)
+		ProjectSettings.save()
+		if InputMap.has_action(action_name):
+			InputMap.erase_action(action_name)
+		return
+	# A fresh copy on every apply: the value bound into the undo history must never
+	# be the object the setting or InputMap hold, or a later edit to the live action
+	# would rewrite what undo/redo restores (#921 review).
+	var data: Dictionary = _copy_action(value)
+	ProjectSettings.set_setting("input/" + action_name, data)
+	ProjectSettings.save()
+	var events: Array = data.get("events", [])
+	if not InputMap.has_action(action_name):
+		# Match the pre-#907 behaviour: an event-less action is settings-only.
+		if events.is_empty():
+			return
+		InputMap.add_action(action_name, float(data.get("deadzone", 0.5)))
+	else:
+		InputMap.action_erase_events(action_name)
+		InputMap.action_set_deadzone(action_name, float(data.get("deadzone", 0.5)))
+	for ev: Variant in events:
+		if ev is InputEvent:
+			InputMap.action_add_event(action_name, ev)
+
+
+## A deep copy of an input-action Dictionary: `duplicate(true)` copies the
+## containers but shares Resources, so each InputEvent is duplicated as well.
+func _copy_action(value: Dictionary) -> Dictionary:
+	var data: Dictionary = value.duplicate(true)
+	var events: Array = []
+	for ev: Variant in value.get("events", []):
+		events.append((ev as InputEvent).duplicate() if ev is InputEvent else ev)
+	data["events"] = events
+	return data
