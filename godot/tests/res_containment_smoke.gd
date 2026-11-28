@@ -33,6 +33,10 @@ const HELPER_ESCAPING := [
 	"user://x.gd",
 	"/etc/x",
 	"",
+	"res:",
+	"RES://x",
+	"res://a//..//../x",
+	"res://./../x",
 ]
 const HELPER_CONTAINED := [
 	"res://",
@@ -43,6 +47,7 @@ const HELPER_CONTAINED := [
 	"res://a//b.gd",
 	"res://a/b/../../c.gd",
 	"res://ab:c.gd",
+	"res://a/..",
 ]
 
 const ICON := "res://addons/godot_mcp/icon.png"
@@ -107,12 +112,20 @@ const COMMANDS := [
 ]
 
 const PROBE_TEXT := "probe\n"
+const PROBE_RESOURCE := "[gd_resource type=\"Resource\" format=3]\n\n[resource]\n"
+
+const PROJECT_FILE := "res://project.godot"
 
 var _probe_dir := ""
+## project.godot's bytes before the run, restored before quitting so a regressed
+## guard (e.g. cmd_register_autoload's ProjectSettings.save fallback) cannot
+## leave the tracked file modified.
+var _project_bytes := PackedByteArray()
 
 
 func _initialize() -> void:
 	var failures: Array[String] = []
+	_project_bytes = FileAccess.get_file_as_bytes(PROJECT_FILE)
 	_probe_dir = OS.get_cache_dir().path_join("mcp_res_containment")
 	DirAccess.make_dir_recursive_absolute(_probe_dir)
 	var router := Router.new()
@@ -120,6 +133,8 @@ func _initialize() -> void:
 	_test_handlers(router, failures)
 	_test_cross_scene(router, failures)
 	_test_contained(router, failures)
+	_test_object_from_json(failures)
+	_cleanup(failures)
 
 	if failures.is_empty():
 		print("RES_CONTAINMENT_TEST_OK")
@@ -245,6 +260,41 @@ func _test_contained(router: RefCounted, failures: Array[String]) -> void:
 		var body: Dictionary = router.call("handle", {"id": "2", "command": c[0], "params": c[1]})
 		if str(body.get("error", "")) != "RESOURCE_NOT_FOUND":
 			failures.append("%s contained path: expected RESOURCE_NOT_FOUND, got %s" % [c[0], str(body)])
+
+
+## The Object-property sink (cmd_set_node_property values, cmd_compose_node /
+## cmd_batch_create_nodes properties) loads a res:// value through
+## MCPTypeCoerce.object_from_json. The probe is a loadable resource, so a
+## missing check would return ok with the outside resource loaded.
+func _test_object_from_json(failures: Array[String]) -> void:
+	for pair: Array in _escaping_paths(".tres"):
+		var path: String = pair[0]
+		var probe: String = pair[1]
+		if probe != "":
+			_write(probe, PROBE_RESOURCE)
+		var coerced: Dictionary = MCPTypeCoerce.object_from_json(path)
+		var label := "object_from_json('%s')" % path
+		if coerced.get("ok") != false or str(coerced.get("error", "")) != "VALIDATION_ERROR":
+			failures.append("%s: expected VALIDATION_ERROR, got %s" % [label, str(coerced)])
+		elif not str(coerced.get("hint", "")).contains("res://"):
+			failures.append("%s: hint should name the res:// rule, got '%s'" % [label, str(coerced.get("hint", ""))])
+		if probe != "":
+			if FileAccess.get_file_as_string(probe) != PROBE_RESOURCE:
+				failures.append("%s: touched a file outside the project" % label)
+			DirAccess.remove_absolute(probe)
+
+
+func _cleanup(failures: Array[String]) -> void:
+	if FileAccess.get_file_as_bytes(PROJECT_FILE) != _project_bytes:
+		failures.append("project.godot was modified by an escaping path; restored")
+		var f := FileAccess.open(PROJECT_FILE, FileAccess.WRITE)
+		if f != null:
+			f.store_buffer(_project_bytes)
+			f.close()
+	var leftovers := DirAccess.get_files_at(_probe_dir)
+	for file_name: String in leftovers:
+		DirAccess.remove_absolute(_probe_dir.path_join(file_name))
+	DirAccess.remove_absolute(_probe_dir)
 
 
 func _write(abs_path: String, text: String) -> void:
