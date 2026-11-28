@@ -62,6 +62,22 @@ func _initialize() -> void:
 		if events.size() == 1:
 			_eq(failures, "remove.restored.event_is_key", events[0] is InputEventKey, true)
 
+	# Undo payloads stay private (#921 review): the restored event is not the
+	# object held in undo history, so editing the live setting can't rewrite it.
+	if ProjectSettings.has_setting(KEY):
+		var live: Dictionary = ProjectSettings.get_setting(KEY)
+		var live_events: Array = live.get("events", [])
+		if live_events.size() == 1 and live_events[0] is InputEventKey:
+			(live_events[0] as InputEventKey).keycode = KEY_A
+			_eq(failures, "alias.redo", _redo(), true)  # remove again
+			_eq(failures, "alias.undo", _undo(), true)  # restore from history
+			var restored: Dictionary = ProjectSettings.get_setting(KEY, {})
+			var restored_events: Array = restored.get("events", [])
+			var keycode := -1
+			if restored_events.size() == 1 and restored_events[0] is InputEventKey:
+				keycode = int((restored_events[0] as InputEventKey).keycode)
+			_eq(failures, "alias.restored_keycode", keycode, int(KEY_SPACE))
+
 	var ur := _global_history()
 	if ur != null:
 		ur.clear_history()
@@ -92,6 +108,11 @@ func _global_history() -> UndoRedo:
 func _undo() -> bool:
 	var ur := _global_history()
 	return ur != null and ur.undo()
+
+
+func _redo() -> bool:
+	var ur := _global_history()
+	return ur != null and ur.redo()
 
 
 func _event_count() -> int:

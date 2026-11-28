@@ -10,6 +10,7 @@ router inside an editor process and undoes it; the server tests pin the
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -23,12 +24,20 @@ from tests.fakes import FakeAddonConnection, connector_for
 from tests.integration._godot import GODOT_BIN, run_godot
 
 SMOKE = "input_map_undo_smoke.gd"
+PROJECT_GODOT = Path(__file__).resolve().parents[2] / "godot" / "project.godot"
 
 
 @pytest.mark.skipif(GODOT_BIN is None, reason="Godot binary not installed")
 def test_input_map_undo_smoke_reverts_every_writer() -> None:
     """Undo on the editor history reverts add/remove action, add event and clear."""
-    result = run_godot(["--editor", "--script", f"res://tests/{SMOKE}"])
+    # The smoke saves the git-tracked project.godot while it runs; restore it even
+    # if Godot is killed or the script dies mid-run (#921 review).
+    snapshot = PROJECT_GODOT.read_bytes()
+    try:
+        result = run_godot(["--editor", "--script", f"res://tests/{SMOKE}"])
+    finally:
+        if PROJECT_GODOT.read_bytes() != snapshot:
+            PROJECT_GODOT.write_bytes(snapshot)
     output = result.stdout + result.stderr
     assert "INPUT_MAP_UNDO_TEST_OK" in output, (
         f"input-map undo smoke did not pass (exit {result.returncode}):\n{output}"

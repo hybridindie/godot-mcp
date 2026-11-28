@@ -178,13 +178,18 @@ func _commit_action_change(label: String, action_name: String, old_value: Varian
 ## Both sides of every input-map action: write + persist the setting, then mirror
 ## it into the editor's runtime InputMap so the session stays consistent.
 func _apply_action(action_name: String, value: Variant) -> void:
-	ProjectSettings.set_setting("input/" + action_name, value)
-	ProjectSettings.save()
 	if value == null:
+		ProjectSettings.set_setting("input/" + action_name, null)
+		ProjectSettings.save()
 		if InputMap.has_action(action_name):
 			InputMap.erase_action(action_name)
 		return
-	var data: Dictionary = value
+	# A fresh copy on every apply: the value bound into the undo history must never
+	# be the object the setting or InputMap hold, or a later edit to the live action
+	# would rewrite what undo/redo restores (#921 review).
+	var data: Dictionary = _copy_action(value)
+	ProjectSettings.set_setting("input/" + action_name, data)
+	ProjectSettings.save()
 	var events: Array = data.get("events", [])
 	if not InputMap.has_action(action_name):
 		# Match the pre-#907 behaviour: an event-less action is settings-only.
@@ -197,3 +202,14 @@ func _apply_action(action_name: String, value: Variant) -> void:
 	for ev: Variant in events:
 		if ev is InputEvent:
 			InputMap.action_add_event(action_name, ev)
+
+
+## A deep copy of an input-action Dictionary: `duplicate(true)` copies the
+## containers but shares Resources, so each InputEvent is duplicated as well.
+func _copy_action(value: Dictionary) -> Dictionary:
+	var data: Dictionary = value.duplicate(true)
+	var events: Array = []
+	for ev: Variant in value.get("events", []):
+		events.append((ev as InputEvent).duplicate() if ev is InputEvent else ev)
+	data["events"] = events
+	return data
