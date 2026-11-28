@@ -26,6 +26,9 @@ func register(handlers: Dictionary) -> void:
 # -- handlers ----------------------------------------------------------------
 
 func _cmd_create_theme(params: Dictionary) -> Dictionary:
+	var path_error := MCPHelpers.optional_res_path_error(str(params.get("save_path", "")))
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	var found := _router._resolve(params.get("node_path", ""))
 	if not found["ok"]:
 		return found
@@ -35,8 +38,6 @@ func _cmd_create_theme(params: Dictionary) -> Dictionary:
 	var theme := Theme.new()
 	var save_path := str(params.get("save_path", ""))
 	if not save_path.is_empty():
-		if not save_path.begins_with("res://"):
-			return _router._fail("VALIDATION_ERROR", "save_path must be a res:// path.")
 		var err := ResourceSaver.save(theme, save_path)
 		if err != OK:
 			return _router._fail("INTERNAL_ERROR", "Failed to save theme to '%s' (error %d)." % [save_path, err])

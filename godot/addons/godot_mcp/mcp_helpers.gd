@@ -29,6 +29,19 @@ const UNDO_THRESHOLD := 20
 
 # -- file system helpers (shared by scripts, shaders, resources) --------------
 
+## "" when `path` is a res:// path contained in the project root, else a
+## specific hint for a VALIDATION_ERROR (issue #909). The contract-C1 name the
+## handlers call; the normaliser itself lives in the dependency-free leaf
+## mcp_paths.gd (MCPPaths), so type_coerce.gd can use it without a cycle.
+static func res_path_error(path: String) -> String:
+	return MCPPaths.res_path_error(path)
+
+
+## res_path_error, but "" for an empty ("not specified") or uid:// value.
+static func optional_res_path_error(path: String) -> String:
+	return MCPPaths.optional_res_path_error(path)
+
+
 ## Write text to a file (creating parent dirs) and tell the editor to re-import it.
 ## Used as the UndoRedo do/undo callback for script writes.
 func write_file_text(path: String, text: String) -> void:

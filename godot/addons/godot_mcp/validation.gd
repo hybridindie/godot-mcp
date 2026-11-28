@@ -70,7 +70,7 @@ static func _check_resource_dependencies(findings: Array, scopes: Array) -> void
 			if dep_path.begins_with("uid://"):
 				var id := ResourceUID.text_to_id(dep_path)
 				dep_path = ResourceUID.get_id_path(id) if id != -1 else ""
-			if dep_path.begins_with("res://") and not FileAccess.file_exists(dep_path):
+			if dep_path.begins_with("res://") and not FileAccess.file_exists(dep_path):  # scheme test, not containment
 				findings.append(_file(path, "Missing dependency '%s'." % dep_path))
 
 

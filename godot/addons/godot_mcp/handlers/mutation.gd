@@ -284,6 +284,9 @@ func _cmd_delete_node(params: Dictionary) -> Dictionary:
 
 
 func _cmd_attach_script(params: Dictionary) -> Dictionary:
+	var path_error := MCPHelpers.optional_res_path_error(str(params.get("script_path", "")))
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	var found := _router._resolve(params.get("node_path", ""))
 	if not found["ok"]:
 		return found
@@ -441,6 +444,9 @@ func _cmd_save_scene(_params: Dictionary) -> Dictionary:
 
 
 func _cmd_create_scene(params: Dictionary) -> Dictionary:
+	var path_error := MCPHelpers.optional_res_path_error(str(params.get("scene_path", "")))
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	var root_type := str(params.get("root_type", ""))
 	var scene_path := str(params.get("scene_path", ""))
 	if not ClassDB.class_exists(root_type) or not ClassDB.can_instantiate(root_type):
