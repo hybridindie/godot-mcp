@@ -53,6 +53,10 @@ func _build_node(
 		if Coerce.values_equal(node.get(prop_name), coerced):
 			set_names.append(prop_name)
 			property_values[prop_name] = coerced
+	var path_error := MCPHelpers.optional_res_path_error(script_path)
+	if path_error != "":
+		node.free()
+		return _router._fail("VALIDATION_ERROR", path_error)
 	if not script_path.is_empty():
 		if not ResourceLoader.exists(script_path):
 			node.free()
@@ -74,6 +78,9 @@ func _maybe_save(params: Dictionary) -> bool:
 # -- handlers ----------------------------------------------------------------
 
 func _cmd_compose_node(params: Dictionary) -> Dictionary:
+	var path_error := MCPHelpers.optional_res_path_error(str(params.get("script_path", "")))
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	var root := EditorInterface.get_edited_scene_root()
 	if root == null:
 		return _router._fail("PRECONDITION_FAILED", "No scene is open.", "active_scene")

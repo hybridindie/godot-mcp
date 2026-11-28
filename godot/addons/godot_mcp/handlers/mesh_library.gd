@@ -28,8 +28,9 @@ func _cmd_create_mesh_library(params: Dictionary) -> Dictionary:
 	var library := MeshLibrary.new()
 	var persistence := {"ok": true}  # a file-only library is already on disk
 	if not save_path.is_empty():
-		if not save_path.begins_with("res://"):
-			return _router._fail("VALIDATION_ERROR", "save_path must be a res:// path.")
+		var path_error := MCPHelpers.res_path_error(save_path)
+		if path_error != "":
+			return _router._fail("VALIDATION_ERROR", path_error)
 		var saved := _save_mesh_library_file(library, save_path)
 		if not saved["ok"]:
 			return saved
@@ -60,6 +61,12 @@ func _cmd_create_mesh_library(params: Dictionary) -> Dictionary:
 
 
 func _cmd_add_mesh_library_item(params: Dictionary) -> Dictionary:
+	var library_error := MCPHelpers.optional_res_path_error(str(params.get("library_path", "")))
+	if library_error != "":
+		return _router._fail("VALIDATION_ERROR", library_error)
+	var mesh_error := MCPHelpers.optional_res_path_error(str(params.get("mesh_path", "")))
+	if mesh_error != "":
+		return _router._fail("VALIDATION_ERROR", mesh_error)
 	var resolved := _resolve_mesh_library(params)
 	if not resolved["ok"]:
 		return resolved

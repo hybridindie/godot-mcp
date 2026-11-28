@@ -36,8 +36,9 @@ func _cmd_create_tileset(params: Dictionary) -> Dictionary:
 	tileset.tile_size = tile_size
 	var persistence := {"ok": true}  # a file-only TileSet is already on disk
 	if not save_path.is_empty():
-		if not save_path.begins_with("res://"):
-			return _router._fail("VALIDATION_ERROR", "save_path must be a res:// path.")
+		var path_error := MCPHelpers.res_path_error(save_path)
+		if path_error != "":
+			return _router._fail("VALIDATION_ERROR", path_error)
 		var saved := _save_tileset_file(tileset, save_path)
 		if not saved["ok"]:
 			return saved
@@ -69,6 +70,12 @@ func _cmd_create_tileset(params: Dictionary) -> Dictionary:
 
 
 func _cmd_add_tileset_atlas_source(params: Dictionary) -> Dictionary:
+	var tileset_error := MCPHelpers.optional_res_path_error(str(params.get("tileset_path", "")))
+	if tileset_error != "":
+		return _router._fail("VALIDATION_ERROR", tileset_error)
+	var texture_error := MCPHelpers.optional_res_path_error(str(params.get("texture_path", "")))
+	if texture_error != "":
+		return _router._fail("VALIDATION_ERROR", texture_error)
 	var resolved := _resolve_tileset(params)
 	if not resolved["ok"]:
 		return resolved
@@ -121,6 +128,9 @@ func _cmd_add_tileset_atlas_source(params: Dictionary) -> Dictionary:
 
 
 func _cmd_create_tile(params: Dictionary) -> Dictionary:
+	var tileset_error := MCPHelpers.optional_res_path_error(str(params.get("tileset_path", "")))
+	if tileset_error != "":
+		return _router._fail("VALIDATION_ERROR", tileset_error)
 	var resolved := _resolve_tileset(params)
 	if not resolved["ok"]:
 		return resolved

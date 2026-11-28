@@ -98,8 +98,9 @@ func register(handlers: Dictionary) -> void:
 
 func _cmd_get_filesystem_tree(params: Dictionary) -> Dictionary:
 	var directory := str(params.get("directory", "res://"))
-	if not directory.begins_with("res://"):
-		return _router._fail("VALIDATION_ERROR", "directory must be inside the project (res://…).")
+	var path_error := MCPHelpers.res_path_error(directory)
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	if not DirAccess.dir_exists_absolute(directory):
 		return _router._fail("RESOURCE_NOT_FOUND", "No directory '%s'." % directory)
 	var max_depth := int(params.get("max_depth", -1))
@@ -109,8 +110,9 @@ func _cmd_get_filesystem_tree(params: Dictionary) -> Dictionary:
 
 func _cmd_search_files(params: Dictionary) -> Dictionary:
 	var directory := str(params.get("directory", "res://"))
-	if not directory.begins_with("res://"):
-		return _router._fail("VALIDATION_ERROR", "directory must be inside the project (res://…).")
+	var path_error := MCPHelpers.res_path_error(directory)
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	if not DirAccess.dir_exists_absolute(directory):
 		return _router._fail("RESOURCE_NOT_FOUND", "No directory '%s'." % directory)
 	var name_glob := str(params.get("name_glob", ""))
@@ -242,6 +244,9 @@ func _closest_known_key(setting: String, known: Array) -> String:
 
 func _cmd_path_to_uid(params: Dictionary) -> Dictionary:
 	var path := str(params.get("path", ""))
+	var path_error := MCPHelpers.res_path_error(path)
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	var id := ResourceLoader.get_resource_uid(path)
 	if id == -1:
 		return _router._fail("RESOURCE_NOT_FOUND", "No UID for '%s'." % path)
@@ -266,8 +271,9 @@ func _cmd_uid_to_path(params: Dictionary) -> Dictionary:
 ## create_scene at the same path resurrects mangled duplicate nodes.
 func _cmd_delete_resource_file(params: Dictionary) -> Dictionary:
 	var path := str(params.get("path", ""))
-	if not path.begins_with("res://"):
-		return _router._fail("VALIDATION_ERROR", "path must be a res:// file.")
+	var path_error := MCPHelpers.res_path_error(path)
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	if not FileAccess.file_exists(path):
 		return _router._fail("RESOURCE_NOT_FOUND", "No file at '%s'." % path)
 	var before_state := MCPReceipt.file_state(path)
@@ -343,7 +349,7 @@ func _cmd_move_resource_file(params: Dictionary) -> Dictionary:
 		return _router._fail("VALIDATION_ERROR", "'path' and 'new_path' are required.")
 	# Defense-in-depth containment (server validates first, #205/#217).
 	for candidate: String in [path, new_path]:
-		if Remap.escapes_res_root(candidate) and not candidate.begins_with("res://"):
+		if not candidate.begins_with("res://"):  # scheme test, not containment (next check)
 			return _router._fail("VALIDATION_ERROR", "%s must be a res:// path." % candidate, "path")
 		if Remap.escapes_res_root(candidate):
 			return _router._fail(

@@ -171,6 +171,7 @@ jobs:
             uv run pytest -q -p no:cacheprovider \
             tests/integration \
             tests/contract/test_addon_guards.py \
+            tests/contract/test_res_containment.py \
             tests/contract/test_addon_handshake.py \
             tests/contract/test_router_refactor.py \
             tests/contract/test_undo_threshold.py
@@ -285,6 +286,7 @@ jobs:
             uv run pytest -q -p no:cacheprovider \
             tests/integration \
             tests/contract/test_addon_guards.py \
+            tests/contract/test_res_containment.py \
             tests/contract/test_addon_handshake.py \
             tests/contract/test_router_refactor.py \
             tests/contract/test_undo_threshold.py

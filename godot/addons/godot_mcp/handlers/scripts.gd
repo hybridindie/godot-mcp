@@ -36,6 +36,9 @@ func _cmd_get_scan_state(_params: Dictionary) -> Dictionary:
 
 func _cmd_read_script(params: Dictionary) -> Dictionary:
 	var path := str(params.get("script_path", ""))
+	var path_error := MCPHelpers.optional_res_path_error(path)
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	# #207 Phase 1: language-aware — .gd (default) and .cs both read.
 	if not path.ends_with(".gd") and not path.ends_with(".cs"):
 		return _router._fail(
@@ -50,6 +53,9 @@ func _cmd_read_script(params: Dictionary) -> Dictionary:
 
 func _cmd_list_scripts(params: Dictionary) -> Dictionary:
 	var directory := str(params.get("directory", "res://"))
+	var path_error := MCPHelpers.optional_res_path_error(directory)
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	if not DirAccess.dir_exists_absolute(directory):
 		return _router._fail("RESOURCE_NOT_FOUND", "No directory '%s'." % directory)
 	# #207 Phase 1: language-aware — "gd" (default) collects .gd, "cs" collects .cs.
@@ -99,8 +105,10 @@ func _cmd_write_script(params: Dictionary) -> Dictionary:
 	var path := str(params.get("script_path", ""))
 	# Require a res:// script path (.gd or .cs, #207 Phase 1). Containment against
 	# res:// escape is enforced server-side; this is defense-in-depth.
-	if not path.begins_with("res://") \
-			or (not path.ends_with(".gd") and not path.ends_with(".cs")):
+	var path_error := MCPHelpers.res_path_error(path)
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
+	if not path.ends_with(".gd") and not path.ends_with(".cs"):
 		return _router._fail("VALIDATION_ERROR", "script_path must be a res:// .gd or .cs file.")
 	var content := str(params.get("content", ""))
 	var before_state := MCPReceipt.file_state(path)
@@ -140,6 +148,9 @@ func _cmd_write_script(params: Dictionary) -> Dictionary:
 
 func _cmd_patch_script(params: Dictionary) -> Dictionary:
 	var path := str(params.get("script_path", ""))
+	var path_error := MCPHelpers.optional_res_path_error(path)
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	# Phase 1 (#207): a compiled find/replace without a build check invites broken
 	# C# — refuse .cs (defense-in-depth; the server refuses it first).
 	if path.ends_with(".cs"):
