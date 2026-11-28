@@ -301,11 +301,16 @@ func _restore_group_node(group: Resource, node: VisualShaderNode, position: Vect
 
 func _cmd_create_shader_group(params: Dictionary) -> Dictionary:
 	var path := str(params.get("shader_path", ""))
-	var path_error := MCPHelpers.res_path_error(path)
+	# An escaping path is refused before the support gate (#909); an empty one
+	# still reports UNSUPPORTED first, then the required-path check below.
+	var path_error := MCPHelpers.optional_res_path_error(path)
 	if path_error != "":
 		return _router._fail("VALIDATION_ERROR", path_error)
 	if not _groups_supported():
 		return _groups_unsupported()
+	path_error = MCPHelpers.res_path_error(path)
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	var group_name := str(params.get("name", ""))
 	var node_id := int(params.get("node_id", -1))
 	var position := Coerce.from_json(params.get("position", [0.0, 0.0]), TYPE_VECTOR2)
@@ -348,11 +353,16 @@ func _cmd_create_shader_group(params: Dictionary) -> Dictionary:
 
 func _cmd_rename_shader_group(params: Dictionary) -> Dictionary:
 	var path := str(params.get("shader_path", ""))
-	var path_error := MCPHelpers.res_path_error(path)
+	# An escaping path is refused before the support gate (#909); an empty one
+	# still reports UNSUPPORTED first, then the required-path check below.
+	var path_error := MCPHelpers.optional_res_path_error(path)
 	if path_error != "":
 		return _router._fail("VALIDATION_ERROR", path_error)
 	if not _groups_supported():
 		return _groups_unsupported()
+	path_error = MCPHelpers.res_path_error(path)
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	var node_id := int(params.get("node_id", -1))
 	var new_name := str(params.get("name", ""))
 
@@ -385,11 +395,16 @@ func _cmd_rename_shader_group(params: Dictionary) -> Dictionary:
 
 func _cmd_remove_shader_group(params: Dictionary) -> Dictionary:
 	var path := str(params.get("shader_path", ""))
-	var path_error := MCPHelpers.res_path_error(path)
+	# An escaping path is refused before the support gate (#909); an empty one
+	# still reports UNSUPPORTED first, then the required-path check below.
+	var path_error := MCPHelpers.optional_res_path_error(path)
 	if path_error != "":
 		return _router._fail("VALIDATION_ERROR", path_error)
 	if not _groups_supported():
 		return _groups_unsupported()
+	path_error = MCPHelpers.res_path_error(path)
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	var node_id := int(params.get("node_id", -1))
 
 	if not ResourceLoader.exists(path):
@@ -423,11 +438,16 @@ func _cmd_remove_shader_group(params: Dictionary) -> Dictionary:
 
 func _cmd_add_shader_group_node(params: Dictionary) -> Dictionary:
 	var path := str(params.get("shader_path", ""))
-	var path_error := MCPHelpers.res_path_error(path)
+	# An escaping path is refused before the support gate (#909); an empty one
+	# still reports UNSUPPORTED first, then the required-path check below.
+	var path_error := MCPHelpers.optional_res_path_error(path)
 	if path_error != "":
 		return _router._fail("VALIDATION_ERROR", path_error)
 	if not _groups_supported():
 		return _groups_unsupported()
+	path_error = MCPHelpers.res_path_error(path)
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	var group_node_id := int(params.get("group_node_id", -1))
 	var node_type := str(params.get("node_type", ""))
 	var node_id := int(params.get("node_id", -1))
@@ -475,11 +495,16 @@ func _cmd_add_shader_group_node(params: Dictionary) -> Dictionary:
 
 func _cmd_remove_shader_group_node(params: Dictionary) -> Dictionary:
 	var path := str(params.get("shader_path", ""))
-	var path_error := MCPHelpers.res_path_error(path)
+	# An escaping path is refused before the support gate (#909); an empty one
+	# still reports UNSUPPORTED first, then the required-path check below.
+	var path_error := MCPHelpers.optional_res_path_error(path)
 	if path_error != "":
 		return _router._fail("VALIDATION_ERROR", path_error)
 	if not _groups_supported():
 		return _groups_unsupported()
+	path_error = MCPHelpers.res_path_error(path)
+	if path_error != "":
+		return _router._fail("VALIDATION_ERROR", path_error)
 	var group_node_id := int(params.get("group_node_id", -1))
 	var node_id := int(params.get("node_id", -1))
 
